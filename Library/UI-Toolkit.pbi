@@ -3,14 +3,14 @@
 	EnumerationBinary ; Gadget flags
 		; General
 		#Default
+		#AlignCenter									; Center text
 		#AlignLeft										; Align text left
 		#AlignRight										; Align text right
-		#MaterialIcon									; Use Material icon fonts
 		#Vector											; Gadget drawn in vector mode
 		#Border											; Draw a border arround the gadget
 		#DarkMode										; Use the dark color scheme
 		
-		; Button
+		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
 		
 	EndEnumeration
@@ -44,6 +44,7 @@
 	; Gadgets
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
+	Declare CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	; Misc 
 	
 	;}
@@ -81,11 +82,7 @@ Module UIToolkit
 			*GadgetData\Redraw = @GadgetType#_Redraw()
 		EndIf
 		
-		If Flags & #MaterialIcon
-			*GadgetData\FontID = MaterialFont
-		Else
-			*GadgetData\FontID = DefaultFont
-		EndIf
+		*GadgetData\FontID = DefaultFont
 		
 		*GadgetData\EventHandler = @GadgetType#_EventHandler()
 		*GadgetData\VT\FreeGadget = @Default_FreeGadget()
@@ -143,6 +140,14 @@ Module UIToolkit
 	
 	Macro Ceil(Number)
 		Round(Number, #PB_Round_Up)
+	EndMacro
+	
+	Macro BorderMargin
+		TextHeight(\Text) * 0.5 * \Border
+	EndMacro
+	
+	Macro VectorBorderMargin
+		Floor(VectorTextHeight(\Text) * 0.5 * \Border)
 	EndMacro
 	;}
 	
@@ -336,9 +341,7 @@ Module UIToolkit
 	
 	Global AccessibilityMode = #False
 	Global DefaultTheme.Theme, DarkTheme.Theme
-	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 11, #PB_Font_HighQuality))
-; 	RegisterFontFile("MaterialDesignIconsDesktop.ttf")  ; Doesn't work... Y THOUGH?!
-	Global MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 11, #PB_Font_HighQuality))
+	Global DefaultFont = FontID(LoadFont(#PB_Any, "Corbel", 10, #PB_Font_HighQuality))
 	
 	
 	With DefaultTheme
@@ -626,9 +629,9 @@ Module UIToolkit
 			DrawingFont(\FontID)
 			
 			If \TextAlignement = #AlignRight
-				DrawText((\Width - TextWidth(\Text)) - (\Height - TextHeight(\Text) * 1.05) * 0.5, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\BackColor[\State])
+				DrawText((\Width - TextWidth(\Text)) - TextHeight(\Text) * 0.5 * \Border, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\BackColor[\State])
 			ElseIf \TextAlignement = #AlignLeft
-				DrawText((\Height - TextHeight(\Text) * 1.05) * 0.5, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\BackColor[\State])
+				DrawText(TextHeight(\Text) * 0.5 * \Border, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\BackColor[\State])
 			Else
 				DrawText((\Width - TextWidth(\Text)) * 0.5, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\BackColor[\State])
 			EndIf
@@ -660,9 +663,9 @@ Module UIToolkit
 			VectorSourceColor(\Theme\FrontColor[\State])
 			
 			If \TextAlignement = #AlignRight
-				MovePathCursor(Floor((\Width - VectorTextWidth(\Text)) - (\Height - VectorTextHeight(\Text) * 1.05) * 0.5), Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
 			ElseIf \TextAlignement = #AlignLeft
-				MovePathCursor(Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
 			Else
 				MovePathCursor(Floor((\Width - VectorTextWidth(\Text)) * 0.5), Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
 			EndIf
@@ -822,11 +825,11 @@ Module UIToolkit
 			DrawingFont(\FontID)
 			
 			If \TextAlignement = #AlignRight
-				DrawText((\Width - TextWidth(\Text)) - (\Height - TextHeight(\Text) * 1.05) * 0.5, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
-				X = 15
+				DrawText((\Width - TextWidth(\Text)) - BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
+				X = 12 + BorderMargin
 			Else
-				DrawText((\Height - TextHeight(\Text) * 1.05) * 0.5, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
-				X = \Width - 40
+				DrawText(BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
+				X = \Width - 38 - BorderMargin
 			EndIf
 			Y = (\Height - 25) * 0.5
 			
@@ -868,16 +871,16 @@ Module UIToolkit
 			VectorSourceColor(\Theme\FrontColor[\State])
 			
 			If \TextAlignement = #AlignRight
-				MovePathCursor((\Width - VectorTextWidth(\Text)) - (\Height - VectorTextHeight(\Text) * 1.05) * 0.5, (\Height - VectorTextHeight(\Text) * 1.05) * 0.5)
-				X = \OriginX + 15
+				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				X = \OriginX + 12 + VectorBorderMargin
 			Else
-				MovePathCursor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5, (\Height - VectorTextHeight(\Text) * 1.05) * 0.5)
-				X = \OriginX + \Width - 40
+				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				X = \OriginX + \Width - 36 - VectorBorderMargin
 			EndIf
 			
 			DrawVectorText(\Text)
 			
-			Y = \OriginY + (\Height - 25) * 0.5 + 12
+			Y = \OriginY + Floor((\Height - 25) * 0.5 + 12)
 			
 			AddPathCircle(X, Y, 12, 0, 360, #PB_Path_Default)
 			AddPathCircle(12, 0, 12, 0, 360, #PB_Path_Relative)
@@ -889,11 +892,11 @@ Module UIToolkit
 			
 			If \ToggleState
 				AddPathCircle(X + 24, Y, 10)
-				FillPath(#PB_Path_Winding)
 			Else
 				AddPathCircle(X, Y, 10)
-				FillPath(#PB_Path_Winding)
 			EndIf
+			
+			FillPath()
 			
 		EndWith
 	EndProcedure
@@ -1001,12 +1004,278 @@ Module UIToolkit
 	EndProcedure
 	
 	;}
+	
+	;{ Checkbox
+	Structure CheckBoxData Extends GadgetData
+		Text.s
+		State.b
+		CheckBoxState.b
+	EndStructure
+	
+	Procedure CheckBox_Redraw(*this.PB_Gadget)
+		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
+		
+		With *GadgetData
+			Box(\OriginX, \OriginY, \Width, \Height, \Theme\WindowColor)
+			DrawingFont(\FontID)
+			
+			If \TextAlignement = #AlignRight
+				DrawText((\Width - TextWidth(\Text)) - BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
+				X = BorderMargin
+			Else
+				DrawText(BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
+				X = \Width - 24 - BorderMargin
+			EndIf
+			Y = (\Height - 24) * 0.5
+			
+			Box(X, Y, 24, 24, \Theme\LineColor[\State])
+			Box(X + 2, Y + 2, 20, 20, \Theme\WindowColor)
+			
+			
+			If \CheckBoxState
+				Box(X + 14, Y, 10, 10, \Theme\WindowColor)
+				
+				Line(X + 4, Y + 10, 8, 8, \Theme\LineColor[\State])
+				Line(X + 5, Y + 10, 8, 8, \Theme\LineColor[\State])
+				
+				Line(X + 12, Y + 18, 10, -19, \Theme\LineColor[\State])
+				Line(X + 13, Y + 18, 10, -19, \Theme\LineColor[\State])
+			EndIf
+			
+			If \Border
+				DrawingMode(#PB_2DDrawing_Outlined )
+				Box(\OriginX, \OriginY, \Width, \Height, \Theme\LineColor[\State])
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure CheckBox_RedrawVector(*this.PB_Gadget)
+		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
+		
+		With *GadgetData
+			AddPathBox(\OriginX, \OriginY, \Width, \Height, #PB_Path_Relative)
+			ClipPath(#PB_Path_Preserve)
+			VectorSourceColor(\Theme\WindowColor)
+			
+			If \Border
+				FillPath(#PB_Path_Preserve)
+				VectorSourceColor(\Theme\LineColor[\State])
+				StrokePath(2)
+			Else
+				FillPath()
+			EndIf
+			
+			VectorFont(\FontID)
+			VectorSourceColor(\Theme\FrontColor[\State])
+			
+			If \TextAlignement = #AlignRight
+				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				X = \OriginX + VectorBorderMargin
+			Else
+				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				X = \OriginX + \Width - 24 - VectorBorderMargin
+			EndIf
+			
+			DrawVectorText(\Text)
+			
+			Y = Floor(\OriginY + (\Height - 24) * 0.5)
+			
+			AddPathBox(X, Y, 24, 24)
+			AddPathBox(X + 2, Y + 2, 20, 20)
+			VectorSourceColor(\Theme\LineColor[\State])
+			FillPath()
+			
+			
+			
+			If \CheckBoxState
+				AddPathBox(X + 14, Y, 10, 10)
+				VectorSourceColor(\Theme\WindowColor)
+				FillPath()
+				VectorSourceColor(\Theme\LineColor[\State])
+				
+				MovePathCursor(X + 4, Y + 12)
+				AddPathLine(8, 6, #PB_Path_Relative)
+				AddPathLine(10, -18, #PB_Path_Relative)
+				
+				StrokePath(2)
+			EndIf
+			
+			
+		EndWith
+	EndProcedure
+	
+	Procedure CheckBox_EventHandler(*this.PB_Gadget, *Event.Event)
+		Protected *GadgetData.CheckBoxData = *this\vt, Redraw
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #MouseEnter
+					\State = #Warm
+					Redraw = #True
+					
+				Case #MouseLeave
+					\State = #Cold
+					Redraw = #True
+					
+				Case #LeftClick
+					\CheckBoxState = Bool(Not \CheckBoxState)
+					PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+					
+					\State = #Warm
+					Redraw = #True
+				
+				Case #KeyDown
+					If GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+						\CheckBoxState = Bool(Not \CheckBoxState)
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						Redraw = #True
+					EndIf
+			EndSelect
+			
+			If Redraw
+				RedrawObject()
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	; Getters
+	Procedure CheckBox_GetState(*this.PB_Gadget)
+		Protected *GadgetData.CheckBoxData = *this\vt
+		ProcedureReturn *GadgetData\CheckBoxState
+	EndProcedure
+	
+	Procedure.s CheckBox_GetText(*this.PB_Gadget)
+		Protected *GadgetData.CheckBoxData = *this\vt
+		ProcedureReturn *GadgetData\Text
+	EndProcedure
+	
+	; Setters
+	Procedure CheckBox_SetState(*this.PB_Gadget, State)
+		Protected *GadgetData.CheckBoxData = *this\vt
+		*GadgetData\CheckBoxState = State
+		RedrawObject()
+	EndProcedure
+	
+	Procedure CheckBox_SetText(*this.PB_Gadget, Text.s)
+		Protected *GadgetData.CheckBoxData = *this\vt
+		*GadgetData\Text = Text
+		RedrawObject()
+	EndProcedure
+	
+	Procedure CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.CheckBoxData
+		
+		If AccessibilityMode
+			Result = CheckBoxGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #AlignRight) * #PB_CheckBox_Right) |
+			                                                           (Bool(Flags & #AlignCenter) * #PB_CheckBox_Center))
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				InitializeObject(CheckBox)
+				
+				With *GadgetData
+					\Text = Text
+					
+					If Flags & #AlignRight
+						\TextAlignement = #AlignRight
+					EndIf
+					
+					; Functions
+					\VT\GetGadgetText = @CheckBox_GetText()
+					\VT\GetGadgetState = @CheckBox_GetState()
+					
+					\VT\SetGadgetText = @CheckBox_SetText()
+					\VT\SetGadgetState = @CheckBox_SetState()
+					
+					; Enable only the needed events
+					\SupportedEvent[#LeftClick] = #True
+					\SupportedEvent[#LeftButtonDown] = #True
+					\SupportedEvent[#MouseEnter] = #True
+					\SupportedEvent[#MouseLeave] = #True
+					\SupportedEvent[#KeyDown] = #True
+					\SupportedEvent[#KeyUp] = #True
+				EndWith
+				
+				SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	;}
+	
+	
 EndModule
 
+; Notes :
+
+
+; ProcedureDLL GetGadgetParent(Gadget.i) ;В()
+; 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+; 		ProcedureReturn GetParent_(Gadget)
+; 	CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux
+; 		ProcedureReturn Gtk_Widget_Get_Parent_(Gadget)
+; 	CompilerEndIf  
+; EndProcedure
 
 
 
-
+; CompilerSelect #PB_Compiler_OS 
+;   CompilerCase #PB_OS_MacOS
+;     Import ""
+;       PB_Window_GetID(hWnd) 
+;     EndImport
+; CompilerEndSelect
+; 
+; Procedure IDWindow( handle.i ) ; Return the id of the window from the window handle
+;   Protected Window 
+;   
+;   CompilerSelect #PB_Compiler_OS 
+;     CompilerCase #PB_OS_Linux
+;       Window = g_object_get_data_( handle, "pb_id" )
+;     CompilerCase #PB_OS_Windows
+;       Window = GetProp_( handle, "PB_WindowID" ) - 1
+;     CompilerCase #PB_OS_MacOS
+;       Window = PB_Window_GetID( handle )
+;   CompilerEndSelect
+;   
+;   If IsWindow( Window ) And 
+;      WindowID( Window ) = handle
+;     ProcedureReturn Window
+;   Else
+;     ProcedureReturn - 1
+;   EndIf
+; EndProcedure
+; 
+; Procedure IDgadget( handle.i )  ; Return the id of the gadget from the gadget handle
+;   Protected gadget
+;   
+;   CompilerSelect #PB_Compiler_OS 
+;     CompilerCase #PB_OS_Linux
+;       gadget = g_object_get_data_( handle, "pb_id" ) - 1 
+;     CompilerCase #PB_OS_Windows
+;       gadget = GetProp_( handle, "PB_ID" )
+;     CompilerCase #PB_OS_MacOS
+;       gadget = CocoaMessage( 0, handle, "tag" )
+;   CompilerEndSelect
+;   
+;   If IsGadget( gadget ) And 
+;      GadgetID( gadget ) = handle
+;     ProcedureReturn gadget
+;   Else
+;     ProcedureReturn - 1
+;   EndIf
+; EndProcedure
 
 
 
@@ -1038,7 +1307,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 5 (Windows - x64)
-; CursorPosition = 520
-; FirstLine = 234
-; Folding = 6sZiDQAAw
+; CursorPosition = 343
+; FirstLine = 89
+; Folding = Ps6AAAAAAA5
 ; EnableXP
