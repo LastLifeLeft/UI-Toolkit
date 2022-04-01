@@ -812,6 +812,8 @@ Module UIToolkit
 	;}
 	
 	;{ Toggle
+	#ToggleSize = 20
+	
 	Structure ToggleData Extends GadgetData
 		Text.s
 		ToggleState.b
@@ -825,27 +827,27 @@ Module UIToolkit
 			
 			If \TextAlignement = #AlignRight
 				DrawText((\Width - TextWidth(\Text)) - BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
-				X = 12 + BorderMargin
+				X = #ToggleSize * 0.5 + BorderMargin
 			Else
 				DrawText(BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
-				X = \Width - 38 - BorderMargin
+				X = \Width - #ToggleSize * 1.5 - BorderMargin - 1
 			EndIf
-			Y = (\Height - 25) * 0.5
+			Y = (\Height - #ToggleSize) * 0.5 + #ToggleSize * 0.5
 			
-			Circle(X, Y + 12, 12, \Theme\LineColor[\State])
-			Circle(X + 25, Y + 12, 12, \Theme\LineColor[\State])
-			Box(X, Y, 25, 25, \Theme\LineColor[\State])
+			Circle(X, Y, #ToggleSize * 0.5, \Theme\LineColor[\State])
+			Circle(X + #ToggleSize, Y, #ToggleSize * 0.5, \Theme\LineColor[\State])
+			Box(X, Y - #ToggleSize * 0.5, #ToggleSize, #ToggleSize + 1, \Theme\LineColor[\State])
 			
 			If \ToggleState
-				Circle(X + 25, Y + 12, 10, \Theme\BackColor[#cold])
+				Circle(X + #ToggleSize, Y, #ToggleSize * 0.4, \Theme\BackColor[#cold])
 			Else
-				Circle(X, Y + 12, 10, \Theme\BackColor[#cold])
+				Circle(X, Y, #ToggleSize * 0.4, \Theme\BackColor[#cold])
 			EndIf
 		EndWith
 	EndProcedure
 	
 	Procedure Toggle_RedrawVector(*this.PB_Gadget)
-		Protected *GadgetData.ToggleData = *this\vt, X, Y
+		Protected *GadgetData.ToggleData = *this\vt, X, Y, ToggleSize = #ToggleSize
 		
 		With *GadgetData
 			VectorFont(\FontID)
@@ -853,28 +855,28 @@ Module UIToolkit
 			
 			If \TextAlignement = #AlignRight
 				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-				X = \OriginX + 12 + VectorBorderMargin
+				X = \OriginX + ToggleSize * 0.5 + VectorBorderMargin
 			Else
 				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-				X = \OriginX + \Width - 36 - VectorBorderMargin
+				X = \OriginX + \Width - ToggleSize * 1.5 - VectorBorderMargin
 			EndIf
 			
 			DrawVectorText(\Text)
 			
-			Y = \OriginY + Floor((\Height - 25) * 0.5 + 12)
+			Y = \OriginY + Floor((\Height - ToggleSize) * 0.5 + ToggleSize * 0.5)
 			
-			AddPathCircle(X, Y, 12, 0, 360, #PB_Path_Default)
-			AddPathCircle(12, 0, 12, 0, 360, #PB_Path_Relative)
-			AddPathBox(-38, -12, 24, 24, #PB_Path_Relative)
+			AddPathCircle(X, Y, ToggleSize * 0.5, 0, 360, #PB_Path_Default)
+			AddPathCircle(ToggleSize * 0.5, 0, ToggleSize * 0.5, 0, 360, #PB_Path_Relative)
+			AddPathBox(-ToggleSize * 1.5, -ToggleSize * 0.5, ToggleSize, ToggleSize, #PB_Path_Relative)
 			VectorSourceColor(\Theme\LineColor[\State])
 			FillPath(#PB_Path_Winding)
 			
 			VectorSourceColor(\Theme\BackColor[#cold])
 			
 			If \ToggleState
-				AddPathCircle(X + 24, Y, 10)
+				AddPathCircle(X + ToggleSize, Y, ToggleSize * 0.4)
 			Else
-				AddPathCircle(X, Y, 10)
+				AddPathCircle(X, Y, ToggleSize * 0.4)
 			EndIf
 			
 			FillPath()
@@ -987,6 +989,8 @@ Module UIToolkit
 	;}
 	
 	;{ Checkbox
+	#CheckboxSize = 20
+	
 	Structure CheckBoxData Extends GadgetData
 		Text.s
 		CheckBoxState.b
@@ -1003,28 +1007,30 @@ Module UIToolkit
 				X = BorderMargin
 			Else
 				DrawText(BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\WindowColor)
-				X = \Width - 24 - BorderMargin
+				X = \Width - #CheckboxSize - BorderMargin
 			EndIf
-			Y = (\Height - 24) * 0.5
+			Y = (\Height - #CheckboxSize) * 0.5
 			
-			Box(X, Y, 24, 24, \Theme\LineColor[\State])
-			Box(X + 2, Y + 2, 20, 20, \Theme\WindowColor)
+			Box(X, Y, #CheckboxSize, #CheckboxSize, \Theme\LineColor[\State])
+			Box(X + #CheckboxSize * 0.1, Y + #CheckboxSize * 0.1, #CheckboxSize * 0.8, #CheckboxSize * 0.8, \Theme\WindowColor)
 			
-			If \CheckBoxState
-				Box(X + 14, Y, 10, 10, \Theme\WindowColor)
+			If \CheckBoxState = #True
+				Box(X + #CheckboxSize * 0.75, Y, #CheckboxSize * 0.25, #CheckboxSize * 0.3, \Theme\WindowColor)
 				
-				Line(X + 4, Y + 10, 8, 8, \Theme\LineColor[\State])
-				Line(X + 5, Y + 10, 8, 8, \Theme\LineColor[\State])
+				Line(X + #CheckboxSize * 0.2, Y + #CheckboxSize * 0.38, #CheckboxSize * 0.2, #CheckboxSize * 0.2, \Theme\LineColor[\State])
+				Line(X + #CheckboxSize * 0.2 - 1, Y + #CheckboxSize * 0.38, #CheckboxSize * 0.2, #CheckboxSize * 0.2, \Theme\LineColor[\State])
 				
-				Line(X + 12, Y + 18, 10, -19, \Theme\LineColor[\State])
-				Line(X + 13, Y + 18, 10, -19, \Theme\LineColor[\State])
+				Line(X + #CheckboxSize * 0.4, Y + #CheckboxSize * 0.58, #CheckboxSize * 0.6, - #CheckboxSize * 0.6, \Theme\LineColor[\State])
+				Line(X + #CheckboxSize * 0.4 - 1, Y + #CheckboxSize * 0.58, #CheckboxSize * 0.6, -#CheckboxSize * 0.6, \Theme\LineColor[\State])
+			ElseIf \CheckBoxState = #PB_Checkbox_Inbetween
+				Box(X + #CheckboxSize * 0.25, Y + #CheckboxSize * 0.25, #CheckboxSize * 0.5, #CheckboxSize * 0.5, \Theme\LineColor[\State])
 			EndIf
 			
 		EndWith
 	EndProcedure
 	
 	Procedure CheckBox_RedrawVector(*this.PB_Gadget)
-		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
+		Protected *GadgetData.CheckBoxData = *this\vt, X, Y, CheckboxSize = #CheckboxSize
 		
 		With *GadgetData
 			VectorFont(\FontID)
@@ -1035,29 +1041,33 @@ Module UIToolkit
 				X = \OriginX + VectorBorderMargin
 			Else
 				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-				X = \OriginX + \Width - 24 - VectorBorderMargin
+				X = \OriginX + \Width - CheckboxSize - VectorBorderMargin
 			EndIf
 			
 			DrawVectorText(\Text)
 			
-			Y = Floor(\OriginY + (\Height - 24) * 0.5)
+			Y = Floor(\OriginY + (\Height - CheckboxSize) * 0.5)
 			
-			AddPathBox(X, Y, 24, 24)
-			AddPathBox(X + 2, Y + 2, 20, 20)
+			AddPathBox(X, Y, CheckboxSize, CheckboxSize)
+			AddPathBox(X + CheckboxSize * 0.1, Y + CheckboxSize * 0.1, CheckboxSize * 0.8, CheckboxSize * 0.8)
 			VectorSourceColor(\Theme\LineColor[\State])
 			FillPath()
 			
-			If \CheckBoxState
-				AddPathBox(X + 14, Y, 10, 10)
+			If \CheckBoxState = #True
+				AddPathBox(X + CheckboxSize * 0.75, Y, CheckboxSize * 0.25, CheckboxSize * 0.3)
 				VectorSourceColor(\Theme\WindowColor)
 				FillPath()
 				VectorSourceColor(\Theme\LineColor[\State])
 				
-				MovePathCursor(X + 4, Y + 12)
-				AddPathLine(8, 6, #PB_Path_Relative)
-				AddPathLine(10, -18, #PB_Path_Relative)
+				MovePathCursor(X + CheckboxSize * 0.2, Y + CheckboxSize * 0.4)
+				AddPathLine(CheckboxSize * 0.28, CheckboxSize * 0.28, #PB_Path_Relative)
+				AddPathLine(CheckboxSize * 0.5, -CheckboxSize * 0.7, #PB_Path_Relative)
 				
 				StrokePath(2)
+			ElseIf \CheckBoxState = #PB_Checkbox_Inbetween
+				AddPathBox(X + CheckboxSize * 0.25, Y + CheckboxSize * 0.25, CheckboxSize * 0.5, CheckboxSize * 0.5)
+				VectorSourceColor(\Theme\LineColor[\State])
+				FillPath()
 			EndIf
 		EndWith
 	EndProcedure
@@ -1076,7 +1086,11 @@ Module UIToolkit
 					Redraw = #True
 					
 				Case #LeftClick
-					\CheckBoxState = Bool(Not \CheckBoxState)
+					If \CheckBoxState = #PB_Checkbox_Inbetween
+						\CheckBoxState = #True
+					Else
+						\CheckBoxState = Bool(Not \CheckBoxState)
+					EndIf
 					PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 					
 					\State = #Warm
@@ -1084,7 +1098,11 @@ Module UIToolkit
 				
 				Case #KeyDown
 					If GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
-						\CheckBoxState = Bool(Not \CheckBoxState)
+						If \CheckBoxState = #PB_Checkbox_Inbetween
+							\CheckBoxState = #True
+						Else
+							\CheckBoxState = Bool(Not \CheckBoxState)
+						EndIf
 						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 						Redraw = #True
 					EndIf
@@ -1111,7 +1129,11 @@ Module UIToolkit
 	; Setters
 	Procedure CheckBox_SetState(*this.PB_Gadget, State)
 		Protected *GadgetData.CheckBoxData = *this\vt
-		*GadgetData\CheckBoxState = State
+		If State = #PB_Checkbox_Inbetween
+			*GadgetData\CheckBoxState = #PB_Checkbox_Inbetween
+		Else
+			*GadgetData\CheckBoxState = Bool(State)
+		EndIf
 		RedrawObject()
 	EndProcedure
 	
@@ -1126,7 +1148,8 @@ Module UIToolkit
 		
 		If AccessibilityMode
 			Result = CheckBoxGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #AlignRight) * #PB_CheckBox_Right) |
-			                                                           (Bool(Flags & #AlignCenter) * #PB_CheckBox_Center))
+			                                                           (Bool(Flags & #AlignCenter) * #PB_CheckBox_Center) |
+			                                                           #PB_CheckBox_ThreeState)
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
@@ -1263,6 +1286,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 5 (Windows - x64)
-; CursorPosition = 1172
-; Folding = JsBAAAAAAE5
+; CursorPosition = 1193
+; FirstLine = 12
+; Folding = JsBAAAAAAA5
 ; EnableXP

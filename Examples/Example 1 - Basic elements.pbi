@@ -13,7 +13,8 @@ UIToolkit::Toggle(#PB_Any, 20, 200, 200, 28, "Toggle")
 UIToolkit::Toggle(#PB_Any, 20, 240, 200, 28, "Toggle aligned right", UIToolkit::#AlignRight)
 
 UIToolkit::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox")
-UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight)
+Gadget = UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight)
+SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
 
 
@@ -27,7 +28,8 @@ UIToolkit::Toggle(#PB_Any, 20, 190, 200, 28, "Toggle", UIToolkit::#Vector | UITo
 UIToolkit::Toggle(#PB_Any, 20, 230, 200, 28, "Toggle aligned right", UIToolkit::#AlignRight | UIToolkit::#Vector |UIToolkit::#DarkMode)
 
 UIToolkit::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox", UIToolkit::#Vector | UIToolkit::#DarkMode)
-UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight | UIToolkit::#Vector |UIToolkit::#DarkMode)
+Gadget = UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight | UIToolkit::#Vector |UIToolkit::#DarkMode)
+SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
 
 
@@ -37,11 +39,12 @@ UIToolkit::Button(#PB_Any, 20, 20, 200, 40, "Button")
 UIToolkit::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UIToolkit::#AlignRight | UIToolkit::#Vector | UIToolkit::#Button_Toggle)
 UIToolkit::Button(#PB_Any, 20, 120, 200, 40, "Button left", UIToolkit::#AlignLeft)
 
-UIToolkit::Toggle(#PB_Any, 20, 190, 200, 28, "Toggle", UIToolkit::#Vector)
+UIToolkit::Toggle(#PB_Any, 20, 190, 200, 28, "Toggle")
 UIToolkit::Toggle(#PB_Any, 20, 230, 200, 28, "Toggle aligned right", UIToolkit::#AlignRight)
 
-UIToolkit::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox", UIToolkit::#Vector)
-UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight)
+UIToolkit::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox")
+Gadget = UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight)
+SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
 
 
@@ -51,5 +54,5 @@ Repeat
 	EndIf
 ForEver
 ; IDE Options = PureBasic 6.00 Beta 5 (Windows - x64)
-; CursorPosition = 35
+; CursorPosition = 41
 ; EnableXP
