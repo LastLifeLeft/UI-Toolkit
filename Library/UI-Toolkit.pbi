@@ -105,11 +105,25 @@ Module UIToolkit
 			*GadgetData\Redraw(*this)
 		ElseIf *GadgetData\Vector
 			StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+			AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
+			ClipPath(#PB_Path_Preserve)
+			VectorSourceColor(*GadgetData\Theme\WindowColor)
+			FillPath()
 			*GadgetData\Redraw(*this)
+			If *GadgetData\Border
+				AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
+				VectorSourceColor(*GadgetData\Theme\LineColor[*GadgetData\State])
+				StrokePath(2)
+			EndIf
 			StopVectorDrawing()
 		Else
 			StartDrawing(CanvasOutput(*GadgetData\Gadget))
+			Box(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, *GadgetData\Theme\WindowColor)
 			*GadgetData\Redraw(*this)
+			If *GadgetData\Border
+				DrawingMode(#PB_2DDrawing_Outlined )
+				Box(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, *GadgetData\Theme\LineColor[*GadgetData\State])
+			EndIf
 			StopDrawing()
 		EndIf
 	EndMacro
@@ -329,6 +343,8 @@ Module UIToolkit
 		Height.i
 		FontID.i
 		
+		State.b
+		
 		SupportedEvent.b[#__EVENTSIZE]
 		
 		TextAlignement.b
@@ -341,8 +357,7 @@ Module UIToolkit
 	
 	Global AccessibilityMode = #False
 	Global DefaultTheme.Theme, DarkTheme.Theme
-	Global DefaultFont = FontID(LoadFont(#PB_Any, "Corbel", 10, #PB_Font_HighQuality))
-	
+	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 	
 	With DefaultTheme
 		\WindowColor = SetAlpha(FixColor($F0F0F0), 255)
@@ -615,7 +630,6 @@ Module UIToolkit
 	Structure ButtonData Extends GadgetData
 		Text.s
 		Icon.b
-		State.b
 		Toggle.b
 		ToggleState.b
 	EndStructure
@@ -635,12 +649,6 @@ Module UIToolkit
 			Else
 				DrawText((\Width - TextWidth(\Text)) * 0.5, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\State], \Theme\BackColor[\State])
 			EndIf
-			
-			If \Border
-				DrawingMode(#PB_2DDrawing_Outlined )
-				Box(\OriginX, \OriginY, \Width, \Height, \Theme\LineColor[\State])
-			EndIf
-			
 		EndWith
 	EndProcedure
 	
@@ -650,24 +658,17 @@ Module UIToolkit
 			AddPathBox(\OriginX, \OriginY, \Width, \Height, #PB_Path_Relative)
 			ClipPath(#PB_Path_Preserve)
 			VectorSourceColor(\Theme\BackColor[\State])
-			
-			If \Border
-				FillPath(#PB_Path_Preserve)
-				VectorSourceColor(\Theme\LineColor[\State])
-				StrokePath(2)
-			Else
-				FillPath()
-			EndIf
+			FillPath()
 			
 			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[\State])
 			
 			If \TextAlignement = #AlignRight
-				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
 			ElseIf \TextAlignement = #AlignLeft
-				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
 			Else
-				MovePathCursor(Floor((\Width - VectorTextWidth(\Text)) * 0.5), Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(Floor((\Width - VectorTextWidth(\Text)) * 0.5), Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
 			EndIf
 			DrawVectorText(\Text)
 			
@@ -813,7 +814,6 @@ Module UIToolkit
 	;{ Toggle
 	Structure ToggleData Extends GadgetData
 		Text.s
-		State.b
 		ToggleState.b
 	EndStructure
 	
@@ -821,7 +821,6 @@ Module UIToolkit
 		Protected *GadgetData.ToggleData = *this\vt, X, Y
 		
 		With *GadgetData
-			Box(\OriginX, \OriginY, \Width, \Height, \Theme\WindowColor)
 			DrawingFont(\FontID)
 			
 			If \TextAlignement = #AlignRight
@@ -842,12 +841,6 @@ Module UIToolkit
 			Else
 				Circle(X, Y + 12, 10, \Theme\BackColor[#cold])
 			EndIf
-			
-			If \Border
-				DrawingMode(#PB_2DDrawing_Outlined )
-				Box(\OriginX, \OriginY, \Width, \Height, \Theme\LineColor[\State])
-			EndIf
-			
 		EndWith
 	EndProcedure
 	
@@ -855,26 +848,14 @@ Module UIToolkit
 		Protected *GadgetData.ToggleData = *this\vt, X, Y
 		
 		With *GadgetData
-			AddPathBox(\OriginX, \OriginY, \Width, \Height, #PB_Path_Relative)
-			ClipPath(#PB_Path_Preserve)
-			VectorSourceColor(\Theme\WindowColor)
-			
-			If \Border
-				FillPath(#PB_Path_Preserve)
-				VectorSourceColor(\Theme\LineColor[\State])
-				StrokePath(2)
-			Else
-				FillPath()
-			EndIf
-			
 			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[\State])
 			
 			If \TextAlignement = #AlignRight
-				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
 				X = \OriginX + 12 + VectorBorderMargin
 			Else
-				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
 				X = \OriginX + \Width - 36 - VectorBorderMargin
 			EndIf
 			
@@ -1008,7 +989,6 @@ Module UIToolkit
 	;{ Checkbox
 	Structure CheckBoxData Extends GadgetData
 		Text.s
-		State.b
 		CheckBoxState.b
 	EndStructure
 	
@@ -1016,7 +996,6 @@ Module UIToolkit
 		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
 		
 		With *GadgetData
-			Box(\OriginX, \OriginY, \Width, \Height, \Theme\WindowColor)
 			DrawingFont(\FontID)
 			
 			If \TextAlignement = #AlignRight
@@ -1031,7 +1010,6 @@ Module UIToolkit
 			Box(X, Y, 24, 24, \Theme\LineColor[\State])
 			Box(X + 2, Y + 2, 20, 20, \Theme\WindowColor)
 			
-			
 			If \CheckBoxState
 				Box(X + 14, Y, 10, 10, \Theme\WindowColor)
 				
@@ -1042,11 +1020,6 @@ Module UIToolkit
 				Line(X + 13, Y + 18, 10, -19, \Theme\LineColor[\State])
 			EndIf
 			
-			If \Border
-				DrawingMode(#PB_2DDrawing_Outlined )
-				Box(\OriginX, \OriginY, \Width, \Height, \Theme\LineColor[\State])
-			EndIf
-			
 		EndWith
 	EndProcedure
 	
@@ -1054,26 +1027,14 @@ Module UIToolkit
 		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
 		
 		With *GadgetData
-			AddPathBox(\OriginX, \OriginY, \Width, \Height, #PB_Path_Relative)
-			ClipPath(#PB_Path_Preserve)
-			VectorSourceColor(\Theme\WindowColor)
-			
-			If \Border
-				FillPath(#PB_Path_Preserve)
-				VectorSourceColor(\Theme\LineColor[\State])
-				StrokePath(2)
-			Else
-				FillPath()
-			EndIf
-			
 			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[\State])
 			
 			If \TextAlignement = #AlignRight
-				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
 				X = \OriginX + VectorBorderMargin
 			Else
-				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text) * 1.05) * 0.5), #PB_Path_Relative)
+				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
 				X = \OriginX + \Width - 24 - VectorBorderMargin
 			EndIf
 			
@@ -1085,8 +1046,6 @@ Module UIToolkit
 			AddPathBox(X + 2, Y + 2, 20, 20)
 			VectorSourceColor(\Theme\LineColor[\State])
 			FillPath()
-			
-			
 			
 			If \CheckBoxState
 				AddPathBox(X + 14, Y, 10, 10)
@@ -1100,8 +1059,6 @@ Module UIToolkit
 				
 				StrokePath(2)
 			EndIf
-			
-			
 		EndWith
 	EndProcedure
 	
@@ -1214,7 +1171,6 @@ Module UIToolkit
 	
 	;}
 	
-	
 EndModule
 
 ; Notes :
@@ -1307,7 +1263,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 5 (Windows - x64)
-; CursorPosition = 343
-; FirstLine = 89
-; Folding = Ps6AAAAAAA5
+; CursorPosition = 1172
+; Folding = JsBAAAAAAE5
 ; EnableXP

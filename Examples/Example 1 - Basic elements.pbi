@@ -33,15 +33,15 @@ UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolk
 
 OpenWindow(2, (Width - 1024) * 0.5 + 200, (Height - 600) * 0.5 + 100, 1024, 600, "UI Toolkit : Accessibility", #PB_Window_SystemMenu)
 UIToolkit::SetAccessibilityMode(#True)
-UIToolkit::Button(#PB_Any, 20, 20, 200, 40, "Button", UIToolkit::#Vector)
+UIToolkit::Button(#PB_Any, 20, 20, 200, 40, "Button")
 UIToolkit::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UIToolkit::#AlignRight | UIToolkit::#Vector | UIToolkit::#Button_Toggle)
-UIToolkit::Button(#PB_Any, 20, 120, 200, 40, "Button left", UIToolkit::#AlignLeft | UIToolkit::#Vector)
+UIToolkit::Button(#PB_Any, 20, 120, 200, 40, "Button left", UIToolkit::#AlignLeft)
 
 UIToolkit::Toggle(#PB_Any, 20, 190, 200, 28, "Toggle", UIToolkit::#Vector)
-UIToolkit::Toggle(#PB_Any, 20, 230, 200, 28, "Toggle aligned right", UIToolkit::#AlignRight | UIToolkit::#Vector)
+UIToolkit::Toggle(#PB_Any, 20, 230, 200, 28, "Toggle aligned right", UIToolkit::#AlignRight)
 
 UIToolkit::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox", UIToolkit::#Vector)
-UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight | UIToolkit::#Vector)
+UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight)
 
 
 
@@ -51,5 +51,5 @@ Repeat
 	EndIf
 ForEver
 ; IDE Options = PureBasic 6.00 Beta 5 (Windows - x64)
-; CursorPosition = 42
+; CursorPosition = 35
 ; EnableXP
