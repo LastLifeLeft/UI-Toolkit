@@ -19,6 +19,9 @@ SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 UIToolkit::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UIToolkit::#ScrollBar_Vertical)
 UIToolkit::ScrollBar(#PB_Any, 20, 568, 193, 7, 0, 100, 25)
 
+UIToolkit::Label(#PB_Any, 260, 20, 200, 20, "Label")
+UIToolkit::Label(#PB_Any, 260, 50, 200, 20, "Label to the right", UIToolkit::#AlignRight)
+UIToolkit::Label(#PB_Any, 260, 80, 200, 20, "Label centered", UIToolkit::#AlignCenter)
 
 
 
@@ -37,6 +40,10 @@ SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
 UIToolkit::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UIToolkit::#ScrollBar_Vertical | UIToolkit::#Vector | UIToolkit::#DarkMode)
 UIToolkit::ScrollBar(#PB_Any, 20, 568, 193, 7, 0, 100, 25, UIToolkit::#Vector | UIToolkit::#DarkMode)
+
+UIToolkit::Label(#PB_Any, 260, 20, 200, 20, "Label", UIToolkit::#Vector | UIToolkit::#DarkMode)
+UIToolkit::Label(#PB_Any, 260, 50, 200, 20, "Label to the right", UIToolkit::#AlignRight | UIToolkit::#Vector | UIToolkit::#DarkMode)
+UIToolkit::Label(#PB_Any, 260, 80, 200, 20, "Label centered", UIToolkit::#AlignCenter | UIToolkit::#Vector | UIToolkit::#DarkMode)
 
 
 
@@ -57,6 +64,9 @@ SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 UIToolkit::ScrollBar(#PB_Any, 213, 420, 17, 148, 0, 100, 25, UIToolkit::#ScrollBar_Vertical | UIToolkit::#Vector | UIToolkit::#DarkMode)
 UIToolkit::ScrollBar(#PB_Any, 20, 568, 193, 17, 0, 100, 25, UIToolkit::#Vector | UIToolkit::#DarkMode)
 
+UIToolkit::Label(#PB_Any, 260, 20, 200, 20, "Label")
+UIToolkit::Label(#PB_Any, 260, 50, 200, 20, "Label to the right", UIToolkit::#AlignRight)
+UIToolkit::Label(#PB_Any, 260, 80, 200, 20, "Label centered", UIToolkit::#AlignCenter)
 
 
 
@@ -66,5 +76,5 @@ Repeat
 	EndIf
 ForEver
 ; IDE Options = PureBasic 6.00 Beta 5 (Windows - x64)
-; CursorPosition = 41
+; CursorPosition = 21
 ; EnableXP
