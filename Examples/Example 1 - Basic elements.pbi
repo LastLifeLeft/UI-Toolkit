@@ -16,6 +16,10 @@ UIToolkit::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox")
 Gadget = UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight)
 SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
+UIToolkit::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UIToolkit::#ScrollBar_Vertical)
+UIToolkit::ScrollBar(#PB_Any, 20, 568, 193, 7, 0, 100, 25)
+
+
 
 
 OpenWindow(1, (Width - 1024) * 0.5, (Height - 600) * 0.5, 1024, 600, "UI Toolkit : showcase dark vector", #PB_Window_SystemMenu)
@@ -31,6 +35,10 @@ UIToolkit::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox", UIToolkit::#Vector | 
 Gadget = UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight | UIToolkit::#Vector |UIToolkit::#DarkMode)
 SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
+UIToolkit::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UIToolkit::#ScrollBar_Vertical | UIToolkit::#Vector | UIToolkit::#DarkMode)
+UIToolkit::ScrollBar(#PB_Any, 20, 568, 193, 7, 0, 100, 25, UIToolkit::#Vector | UIToolkit::#DarkMode)
+
+
 
 
 OpenWindow(2, (Width - 1024) * 0.5 + 200, (Height - 600) * 0.5 + 100, 1024, 600, "UI Toolkit : Accessibility", #PB_Window_SystemMenu)
@@ -45,6 +53,10 @@ UIToolkit::Toggle(#PB_Any, 20, 230, 200, 28, "Toggle aligned right", UIToolkit::
 UIToolkit::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox")
 Gadget = UIToolkit::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UIToolkit::#AlignRight)
 SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
+
+UIToolkit::ScrollBar(#PB_Any, 213, 420, 17, 148, 0, 100, 25, UIToolkit::#ScrollBar_Vertical | UIToolkit::#Vector | UIToolkit::#DarkMode)
+UIToolkit::ScrollBar(#PB_Any, 20, 568, 193, 17, 0, 100, 25, UIToolkit::#Vector | UIToolkit::#DarkMode)
+
 
 
 
