@@ -12,7 +12,12 @@
 		
 		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
-		#ScrollBar_Vertical 							; The scrollbar is vertical (instead of horizontal, which is the default).
+		#ScrollBar_Vertical								; The scrollbar is vertical (instead of horizontal, which is the default).
+		
+		; Window
+		#Window_CloseButton
+		#Window_MaximizeButton
+		#Window_MinimizeButton
 	EndEnumeration
 	
 	Enumeration; Colors
@@ -40,6 +45,9 @@
 	Declare.s GetGadgetColorScheme(Gadget)					; Apply a complete color scheme at once
 	
 	; Window
+	Declare Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
+	Declare OpenWindowGadgetList(Window)
+	
 	
 	; Gadgets
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -97,13 +105,16 @@ Module UIToolkit
 		*GadgetData\VT\GetGadgetFont = @Default_GetFont()
 		*GadgetData\VT\GetGadgetColor = @Default_GetColor()
 		*GadgetData\VT\SetGadgetState = @Default_GetState()
+		*GadgetData\VT\GetRequiredSize = @Default_GetRequiredSize()
 		
 		; Setters
 		*GadgetData\VT\SetGadgetFont = @Default_SetFont()
 		*GadgetData\VT\SetGadgetColor = @Default_SetColor()
 		*GadgetData\VT\SetGadgetState = @Default_SetState()
 		
-		BindGadgetEvent(Gadget, @Default_EventHandle())
+		*GadgetData\DefaultEventHandler = @Default_EventHandle()
+		
+		BindGadgetEvent(Gadget, *GadgetData\DefaultEventHandler)
 	EndMacro
 	
 	Macro RedrawObject()
@@ -357,15 +368,21 @@ Module UIToolkit
 		
 		TextAlignement.b
 		
+		RequieredWidth.w
+		RequieredHeight.w
+		
 		Redraw.Redraw
 		EventHandler.EventHandler
 		Theme.Theme
 		ParentWindow.i
+		
+		*DefaultEventHandler
 	EndStructure
 	
 	Global AccessibilityMode = #False
 	Global DefaultTheme.Theme, AltTheme.Theme, DarkTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
+	Global MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 12, #PB_Font_HighQuality))
 	
 	With DefaultTheme
 		\WindowColor = SetAlpha(FixColor($F0F0F0), 255)
@@ -619,6 +636,10 @@ Module UIToolkit
 	Procedure Default_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
 		
+		If *GadgetData\DefaultEventHandler
+			UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
+		EndIf
+		
 		*this\vt = *GadgetData\OriginalVT
 		FreeStructure(*GadgetData)
 		CallFunctionFast(*this\vt\FreeGadget, *this)
@@ -692,6 +713,13 @@ Module UIToolkit
 		ProcedureReturn *GadgetData\State
 	EndProcedure
 	
+	Procedure Default_GetRequiredSize(*This.PB_Gadget, *Width, *Height)
+		Protected *GadgetData.GadgetData = *this\vt
+		
+		PokeW(*Width, *GadgetData\RequieredWidth)
+		PokeW(*Height, *GadgetData\RequieredHeight)
+	EndProcedure
+	
 	; Setters
 	Procedure GetAccessibilityMode()
 		ProcedureReturn AccessibilityMode
@@ -709,6 +737,24 @@ Module UIToolkit
 	Procedure Default_SetColor(*This.PB_Gadget, ColorType, Color)
 		Protected *GadgetData.GadgetData = *this\vt
 		
+		Select ColorType
+			Case #Color_Back_Cold
+				*GadgetData\Theme\BackColor[#Cold] = Color
+			Case #Color_Back_Warm
+				*GadgetData\Theme\BackColor[#Warm] = Color
+			Case #Color_Back_Hot
+				*GadgetData\Theme\BackColor[#Hot] = Color
+			Case #Color_Front_Cold
+				*GadgetData\Theme\FrontColor[#Cold] = Color
+			Case #Color_Front_Warm
+				*GadgetData\Theme\FrontColor[#Warm] = Color
+			Case #Color_Front_Hot
+				*GadgetData\Theme\FrontColor[#Hot] = Color
+			Case #Color_Line
+				*GadgetData\Theme\LineColor = Color
+			Case #Color_Parent
+				*GadgetData\Theme\WindowColor = Color
+		EndSelect
 		
 		RedrawObject()
 	EndProcedure
@@ -745,9 +791,443 @@ Module UIToolkit
 		EndIf
 		ProcedureReturn A
 	EndProcedure
+	
+	Procedure GetGadgetParent(Gadget.i)
+		CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+			ProcedureReturn GetParent_(Gadget)
+		CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux
+			ProcedureReturn Gtk_Widget_Get_Parent_(Gadget)
+		CompilerEndIf  
+	EndProcedure
 	;}
 	
-	; Window
+	;{ Window
+	#WM_SYSMENU = $313
+	#SizableBorder = 8
+	#WindowButtonWidth = 45
+	#WindowBarHeight = 30
+	#MenuLabelOffset = #SizableBorder
+	
+	Structure ThemedWindow
+		*Brush
+		*OriginalProc
+		
+		Width.l
+		Height.l
+		MinWidth.l
+		MinHeight.l
+		
+		SizeCursor.l
+		
+		ButtonClose.l
+		ButtonMinimize.l
+		ButtonMaximize.l
+		
+		Container.i
+		
+		Label.i
+		LabelWidth.l
+		LabelAlign.b
+		
+		Theme.Theme
+	EndStructure
+	
+	Structure WindowBar
+		*Parent
+		*OriginalProc
+	EndStructure
+	
+	Structure WindowContainer
+		*Parent
+		*OriginalProc
+		sizeCursor.l
+	EndStructure
+	
+	Global DWMEnabled = -1
+	
+	Procedure Window_Init()
+		Protected Margin.RECT, Window
+		
+		Window = OpenWindow(#PB_Any, 0, 0, 100, 100, "", #PB_Window_Invisible)
+		
+		SetRect_(@Margin.RECT, 0, 0, 1, 0)
+		If OpenLibrary(0, "dwmapi.dll")
+			CallFunction(0, "DwmExtendFrameIntoClientArea", WindowID(Window), @Margin)
+			CallFunction(0, "DwmIsCompositionEnabled", @DWMEnabled)
+			CloseLibrary(0)
+		EndIf
+		
+		CloseWindow(Window)
+	EndProcedure
+		
+	Procedure CloseButton_Handler()
+		PostEvent(#PB_Event_CloseWindow, EventWindow(), 0)
+	EndProcedure
+	
+	Procedure Window_Handler(hWnd, Msg, wParam, lParam)
+		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UIToolkit_WindowData"), cursor.POINT, OffsetX
+		
+		Select Msg
+			Case #WM_GETMINMAXINFO ;{
+				Protected *mmi.MINMAXINFO = lParam
+				Protected hMon = MonitorFromWindow_(hWnd, #MONITOR_DEFAULTTONEAREST)
+				Protected mie.MONITORINFOEX\cbSize = SizeOf(mie)
+				GetMonitorInfo_(hMon, mie)
+				*mmi\ptMaxPosition\x = Abs(mie\rcWork\left - mie\rcMonitor\left)
+				*mmi\ptMaxPosition\y = Abs(mie\rcWork\top - mie\rcMonitor\top)
+				*mmi\ptMaxSize\x = Abs(mie\rcWork\right - mie\rcWork\left)
+				*mmi\ptMaxSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) - 1
+				*mmi\ptMinTrackSize\x = *WindowData\MinWidth
+				*mmi\ptMinTrackSize\y = *WindowData\MinHeight
+				ProcedureReturn 0
+				;}
+			Case #WM_NCCALCSIZE ;{
+				ProcedureReturn 0
+				;}
+			Case #WM_CTLCOLORSTATIC, #WM_CTLCOLORBTN ;{
+				SetBkMode_(wParam, #TRANSPARENT)
+				ProcedureReturn *WindowData\Brush
+				;}
+			Case #WM_SIZE ;{
+				*WindowData\Width = lParam & $FFFF
+				*WindowData\Height = (lParam >> 16) & $FFFF
+				
+				If *WindowData\ButtonClose
+					OffsetX + #WindowButtonWidth
+					ResizeGadget(*WindowData\ButtonClose, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+				EndIf
+				
+				If *WindowData\ButtonMaximize
+					OffsetX + #WindowButtonWidth
+					ResizeGadget(*WindowData\ButtonMaximize, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+				EndIf
+				
+				If *WindowData\ButtonMinimize
+					OffsetX + #WindowButtonWidth
+					ResizeGadget(*WindowData\ButtonMinimize, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+				EndIf
+				
+				If *WindowData\LabelAlign = #AlignRight
+					SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, #MenuLabelOffset, 0, 0, #SWP_NOSIZE)
+				ElseIf *WindowData\LabelAlign = #AlignCenter
+					SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, #MenuLabelOffset, 0, 0, #SWP_NOSIZE)
+				EndIf
+				
+				ResizeGadget(*WindowData\Container, #PB_Ignore, #PB_Ignore, *WindowData\Width, *WindowData\Height - #WindowBarHeight)
+				
+				;}
+			Case #WM_NCACTIVATE ;{
+				ProcedureReturn 1
+				;}
+			Case #WM_COMMAND ;{
+; 				Select wParam
+; 					Case 1
+; 						ShowWindow_(hWnd, #SW_MINIMIZE)
+; 					Case 2
+; 						If IsZoomed_(hWnd)
+; 							ShowWindow_(hWnd, #SW_RESTORE)
+; 						Else
+; 							ShowWindow_(hWnd, #SW_MAXIMIZE)
+; 						EndIf
+; 					Case 3
+; 						SendMessage_(hWnd, #WM_CLOSE, 0, 0)
+; 					Case 4
+; 						MapWindowPoints_(hWnd, 0, p.POINT, 1)
+; 						SendMessage_(hWnd, #WM_SYSMENU, 0, (p\y+22+border)<<16 + p\x)
+; 				EndSelect
+				;}
+			Case #WM_MOUSEMOVE ;{
+				Protected posX = lParam & $FFFF
+				Protected posY = (lParam >> 16) & $FFFF
+				*WindowData\sizeCursor = 0
+				
+				If IsZoomed_(hWnd) = 0
+					If posX <= #SizableBorder And posY <= #SizableBorder
+						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
+						*WindowData\sizeCursor = #HTTOPLEFT
+					ElseIf posX > #SizableBorder And posX <= *WindowData\Width - #SizableBorder And posY <= #SizableBorder
+						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+						*WindowData\sizeCursor = #HTTOP
+					ElseIf posX > *WindowData\Width - #SizableBorder And posY <= #SizableBorder
+						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
+						*WindowData\sizeCursor = #HTTOPRIGHT
+					ElseIf posX > *WindowData\Width - #SizableBorder And posY > #SizableBorder And posY <= *WindowData\Height - #SizableBorder
+						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+						*WindowData\sizeCursor = #HTRIGHT
+					ElseIf posX <= #SizableBorder And posY > #SizableBorder And posY <= *WindowData\Height - #SizableBorder
+						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+						*WindowData\sizeCursor = #HTLEFT
+					EndIf
+				EndIf
+				;}
+			Case #WM_LBUTTONDBLCLK ;{
+				If cursor\y <= #WindowBarHeight And *WindowData\sizeCursor = 0
+					If IsZoomed_(hWnd)
+						ShowWindow_(hWnd, #SW_RESTORE)
+					Else
+						ShowWindow_(hWnd, #SW_MAXIMIZE)
+					EndIf
+				EndIf
+				
+				;}
+			Case #WM_LBUTTONDOWN ;{
+				GetCursorPos_(cursor.POINT)
+				MapWindowPoints_(0, hWnd, cursor, 1)
+				
+				If cursor\y <= #WindowBarHeight And *WindowData\sizeCursor = 0
+					SendMessage_(hWnd, #WM_NCLBUTTONDOWN, #HTCAPTION, 0)
+				EndIf
+				
+				Select *WindowData\sizeCursor
+					Case #HTTOPLEFT, #HTBOTTOMRIGHT
+						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
+						SendMessage_(hWnd, #WM_NCLBUTTONDOWN, *WindowData\sizeCursor, 0)
+					Case #HTTOP, #HTBOTTOM
+						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+						SendMessage_(hWnd, #WM_NCLBUTTONDOWN, *WindowData\sizeCursor, 0)
+					Case #HTTOPRIGHT, #HTBOTTOMLEFT
+						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
+						SendMessage_(hWnd, #WM_NCLBUTTONDOWN, *WindowData\sizeCursor, 0)
+					Case #HTLEFT, #HTRIGHT
+						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+						SendMessage_(hWnd, #WM_NCLBUTTONDOWN, *WindowData\sizeCursor, 0)
+				EndSelect
+				;}
+			Case #WM_LBUTTONUP ;{
+				Select *WindowData\sizeCursor
+					Case #HTTOPLEFT, #HTBOTTOMRIGHT
+						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
+					Case #HTTOP, #HTBOTTOM
+						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+					Case #HTTOPRIGHT, #HTBOTTOMLEFT
+						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
+					Case #HTLEFT, #HTRIGHT
+						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+				EndSelect
+				;}
+			Case #WM_SYSMENU ;{
+				SetWindowLongPtr_(hwnd, #GWL_STYLE, GetWindowLongPtr_(hwnd, #GWL_STYLE)|#WS_SYSMENU)
+				DefWindowProc_(hWnd, Msg, wParam, lParam)
+				SetWindowLongPtr_(hwnd, #GWL_STYLE, GetWindowLongPtr_(hwnd, #GWL_STYLE)&~#WS_SYSMENU)
+				ProcedureReturn 0
+				;}
+			Case #WM_NCDESTROY ;{
+				If *WindowData\ButtonClose And IsGadget(*WindowData\ButtonClose)
+					UnbindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
+				EndIf
+				
+				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, *WindowData\OriginalProc)
+				ProcedureReturn 0
+				;}
+		EndSelect
+		
+		ProcedureReturn CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
+	EndProcedure
+	
+	Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
+		Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UIToolkit_ContainerData"), *WindowData.ThemedWindow
+		
+		Select Msg
+			Case #WM_MOUSEMOVE ;{
+				*WindowData.ThemedWindow = GetProp_(*ContainerData\Parent, "UIToolkit_WindowData")
+				
+				Protected posX = lParam & $FFFF
+				Protected posY = (lParam >> 16) & $FFFF
+				*ContainerData\sizeCursor = 0
+				If posY > *WindowData\Height - #SizableBorder - #WindowBarHeight
+					If posX <= #SizableBorder
+						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
+						*WindowData\sizeCursor = #HTBOTTOMLEFT
+					ElseIf posX > *WindowData\Width - #SizableBorder 
+						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
+						*WindowData\sizeCursor = #HTBOTTOMRIGHT
+					Else
+						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+						*WindowData\sizeCursor = #HTBOTTOM
+					EndIf
+				ElseIf posX <= #SizableBorder
+					SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+					*ContainerData\sizeCursor = #HTLEFT
+				ElseIf posX > *WindowData\Width - #SizableBorder 
+					SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+					*ContainerData\sizeCursor = #HTRIGHT
+				EndIf
+				;}
+			Case #WM_LBUTTONDOWN ;{
+				Select *ContainerData\sizeCursor
+					Case #HTTOPLEFT, #HTBOTTOMRIGHT
+						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
+						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
+					Case #HTTOP, #HTBOTTOM
+						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
+					Case #HTTOPRIGHT, #HTBOTTOMLEFT
+						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
+						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
+					Case #HTLEFT, #HTRIGHT
+						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
+				EndSelect
+				;}
+		EndSelect
+		
+		ProcedureReturn CallWindowProc_(*ContainerData\OriginalProc, hWnd, Msg, wParam, lParam)
+	EndProcedure
+	
+	Procedure WindowBar_Handler(hWnd, Msg, wParam, lParam)
+		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UIToolkit_WindowBarData")
+		If msg = #WM_LBUTTONDBLCLK
+			If IsZoomed_(*WindowBarData\Parent)
+				ShowWindow_(*WindowBarData\Parent, #SW_RESTORE)
+			Else
+				ShowWindow_(*WindowBarData\Parent, #SW_MAXIMIZE)
+			EndIf
+		ElseIf msg = #WM_LBUTTONDOWN
+			SendMessage_(*WindowBarData\Parent, #WM_NCLBUTTONDOWN, #HTCAPTION, 0)
+		EndIf
+		
+		ProcedureReturn CallWindowProc_(*WindowBarData\OriginalProc, hWnd, Msg, wParam, lParam)
+	EndProcedure
+	
+	Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
+		Protected Result, Image, *WindowData.ThemedWindow, *WindowBarData.WindowBar, *ContainerData.WindowContainer ,WindowID, OffsetX
+		
+		If DWMEnabled = - 1
+			Window_Init()
+		EndIf
+		
+		If AccessibilityMode Or DWMEnabled = #False Or (Flags & #PB_Window_BorderLess)
+			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (Bool(Flags & #Window_CloseButton) * #PB_Window_ScreenCentered) |
+			                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
+			                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize), Parent)
+		Else
+			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible, Parent)
+			
+			If Window = #PB_Any
+				Window = Result
+			EndIf
+			
+			WindowID = WindowID(Window)
+			
+			*WindowData = AllocateStructure(ThemedWindow)
+			
+			If Flags & #DarkMode
+				Image = CreateImage(#PB_Any, 8, 8, 32, FixColor($202225))
+			Else
+				Image = CreateImage(#PB_Any, 8, 8, 32, FixColor($FFFFFF))
+			EndIf
+			
+			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
+			*WindowData\Width = WindowWidth(Window)
+			*WindowData\Height = WindowHeight(Window)
+			*WindowData\MinHeight = 720
+			*WindowData\MinWidth = 1280
+			
+			If Flags & #DarkMode
+				CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
+			Else
+				CopyStructure(@DefaultTheme, *WindowData\Theme, Theme)
+			EndIf
+			
+			FreeImage(Image)
+			
+			SetClassLongPtr_(WindowID, #GCL_HBRBACKGROUND, *WindowData\Brush)
+			
+			SetProp_(WindowID, "UIToolkit_WindowData", *WindowData)
+			
+			*WindowData\OriginalProc = SetWindowLongPtr_(WindowID, #GWL_WNDPROC, @Window_Handler())
+			
+			If Flags & #Window_CloseButton
+				OffsetX + #WindowButtonWidth
+				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖭", Bool(Flags & #DarkMode) * #DarkMode)
+				
+				SetGadgetFont(*WindowData\ButtonClose, MaterialFont)
+				
+				If Flags & #DarkMode
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
+				Else
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, SetAlpha(FixColor($FFFFFF), 255))
+				EndIf
+				
+				BindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
+				
+				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Warm, SetAlpha(FixColor($E81123), 255))
+				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Hot, SetAlpha(FixColor($F1707A), 255))
+				
+				SetGadgetColor(*WindowData\ButtonClose, #Color_Front_Warm, SetAlpha(FixColor($FFFFFF), 255))
+				SetGadgetColor(*WindowData\ButtonClose, #Color_Front_Hot, SetAlpha(FixColor($FFFFFF), 255))
+			EndIf
+			
+			If Flags & #Window_MaximizeButton
+				OffsetX + #WindowButtonWidth
+				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖯", Bool(Flags & #DarkMode) * #DarkMode)
+				
+				SetGadgetFont(*WindowData\ButtonMaximize, MaterialFont)
+				
+				If Flags & #DarkMode
+					SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
+				Else
+					SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, SetAlpha(FixColor($FFFFFF), 255))
+				EndIf
+			EndIf
+			
+			If Flags & #Window_MinimizeButton
+				OffsetX + #WindowButtonWidth
+				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖰", Bool(Flags & #DarkMode) * #DarkMode)
+				
+				SetGadgetFont(*WindowData\ButtonMinimize, MaterialFont)
+				
+				If Flags & #DarkMode
+					SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
+				Else
+					SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, SetAlpha(FixColor($FFFFFF), 255))
+				EndIf
+			EndIf
+			
+			*WindowData\Label = Label(#PB_Any, #MenuLabelOffset, #MenuLabelOffset, *WindowData\Width - OffsetX, #WindowBarHeight - #MenuLabelOffset , Title, (Bool(Flags & #DarkMode) * #DarkMode) | #AlignLeft)
+			If Flags & #DarkMode
+				SetGadgetColor(*WindowData\Label, #Color_Parent, SetAlpha(FixColor($202225), 255))
+			Else
+				SetGadgetColor(*WindowData\Label, #Color_Parent, SetAlpha(FixColor($FFFFFF), 255))
+			EndIf
+			*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
+			ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
+			
+			If Flags & #AlignRight
+				*WindowData\LabelAlign = #AlignRight
+			ElseIf Flags & #AlignCenter
+				*WindowData\LabelAlign = #AlignCenter
+			Else
+				*WindowData\LabelAlign = #AlignLeft
+			EndIf
+			
+			*WindowBarData = AllocateStructure(WindowBar)
+			*WindowBarData\Parent = WindowID
+			UnbindGadgetEvent(*WindowData\Label, @Default_EventHandle())
+			SetProp_(GadgetID(*WindowData\Label), "UIToolkit_WindowBarData", *WindowBarData)
+			*WindowBarData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Label), #GWL_WNDPROC, @WindowBar_Handler())
+			
+			*WindowData\Container = ContainerGadget(#PB_Any, 0, #WindowBarHeight, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #PB_Container_BorderLess)
+			*ContainerData.WindowContainer = AllocateStructure(WindowContainer)
+			*ContainerData\Parent = WindowID
+			SetProp_(GadgetID(*WindowData\Container), "UIToolkit_ContainerData", *WindowBarData)
+			*ContainerData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Container), #GWL_WNDPROC, @WindowContainer_Handler())
+			SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
+			
+			SetWindowPos_(WindowID, 0, 0, 0, 0, 0, #SWP_NOSIZE|#SWP_NOMOVE|#SWP_FRAMECHANGED)
+			
+			HideWindow(Window, Bool(Flags & #PB_Window_Invisible))
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure OpenWindowGadgetList(Window)
+		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UIToolkit_WindowData")
+		
+		OpenGadgetList(*WindowData\Container)
+	EndProcedure
+	;}
 	
 	; Gadgets :
 	
@@ -1587,20 +2067,19 @@ Module UIToolkit
 	Procedure Label_EventHandler(*this.PB_Gadget, *Event.Event)
 	EndProcedure
 	
-	
 	; Getters
 	Procedure.s Label_GetText(*this.PB_Gadget)
 		Protected *GadgetData.LabelData = *this\vt
+		
 		ProcedureReturn *GadgetData\Text
 	EndProcedure
-	
+		
 	; Setters
 	Procedure Label_SetText(*this.PB_Gadget, Text.s)
 		Protected *GadgetData.LabelData = *this\vt
 		*GadgetData\Text = Text
 		RedrawObject()
 	EndProcedure
-	
 	
 	Procedure Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.LabelData
@@ -1634,6 +2113,22 @@ Module UIToolkit
 					
 					\VT\SetGadgetText = @Label_SetText()
 					
+					If \Vector
+						StartVectorDrawing(CanvasVectorOutput(\Gadget))
+						VectorFont(\FontID)
+						\RequieredHeight = VectorTextHeight(\Text)
+						\RequieredWidth = VectorTextWidth(\Text)
+						StopVectorDrawing()
+					Else
+						StartDrawing(CanvasOutput(\Gadget))
+						DrawingFont(\FontID)
+						\RequieredHeight = TextHeight(\Text)
+						\RequieredWidth = TextWidth(\Text)
+						StopDrawing()
+					EndIf
+					
+					UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
+					*GadgetData\DefaultEventHandler = 0
 				EndWith
 				
 				RedrawObject()
@@ -1646,16 +2141,6 @@ Module UIToolkit
 EndModule
 
 ; Notes :
-
-; ProcedureDLL GetGadgetParent(Gadget.i) ;В()
-; 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-; 		ProcedureReturn GetParent_(Gadget)
-; 	CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux
-; 		ProcedureReturn Gtk_Widget_Get_Parent_(Gadget)
-; 	CompilerEndIf  
-; EndProcedure
-
-
 
 ; CompilerSelect #PB_Compiler_OS 
 ;   CompilerCase #PB_OS_MacOS
@@ -1733,8 +2218,7 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 5 (Windows - x64)
-; CursorPosition = 1103
-; FirstLine = 60
-; Folding = NsJAAAAAMYAAAg
+; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
+; CursorPosition = 2143
+; Folding = psBAAAAIAAYAAAAAAA-
 ; EnableXP
