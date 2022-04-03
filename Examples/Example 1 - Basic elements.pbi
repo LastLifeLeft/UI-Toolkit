@@ -3,7 +3,9 @@
 ExamineDesktops()
 Define Width = DesktopWidth(0)
 Define Height = DesktopHeight(0)
-; 
+
+
+
 ; UIToolkit::Window(#PB_Any, (Width - 1280) * 0.5 - 200, (Height - 720) * 0.5 - 100, 1280, 720, "UI Toolkit : showcase raster", UIToolkit::#Window_CloseButton)
 ; UIToolkit::Button(#PB_Any, 20, 20, 200, 40, "Button")
 ; UIToolkit::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UIToolkit::#AlignRight | UIToolkit::#Button_Toggle)
@@ -25,7 +27,8 @@ Define Height = DesktopHeight(0)
 
 
 
-UIToolkit::Window(#PB_Any, (Width - 1280) * 0.5, (Height - 720) * 0.5, 1280, 720, "UI Toolkit : showcase dark vector", UIToolkit::#DarkMode | UIToolkit::#Window_CloseButton | UIToolkit::#AlignCenter)
+Window = UIToolkit::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 1024, 600, "UI Toolkit : showcase dark vector", UIToolkit::#DarkMode | UIToolkit::#Window_CloseButton | UIToolkit::#AlignCenter)
+UIToolkit::SetWindowBounds(Window, 1024, 630, 0, 0)
 UIToolkit::Button(#PB_Any, 20, 20, 200, 40, "Button", UIToolkit::#Vector | UIToolkit::#DarkMode)
 UIToolkit::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UIToolkit::#AlignRight | UIToolkit::#Vector | UIToolkit::#DarkMode | UIToolkit::#Button_Toggle)
 UIToolkit::Button(#PB_Any, 20, 120, 200, 40, "Button left & border", UIToolkit::#AlignLeft | UIToolkit::#Vector | UIToolkit::#Border | UIToolkit::#DarkMode)
@@ -70,9 +73,12 @@ UIToolkit::Label(#PB_Any, 260, 80, 200, 20, "Label centered", UIToolkit::#AlignC
 
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
+		CloseWindow(Window)
+		Delay(10)
 		End
+; 		End
 	EndIf
 ForEver
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 47
+; CursorPosition = 7
 ; EnableXP

@@ -8,16 +8,16 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2022-04-03 19:44" user="Poshu" host="MONSTRO"/>
+    <lastopen date="2022-04-03 21:10" user="Poshu" host="MONSTRO"/>
   </section>
   <section name="files">
     <file name="Examples\Example 1 - Basic elements.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="82ecdd5ba0acb0e17d652e605cbc7aa6"/>
+      <fingerprint md5="653cbd1fb76534c8ba06c6f58a5d6a77"/>
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="8079e865d65558810a8affffa3a58b32"/>
+      <fingerprint md5="5de67504a31f346877c0df70b715bc2c"/>
     </file>
   </section>
   <section name="targets">

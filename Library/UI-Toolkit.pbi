@@ -47,7 +47,7 @@
 	; Window
 	Declare Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
 	Declare OpenWindowGadgetList(Window)
-	
+	Declare SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 	
 	; Gadgets
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -1025,25 +1025,26 @@ Module UIToolkit
 	EndProcedure
 	
 	Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
-		Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UIToolkit_ContainerData"), *WindowData.ThemedWindow
+		Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UIToolkit_ContainerData"), *WindowData.ThemedWindow, posX, posY
 		
 		Select Msg
 			Case #WM_MOUSEMOVE ;{
 				*WindowData.ThemedWindow = GetProp_(*ContainerData\Parent, "UIToolkit_WindowData")
 				
-				Protected posX = lParam & $FFFF
-				Protected posY = (lParam >> 16) & $FFFF
+				posX = lParam & $FFFF
+				posY = (lParam >> 16) & $FFFF
 				*ContainerData\sizeCursor = 0
+				
 				If posY > *WindowData\Height - #SizableBorder - #WindowBarHeight
 					If posX <= #SizableBorder
 						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
-						*WindowData\sizeCursor = #HTBOTTOMLEFT
+						*ContainerData\sizeCursor = #HTBOTTOMLEFT
 					ElseIf posX > *WindowData\Width - #SizableBorder 
 						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
-						*WindowData\sizeCursor = #HTBOTTOMRIGHT
+						*ContainerData\sizeCursor = #HTBOTTOMRIGHT
 					Else
 						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-						*WindowData\sizeCursor = #HTBOTTOM
+						*ContainerData\sizeCursor = #HTBOTTOM
 					EndIf
 				ElseIf posX <= #SizableBorder
 					SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
@@ -1055,13 +1056,13 @@ Module UIToolkit
 				;}
 			Case #WM_LBUTTONDOWN ;{
 				Select *ContainerData\sizeCursor
-					Case #HTTOPLEFT, #HTBOTTOMRIGHT
+					Case #HTBOTTOMRIGHT
 						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
 						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
-					Case #HTTOP, #HTBOTTOM
+					Case #HTBOTTOM
 						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
 						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
-					Case #HTTOPRIGHT, #HTBOTTOMLEFT
+					Case #HTBOTTOMLEFT
 						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
 						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
 					Case #HTLEFT, #HTRIGHT
@@ -1120,8 +1121,7 @@ Module UIToolkit
 			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
 			*WindowData\Width = WindowWidth(Window)
 			*WindowData\Height = WindowHeight(Window)
-			*WindowData\MinHeight = 720
-			*WindowData\MinWidth = 1280
+
 			
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
@@ -1226,6 +1226,15 @@ Module UIToolkit
 		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UIToolkit_WindowData")
 		
 		OpenGadgetList(*WindowData\Container)
+	EndProcedure
+	
+	Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
+		Protected *WindowData.ThemedWindow
+		
+		*WindowData = GetProp_(WindowID(Window), "UIToolkit_WindowData")
+		
+		*WindowData\MinHeight = MinHeight
+		*WindowData\MinWidth = MinWidth
 	EndProcedure
 	;}
 	
@@ -2138,56 +2147,50 @@ Module UIToolkit
 		ProcedureReturn Result
 	EndProcedure
 	;}
+	
+	;{ ScrollArea
+	#ScrollArea_Bar_Thickness = 7
+	
+	Structure ScrollAreaData Extends GadgetData
+		Container.i
+		ScrollArea.i
+		VerticalScrollbar.i
+		HorizontalScrollbar.i
+	EndStructure
+	
+	Global ScrollbarThickness
+	
+	Procedure ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.ScrollAreaData, ScrollBar
+		
+		If AccessibilityMode
+			Result = ScrollAreaGadget(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight)
+		Else
+			
+			If ScrollbarThickness = 0
+				ScrollBar = ScrollBarGadget(#PB_Any, 0, 0, 100, 20, 0, 10, 1)
+				ScrollbarThickness = GadgetHeight(ScrollBar, #PB_Gadget_RequiredSize)
+				FreeGadget(ScrollBar)
+			EndIf
+			
+			*GadgetData = AllocateStructure(ScrollAreaData)
+			
+			*GadgetData\Container = ContainerGadget(Gadget, x, y, Width, Height, #PB_Container_BorderLess)
+			*GadgetData\ScrollArea = ScrollAreaGadget(Gadget, 0, 0, Width, Height, ScrollAreaWidth, ScrollAreaHeight)
+			CloseGadgetList()
+			CloseGadgetList()
+			
+			*GadgetData\VerticalScrollbar = ScrollBar(#PB_Any, x + Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, Height, 0, ScrollAreaHeight, Height, #ScrollBar_Vertical)
+			*GadgetData\HorizontalScrollbar = ScrollBar(#PB_Any, x, y + Height - #ScrollArea_Bar_Thickness, Width, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth, Width)
+			
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	;}
 EndModule
 
-; Notes :
 
-; CompilerSelect #PB_Compiler_OS 
-;   CompilerCase #PB_OS_MacOS
-;     Import ""
-;       PB_Window_GetID(hWnd) 
-;     EndImport
-; CompilerEndSelect
-; 
-; Procedure IDWindow( handle.i ) ; Return the id of the window from the window handle
-;   Protected Window 
-;   
-;   CompilerSelect #PB_Compiler_OS 
-;     CompilerCase #PB_OS_Linux
-;       Window = g_object_get_data_( handle, "pb_id" )
-;     CompilerCase #PB_OS_Windows
-;       Window = GetProp_( handle, "PB_WindowID" ) - 1
-;     CompilerCase #PB_OS_MacOS
-;       Window = PB_Window_GetID( handle )
-;   CompilerEndSelect
-;   
-;   If IsWindow( Window ) And 
-;      WindowID( Window ) = handle
-;     ProcedureReturn Window
-;   Else
-;     ProcedureReturn - 1
-;   EndIf
-; EndProcedure
-; 
-; Procedure IDgadget( handle.i )  ; Return the id of the gadget from the gadget handle
-;   Protected gadget
-;   
-;   CompilerSelect #PB_Compiler_OS 
-;     CompilerCase #PB_OS_Linux
-;       gadget = g_object_get_data_( handle, "pb_id" ) - 1 
-;     CompilerCase #PB_OS_Windows
-;       gadget = GetProp_( handle, "PB_ID" )
-;     CompilerCase #PB_OS_MacOS
-;       gadget = CocoaMessage( 0, handle, "tag" )
-;   CompilerEndSelect
-;   
-;   If IsGadget( gadget ) And 
-;      GadgetID( gadget ) = handle
-;     ProcedureReturn gadget
-;   Else
-;     ProcedureReturn - 1
-;   EndIf
-; EndProcedure
 
 
 
@@ -2219,6 +2222,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 2143
-; Folding = psBAAAAIAAYAAAAAAA-
+; CursorPosition = 2184
+; Folding = JsDAAAAIAAYAAAAAAA5
 ; EnableXP
