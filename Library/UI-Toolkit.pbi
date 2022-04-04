@@ -1,4 +1,4 @@
-﻿DeclareModule UIToolkit
+﻿DeclareModule UITK
 	;{ Private variables, structures and constants
 	EnumerationBinary ; Gadget flags
 		; General
@@ -19,6 +19,17 @@
 		#Window_MaximizeButton
 		#Window_MinimizeButton
 	EndEnumeration
+	
+	; Gadget attribues
+	#ScrollBar_Minimum			= #PB_ScrollBar_Minimum
+	#ScrollBar_Maximum			= #PB_ScrollBar_Maximum
+	#ScrollBar_PageLength		= #PB_ScrollBar_PageLength
+	
+	#ScrollArea_InnerWidth		= #PB_ScrollArea_InnerWidth 
+	#ScrollArea_InnerHeight		= #PB_ScrollArea_InnerHeight
+	#ScrollArea_X				= #PB_ScrollArea_X          
+	#ScrollArea_Y				= #PB_ScrollArea_Y          
+	#ScrollArea_ScrollStep		= #PB_ScrollArea_ScrollStep 
 	
 	Enumeration; Colors
 		#Color_Back_Cold	= #PB_Gadget_FrontColor
@@ -55,6 +66,7 @@
 	Declare CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags = #Default)
 	Declare Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
+	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
 	
 	; Misc 
 	
@@ -63,7 +75,7 @@
 	
 EndDeclareModule
 
-Module UIToolkit
+Module UITK
 	EnableExplicit
 	
 	;{ Macro
@@ -104,7 +116,7 @@ Module UIToolkit
 		; Getters
 		*GadgetData\VT\GetGadgetFont = @Default_GetFont()
 		*GadgetData\VT\GetGadgetColor = @Default_GetColor()
-		*GadgetData\VT\SetGadgetState = @Default_GetState()
+		*GadgetData\VT\GetGadgetState = @Default_GetState()
 		*GadgetData\VT\GetRequiredSize = @Default_GetRequiredSize()
 		
 		; Setters
@@ -185,6 +197,7 @@ Module UIToolkit
 	;{ Private variables, structures and constants
 	CompilerSelect #PB_Compiler_OS
 		CompilerCase #PB_OS_Windows ;{
+			Prototype GetAttribute(*This, Attribute)
 			Structure GadgetVT
 				GadgetType.l
 				SizeOf.l
@@ -212,7 +225,7 @@ Module UIToolkit
 				*HideGadget
 				*AddGadgetColumn
 				*RemoveGadgetColumn
-				*GetGadgetAttribute
+				*GetGadgetAttribute.GetAttribute
 				*SetGadgetAttribute
 				*GetGadgetItemAttribute2
 				*SetGadgetItemAttribute2
@@ -476,29 +489,29 @@ Module UIToolkit
 	EndProcedure
 	
 	Procedure Default_EventHandle()
-		Protected Event.Event, Gadget = EventGadget(), *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
 		
 		Select EventType()
 			Case #PB_EventType_MouseEnter
 				If *GadgetData\SupportedEvent[#MouseEnter]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MouseEnter
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_MouseLeave
 				If *GadgetData\SupportedEvent[#MouseLeave]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MouseLeave
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_MouseMove
 				If *GadgetData\SupportedEvent[#MouseMove]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MouseMove
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
@@ -511,80 +524,80 @@ Module UIToolkit
 				
 			Case #PB_EventType_LeftButtonDown
 				If *GadgetData\SupportedEvent[#LeftButtonDown]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #LeftButtonDown
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_LeftButtonUp
 				If *GadgetData\SupportedEvent[#LeftButtonUp]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #LeftButtonUp
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_LeftClick
 				If *GadgetData\SupportedEvent[#LeftClick]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #LeftClick
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_LeftDoubleClick
 				If *GadgetData\SupportedEvent[#LeftDoubleClick]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #LeftDoubleClick
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_RightButtonDown
 				If *GadgetData\SupportedEvent[#RightButtonDown]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #RightButtonDown
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_RightButtonUp
 				If *GadgetData\SupportedEvent[#RightButtonUp]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #RightButtonUp
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_RightClick
 				If *GadgetData\SupportedEvent[#RightClick]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #RightClick
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_RightDoubleClick
 				If *GadgetData\SupportedEvent[#RightDoubleClick]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #RightDoubleClick
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_MiddleButtonDown
 				If *GadgetData\SupportedEvent[#MiddleButtonDown]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MiddleButtonDown
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
 				
 			Case #PB_EventType_MiddleButtonUp
 				If *GadgetData\SupportedEvent[#MiddleButtonUp]
-					Event\MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX)
-					Event\MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MiddleButtonUp
 					*GadgetData\EventHandler(*this, Event)
 				EndIf
@@ -761,6 +774,7 @@ Module UIToolkit
 	
 	Procedure Default_SetState(*This.PB_Gadget, State)
 		Protected *GadgetData.GadgetData = *this\vt
+		
 		*GadgetData\State = State
 		RedrawObject()
 	EndProcedure
@@ -865,7 +879,7 @@ Module UIToolkit
 	EndProcedure
 	
 	Procedure Window_Handler(hWnd, Msg, wParam, lParam)
-		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UIToolkit_WindowData"), cursor.POINT, OffsetX
+		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UITK_WindowData"), cursor.POINT, OffsetX
 		
 		Select Msg
 			Case #WM_GETMINMAXINFO ;{
@@ -1025,11 +1039,11 @@ Module UIToolkit
 	EndProcedure
 	
 	Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
-		Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UIToolkit_ContainerData"), *WindowData.ThemedWindow, posX, posY
+		Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData"), *WindowData.ThemedWindow, posX, posY
 		
 		Select Msg
 			Case #WM_MOUSEMOVE ;{
-				*WindowData.ThemedWindow = GetProp_(*ContainerData\Parent, "UIToolkit_WindowData")
+				*WindowData.ThemedWindow = GetProp_(*ContainerData\Parent, "UITK_WindowData")
 				
 				posX = lParam & $FFFF
 				posY = (lParam >> 16) & $FFFF
@@ -1076,7 +1090,7 @@ Module UIToolkit
 	EndProcedure
 	
 	Procedure WindowBar_Handler(hWnd, Msg, wParam, lParam)
-		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UIToolkit_WindowBarData")
+		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UITK_WindowBarData")
 		If msg = #WM_LBUTTONDBLCLK
 			If IsZoomed_(*WindowBarData\Parent)
 				ShowWindow_(*WindowBarData\Parent, #SW_RESTORE)
@@ -1133,7 +1147,7 @@ Module UIToolkit
 			
 			SetClassLongPtr_(WindowID, #GCL_HBRBACKGROUND, *WindowData\Brush)
 			
-			SetProp_(WindowID, "UIToolkit_WindowData", *WindowData)
+			SetProp_(WindowID, "UITK_WindowData", *WindowData)
 			
 			*WindowData\OriginalProc = SetWindowLongPtr_(WindowID, #GWL_WNDPROC, @Window_Handler())
 			
@@ -1204,13 +1218,13 @@ Module UIToolkit
 			*WindowBarData = AllocateStructure(WindowBar)
 			*WindowBarData\Parent = WindowID
 			UnbindGadgetEvent(*WindowData\Label, @Default_EventHandle())
-			SetProp_(GadgetID(*WindowData\Label), "UIToolkit_WindowBarData", *WindowBarData)
+			SetProp_(GadgetID(*WindowData\Label), "UITK_WindowBarData", *WindowBarData)
 			*WindowBarData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Label), #GWL_WNDPROC, @WindowBar_Handler())
 			
 			*WindowData\Container = ContainerGadget(#PB_Any, 0, #WindowBarHeight, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #PB_Container_BorderLess)
 			*ContainerData.WindowContainer = AllocateStructure(WindowContainer)
 			*ContainerData\Parent = WindowID
-			SetProp_(GadgetID(*WindowData\Container), "UIToolkit_ContainerData", *WindowBarData)
+			SetProp_(GadgetID(*WindowData\Container), "UITK_ContainerData", *WindowBarData)
 			*ContainerData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Container), #GWL_WNDPROC, @WindowContainer_Handler())
 			SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
 			
@@ -1223,7 +1237,7 @@ Module UIToolkit
 	EndProcedure
 	
 	Procedure OpenWindowGadgetList(Window)
-		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UIToolkit_WindowData")
+		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
 		
 		OpenGadgetList(*WindowData\Container)
 	EndProcedure
@@ -1231,7 +1245,7 @@ Module UIToolkit
 	Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 		Protected *WindowData.ThemedWindow
 		
-		*WindowData = GetProp_(WindowID(Window), "UIToolkit_WindowData")
+		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
 		
 		*WindowData\MinHeight = MinHeight
 		*WindowData\MinWidth = MinWidth
@@ -1315,7 +1329,7 @@ Module UIToolkit
 					Redraw = #True
 					
 				Case #KeyDown
-					If GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
 						If \Toggle
 							\State = Bool(Not \State) * #hot
 						EndIf
@@ -1326,7 +1340,7 @@ Module UIToolkit
 						Redraw = #True
 					EndIf
 				Case #KeyUp
-					If GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
 						If \State = #False
 							\MouseState = #Cold
 						Else
@@ -1507,7 +1521,7 @@ Module UIToolkit
 					Redraw = #True
 				
 				Case #KeyDown
-					If GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
 						\State = Bool(Not \State)
 						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 						Redraw = #True
@@ -1687,7 +1701,7 @@ Module UIToolkit
 					Redraw = #True
 				
 				Case #KeyDown
-					If GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
 						If \State = #PB_Checkbox_Inbetween
 							\State = #True
 						Else
@@ -1776,6 +1790,7 @@ Module UIToolkit
 		Thickness.l
 		Drag.b
 		DragOffset.b
+		ScrollStep.l
 	EndStructure
 	
 	Procedure ScrollBar_Redraw(*this.PB_Gadget)
@@ -1789,16 +1804,20 @@ Module UIToolkit
 				Box(0, Radius, \Width, \Height - \Thickness, \Theme\BackColor[#Cold])
 				Circle(Radius, \Height - Radius - 1, Radius, \Theme\BackColor[#Cold])
 				
-				Circle(Radius, Radius + \Position, Radius, \Theme\LineColor[\MouseState])
-				Box(0, Radius + \Position, \Width, \BarSize, \Theme\LineColor[\MouseState])
-				Circle(Radius, Radius + \Position + \BarSize, Radius, \Theme\LineColor[\MouseState])
+				If \BarSize >= 0
+					Circle(Radius, Radius + \Position, Radius, \Theme\LineColor[\MouseState])
+					Box(0, Radius + \Position, \Width, \BarSize, \Theme\LineColor[\MouseState])
+					Circle(Radius, Radius + \Position + \BarSize, Radius, \Theme\LineColor[\MouseState])
+				EndIf
 			Else
 				Box(Radius, 0, \Width - \Thickness, \Height, \Theme\BackColor[#Cold])
 				Circle(\Width - Radius - 1, Radius, Radius, \Theme\BackColor[#Cold])
 				
-				Circle(Radius + \Position, Radius, Radius, \Theme\LineColor[\MouseState])
-				Box(Radius + \Position, 0, \BarSize, \Height, \Theme\LineColor[\MouseState])
-				Circle(Radius + \Position + \BarSize, Radius, Radius, \Theme\LineColor[\MouseState])
+				If \BarSize >= 0
+					Circle(Radius + \Position, Radius, Radius, \Theme\LineColor[\MouseState])
+					Box(Radius + \Position, 0, \BarSize, \Height, \Theme\LineColor[\MouseState])
+					Circle(Radius + \Position + \BarSize, Radius, Radius, \Theme\LineColor[\MouseState])
+				EndIf
 			EndIf
 			
 		EndWith
@@ -1819,23 +1838,27 @@ Module UIToolkit
 				
 				VectorSourceColor(\Theme\LineColor[\MouseState])
 				
-				AddPathCircle(\OriginX + Radius, \OriginY + Radius + \Position, Radius, 0, 360, #PB_Path_Default)
-				AddPathBox(- \Thickness, 0, \Width, \BarSize, #PB_Path_Relative)
-				AddPathCircle(\OriginX + Radius, \OriginY + Radius + \BarSize + \Position, Radius, 0, 360, #PB_Path_Default)
-				
-				FillPath(#PB_Path_Winding)
+				If \BarSize >= 0
+					AddPathCircle(\OriginX + Radius, \OriginY + Radius + \Position, Radius, 0, 360, #PB_Path_Default)
+					AddPathBox(- \Thickness, 0, \Width, \BarSize, #PB_Path_Relative)
+					AddPathCircle(\OriginX + Radius, \OriginY + Radius + \BarSize + \Position, Radius, 0, 360, #PB_Path_Default)
+					
+					FillPath(#PB_Path_Winding)
+				EndIf
 			Else
 				AddPathBox(- Radius, - Radius, \Width - \Thickness, \Height, #PB_Path_Relative)
 				AddPathCircle(\OriginX + \Width - Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
 				FillPath(#PB_Path_Winding)
 				
-				VectorSourceColor(\Theme\LineColor[\MouseState])
-				
-				AddPathCircle(\OriginX + Radius + \Position, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-				AddPathBox(- Radius, - Radius, \BarSize, \Height, #PB_Path_Relative)
-				AddPathCircle(\OriginX + Radius + \Position + \BarSize, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-				
-				FillPath(#PB_Path_Winding)
+				If \BarSize >= 0
+					VectorSourceColor(\Theme\LineColor[\MouseState])
+					
+					AddPathCircle(\OriginX + Radius + \Position, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
+					AddPathBox(- Radius, - Radius, \BarSize, \Height, #PB_Path_Relative)
+					AddPathCircle(\OriginX + Radius + \Position + \BarSize, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
+					
+					FillPath(#PB_Path_Winding)
+				EndIf
 			EndIf
 		EndWith
 	EndProcedure
@@ -1859,7 +1882,7 @@ Module UIToolkit
 						
 						If Position <> \Position
 							\Position = Position
-							\State = Round(Position / (Lenght) * (\Max - \Min), #PB_Round_Down)
+							\State = Round(Position / (Lenght) * (\Max - \Min - \PageLenght), #PB_Round_Down)
 							Redraw = #True
 							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 						EndIf
@@ -1888,28 +1911,30 @@ Module UIToolkit
 					EndIf
 					;}
 				Case #LeftButtonDown ;{
-					If \Vertical
-						Mouse = *Event\MouseY
-						Lenght = \Height
-					Else
-						Mouse = *Event\MouseX
-						Lenght = \Width
-					EndIf
-					
-					If Mouse >= \Position And Mouse < \Position + \BarSize + \Thickness
-						\Drag = #True
-						\DragOffset = Mouse - \Position
-					Else
-						If Mouse > \Position
-							\State = Min(\State + \PageLenght, \Max - \PageLenght)
-							Redraw = #True
+					If \BarSize >= 0
+						If \Vertical
+							Mouse = *Event\MouseY
+							Lenght = \Height
 						Else
-							\State = Max(\State - \PageLenght, \Min)
-							Redraw = #True
+							Mouse = *Event\MouseX
+							Lenght = \Width
 						EndIf
 						
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-						\Position = Round(\State / (\max - \min) * Lenght, #PB_Round_Nearest)
+						If Mouse >= \Position And Mouse < \Position + \BarSize + \Thickness
+							\Drag = #True
+							\DragOffset = Mouse - \Position
+						Else
+							If Mouse > \Position
+								\State = Min(\State + \PageLenght, \Max - \PageLenght)
+								Redraw = #True
+							Else
+								\State = Max(\State - \PageLenght, \Min)
+								Redraw = #True
+							EndIf
+							
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+						EndIf
 					EndIf
 					;}
 				Case #LeftButtonUp ;{
@@ -1924,10 +1949,11 @@ Module UIToolkit
 						Lenght = \Width
 					EndIf
 					
-					Position = Clamp(\State - GetGadgetAttribute(*GadgetData\Gadget, #PB_Canvas_WheelDelta) * 3, \Min, \Max - \PageLenght)
+					Position = Clamp(\State - *GadgetData\OriginalVT\GetGadgetAttribute(*GadgetData\Gadget, #PB_Canvas_WheelDelta) * \ScrollStep, \Min, \Max - \PageLenght)
 					If Position <> \State
 						\State = Position
-						\Position = Round(\State / (\max - \min) * Lenght, #PB_Round_Nearest)
+						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 						Redraw = #True
 					EndIf
 					;}
@@ -1940,19 +1966,112 @@ Module UIToolkit
 		EndWith
 	EndProcedure
 	
+	Procedure ScrollBar_GetAttribute(*This.PB_Gadget, Attribute)
+		Protected *GadgetData.ScrollBarData = *this\vt, Result
+		
+		Select Attribute
+			Case #ScrollBar_Minimum
+				Result = *GadgetData\Min
+			Case #ScrollBar_Maximum
+				Result = *GadgetData\Max
+			Case #ScrollBar_PageLength
+				Result = *GadgetData\PageLenght
+			CompilerIf #PB_Compiler_Debugger
+			Default	
+				Debug "WARNING! Attribute #"+Attribute+ " unused on Scrollbar gadget... Might be wanting to get canvas attribute?"
+			CompilerEndIf
+		EndSelect
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure ScrollBar_SetAttribute(*This.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.ScrollBarData = *this\vt, Result
+		
+		With *GadgetData
+			Select Attribute
+				Case #ScrollBar_Minimum ;{
+					If Value < \Max
+						\Min = Value
+						
+						If \State < \Min
+							\State = \Min
+						EndIf
+						
+						If \PageLenght >= (\Max - \Min)
+							\BarSize = -1
+						EndIf
+						
+						If \Vertical
+							\Position = Round(\State / (\Max - \Min) * \Height, #PB_Round_Nearest)
+						Else
+							\Position = Round(\State / (\Max - \Min) * \Width, #PB_Round_Nearest)
+						EndIf
+						
+						RedrawObject()
+					EndIf
+					;}
+				Case #ScrollBar_Maximum ;{
+					If Value > \Min
+						\Max = Value
+						
+						If \State < \Max
+							\State = \Max
+						EndIf
+						
+						If \PageLenght >= (\Max - \Min)
+							\BarSize = -1
+						EndIf
+						
+						If \Vertical
+							\Position = Round(\State / (\Max - \Min) * \Height, #PB_Round_Nearest)
+						Else
+							\Position = Round(\State / (\Max - \Min) * \Width, #PB_Round_Nearest)
+						EndIf
+						
+						RedrawObject()
+					EndIf
+					;}
+				Case #ScrollBar_PageLength ;{
+					Result = \PageLenght
+					If \PageLenght >= (\Max - \Min)
+						\BarSize = -1
+					Else
+						\PageLenght = Value
+						If \Vertical = #True
+							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
+						Else
+							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
+						EndIf
+					EndIf
+					
+					RedrawObject()
+					;}
+					CompilerIf #PB_Compiler_Debugger
+					Default	
+						Debug "WARNING! Attribute #"+Attribute+ " unused on Scrollbar gadget... Might be wanting to set canvas attribute?"
+					CompilerEndIf
+			EndSelect
+		EndWith
+	
+		ProcedureReturn Result
+	EndProcedure
+	
 	Procedure Scrollbar_SetState(*this.PB_Gadget, State)
 		Protected *GadgetData.ScrollBarData = *this\vt, Lenght
 		
 		With *GadgetData
+			
 			State = Clamp(State, \Min, \Max)
 			If State <> \State
+				\State = State
 				If \Vertical
 					Lenght = \Height
 				Else
 					Lenght = \Width
 				EndIf
 				
-				\Position = Round(\State / (\max - \min) * Lenght, #PB_Round_Nearest)
+				\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
 				RedrawObject()
 			EndIf
 		EndWith
@@ -1971,10 +2090,14 @@ Module UIToolkit
 			
 			If \Vertical
 				\Thickness = \Width
-				\BarSize = Clamp(Round(\PageLenght / (\max - \min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
+				\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
 			Else
 				\Thickness = \Height
-				\BarSize = Clamp(Round(\PageLenght / (\max - \min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
+				\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
+			EndIf
+			
+			If \PageLenght >= (\Max - \Min)
+				\BarSize = -1
 			EndIf
 			
 			RedrawObject()
@@ -2014,6 +2137,14 @@ Module UIToolkit
 						\BarSize = Clamp(Round(PageLenght / (max - min) * Width, #PB_Round_Nearest) - \Thickness, 0, Width - \Thickness)
 					EndIf
 					
+					If \PageLenght >= (\Max - \Min)
+						\BarSize = -1
+					EndIf
+					
+					\ScrollStep = 3
+					
+					\VT\GetGadgetAttribute = @ScrollBar_GetAttribute()
+					\VT\SetGadgetAttribute = @ScrollBar_SetAttribute()
 					\VT\SetGadgetState = @Scrollbar_SetState()
 					\VT\ResizeGadget = @Scrollbar_Resize()
 					
@@ -2152,13 +2283,148 @@ Module UIToolkit
 	#ScrollArea_Bar_Thickness = 7
 	
 	Structure ScrollAreaData Extends GadgetData
-		Container.i
 		ScrollArea.i
 		VerticalScrollbar.i
 		HorizontalScrollbar.i
+		HiddenVScrollBar.i
+		HiddenHScrollBar.i
 	EndStructure
 	
 	Global ScrollbarThickness
+	
+	Procedure ScrollArea_ScrollbarHandler()
+		Protected Gadget = EventGadget(), *GadgetData.ScrollAreaData = GetProp_(GadgetID(Gadget), "UITK_ScrollAreaData")
+		
+		If Gadget = *GadgetData\HorizontalScrollbar
+			SetGadgetAttribute(*GadgetData\ScrollArea, #PB_ScrollArea_X, GetGadgetState(Gadget))
+		Else
+			SetGadgetAttribute(*GadgetData\ScrollArea, #PB_ScrollArea_Y, GetGadgetState(Gadget))
+		EndIf
+		
+	EndProcedure
+	
+	Procedure ScrollArea_Handler()
+		Protected Gadget, *GadgetData.ScrollAreaData
+
+		If EventType() = 0
+			Gadget = EventGadget()
+			*GadgetData = GetProp_(GadgetID(Gadget), "UITK_ScrollAreaData")
+ 			SetGadgetState(*GadgetData\VerticalScrollbar, GetGadgetAttribute(Gadget, #PB_ScrollArea_Y))
+		EndIf
+	EndProcedure
+	
+	Procedure ScrollArea_Resize(*this.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.ScrollAreaData = *this\vt
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		With *GadgetData
+			
+		EndWith
+	EndProcedure
+	
+	Procedure ScrollArea_Free(*this.PB_Gadget)
+		Protected *GadgetData.ScrollAreaData = *this\vt
+		
+		With *GadgetData
+			If IsGadget(*GadgetData\VerticalScrollbar) : FreeGadget(*GadgetData\VerticalScrollbar) : EndIf
+			If IsGadget(*GadgetData\HorizontalScrollbar) : FreeGadget(*GadgetData\HorizontalScrollbar) : EndIf
+			If IsGadget(*GadgetData\ScrollArea) : FreeGadget(*GadgetData\ScrollArea) : EndIf
+			
+			*this\vt = *GadgetData\OriginalVT
+			FreeStructure(*GadgetData)
+			CallFunctionFast(*this\vt\FreeGadget, *this)
+		EndWith
+	EndProcedure
+	
+	Procedure ScrollArea_GetAttribute(*This.PB_Gadget, Attribute)
+		Protected *GadgetData.ScrollAreaData = *this\vt, Result
+		
+		With *GadgetData
+			Result = GetGadgetAttribute(*GadgetData\ScrollArea, Attribute)
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure ScrollArea_SetAttribute(*This.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.ScrollAreaData = *this\vt
+		
+		SetGadgetAttribute(*GadgetData\ScrollArea, Attribute, Value)
+		
+		With *GadgetData
+			Select Attribute
+				Case #ScrollArea_InnerWidth
+					SetGadgetAttribute(*GadgetData\ScrollArea, #ScrollArea_InnerWidth, Value)
+					SetGadgetAttribute(*GadgetData\HorizontalScrollbar, #ScrollBar_Maximum, Value)
+					
+; 					If Value <= \Width + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
+; 						If Not \HiddenHScrollBar
+; 							\HiddenHScrollBar = #True
+; 							HideGadget(\HorizontalScrollbar, #True)
+; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
+; 						EndIf
+; 					Else
+; 						If \HiddenHScrollBar
+; 							\HiddenHScrollBar = #False
+; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
+; 							HideGadget(\HorizontalScrollbar, #True)
+; 						EndIf
+; 					EndIf
+						
+				Case #ScrollArea_InnerHeight
+					SetGadgetAttribute(*GadgetData\VerticalScrollbar, #ScrollBar_Maximum, Value)
+					SetGadgetAttribute(*GadgetData\ScrollArea, #ScrollArea_InnerHeight, Value)
+					
+; 					If Value >= \Height + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
+; 						If Not \HiddenHScrollBar
+; 							\HiddenHScrollBar = #True
+; 							HideGadget(\VerticalScrollbar, #True)
+; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
+; 						EndIf
+; 					Else
+; 						If \HiddenHScrollBar
+; 							\HiddenHScrollBar = #False
+; 							HideGadget(\VerticalScrollbar, #False)
+; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
+; 						EndIf
+; 					EndIf
+				Case #ScrollArea_X
+					
+				Case #ScrollArea_Y
+					
+				Case #ScrollArea_ScrollStep
+					
+			EndSelect
+		EndWith
+	EndProcedure
+	
+	Procedure ScrollArea_SetColor(*This.PB_Gadget, ColorType, Color)
+		Protected *GadgetData.ScrollAreaData = *this\vt
+		
+		With *GadgetData
+			Select ColorType
+				Case #Color_Back_Cold
+					*GadgetData\Theme\BackColor[#Cold] = Color
+				Case #Color_Back_Warm
+					*GadgetData\Theme\BackColor[#Warm] = Color
+				Case #Color_Back_Hot
+					*GadgetData\Theme\BackColor[#Hot] = Color
+				Case #Color_Front_Cold
+					*GadgetData\Theme\FrontColor[#Cold] = Color
+				Case #Color_Front_Warm
+					*GadgetData\Theme\FrontColor[#Warm] = Color
+				Case #Color_Front_Hot
+					*GadgetData\Theme\FrontColor[#Hot] = Color
+				Case #Color_Line
+					*GadgetData\Theme\LineColor = Color
+				Case #Color_Parent
+					*GadgetData\Theme\WindowColor = Color
+			EndSelect
+		EndWith
+	EndProcedure
 	
 	Procedure ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ScrollAreaData, ScrollBar
@@ -2166,6 +2432,15 @@ Module UIToolkit
 		If AccessibilityMode
 			Result = ScrollAreaGadget(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight)
 		Else
+			Result = ContainerGadget(Gadget, x, y, Width - #ScrollArea_Bar_Thickness, Height - #ScrollArea_Bar_Thickness, #PB_Container_BorderLess)
+			
+			If Gadget = #PB_Any
+				Gadget = Result
+			EndIf
+			
+			If ScrollStep = 0
+				ScrollStep = 3
+			EndIf
 			
 			If ScrollbarThickness = 0
 				ScrollBar = ScrollBarGadget(#PB_Any, 0, 0, 100, 20, 0, 10, 1)
@@ -2175,18 +2450,73 @@ Module UIToolkit
 			
 			*GadgetData = AllocateStructure(ScrollAreaData)
 			
-			*GadgetData\Container = ContainerGadget(Gadget, x, y, Width, Height, #PB_Container_BorderLess)
-			*GadgetData\ScrollArea = ScrollAreaGadget(Gadget, 0, 0, Width, Height, ScrollAreaWidth, ScrollAreaHeight)
-			CloseGadgetList()
-			CloseGadgetList()
-			
-			*GadgetData\VerticalScrollbar = ScrollBar(#PB_Any, x + Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, Height, 0, ScrollAreaHeight, Height, #ScrollBar_Vertical)
-			*GadgetData\HorizontalScrollbar = ScrollBar(#PB_Any, x, y + Height - #ScrollArea_Bar_Thickness, Width, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth, Width)
-			
+			With *GadgetData
+				\Gadget = Gadget
+				*this = IsGadget(Gadget)
+				CopyMemory(*this\vt, \vt, SizeOf(GadgetVT))
+				\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *GadgetData\Theme, Theme)
+				Else
+					CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
+				EndIf
+				
+				*GadgetData\ScrollArea = ScrollAreaGadget(#PB_Any, 0, 0, Width - #ScrollArea_Bar_Thickness + ScrollbarThickness, Height - #ScrollArea_Bar_Thickness + ScrollbarThickness, ScrollAreaWidth, ScrollAreaHeight, ScrollStep, #PB_ScrollArea_BorderLess)
+				SetProp_(GadgetID(\ScrollArea), "UITK_ScrollAreaData", *GadgetData)
+				BindGadgetEvent(\ScrollArea, @ScrollArea_Handler())
+				
+				If Flags & #DarkMode
+					SetGadgetColor(\ScrollArea, #PB_Gadget_BackColor, RGB(Red(DarkTheme\WindowColor), Green(DarkTheme\WindowColor), Blue(DarkTheme\WindowColor)))
+				EndIf
+				
+				CloseGadgetList()
+				CloseGadgetList()
+				
+				\Width = Width
+				\Height = Height
+				\VerticalScrollbar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness, \Height, #ScrollBar_Vertical |
+				                                                                                                                                                                                                                     (Bool(Flags & #DarkMode) * #DarkMode) |
+				                                                                                                                                                                                                                     (Bool(Flags & #Vector) * #Vector))
+				BindGadgetEvent(\VerticalScrollbar, @ScrollArea_ScrollbarHandler(), #PB_EventType_Change)
+				SetProp_(GadgetID(\VerticalScrollbar), "UITK_ScrollAreaData", *GadgetData)
+				
+				\HorizontalScrollbar = ScrollBar(#PB_Any, x, y + \Height - #ScrollArea_Bar_Thickness, \Width - #ScrollArea_Bar_Thickness, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth + #ScrollArea_Bar_Thickness, \Width, (Bool(Flags & #DarkMode) * #DarkMode) |
+				                                                                                                                                                                                                                     (Bool(Flags & #Vector) * #Vector))
+				BindGadgetEvent(\HorizontalScrollbar, @ScrollArea_ScrollbarHandler(), #PB_EventType_Change)
+				SetProp_(GadgetID(\HorizontalScrollbar), "UITK_ScrollAreaData", *GadgetData)
+				
+				\VT\GetGadgetAttribute = @ScrollArea_GetAttribute()
+				
+				\VT\SetGadgetAttribute = @ScrollArea_SetAttribute()
+				\VT\SetGadgetColor = @ScrollArea_SetColor()
+				
+				\VT\ResizeGadget = @ScrollArea_Resize()
+				\VT\FreeGadget = @ScrollArea_Free()
+				
+				OpenGadgetList(\ScrollArea)
+			EndWith
 		EndIf
 		
 		ProcedureReturn Result
 	EndProcedure
+	;}
+	
+	;{ One-way List
+	Structure OneWayList Extends GadgetData
+		
+	EndStructure
+	
+	
+	;}
+	
+	;{ Two-way list
+	Structure TwoWayList Extends GadgetData
+		
+	EndStructure
+	
+	
 	;}
 EndModule
 
@@ -2222,6 +2552,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 2184
-; Folding = JsDAAAAIAAYAAAAAAA5
+; CursorPosition = 2392
+; FirstLine = 220
+; Folding = PsDIAAAIAAAAAAAJQYAEU+
 ; EnableXP
