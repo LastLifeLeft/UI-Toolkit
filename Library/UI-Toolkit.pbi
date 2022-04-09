@@ -44,6 +44,7 @@
 		
 		#Color_Parent										; The parent (window or container) color, used for rounded corners and stuff like that
 	EndEnumeration
+	
 	;}
 	
 	;{ Public procedures declaration
@@ -60,6 +61,13 @@
 	Declare OpenWindowGadgetList(Window)
 	Declare SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 	
+	; Menu
+	Declare FlatMenu(ParentID, Flags = #Default)
+	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0)
+	Declare RemoveFlatMenuItem(Menu, Position)
+	Declare AddFlatMenuSeparator(Menu, Position)
+	Declare ShowFlatMenu(FlatMenu, X = -1, Y = -1)
+	
 	; Gadgets
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -68,11 +76,10 @@
 	Declare Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
 	
-	; Misc 
+	; Misc
 	
 	
-	;}
-	
+	;}a
 EndDeclareModule
 
 Module UITK
@@ -1250,6 +1257,304 @@ Module UITK
 		*WindowData\MinHeight = MinHeight
 		*WindowData\MinWidth = MinWidth
 	EndProcedure
+	;}
+	
+	;{ Menu
+	#MenuMinimumWidth = 160
+	#MenuDefaultItemHeight = 21
+	#MenuSeparatorHeight = 9
+	#MenuMargin = 3
+	#MenuItemLeftMargin = 20 + #menuMargin
+	
+	Enumeration ;Menu types
+		#Item
+		#Separator
+	EndEnumeration
+	
+	Structure MenuItem
+		Type.b
+		Text.s
+		Icon.i
+		ID.i
+	EndStructure
+	
+	Structure FlatMenu
+		Window.i
+		Canvas.i
+		Height.i
+		Width.i
+		State.i
+		ItemHeight.i
+		Vector.b
+		FontID.i
+		Theme.Theme
+		*HotItem
+		List Item.MenuItem()
+	EndStructure
+	
+	Procedure FlatMenu_Redraw(*MenuData.FlatMenu)
+		Protected Y = #MenuMargin, VerticalOffset
+		
+		With *MenuData
+			StartDrawing(CanvasOutput(\Canvas))
+			
+			Box(0, 0, \Width, \Height, \Theme\LineColor[#Cold])
+			Box(1, 1, \Width - 2, \Height - 2, \Theme\BackColor[#Cold])
+			
+			DrawingMode(#PB_2DDrawing_Transparent)
+			DrawingFont(\FontID)
+			VerticalOffset = (\ItemHeight - TextHeight("a")) * 0.5
+			
+			ForEach \Item()
+				If \Item()\Type = #Item
+					If ListIndex(\Item()) = \State
+						DrawingMode(#PB_2DDrawing_Default)
+						Box(#MenuMargin, Y,  \Width - 2 * #MenuMargin, \ItemHeight, \Theme\BackColor[#Hot])
+						DrawingMode(#PB_2DDrawing_Transparent)
+						DrawText(#MenuItemLeftMargin, Y + VerticalOffset, \Item()\Text, \Theme\FrontColor[#Hot])
+					Else
+						DrawText(#MenuItemLeftMargin, Y + VerticalOffset, \Item()\Text, \Theme\FrontColor[#Cold])
+					EndIf
+					Y + \ItemHeight
+				Else
+					Line(2 * #MenuMargin, Y + Floor(#MenuSeparatorHeight * 0.5), \Width - 4 * #MenuMargin, 1, \Theme\LineColor[#Cold])
+					Y + #MenuSeparatorHeight
+				EndIf
+			Next
+			
+			StopDrawing()
+		EndWith
+	EndProcedure
+	
+	Procedure FlatMenu_VectorRedraw(*MenuData.FlatMenu)
+		
+		With *MenuData
+			StartVectorDrawing(CanvasVectorOutput(\Canvas))
+			
+			AddPathBox(0, 0, \Width, \Height)
+			VectorSourceColor(\Theme\BackColor[#Cold])
+			FillPath()
+			
+			StopVectorDrawing()
+		EndWith
+	EndProcedure
+	
+	Procedure FlatMenu_CanvasEvent()
+		Protected *MenuData.FlatMenu = GetProp_(GadgetID(EventGadget()), "UITK_MenuData"), Y, MouseY, State = - 1, Redraw
+		
+		With *MenuData
+			Select EventType()
+				Case #PB_EventType_MouseMove ;{
+					MouseY = GetGadgetAttribute(\Canvas, #PB_Canvas_MouseY)
+					Y = #MenuMargin
+					
+					If MouseY > #MenuMargin
+						ForEach \Item()
+							If \Item()\Type = #Item
+								Y + \ItemHeight
+								If MouseY <= Y
+									State = ListIndex(\Item())
+									Break
+								EndIf
+							Else
+								Y + #MenuSeparatorHeight
+								If MouseY <= Y
+									Break
+								EndIf
+							EndIf
+						Next
+					EndIf
+					
+					If State <> \State
+						\State = State
+						Redraw = #True
+					EndIf
+					;}
+				Case #PB_EventType_MouseLeave ;{
+					If \State <> -1
+						\State = -1
+						Redraw = #True
+					EndIf
+					;}
+				Case #PB_EventType_LeftClick ;{
+					If \State > -1
+						SelectElement(\Item(), \State)
+						PostEvent(#PB_Event_Menu, EventWindow(), \Item()\ID)
+						HideWindow(\Window, #True)
+						Redraw = #True
+					EndIf
+					;}
+			EndSelect
+			
+			If Redraw
+				If \Vector
+					FlatMenu_VectorRedraw(*MenuData)
+				Else
+					FlatMenu_Redraw(*MenuData)
+				EndIf
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure FlatMenu_WindowEvent()
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(EventWindow()), "UITK_MenuData"), PreviousState
+		
+		With *MenuData
+			HideWindow(\Window, #True)
+			
+			If \State <> -1
+				PreviousState = \State
+				\State = -1
+				If \Vector
+					FlatMenu_VectorRedraw(*MenuData)
+				Else
+					FlatMenu_Redraw(*MenuData)
+				EndIf
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure FlatMenu(ParentID, Flags = #Default)
+		Protected Result, *MenuData.FlatMenu, GadgetList = UseGadgetList(0)
+		
+		*MenuData = AllocateStructure(FlatMenu)
+		
+		With *MenuData
+			\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, ParentID)
+			\Canvas = CanvasGadget(#PB_Any, 0, 0, #MenuMinimumWidth, 0, #PB_Canvas_Keyboard)
+			\ItemHeight = #MenuDefaultItemHeight
+			\Vector = Bool(Flags & #Vector)
+			\Width = #MenuMinimumWidth
+			\Height = 2 * #MenuMargin
+			\FontID = DefaultFont
+			\State = -1
+			
+			If Flags & #DarkMode
+				CopyStructure(DarkTheme, \Theme, Theme)
+			Else
+				CopyStructure(DefaultTheme, \Theme, Theme)
+			EndIf
+			
+			SetProp_(WindowID(\Window), "UITK_MenuData", *MenuData)
+			SetProp_(GadgetID(\Canvas), "UITK_MenuData", *MenuData)
+			
+			BindEvent(#PB_Event_DeactivateWindow, @FlatMenu_WindowEvent(), \Window)
+			BindGadgetEvent(\Canvas, @FlatMenu_CanvasEvent())
+			
+			UseGadgetList(GadgetList)
+		EndWith
+		ProcedureReturn *MenuData\Window
+	EndProcedure
+	
+	Procedure ShowFlatMenu(FlatMenu, X = -1, Y = -1)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
+		
+		ExamineDesktops()
+		
+		If X = -1 And Y = -1
+			X = DesktopMouseX()
+			Y = DesktopMouseY()
+		EndIf
+		
+		ResizeWindow(*MenuData\Window, X, Y, #PB_Ignore, #PB_Ignore)
+		HideWindow(*MenuData\Window, #False)
+		SetActiveGadget(*MenuData\Canvas)
+	EndProcedure
+	
+	Procedure AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0) 
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData"), TextWidth
+		
+		With *MenuData
+			If Position < 0 Or Position >= ListSize(\Item())
+				LastElement(\Item())
+				AddElement(\Item())
+			Else
+				SelectElement(\Item(), Position)
+				InsertElement(\Item())
+			EndIf
+			
+			\Item()\Type = #Item
+			\Item()\Text = Text
+			\Item()\ID = MenuItem
+			\Height + \ItemHeight
+			
+			If \Vector
+				StartVectorDrawing(CanvasVectorOutput(\Canvas))
+				VectorFont(\FontID)
+				TextWidth = VectorTextWidth(Text)
+				StopVectorDrawing()
+			Else
+				StartDrawing(CanvasOutput(\Canvas))
+				DrawingFont(\FontID)
+				TextWidth = TextWidth(Text)
+				StopDrawing()
+			EndIf
+			
+			If TextWidth + #MenuItemLeftMargin + #MenuMargin > \Width
+				\Width = TextWidth + #MenuItemLeftMargin + #MenuMargin
+			EndIf
+			
+			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width, \Height)
+			ResizeGadget(\Canvas, 0, 0, \Width, \Height)
+			
+			If \Vector
+				FlatMenu_VectorRedraw(*MenuData)
+			Else
+				FlatMenu_Redraw(*MenuData)
+			EndIf
+			
+		EndWith
+	EndProcedure
+		
+	Procedure AddFlatMenuSeparator(Menu, Position)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+		
+		With *MenuData
+			If Position < 0 Or Position >= ListSize(\Item())
+				LastElement(\Item())
+				AddElement(\Item())
+			Else
+				SelectElement(\Item(), Position)
+				InsertElement(\Item())
+			EndIf
+			
+			\Item()\Type = #Separator
+			
+			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width, \Height)
+			ResizeGadget(\Canvas, 0, 0, \Width, \Height)
+			
+			\Height + #MenuSeparatorHeight
+			
+			If \Vector
+				FlatMenu_VectorRedraw(*MenuData)
+			Else
+				FlatMenu_Redraw(*MenuData)
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure RemoveFlatMenuItem(Menu, Position)
+		
+		
+	EndProcedure
+
+	; Getters
+	Procedure FlatMenuWidth(FlatMenu)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
+		
+		ProcedureReturn *MenuData\Width
+	EndProcedure
+	
+	Procedure FlatMenuHeight(FlatMenu)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
+		
+		ProcedureReturn *MenuData\Height
+	EndProcedure
+	
+	; Setters
+	
 	;}
 	
 	; Gadgets :
@@ -2552,7 +2857,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 2392
-; FirstLine = 220
-; Folding = PsDIAAAIAAAAAAAJQYAEU+
+; CursorPosition = 1383
+; FirstLine = 150
+; Folding = PsDAAAAIAAAYJCAAAAACBAAw
 ; EnableXP
