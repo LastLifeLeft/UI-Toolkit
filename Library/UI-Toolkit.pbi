@@ -63,7 +63,8 @@
 	Declare Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
 	Declare OpenWindowGadgetList(Window)
 	Declare SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
-	
+	Declare SetWindowIcon(Window, Image)
+	Declare GetWindowIcon(Window)
 	; Menu
 	Declare FlatMenu(Flags = #Default)
 	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0)
@@ -560,6 +561,23 @@ Module UITK
 		CompilerEndIf  
 	EndProcedure
 	
+	; Is this still needed?
+	Procedure CurrentWindow()
+		Protected Window =- 1
+		PB_Object_EnumerateStart(PB_Window_Objects)
+		If PB_Window_Objects
+			While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+				If WindowID(Window) = UseGadgetList(0)
+					Break
+				EndIf
+			Wend
+			PB_Object_EnumerateAbort(PB_Window_Objects) 
+		EndIf
+		
+		ProcedureReturn Window
+	EndProcedure
+	
+	; Default functions
 	#TextBlock_ImageMargin = 3
 	
 	Macro _PrepareTextBox(Mode, Font, Output, TextSize)
@@ -700,7 +718,7 @@ Module UITK
 		Next
 		
 		If *TextData\Image
-			DrawImage(ImageID(*TextData\Image), X + *TextData\ImageX, Y + *TextData\ImageY)
+			DrawAlphaImage(ImageID(*TextData\Image), X + *TextData\ImageX, Y + *TextData\ImageY)
 		EndIf
 	EndProcedure
 	
@@ -717,23 +735,6 @@ Module UITK
 		
 	EndProcedure
 	
-	; Is this still needed?
-	Procedure CurrentWindow()
-		Protected Window =- 1
-		PB_Object_EnumerateStart(PB_Window_Objects)
-		If PB_Window_Objects
-			While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
-				If WindowID(Window) = UseGadgetList(0)
-					Break
-				EndIf
-			Wend
-			PB_Object_EnumerateAbort(PB_Window_Objects) 
-		EndIf
-		
-		ProcedureReturn Window
-	EndProcedure
-	
-	; Default functions
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
 		
@@ -1059,7 +1060,6 @@ Module UITK
 	#SizableBorder = 8
 	#WindowButtonWidth = 45
 	#WindowBarHeight = 30
-	#MenuLabelOffset = #SizableBorder
 	
 	Structure ThemedWindow
 		*Brush
@@ -1088,6 +1088,7 @@ Module UITK
 	Structure WindowBar
 		*Parent
 		*OriginalProc
+		sizeCursor.l
 	EndStructure
 	
 	Structure WindowContainer
@@ -1161,9 +1162,9 @@ Module UITK
 				EndIf
 				
 				If *WindowData\LabelAlign = #HAlignRight
-					SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, #MenuLabelOffset, 0, 0, #SWP_NOSIZE)
+					SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, 0, 0, 0, #SWP_NOSIZE)
 				ElseIf *WindowData\LabelAlign = #HAlignCenter
-					SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, #MenuLabelOffset, 0, 0, #SWP_NOSIZE)
+					SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 0, 0, 0, #SWP_NOSIZE)
 				EndIf
 				
 				ResizeGadget(*WindowData\Container, #PB_Ignore, #PB_Ignore, *WindowData\Width, *WindowData\Height - #WindowBarHeight)
@@ -1332,7 +1333,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure WindowBar_Handler(hWnd, Msg, wParam, lParam)
-		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UITK_WindowBarData")
+		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UITK_WindowBarData"), *WindowData.ThemedWindow, posX, posY
 		If msg = #WM_LBUTTONDBLCLK
 			If IsZoomed_(*WindowBarData\Parent)
 				ShowWindow_(*WindowBarData\Parent, #SW_RESTORE)
@@ -1340,7 +1341,24 @@ Module UITK
 				ShowWindow_(*WindowBarData\Parent, #SW_MAXIMIZE)
 			EndIf
 		ElseIf msg = #WM_LBUTTONDOWN
-			SendMessage_(*WindowBarData\Parent, #WM_NCLBUTTONDOWN, #HTCAPTION, 0)
+			If *WindowBarData\sizeCursor = 0
+				SendMessage_(*WindowBarData\Parent, #WM_NCLBUTTONDOWN, #HTCAPTION, 0)
+			Else
+				SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+				SendMessage_(*WindowBarData\Parent, #WM_NCLBUTTONDOWN, *WindowBarData\sizeCursor, 0)
+			EndIf
+		ElseIf  msg = #WM_MOUSEMOVE
+			*WindowData.ThemedWindow = GetProp_(*WindowBarData\Parent, "UITK_WindowData")
+			
+			posX = lParam & $FFFF
+			posY = (lParam >> 16) & $FFFF
+			*WindowBarData\sizeCursor = 0
+			
+			If posY < #SizableBorder
+				SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+				*WindowBarData\sizeCursor = #HTTOP
+			EndIf
+			
 		EndIf
 		
 		ProcedureReturn CallWindowProc_(*WindowBarData\OriginalProc, hWnd, Msg, wParam, lParam)
@@ -1440,7 +1458,7 @@ Module UITK
 				EndIf
 			EndIf
 			
-			*WindowData\Label = Label(#PB_Any, #MenuLabelOffset, #MenuLabelOffset, *WindowData\Width - OffsetX, #WindowBarHeight - #MenuLabelOffset , Title, (Bool(Flags & #DarkMode) * #DarkMode) | #HAlignLeft)
+			*WindowData\Label = Label(#PB_Any, #SizableBorder, 0, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Bool(Flags & #DarkMode) * #DarkMode) | #HAlignLeft | #VAlignCenter)
 			If Flags & #DarkMode
 				SetGadgetColor(*WindowData\Label, #Color_Parent, SetAlpha(FixColor($202225), 255))
 			Else
@@ -1491,6 +1509,28 @@ Module UITK
 		
 		*WindowData\MinHeight = MinHeight
 		*WindowData\MinWidth = MinWidth
+	EndProcedure
+	
+	Procedure SetWindowIcon(Window, Image)
+		Protected *WindowData.ThemedWindow
+		
+		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+		SetGadgetImage(*WindowData\Label, Image)
+		*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
+		ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
+		
+		If *WindowData\LabelAlign = #HAlignRight
+			SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - (*WindowData\ButtonClose + *WindowData\ButtonMaximize + *WindowData\ButtonMinimize) * #WindowButtonWidth, 0, 0, 0, #SWP_NOSIZE)
+		ElseIf *WindowData\LabelAlign = #HAlignCenter
+			SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 0, 0, 0, #SWP_NOSIZE)
+		EndIf
+	EndProcedure
+	
+	Procedure GetWindowIcon(Window)
+		Protected *WindowData.ThemedWindow
+		
+		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+		ProcedureReturn GetGadgetImage(*WindowData\Label)
 	EndProcedure
 	;}
 	
@@ -3028,6 +3068,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 696
-; Folding = JYDAIAAIAAAAAIAABAAACAAg
+; CursorPosition = 1347
+; FirstLine = 154
+; Folding = NYDAIAAIgEB5BgAAEAAAIAAA+
 ; EnableXP
