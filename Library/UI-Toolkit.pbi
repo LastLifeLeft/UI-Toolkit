@@ -3,9 +3,12 @@
 	EnumerationBinary ; Gadget flags
 		; General
 		#Default
-		#AlignCenter									; Center text
-		#AlignLeft										; Align text left
-		#AlignRight										; Align text right
+		#HAlignCenter									; Center text
+		#HAlignLeft										; Align text left
+		#HAlignRight									; Align text right
+		#VAlignTop										; Align text top
+		#VAlignCenter									; Center text
+		#VAlignBottom									; Align text bottom
 		#Vector											; Gadget drawn in vector mode
 		#Border											; Draw a border arround the gadget
 		#DarkMode										; Use the dark color scheme
@@ -62,7 +65,7 @@
 	Declare SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 	
 	; Menu
-	Declare FlatMenu(ParentID, Flags = #Default)
+	Declare FlatMenu(Flags = #Default)
 	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0)
 	Declare RemoveFlatMenuItem(Menu, Position)
 	Declare AddFlatMenuSeparator(Menu, Position)
@@ -79,7 +82,7 @@
 	; Misc
 	
 	
-	;}a
+	;}
 EndDeclareModule
 
 Module UITK
@@ -113,6 +116,22 @@ Module UITK
 			*GadgetData\Redraw = @GadgetType#_Redraw()
 		EndIf
 		
+		If Flags & #HAlignCenter
+			*GadgetData\TextBock\HAlign = #HAlignCenter
+		ElseIf Flags & #HAlignRight
+			*GadgetData\TextBock\HAlign = #HAlignRight
+		Else
+			*GadgetData\TextBock\HAlign = #HAlignLeft
+		EndIf
+		
+		If Flags & #VAlignCenter
+			*GadgetData\TextBock\VAlign = #VAlignCenter
+		ElseIf Flags & #VAlignBottom
+			*GadgetData\TextBock\VAlign = #VAlignBottom
+		Else
+			*GadgetData\TextBock\VAlign = #VAlignTop
+		EndIf
+		
 		*GadgetData\FontID = DefaultFont
 		
 		*GadgetData\EventHandler = @GadgetType#_EventHandler()
@@ -125,13 +144,18 @@ Module UITK
 		*GadgetData\VT\GetGadgetColor = @Default_GetColor()
 		*GadgetData\VT\GetGadgetState = @Default_GetState()
 		*GadgetData\VT\GetRequiredSize = @Default_GetRequiredSize()
+		*GadgetData\VT\GetGadgetText = @Default_GetText()
 		
 		; Setters
 		*GadgetData\VT\SetGadgetFont = @Default_SetFont()
 		*GadgetData\VT\SetGadgetColor = @Default_SetColor()
 		*GadgetData\VT\SetGadgetState = @Default_SetState()
+		*GadgetData\VT\SetGadgetText = @Default_SetText()
 		
 		*GadgetData\DefaultEventHandler = @Default_EventHandle()
+		
+		*GadgetData\TextBock\LineLimit = -1
+		*GadgetData\TextBock\FontID = DefaultFont
 		
 		BindGadgetEvent(Gadget, *GadgetData\DefaultEventHandler)
 	EndMacro
@@ -164,6 +188,14 @@ Module UITK
 		EndIf
 	EndMacro
 	
+	Macro PrepareText()
+		If *GadgetData\Vector
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+		Else
+			PrepareTextBlock(@*GadgetData\TextBock)
+		EndIf
+	EndMacro
+	
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows ; Fix color
 		Macro FixColor(Color)
 			RGB(Blue(Color), Green(Color), Red(Color))
@@ -193,11 +225,7 @@ Module UITK
 	EndMacro
 	
 	Macro BorderMargin
-		TextHeight(\Text) * 0.5 * \Border
-	EndMacro
-	
-	Macro VectorBorderMargin
-		Floor(VectorTextHeight(\Text) * 0.5 * \Border)
+		7 * \Border
 	EndMacro
 	;}
 	
@@ -355,6 +383,27 @@ Module UITK
 		MouseY.l
 	EndStructure
 	
+	Structure Line
+		Text.s
+		X.l
+		Y.l
+	EndStructure
+	
+	Structure Text
+		OriginalText.s
+		List Strings.Line()
+		LineCount.b
+		LineLimit.b
+		Image.i
+		FontID.i
+		HAlign.b
+		VAlign.b
+		Width.l
+		Height.l
+		RequieredWidth.w
+		RequieredHeight.w
+	EndStructure
+	
 	Structure Theme
 		BackColor.l[4]
 		FrontColor.l[4]
@@ -386,14 +435,13 @@ Module UITK
 		
 		SupportedEvent.b[#__EVENTSIZE]
 		
-		TextAlignement.b
-		
-		RequieredWidth.w
-		RequieredHeight.w
+		HMargin.w
+		VMargin.w
 		
 		Redraw.Redraw
 		EventHandler.EventHandler
 		Theme.Theme
+		TextBock.Text
 		ParentWindow.i
 		
 		*DefaultEventHandler
@@ -454,7 +502,9 @@ Module UITK
 	EndWith
 	;}
 	
-	; Procedures
+	
+	;Procedures
+	
 	;{ General
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 		Import ""
@@ -472,14 +522,166 @@ Module UITK
 		EndImport
 	CompilerEndIf
 	
-	Procedure DrawTextBlock()
+	; Math
+	Procedure Clamp(Value, Min, Max)
+		If Value < Min
+			Value = Min
+		EndIf
 		
+		If Value > Max
+			Value = Max
+		EndIf
+		
+		ProcedureReturn Value
 	EndProcedure
 	
-	Procedure DrawVectorTextBlock()
-		
+	Procedure Min(A, B)
+		If A > B
+			ProcedureReturn B
+		EndIf
+		ProcedureReturn A
 	EndProcedure
 	
+	Procedure Max(A, B)
+		If A < B
+			ProcedureReturn B
+		EndIf
+		ProcedureReturn A
+	EndProcedure
+	
+	Procedure GetGadgetParent(Gadget.i)
+		CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+			ProcedureReturn GetParent_(Gadget)
+		CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux
+			ProcedureReturn Gtk_Widget_Get_Parent_(Gadget)
+		CompilerEndIf  
+	EndProcedure
+	
+	#TextBlock_ImageMargin = 3
+	
+	Macro _PrepareTextBox(Mode, Font, Output, TextSize)
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, ImageWidth, ImageHeight, TextHeight, MaxLine, Y, Width
+		
+		ClearList(*TextData\Strings())
+		*TextData\RequieredHeight = 0
+		*TextData\RequieredWidth = 0
+		
+		String = ReplaceString(*TextData\OriginalText, #CRLF$, #CR$)
+		String = ReplaceString(String, #LF$, #CR$)
+		
+		Count = CountString(String, #CR$) + 1
+		
+		Image = CreateImage(#PB_Any, 10, 19)
+		Start#Mode(Output(Image))
+		Font(*TextData\FontID)
+		TextHeight = TextSize#Height("a")
+		MaxLine = Floor(*TextData\Height / TextHeight)
+		
+		*TextData\RequieredHeight = TextHeight * Count
+		
+		For Loop = 1 To Count
+			AddElement(StringList())
+			StringList() = Trim(StringField(String, Loop, #CR$))
+			Width = TextSize#Width(StringList())
+			If Width > *TextData\RequieredWidth
+				*TextData\RequieredWidth = Width
+			EndIf
+		Next
+		
+		If *TextData\Image
+			ImageWidth = ImageWidth(*TextData\Image) + #TextBlock_ImageMargin
+			ImageHeight = ImageHeight(*TextData\Image)
+			*TextData\RequieredWidth + ImageWidth
+		EndIf
+		
+		Width = *TextData\Width - ImageWidth
+				
+		If *TextData\LineLimit > 0
+			MaxLine = Min(MaxLine, *TextData\LineLimit)
+		EndIf
+		
+		ForEach StringList()
+			String = ""
+			Count = CountString(StringList(), " ") + 1
+			
+			For Loop = 1 To Count
+				Word = StringField(StringList(), Loop, " ")
+				
+				If TextSize#Width(String + Word) > Width
+					AddElement(*TextData\Strings())
+					*TextData\Strings()\Text = Trim(String)
+					
+					; edge case! What if a word is wider than the width of the whole thingy?
+					; 1) check if there is still space at the end of the previous string and put it there (at least 3 characters + ...)
+					
+					
+					; 2) If not, create a new line with just the current word (shortened and add ...)
+					
+					String = ""
+					
+					If ListSize(*TextData\Strings()) >= MaxLine
+						Break 2
+					EndIf
+				EndIf
+				
+				String + Word + " "
+			Next
+			
+			String = Trim(String)
+			
+			If String <> ""
+				AddElement(*TextData\Strings())
+				*TextData\Strings()\Text = Trim(String)
+				If ListSize(*TextData\Strings()) >= MaxLine
+					Break
+				EndIf
+			EndIf
+		Next
+		
+		If *TextData\VAlign = #VAlignCenter
+			Y = (*TextData\Height - ListSize(*TextData\Strings()) * TextHeight) * 0.5
+		ElseIf *TextData\VAlign = #VAlignBottom
+			Y = *TextData\Height - ListSize(*TextData\Strings()) * TextHeight
+		EndIf
+		
+		ForEach *TextData\Strings()
+			If *TextData\HAlign = #HAlignCenter
+				*TextData\Strings()\X = (Width - TextSize#Width(*TextData\Strings()\Text)) * 0.5
+			ElseIf *TextData\HAlign = #HAlignRight
+				*TextData\Strings()\X = Width - TextSize#Width(*TextData\Strings()\Text)
+			Else
+				*TextData\Strings()\X = ImageWidth
+			EndIf
+			
+			*TextData\Strings()\Y = Y + ListIndex(*TextData\Strings()) * TextHeight
+		Next
+		
+		Stop#Mode()
+		FreeImage(Image)
+	EndMacro
+	
+	Procedure PrepareVectorTextBlock(*TextData.Text)
+		_PrepareTextBox(VectorDrawing, VectorFont, ImageVectorOutput, VectorText)
+	EndProcedure
+	
+	Procedure PrepareTextBlock(*TextData.Text)
+		_PrepareTextBox(Drawing, DrawingFont, ImageOutput, Text)
+	EndProcedure
+	
+	Procedure DrawTextBlock(*TextData.Text, X, Y)
+		ForEach *TextData\Strings()
+			DrawText(X + *TextData\Strings()\X, Y + *TextData\Strings()\Y, *TextData\Strings()\Text)
+		Next
+	EndProcedure
+	
+	Procedure DrawVectorTextBlock(*TextData.Text, X, Y)
+		ForEach *TextData\Strings()
+			MovePathCursor(X + *TextData\Strings()\X, Y + *TextData\Strings()\Y, #PB_Path_Default)
+			DrawVectorText(*TextData\Strings()\Text)
+		Next
+	EndProcedure
+	
+	; Is this still needed?
 	Procedure CurrentWindow()
 		Protected Window =- 1
 		PB_Object_EnumerateStart(PB_Window_Objects)
@@ -495,6 +697,7 @@ Module UITK
 		ProcedureReturn Window
 	EndProcedure
 	
+	; Default functions
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
 		
@@ -652,7 +855,7 @@ Module UITK
 		
 		
 	EndProcedure
-	
+
 	Procedure Default_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
 		
@@ -662,7 +865,8 @@ Module UITK
 		
 		*this\vt = *GadgetData\OriginalVT
 		FreeStructure(*GadgetData)
-		CallFunctionFast(*this\vt\FreeGadget, *this)
+		
+		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
 	
 	Procedure Default_DisableGadget(*This.PB_Gadget, MouseState) ; Wut? Doesn't exist?
@@ -686,6 +890,7 @@ Module UITK
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
 			
+			PrepareText()
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -736,8 +941,13 @@ Module UITK
 	Procedure Default_GetRequiredSize(*This.PB_Gadget, *Width, *Height)
 		Protected *GadgetData.GadgetData = *this\vt
 		
-		PokeW(*Width, *GadgetData\RequieredWidth)
-		PokeW(*Height, *GadgetData\RequieredHeight)
+		PokeW(*Width, *GadgetData\TextBock\RequieredWidth + *GadgetData\HMargin * 2)
+		PokeW(*Height, *GadgetData\TextBock\RequieredHeight + *GadgetData\VMargin * 2)
+	EndProcedure
+	
+	Procedure.s Default_GetText(*this.PB_Gadget)
+		Protected *GadgetData.GadgetData = *this\vt
+		ProcedureReturn *GadgetData\TextBock\OriginalText
 	EndProcedure
 	
 	; Setters
@@ -750,7 +960,7 @@ Module UITK
 	
 	Procedure Default_SetFont(*this.PB_Gadget, FontID)
 		Protected *GadgetData.GadgetData = *this\vt
-		*GadgetData\FontID = FontID
+		*GadgetData\TextBock\FontID = FontID
 		RedrawObject()
 	EndProcedure
 	
@@ -786,39 +996,11 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	; Math
-	Procedure Clamp(Value, Min, Max)
-		If Value < Min
-			Value = Min
-		EndIf
-		
-		If Value > Max
-			Value = Max
-		EndIf
-		
-		ProcedureReturn Value
-	EndProcedure
-	
-	Procedure Min(A, B)
-		If A > B
-			ProcedureReturn B
-		EndIf
-		ProcedureReturn A
-	EndProcedure
-	
-	Procedure Max(A, B)
-		If A < B
-			ProcedureReturn B
-		EndIf
-		ProcedureReturn A
-	EndProcedure
-	
-	Procedure GetGadgetParent(Gadget.i)
-		CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-			ProcedureReturn GetParent_(Gadget)
-		CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux
-			ProcedureReturn Gtk_Widget_Get_Parent_(Gadget)
-		CompilerEndIf  
+	Procedure Default_SetText(*this.PB_Gadget, Text.s)
+		Protected *GadgetData.GadgetData = *this\vt
+		*GadgetData\TextBock\OriginalText = Text
+		PrepareText()
+		RedrawObject()
 	EndProcedure
 	;}
 	
@@ -886,7 +1068,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Window_Handler(hWnd, Msg, wParam, lParam)
-		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UITK_WindowData"), cursor.POINT, OffsetX
+		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UITK_WindowData"), cursor.POINT, OffsetX, OriginalProc
 		
 		Select Msg
 			Case #WM_GETMINMAXINFO ;{
@@ -928,9 +1110,9 @@ Module UITK
 					ResizeGadget(*WindowData\ButtonMinimize, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 				EndIf
 				
-				If *WindowData\LabelAlign = #AlignRight
+				If *WindowData\LabelAlign = #HAlignRight
 					SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, #MenuLabelOffset, 0, 0, #SWP_NOSIZE)
-				ElseIf *WindowData\LabelAlign = #AlignCenter
+				ElseIf *WindowData\LabelAlign = #HAlignCenter
 					SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, #MenuLabelOffset, 0, 0, #SWP_NOSIZE)
 				EndIf
 				
@@ -1038,7 +1220,10 @@ Module UITK
 				EndIf
 				
 				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, *WindowData\OriginalProc)
-				ProcedureReturn 0
+				OriginalProc = *WindowData\OriginalProc
+				FreeStructure(*WindowData)
+				
+				ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
 				;}
 		EndSelect
 		
@@ -1205,7 +1390,7 @@ Module UITK
 				EndIf
 			EndIf
 			
-			*WindowData\Label = Label(#PB_Any, #MenuLabelOffset, #MenuLabelOffset, *WindowData\Width - OffsetX, #WindowBarHeight - #MenuLabelOffset , Title, (Bool(Flags & #DarkMode) * #DarkMode) | #AlignLeft)
+			*WindowData\Label = Label(#PB_Any, #MenuLabelOffset, #MenuLabelOffset, *WindowData\Width - OffsetX, #WindowBarHeight - #MenuLabelOffset , Title, (Bool(Flags & #DarkMode) * #DarkMode) | #HAlignLeft)
 			If Flags & #DarkMode
 				SetGadgetColor(*WindowData\Label, #Color_Parent, SetAlpha(FixColor($202225), 255))
 			Else
@@ -1214,12 +1399,12 @@ Module UITK
 			*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
 			ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
 			
-			If Flags & #AlignRight
-				*WindowData\LabelAlign = #AlignRight
-			ElseIf Flags & #AlignCenter
-				*WindowData\LabelAlign = #AlignCenter
+			If Flags & #HAlignRight
+				*WindowData\LabelAlign = #HAlignRight
+			ElseIf Flags & #HAlignCenter
+				*WindowData\LabelAlign = #HAlignCenter
 			Else
-				*WindowData\LabelAlign = #AlignLeft
+				*WindowData\LabelAlign = #HAlignLeft
 			EndIf
 			
 			*WindowBarData = AllocateStructure(WindowBar)
@@ -1261,10 +1446,11 @@ Module UITK
 	
 	;{ Menu
 	#MenuMinimumWidth = 160
-	#MenuDefaultItemHeight = 21
 	#MenuSeparatorHeight = 9
 	#MenuMargin = 3
 	#MenuItemLeftMargin = 20 + #menuMargin
+	
+	Global MenuWindow
 	
 	Enumeration ;Menu types
 		#Item
@@ -1415,20 +1601,35 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure FlatMenu(ParentID, Flags = #Default)
+	Procedure FlatMenu(Flags = #Default)
 		Protected Result, *MenuData.FlatMenu, GadgetList = UseGadgetList(0)
+		
+		If Not MenuWindow
+			MenuWindow = WindowID(OpenWindow(#PB_Any, 0, 0, 100, 100, "Menu Parent", #PB_Window_Invisible | #PB_Window_SystemMenu))
+		EndIf
 		
 		*MenuData = AllocateStructure(FlatMenu)
 		
 		With *MenuData
-			\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, ParentID)
+			\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, MenuWindow)
 			\Canvas = CanvasGadget(#PB_Any, 0, 0, #MenuMinimumWidth, 0, #PB_Canvas_Keyboard)
-			\ItemHeight = #MenuDefaultItemHeight
+			\FontID = DefaultFont
 			\Vector = Bool(Flags & #Vector)
 			\Width = #MenuMinimumWidth
 			\Height = 2 * #MenuMargin
-			\FontID = DefaultFont
 			\State = -1
+			
+			If \Vector
+				StartVectorDrawing(CanvasVectorOutput(\Canvas))
+				VectorFont(\FontID)
+				\ItemHeight = Round(VectorTextHeight("A") * 1.4, #PB_Round_Nearest)
+				StopVectorDrawing()
+			Else
+				StartDrawing(CanvasOutput(\Canvas))
+				DrawingFont(\FontID)
+				\ItemHeight = Round(TextHeight("A") * 1.4, #PB_Round_Nearest)
+				StopDrawing()
+			EndIf
 			
 			If Flags & #DarkMode
 				CopyStructure(DarkTheme, \Theme, Theme)
@@ -1560,9 +1761,8 @@ Module UITK
 	; Gadgets :
 	
 	;{ Button
+	#Button_Margin = 3
 	Structure ButtonData Extends GadgetData
-		Text.s
-		Icon.b
 		Toggle.b
 	EndStructure
 	
@@ -1572,15 +1772,10 @@ Module UITK
 		With *GadgetData
 			Box(\OriginX, \OriginY, \Width, \Height, \Theme\BackColor[\MouseState])
 			
-			DrawingFont(\FontID)
-			
-			If \TextAlignement = #AlignRight
-				DrawText((\Width - TextWidth(\Text)) - BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\MouseState], \Theme\BackColor[\MouseState])
-			ElseIf \TextAlignement = #AlignLeft
-				DrawText(BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\MouseState], \Theme\BackColor[\MouseState])
-			Else
-				DrawText((\Width - TextWidth(\Text)) * 0.5, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\MouseState], \Theme\BackColor[\MouseState])
-			EndIf
+			DrawingFont(\TextBock\FontID)
+			FrontColor(\Theme\FrontColor[\MouseState])
+			BackColor(\Theme\BackColor[\MouseState])
+			DrawTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin)
 		EndWith
 	EndProcedure
 	
@@ -1591,17 +1786,10 @@ Module UITK
 			VectorSourceColor(\Theme\BackColor[\MouseState])
 			FillPath()
 			
-			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[\MouseState])
+			VectorFont(\TextBock\FontID)
 			
-			If \TextAlignement = #AlignRight
-				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-			ElseIf \TextAlignement = #AlignLeft
-				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-			Else
-				MovePathCursor(Floor((\Width - VectorTextWidth(\Text)) * 0.5), Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-			EndIf
-			DrawVectorText(\Text)
+			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin)
 			
 		EndWith
 	EndProcedure
@@ -1665,25 +1853,16 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	; Getters
-	Procedure.s Button_GetText(*this.PB_Gadget)
-		Protected *GadgetData.ButtonData = *this\vt
-		ProcedureReturn *GadgetData\Text
-	EndProcedure
-	
-	; Setters
-	Procedure Button_SetText(*this.PB_Gadget, Text.s)
-		Protected *GadgetData.ButtonData = *this\vt
-		*GadgetData\Text = Text
-		RedrawObject()
+	Procedure Button_Free()
+		
 	EndProcedure
 	
 	Procedure Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ButtonData
 		
 		If AccessibilityMode
-			Result = ButtonGadget(Gadget, x, y, Width, Height, Text.s, (Bool(Flags & #AlignLeft) * #PB_Button_Left) | 
-			                                                           (Bool(Flags & #AlignRight) * #PB_Button_Right) |
+			Result = ButtonGadget(Gadget, x, y, Width, Height, Text.s, (Bool(Flags & #HAlignLeft) * #PB_Button_Left) | 
+			                                                           (Bool(Flags & #HAlignRight) * #PB_Button_Right) |
 			                                                           (Bool(Flags & #Button_Toggle) * #PB_Button_Toggle))
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
@@ -1696,20 +1875,33 @@ Module UITK
 				InitializeObject(Button)
 				
 				With *GadgetData
-					
-					\Text = Text
-					
 					\Toggle = Bool(Flags & #Button_Toggle)
-					If Flags & #AlignLeft
-						\TextAlignement = #AlignLeft
-					ElseIf Flags & #AlignRight
-						\TextAlignement = #AlignRight
+					\TextBock\OriginalText = Text
+					
+					; Button alignement is different from default alignement.
+					If Flags & #VAlignTop
+						\TextBock\VAlign = #VAlignTop
+					ElseIf Flags & #VAlignBottom
+						\TextBock\VAlign = #VAlignBottom
+					Else
+						\TextBock\VAlign = #VAlignCenter
 					EndIf
 					
-					; Functions
-					\VT\GetGadgetText = @Button_GetText()
+					If Flags & #HAlignLeft
+						*GadgetData\TextBock\HAlign = #HAlignLeft
+					ElseIf Flags & #HAlignRight
+						*GadgetData\TextBock\HAlign = #HAlignRight
+					Else
+						*GadgetData\TextBock\HAlign = #HAlignCenter
+					EndIf
 					
-					\VT\SetGadgetText = @Button_SetText()
+					\HMargin = #Button_Margin + \Border
+					\VMargin = #Button_Margin
+					
+					\TextBock\Width = Width - \HMargin * 2
+					\TextBock\Height = Height - \VMargin * 2
+					
+					PrepareText()
 					
 					; Enable only the needed events
 					\SupportedEvent[#LeftClick] = #True
@@ -1733,7 +1925,6 @@ Module UITK
 	#ToggleSize = 20
 	
 	Structure ToggleData Extends GadgetData
-		Text.s
 	EndStructure
 	
 	Procedure Toggle_Redraw(*this.PB_Gadget)
@@ -1742,12 +1933,13 @@ Module UITK
 		With *GadgetData
 			DrawingFont(\FontID)
 			DrawingMode(#PB_2DDrawing_Transparent)
+			FrontColor(\Theme\FrontColor[\MouseState])
 			
-			If \TextAlignement = #AlignRight
-				DrawText((\Width - TextWidth(\Text)) - BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\MouseState])
+			If \TextBock\HAlign = #HAlignRight
+				DrawTextBlock(@\TextBock, X + \HMargin * 2, Y)
 				X = #ToggleSize * 0.5 + BorderMargin
 			Else
-				DrawText(BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\MouseState])
+				DrawTextBlock(@\TextBock, X, Y)
 				X = \Width - #ToggleSize * 1.5 - BorderMargin - 1
 			EndIf
 			
@@ -1774,15 +1966,13 @@ Module UITK
 			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[\MouseState])
 			
-			If \TextAlignement = #AlignRight
-				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-				X = \OriginX + ToggleSize * 0.5 + VectorBorderMargin
+			If \TextBock\HAlign = #HAlignRight
+				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
+				X = \OriginX + ToggleSize * 0.5 + BorderMargin
 			Else
-				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-				X = \OriginX + \Width - ToggleSize * 1.5 - VectorBorderMargin
+				DrawVectorTextBlock(@\TextBock, X, Y)
+				X = \OriginX + \Width - ToggleSize * 1.5 - BorderMargin
 			EndIf
-			
-			DrawVectorText(\Text)
 			
 			Y = \OriginY + Floor((\Height - ToggleSize) * 0.5 + ToggleSize * 0.5)
 			
@@ -1840,19 +2030,6 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	; Getters
-	Procedure.s Toggle_GetText(*this.PB_Gadget)
-		Protected *GadgetData.ToggleData = *this\vt
-		ProcedureReturn *GadgetData\Text
-	EndProcedure
-	
-	; Setters
-	Procedure Toggle_SetText(*this.PB_Gadget, Text.s)
-		Protected *GadgetData.ToggleData = *this\vt
-		*GadgetData\Text = Text
-		RedrawObject()
-	EndProcedure
-	
 	Procedure Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ToggleData
 		
@@ -1866,16 +2043,19 @@ Module UITK
 			InitializeObject(Toggle)
 			
 			With *GadgetData
-				\Text = Text
+				\TextBock\Width = Width - #ToggleSize * 2 - BorderMargin * 2
+				\TextBock\Height = Height - BorderMargin * 2
+				\TextBock\OriginalText = Text
+				\HMargin = #ToggleSize + BorderMargin
+				\VMargin = BorderMargin
 				
-				If Flags & #AlignRight
-					\TextAlignement = #AlignRight
+				If Flags & #HAlignCenter
+					\TextBock\HAlign = #HAlignLeft
 				EndIf
 				
-				; Functions
-				\VT\GetGadgetText = @Toggle_GetText()
+				\TextBock\VAlign = #VAlignCenter
 				
-				\VT\SetGadgetText = @Toggle_SetText()
+				PrepareText()
 				
 				; Enable only the needed events
 				\SupportedEvent[#LeftClick] = #True
@@ -1898,7 +2078,6 @@ Module UITK
 	#CheckboxSize = 20
 	
 	Structure CheckBoxData Extends GadgetData
-		Text.s
 	EndStructure
 	
 	Procedure CheckBox_Redraw(*this.PB_Gadget)
@@ -1907,12 +2086,13 @@ Module UITK
 		With *GadgetData
 			DrawingFont(\FontID)
 			DrawingMode(#PB_2DDrawing_Transparent)
+			FrontColor(\Theme\FrontColor[\MouseState])
 			
-			If \TextAlignement = #AlignRight
-				DrawText((\Width - TextWidth(\Text)) - BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\MouseState])
+			If \TextBock\HAlign = #HAlignRight
+				DrawTextBlock(@\TextBock, X + \HMargin * 2, Y)
 				X = BorderMargin
 			Else
-				DrawText(BorderMargin, (\Height - TextHeight(\Text) * 1.05) * 0.5, \Text, \Theme\FrontColor[\MouseState])
+				DrawTextBlock(@\TextBock, X, Y)
 				X = \Width - #CheckboxSize - BorderMargin
 			EndIf
 			
@@ -1939,42 +2119,40 @@ Module UITK
 	EndProcedure
 	
 	Procedure CheckBox_RedrawVector(*this.PB_Gadget)
-		Protected *GadgetData.CheckBoxData = *this\vt, X, Y, CheckboxSize = #CheckboxSize
+		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
 		
 		With *GadgetData
 			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[\MouseState])
 			
-			If \TextAlignement = #AlignRight
-				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-				X = \OriginX + VectorBorderMargin
+			If \TextBock\HAlign = #HAlignRight
+				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
+				X = \OriginX + BorderMargin
 			Else
-				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-				X = \OriginX + \Width - CheckboxSize - VectorBorderMargin
+				DrawVectorTextBlock(@\TextBock, X, Y)
+				X = \OriginX + \Width - #CheckboxSize - BorderMargin
 			EndIf
 			
-			DrawVectorText(\Text)
+			Y = Floor(\OriginY + (\Height - #CheckboxSize) * 0.5)
 			
-			Y = Floor(\OriginY + (\Height - CheckboxSize) * 0.5)
-			
-			AddPathBox(X, Y, CheckboxSize, CheckboxSize)
-			AddPathBox(X + CheckboxSize * 0.1, Y + CheckboxSize * 0.1, CheckboxSize * 0.8, CheckboxSize * 0.8)
+			AddPathBox(X, Y, #CheckboxSize, #CheckboxSize)
+			AddPathBox(X + #CheckboxSize * 0.1, Y + #CheckboxSize * 0.1, #CheckboxSize * 0.8, #CheckboxSize * 0.8)
 			VectorSourceColor(\Theme\LineColor[\MouseState])
 			FillPath()
 			
 			If \State = #True
-				AddPathBox(X + CheckboxSize * 0.75, Y, CheckboxSize * 0.25, CheckboxSize * 0.3)
+				AddPathBox(X + #CheckboxSize * 0.75, Y, #CheckboxSize * 0.25, #CheckboxSize * 0.3)
 				VectorSourceColor(\Theme\WindowColor)
 				FillPath()
 				VectorSourceColor(\Theme\LineColor[\MouseState])
 				
-				MovePathCursor(X + CheckboxSize * 0.2, Y + CheckboxSize * 0.4)
-				AddPathLine(CheckboxSize * 0.28, CheckboxSize * 0.28, #PB_Path_Relative)
-				AddPathLine(CheckboxSize * 0.5, -CheckboxSize * 0.7, #PB_Path_Relative)
+				MovePathCursor(X + #CheckboxSize * 0.2, Y + #CheckboxSize * 0.4)
+				AddPathLine(#CheckboxSize * 0.28, #CheckboxSize * 0.28, #PB_Path_Relative)
+				AddPathLine(#CheckboxSize * 0.5, -#CheckboxSize * 0.7, #PB_Path_Relative)
 				
 				StrokePath(2)
 			ElseIf \State = #PB_Checkbox_Inbetween
-				AddPathBox(X + CheckboxSize * 0.25, Y + CheckboxSize * 0.25, CheckboxSize * 0.5, CheckboxSize * 0.5)
+				AddPathBox(X + #CheckboxSize * 0.25, Y + #CheckboxSize * 0.25, #CheckboxSize * 0.5, #CheckboxSize * 0.5)
 				VectorSourceColor(\Theme\LineColor[\MouseState])
 				FillPath()
 			EndIf
@@ -2024,25 +2202,12 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	; Getters
-	Procedure.s CheckBox_GetText(*this.PB_Gadget)
-		Protected *GadgetData.CheckBoxData = *this\vt
-		ProcedureReturn *GadgetData\Text
-	EndProcedure
-	
-	; Setters
-	Procedure CheckBox_SetText(*this.PB_Gadget, Text.s)
-		Protected *GadgetData.CheckBoxData = *this\vt
-		*GadgetData\Text = Text
-		RedrawObject()
-	EndProcedure
-	
 	Procedure CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.CheckBoxData
 		
 		If AccessibilityMode
-			Result = CheckBoxGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #AlignRight) * #PB_CheckBox_Right) |
-			                                                           (Bool(Flags & #AlignCenter) * #PB_CheckBox_Center) |
+			Result = CheckBoxGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_CheckBox_Right) |
+			                                                           (Bool(Flags & #HAlignCenter) * #PB_CheckBox_Center) |
 			                                                           #PB_CheckBox_ThreeState)
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
@@ -2055,16 +2220,19 @@ Module UITK
 				InitializeObject(CheckBox)
 				
 				With *GadgetData
-					\Text = Text
+					\TextBock\Width = Width - #CheckboxSize - BorderMargin * 2
+					\TextBock\Height = Height - BorderMargin * 2
+					\TextBock\OriginalText = Text
+					\HMargin = #CheckboxSize * 0.5 + BorderMargin
+					\VMargin = BorderMargin
 					
-					If Flags & #AlignRight
-						\TextAlignement = #AlignRight
+					If Flags & #HAlignCenter
+						\TextBock\HAlign = #HAlignLeft
 					EndIf
 					
-					; Functions
-					\VT\GetGadgetText = @CheckBox_GetText()
+					\TextBock\VAlign = #VAlignCenter
 					
-					\VT\SetGadgetText = @CheckBox_SetText()
+					PrepareText()
 					
 					; Enable only the needed events
 					\SupportedEvent[#LeftClick] = #True
@@ -2471,7 +2639,6 @@ Module UITK
 	
 	;{ Label Gadget
 	Structure LabelData Extends GadgetData
-		Text.s
 	EndStructure
 	
 	Procedure Label_Redraw(*this.PB_Gadget)
@@ -2480,14 +2647,8 @@ Module UITK
 		With *GadgetData
 			DrawingFont(\FontID)
 			DrawingMode(#PB_2DDrawing_Transparent)
-			
-			If \TextAlignement = #AlignRight
-				DrawText((\Width - TextWidth(\Text)) - BorderMargin, BorderMargin, \Text, \Theme\FrontColor[#Cold])
-			ElseIf \TextAlignement = #AlignLeft
-				DrawText(BorderMargin, BorderMargin, \Text, \Theme\FrontColor[#Cold])
-			Else
-				DrawText((\Width - TextWidth(\Text)) * 0.5, BorderMargin, \Text, \Theme\FrontColor[#Cold], \Theme\BackColor[#Cold])
-			EndIf
+			FrontColor(\Theme\FrontColor[\MouseState])
+			DrawTextBlock(@\TextBock, \OriginX, \OriginY)
 		EndWith
 	EndProcedure
 	
@@ -2497,41 +2658,19 @@ Module UITK
 		With *GadgetData
 			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[#Cold])
-			
-			If \TextAlignement = #AlignRight
-				MovePathCursor(\Width - VectorTextWidth(\Text) - VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-			ElseIf \TextAlignement = #AlignLeft
-				MovePathCursor(VectorBorderMargin, Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-			Else
-				MovePathCursor(Floor((\Width - VectorTextWidth(\Text)) * 0.5), Floor((\Height - VectorTextHeight(\Text)) * 0.5), #PB_Path_Relative)
-			EndIf
-			DrawVectorText(\Text)
+			DrawVectorTextBlock(@\TextBock, \OriginX, \OriginY)
 		EndWith
 	EndProcedure
 	
 	Procedure Label_EventHandler(*this.PB_Gadget, *Event.Event)
 	EndProcedure
 	
-	; Getters
-	Procedure.s Label_GetText(*this.PB_Gadget)
-		Protected *GadgetData.LabelData = *this\vt
-		
-		ProcedureReturn *GadgetData\Text
-	EndProcedure
-		
-	; Setters
-	Procedure Label_SetText(*this.PB_Gadget, Text.s)
-		Protected *GadgetData.LabelData = *this\vt
-		*GadgetData\Text = Text
-		RedrawObject()
-	EndProcedure
-	
 	Procedure Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.LabelData
 		
 		If AccessibilityMode
-			Result = TextGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #AlignRight) * #PB_Text_Right) |
-			                                                       (Bool(Flags & #AlignCenter) * #PB_Text_Center) |
+			Result = TextGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Text_Right) |
+			                                                       (Bool(Flags & #HAlignCenter) * #PB_Text_Center) |
 			                                                       (Bool(Flags & #Border) * #PB_Text_Border))
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
@@ -2544,33 +2683,11 @@ Module UITK
 				InitializeObject(Label)
 				
 				With *GadgetData
-					\Text = Text
-					If Flags & #AlignRight
-						\TextAlignement = #AlignRight
-					ElseIf Flags & #AlignCenter
-						\TextAlignement = #AlignCenter
-					Else
-						\TextAlignement = #AlignLeft
-					EndIf
+					\TextBock\Width = Width
+					\TextBock\Height = Height
+					\TextBock\OriginalText = Text
 					
-					; Functions
-					\VT\GetGadgetText = @Label_GetText()
-					
-					\VT\SetGadgetText = @Label_SetText()
-					
-					If \Vector
-						StartVectorDrawing(CanvasVectorOutput(\Gadget))
-						VectorFont(\FontID)
-						\RequieredHeight = VectorTextHeight(\Text)
-						\RequieredWidth = VectorTextWidth(\Text)
-						StopVectorDrawing()
-					Else
-						StartDrawing(CanvasOutput(\Gadget))
-						DrawingFont(\FontID)
-						\RequieredHeight = TextHeight(\Text)
-						\RequieredWidth = TextWidth(\Text)
-						StopDrawing()
-					EndIf
+					PrepareText()
 					
 					UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
 					*GadgetData\DefaultEventHandler = 0
@@ -2812,12 +2929,16 @@ Module UITK
 	Structure OneWayList Extends GadgetData
 		
 	EndStructure
-	
-	
 	;}
 	
 	;{ Two-way list
 	Structure TwoWayList Extends GadgetData
+		
+	EndStructure
+	;}
+	
+	;{ Menu bar
+	Structure ScrollMenuBar Extends GadgetData
 		
 	EndStructure
 	
@@ -2857,7 +2978,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 1383
-; FirstLine = 150
-; Folding = PsDAAAAIAAAYJCAAAAACBAAw
+; CursorPosition = 2978
+; Folding = JYDAIAAAAAAAACAAAAAgAAA5
 ; EnableXP
