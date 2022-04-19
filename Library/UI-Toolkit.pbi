@@ -72,6 +72,8 @@
 	Declare ShowFlatMenu(FlatMenu, X = -1, Y = -1)
 	
 	; Gadgets
+	Declare GetGadgetImage(Gadget)
+	Declare SetGadgetImage(Gadget, Image)
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -395,6 +397,8 @@ Module UITK
 		LineCount.b
 		LineLimit.b
 		Image.i
+		ImageX.i
+		ImageY.i
 		FontID.i
 		HAlign.b
 		VAlign.b
@@ -503,9 +507,8 @@ Module UITK
 	;}
 	
 	
-	;Procedures
-	
-	;{ General
+	;General:
+	;{ Shared
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 		Import ""
 			PB_Object_EnumerateStart(Object)
@@ -560,7 +563,7 @@ Module UITK
 	#TextBlock_ImageMargin = 3
 	
 	Macro _PrepareTextBox(Mode, Font, Output, TextSize)
-		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, ImageWidth, ImageHeight, TextHeight, MaxLine, Y, Width
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, ImageWidth, TextHeight, MaxLine, Y, Width, FinalWidth, TextWidth
 		
 		ClearList(*TextData\Strings())
 		*TextData\RequieredHeight = 0
@@ -582,15 +585,14 @@ Module UITK
 		For Loop = 1 To Count
 			AddElement(StringList())
 			StringList() = Trim(StringField(String, Loop, #CR$))
-			Width = TextSize#Width(StringList())
-			If Width > *TextData\RequieredWidth
-				*TextData\RequieredWidth = Width
+			TextWidth = TextSize#Width(StringList())
+			If TextWidth > *TextData\RequieredWidth
+				*TextData\RequieredWidth = TextWidth
 			EndIf
 		Next
 		
 		If *TextData\Image
 			ImageWidth = ImageWidth(*TextData\Image) + #TextBlock_ImageMargin
-			ImageHeight = ImageHeight(*TextData\Image)
 			*TextData\RequieredWidth + ImageWidth
 		EndIf
 		
@@ -646,15 +648,39 @@ Module UITK
 		
 		ForEach *TextData\Strings()
 			If *TextData\HAlign = #HAlignCenter
-				*TextData\Strings()\X = (Width - TextSize#Width(*TextData\Strings()\Text)) * 0.5
+				TextWidth = TextSize#Width(*TextData\Strings()\Text)
+				*TextData\Strings()\X = (Width - TextWidth) * 0.5 + ImageWidth
+				
+				If TextWidth > FinalWidth
+					FinalWidth = TextWidth
+				EndIf
 			ElseIf *TextData\HAlign = #HAlignRight
-				*TextData\Strings()\X = Width - TextSize#Width(*TextData\Strings()\Text)
+				*TextData\Strings()\X = Width - TextSize#Width(*TextData\Strings()\Text) - ImageWidth
 			Else
 				*TextData\Strings()\X = ImageWidth
 			EndIf
 			
 			*TextData\Strings()\Y = Y + ListIndex(*TextData\Strings()) * TextHeight
 		Next
+		
+		If *TextData\Image
+			If *TextData\HAlign = #HAlignLeft
+				*TextData\ImageX = 0
+			ElseIf *TextData\HAlign = #HAlignCenter
+				*TextData\ImageX = (Width - FinalWidth) * 0.5
+			Else
+				*TextData\ImageX = Width - #TextBlock_ImageMargin
+			EndIf
+			
+			If *TextData\VAlign = #VAlignTop
+				*TextData\ImageY = 0
+			ElseIf *TextData\VAlign = #VAlignCenter
+				*TextData\ImageY = (*TextData\Height - ImageHeight(*TextData\Image)) * 0.5
+			Else
+				*TextData\ImageY = *TextData\Height - ImageHeight(*TextData\Image)
+			EndIf
+			
+		EndIf
 		
 		Stop#Mode()
 		FreeImage(Image)
@@ -672,6 +698,10 @@ Module UITK
 		ForEach *TextData\Strings()
 			DrawText(X + *TextData\Strings()\X, Y + *TextData\Strings()\Y, *TextData\Strings()\Text)
 		Next
+		
+		If *TextData\Image
+			DrawImage(ImageID(*TextData\Image), X + *TextData\ImageX, Y + *TextData\ImageY)
+		EndIf
 	EndProcedure
 	
 	Procedure DrawVectorTextBlock(*TextData.Text, X, Y)
@@ -679,6 +709,12 @@ Module UITK
 			MovePathCursor(X + *TextData\Strings()\X, Y + *TextData\Strings()\Y, #PB_Path_Default)
 			DrawVectorText(*TextData\Strings()\Text)
 		Next
+		
+		If *TextData\Image
+			MovePathCursor(X + *TextData\ImageX, Y + *TextData\ImageY, #PB_Path_Default)
+			DrawVectorImage(ImageID(*TextData\Image))
+		EndIf
+		
 	EndProcedure
 	
 	; Is this still needed?
@@ -950,6 +986,10 @@ Module UITK
 		ProcedureReturn *GadgetData\TextBock\OriginalText
 	EndProcedure
 	
+	Procedure GetGadgetImage(Gadget)
+		
+	EndProcedure
+	
 	; Setters
 	Procedure GetAccessibilityMode()
 		ProcedureReturn AccessibilityMode
@@ -1001,6 +1041,16 @@ Module UITK
 		*GadgetData\TextBock\OriginalText = Text
 		PrepareText()
 		RedrawObject()
+	EndProcedure
+	
+	Procedure SetGadgetImage(Gadget, Image)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		
+		*GadgetData\TextBock\Image = Image
+		
+		PrepareText()
+		RedrawObject()
+		
 	EndProcedure
 	;}
 	
@@ -1758,8 +1808,8 @@ Module UITK
 	
 	;}
 	
-	; Gadgets :
 	
+	;Gadgets:
 	;{ Button
 	#Button_Margin = 3
 	Structure ButtonData Extends GadgetData
@@ -2978,6 +3028,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 2978
-; Folding = JYDAIAAAAAAAACAAAAAgAAA5
+; CursorPosition = 696
+; Folding = JYDAIAAIAAAAAIAABAAACAAg
 ; EnableXP
