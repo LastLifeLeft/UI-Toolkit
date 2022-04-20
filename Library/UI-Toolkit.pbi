@@ -9,13 +9,13 @@
 		#VAlignTop										; Align text top
 		#VAlignCenter									; Center text
 		#VAlignBottom									; Align text bottom
-		#Vector											; Gadget drawn in vector mode
 		#Border											; Draw a border arround the gadget
 		#DarkMode										; Use the dark color scheme
 		
 		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
 		#ScrollBar_Vertical								; The scrollbar is vertical (instead of horizontal, which is the default).
+		#Trackbar_Vertical								; The trackbar is vertical (instead of horizontal which is the default).
 		
 		; Window
 		#Window_CloseButton
@@ -112,12 +112,7 @@ Module UITK
 			CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
 		EndIf
 		
-		If Flags & #Vector
-			*GadgetData\Vector = #True
-			*GadgetData\Redraw = @GadgetType#_RedrawVector()
-		Else
-			*GadgetData\Redraw = @GadgetType#_Redraw()
-		EndIf
+		*GadgetData\Redraw = @GadgetType#_Redraw()
 		
 		If Flags & #HAlignCenter
 			*GadgetData\TextBock\HAlign = #HAlignCenter
@@ -166,7 +161,7 @@ Module UITK
 	Macro RedrawObject()
 		If *GadgetData\MetaGadget
 			*GadgetData\Redraw(*this)
-		ElseIf *GadgetData\Vector
+		Else
 			StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
 			AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
 			ClipPath(#PB_Path_Preserve)
@@ -179,25 +174,9 @@ Module UITK
 				StrokePath(2)
 			EndIf
 			StopVectorDrawing()
-		Else
-			StartDrawing(CanvasOutput(*GadgetData\Gadget))
-			Box(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, *GadgetData\Theme\WindowColor)
-			*GadgetData\Redraw(*this)
-			If *GadgetData\Border
-				DrawingMode(#PB_2DDrawing_Outlined )
-				Box(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, *GadgetData\Theme\LineColor[*GadgetData\MouseState])
-			EndIf
-			StopDrawing()
 		EndIf
 	EndMacro
 	
-	Macro PrepareText()
-		If *GadgetData\Vector
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
-		Else
-			PrepareTextBlock(@*GadgetData\TextBock)
-		EndIf
-	EndMacro
 	
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows ; Fix color
 		Macro FixColor(Color)
@@ -386,20 +365,17 @@ Module UITK
 		MouseY.l
 	EndStructure
 	
-	Structure Line
-		Text.s
-		X.l
-		Y.l
-	EndStructure
-	
 	Structure Text
 		OriginalText.s
-		List Strings.Line()
 		LineCount.b
 		LineLimit.b
 		Image.i
 		ImageX.i
 		ImageY.i
+		Text.s
+		TextX.i
+		TextY.i
+		VectorAlign.i
 		FontID.i
 		HAlign.b
 		VAlign.b
@@ -413,7 +389,9 @@ Module UITK
 		BackColor.l[4]
 		FrontColor.l[4]
 		LineColor.l[4]
+		Special.l[4]
 		WindowColor.l
+		Highlight.l
 	EndStructure
 	
 	Prototype Redraw(*this.PB_Gadget)
@@ -424,7 +402,6 @@ Module UITK
 		*OriginalVT.GadgetVT
 		Gadget.i
 		*MetaGadget
-		Vector.b
 		MaterialIcon.b
 		Border.b
 		
@@ -453,7 +430,7 @@ Module UITK
 	EndStructure
 	
 	Global AccessibilityMode = #False
-	Global DefaultTheme.Theme, AltTheme.Theme, DarkTheme.Theme
+	Global DefaultTheme.Theme, AltTheme.Theme, DarkTheme.Theme, AltDarkTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 	Global MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 12, #PB_Font_HighQuality))
 	
@@ -471,6 +448,12 @@ Module UITK
 		\FrontColor[#Cold] 		= SetAlpha(FixColor($000000), 255)
 		\FrontColor[#Warm]		= SetAlpha(FixColor($000000), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($000000), 255)
+		
+		\Special[#Cold]			= SetAlpha(FixColor($3AA55D), 255)
+		\Special[#Warm]			= SetAlpha(FixColor($6BBC85), 255)
+		\Special[#Hot]			= SetAlpha(FixColor($6BBC85), 255)
+		
+		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
 	EndWith
 	
 	With AltTheme
@@ -484,16 +467,21 @@ Module UITK
 		\LineColor[#Warm]		= SetAlpha(FixColor($8D8D8D), 255)
 		\LineColor[#Hot]		= SetAlpha(FixColor($FDFDFD), 255)
 		
-		
 		\FrontColor[#Cold] 		= SetAlpha(FixColor($000000), 255)
 		\FrontColor[#Warm]		= SetAlpha(FixColor($000000), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($000000), 255)
+		
+		\Special[#Cold]			= SetAlpha(FixColor($3AA55D), 255)
+		\Special[#Warm]			= SetAlpha(FixColor($6BBC85), 255)
+		\Special[#Hot]			= SetAlpha(FixColor($6BBC85), 255)
+		
+		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
 	EndWith
 	
 	With DarkTheme
-		\WindowColor			= SetAlpha(FixColor($2F3136), 255)
+		\WindowColor			= SetAlpha(FixColor($36393F), 255)
 		
-		\BackColor[#Cold]		= SetAlpha(FixColor($2F3136), 255)
+		\BackColor[#Cold]		= SetAlpha(FixColor($36393F), 255)
 		\BackColor[#Warm]		= SetAlpha(FixColor($44474C), 255)
 		\BackColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
 		                    
@@ -504,6 +492,34 @@ Module UITK
 		\FrontColor[#Cold]	 	= SetAlpha(FixColor($FAFAFB), 255)
 		\FrontColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
+		
+		\Special[#Cold]			= SetAlpha(FixColor($3AA55D), 255)
+		\Special[#Warm]			= SetAlpha(FixColor($6BBC85), 255)
+		\Special[#Hot]			= SetAlpha(FixColor($6BBC85), 255)
+		
+		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
+	EndWith
+	
+	With AltDarkTheme
+		\WindowColor			= SetAlpha(FixColor($36393F), 255)
+		
+		\BackColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
+		\BackColor[#Warm]		= SetAlpha(FixColor($44474C), 255)
+		\BackColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
+		                    
+		\LineColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
+		\LineColor[#Warm]		= SetAlpha(FixColor($A2A3A5), 255)
+		\LineColor[#Hot]		= SetAlpha(FixColor($A2A3A5), 255)
+		
+		\FrontColor[#Cold]	 	= SetAlpha(FixColor($FAFAFB), 255)
+		\FrontColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
+		\FrontColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
+		
+		\Special[#Cold]			= SetAlpha(FixColor($3AA55D), 255)
+		\Special[#Warm]			= SetAlpha(FixColor($6BBC85), 255)
+		\Special[#Hot]			= SetAlpha(FixColor($6BBC85), 255)
+		
+		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
 	EndWith
 	;}
 	
@@ -578,14 +594,14 @@ Module UITK
 	EndProcedure
 	
 	; Default functions
-	#TextBlock_ImageMargin = 3
+	#TextBlock_ImageMargin = 4
 	
-	Macro _PrepareTextBox(Mode, Font, Output, TextSize)
-		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, ImageWidth, TextHeight, MaxLine, Y, Width, FinalWidth, TextWidth
+	Procedure PrepareVectorTextBlock(*TextData.Text)
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, ImageWidth, ImageHeight, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount
 		
-		ClearList(*TextData\Strings())
 		*TextData\RequieredHeight = 0
 		*TextData\RequieredWidth = 0
+		*TextData\Text = ""
 		
 		String = ReplaceString(*TextData\OriginalText, #CRLF$, #CR$)
 		String = ReplaceString(String, #LF$, #CR$)
@@ -593,9 +609,9 @@ Module UITK
 		Count = CountString(String, #CR$) + 1
 		
 		Image = CreateImage(#PB_Any, 10, 19)
-		Start#Mode(Output(Image))
-		Font(*TextData\FontID)
-		TextHeight = TextSize#Height("a")
+		StartVectorDrawing(ImageVectorOutput(Image))
+		VectorFont(*TextData\FontID)
+		TextHeight = VectorTextHeight("a")
 		MaxLine = Floor(*TextData\Height / TextHeight)
 		
 		*TextData\RequieredHeight = TextHeight * Count
@@ -603,7 +619,7 @@ Module UITK
 		For Loop = 1 To Count
 			AddElement(StringList())
 			StringList() = Trim(StringField(String, Loop, #CR$))
-			TextWidth = TextSize#Width(StringList())
+			TextWidth = VectorTextWidth(StringList())
 			If TextWidth > *TextData\RequieredWidth
 				*TextData\RequieredWidth = TextWidth
 			EndIf
@@ -611,6 +627,7 @@ Module UITK
 		
 		If *TextData\Image
 			ImageWidth = ImageWidth(*TextData\Image) + #TextBlock_ImageMargin
+			ImageHeight = ImageHeight(*TextData\Image)
 			*TextData\RequieredWidth + ImageWidth
 		EndIf
 		
@@ -627,21 +644,28 @@ Module UITK
 			For Loop = 1 To Count
 				Word = StringField(StringList(), Loop, " ")
 				
-				If TextSize#Width(String + Word) > Width
-					AddElement(*TextData\Strings())
-					*TextData\Strings()\Text = Trim(String)
+				If VectorTextWidth(String + Word) > Width
+					String = Trim(String)
+					TextWidth = VectorTextWidth(String)
+					
+					If TextWidth > FinalWidth
+						FinalWidth = TextWidth
+					EndIf
+					
+					*TextData\Text + String
+					LineCount + 1
 					
 					; edge case! What if a word is wider than the width of the whole thingy?
 					; 1) check if there is still space at the end of the previous string and put it there (at least 3 characters + ...)
 					
 					
 					; 2) If not, create a new line with just the current word (shortened and add ...)
-					
 					String = ""
 					
-					If ListSize(*TextData\Strings()) >= MaxLine
+					If LineCount >= MaxLine
 						Break 2
 					EndIf
+					*TextData\Text + #CRLF$
 				EndIf
 				
 				String + Word + " "
@@ -650,83 +674,55 @@ Module UITK
 			String = Trim(String)
 			
 			If String <> ""
-				AddElement(*TextData\Strings())
-				*TextData\Strings()\Text = Trim(String)
-				If ListSize(*TextData\Strings()) >= MaxLine
-					Break
-				EndIf
-			EndIf
-		Next
-		
-		If *TextData\VAlign = #VAlignCenter
-			Y = (*TextData\Height - ListSize(*TextData\Strings()) * TextHeight) * 0.5
-		ElseIf *TextData\VAlign = #VAlignBottom
-			Y = *TextData\Height - ListSize(*TextData\Strings()) * TextHeight
-		EndIf
-		
-		ForEach *TextData\Strings()
-			If *TextData\HAlign = #HAlignCenter
-				TextWidth = TextSize#Width(*TextData\Strings()\Text)
-				*TextData\Strings()\X = (Width - TextWidth) * 0.5 + ImageWidth
+				String = Trim(String)
+				TextWidth = VectorTextWidth(String)
 				
 				If TextWidth > FinalWidth
 					FinalWidth = TextWidth
 				EndIf
-			ElseIf *TextData\HAlign = #HAlignRight
-				*TextData\Strings()\X = Width - TextSize#Width(*TextData\Strings()\Text) - ImageWidth
-			Else
-				*TextData\Strings()\X = ImageWidth
+				
+				*TextData\Text + String
+				LineCount + 1
+				If LineCount >= MaxLine
+					Break
+				EndIf
+				
+				*TextData\Text + #CRLF$
 			EndIf
-			
-			*TextData\Strings()\Y = Y + ListIndex(*TextData\Strings()) * TextHeight
 		Next
 		
-		If *TextData\Image
-			If *TextData\HAlign = #HAlignLeft
-				*TextData\ImageX = 0
-			ElseIf *TextData\HAlign = #HAlignCenter
-				*TextData\ImageX = (Width - FinalWidth) * 0.5
-			Else
-				*TextData\ImageX = Width - #TextBlock_ImageMargin
-			EndIf
-			
-			If *TextData\VAlign = #VAlignTop
-				*TextData\ImageY = 0
-			ElseIf *TextData\VAlign = #VAlignCenter
-				*TextData\ImageY = (*TextData\Height - ImageHeight(*TextData\Image)) * 0.5
-			Else
-				*TextData\ImageY = *TextData\Height - ImageHeight(*TextData\Image)
-			EndIf
-			
+		If *TextData\VAlign = #VAlignCenter
+			*TextData\ImageY = (*TextData\Height - ImageHeight) * 0.5
+			*TextData\TextY = (*TextData\Height - LineCount * TextHeight) * 0.5
+		ElseIf *TextData\VAlign = #VAlignBottom
+			*TextData\TextY = *TextData\Height - LineCount * TextHeight
+			*TextData\ImageY = *TextData\Height - ImageHeight
+		Else 
+			*TextData\TextY = 0
+			*TextData\ImageY = 0
 		EndIf
 		
-		Stop#Mode()
+		If *TextData\HAlign = #HAlignCenter
+			*TextData\ImageX = (Width - FinalWidth) * 0.5
+			*TextData\TextX = ImageWidth * 0.5
+			*TextData\VectorAlign = #PB_VectorParagraph_Center
+		ElseIf *TextData\HAlign = #HAlignRight
+			*TextData\ImageX = Width + #TextBlock_ImageMargin
+			*TextData\TextX = - ImageWidth
+			*TextData\VectorAlign =  #PB_VectorParagraph_Right
+		Else
+			*TextData\ImageX = 0
+			*TextData\TextX = ImageWidth
+			*TextData\VectorAlign =  #PB_VectorParagraph_Left
+		EndIf
+		
+		StopVectorDrawing()
 		FreeImage(Image)
-	EndMacro
-	
-	Procedure PrepareVectorTextBlock(*TextData.Text)
-		_PrepareTextBox(VectorDrawing, VectorFont, ImageVectorOutput, VectorText)
-	EndProcedure
-	
-	Procedure PrepareTextBlock(*TextData.Text)
-		_PrepareTextBox(Drawing, DrawingFont, ImageOutput, Text)
-	EndProcedure
-	
-	Procedure DrawTextBlock(*TextData.Text, X, Y)
-		ForEach *TextData\Strings()
-			DrawText(X + *TextData\Strings()\X, Y + *TextData\Strings()\Y, *TextData\Strings()\Text)
-		Next
-		
-		If *TextData\Image
-			DrawAlphaImage(ImageID(*TextData\Image), X + *TextData\ImageX, Y + *TextData\ImageY)
-		EndIf
 	EndProcedure
 	
 	Procedure DrawVectorTextBlock(*TextData.Text, X, Y)
-		ForEach *TextData\Strings()
-			MovePathCursor(X + *TextData\Strings()\X, Y + *TextData\Strings()\Y, #PB_Path_Default)
-			DrawVectorText(*TextData\Strings()\Text)
-		Next
+		MovePathCursor(X + *TextData\TextX, Y + *TextData\TextY, #PB_Path_Default)
+		DrawVectorParagraph(*TextData\Text, *TextData\Width, *TextData\Height, *TextData\VectorAlign)
 		
 		If *TextData\Image
 			MovePathCursor(X + *TextData\ImageX, Y + *TextData\ImageY, #PB_Path_Default)
@@ -927,7 +923,7 @@ Module UITK
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
 			
-			PrepareText()
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -1040,7 +1036,7 @@ Module UITK
 	Procedure Default_SetText(*this.PB_Gadget, Text.s)
 		Protected *GadgetData.GadgetData = *this\vt
 		*GadgetData\TextBock\OriginalText = Text
-		PrepareText()
+		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		RedrawObject()
 	EndProcedure
 	
@@ -1049,7 +1045,7 @@ Module UITK
 		
 		*GadgetData\TextBock\Image = Image
 		
-		PrepareText()
+		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		RedrawObject()
 		
 	EndProcedure
@@ -1704,7 +1700,7 @@ Module UITK
 			\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, MenuWindow)
 			\Canvas = CanvasGadget(#PB_Any, 0, 0, #MenuMinimumWidth, 0, #PB_Canvas_Keyboard)
 			\FontID = DefaultFont
-			\Vector = Bool(Flags & #Vector)
+			\Vector = #True
 			\Width = #MenuMinimumWidth
 			\Height = 2 * #MenuMargin
 			\State = -1
@@ -1858,19 +1854,6 @@ Module UITK
 	
 	Procedure Button_Redraw(*this.PB_Gadget)
 		Protected *GadgetData.ButtonData = *this\vt
-		
-		With *GadgetData
-			Box(\OriginX, \OriginY, \Width, \Height, \Theme\BackColor[\MouseState])
-			
-			DrawingFont(\TextBock\FontID)
-			FrontColor(\Theme\FrontColor[\MouseState])
-			BackColor(\Theme\BackColor[\MouseState])
-			DrawTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin)
-		EndWith
-	EndProcedure
-	
-	Procedure Button_RedrawVector(*this.PB_Gadget)
-		Protected *GadgetData.ButtonData = *this\vt
 		With *GadgetData
 			AddPathBox(\OriginX, \OriginY, \Width, \Height, #PB_Path_Default)
 			VectorSourceColor(\Theme\BackColor[\MouseState])
@@ -1991,7 +1974,7 @@ Module UITK
 					\TextBock\Width = Width - \HMargin * 2
 					\TextBock\Height = Height - \VMargin * 2
 					
-					PrepareText()
+					PrepareVectorTextBlock(@*GadgetData\TextBock)
 					
 					; Enable only the needed events
 					\SupportedEvent[#LeftClick] = #True
@@ -2012,7 +1995,7 @@ Module UITK
 	;}
 	
 	;{ Toggle
-	#ToggleSize = 20
+	#ToggleSize = 24
 	
 	Structure ToggleData Extends GadgetData
 	EndStructure
@@ -2021,66 +2004,52 @@ Module UITK
 		Protected *GadgetData.ToggleData = *this\vt, X, Y
 		
 		With *GadgetData
-			DrawingFont(\FontID)
-			DrawingMode(#PB_2DDrawing_Transparent)
-			FrontColor(\Theme\FrontColor[\MouseState])
-			
-			If \TextBock\HAlign = #HAlignRight
-				DrawTextBlock(@\TextBock, X + \HMargin * 2, Y)
-				X = #ToggleSize * 0.5 + BorderMargin
-			Else
-				DrawTextBlock(@\TextBock, X, Y)
-				X = \Width - #ToggleSize * 1.5 - BorderMargin - 1
-			EndIf
-			
-			DrawingMode(#PB_2DDrawing_Default)
-			
-			Y = (\Height - #ToggleSize) * 0.5 + #ToggleSize * 0.5
-			
-			Circle(X, Y, #ToggleSize * 0.5, \Theme\LineColor[\MouseState])
-			Circle(X + #ToggleSize, Y, #ToggleSize * 0.5, \Theme\LineColor[\MouseState])
-			Box(X, Y - #ToggleSize * 0.5, #ToggleSize, #ToggleSize + 1, \Theme\LineColor[\MouseState])
-			
-			If \State
-				Circle(X + #ToggleSize, Y, #ToggleSize * 0.4, \Theme\BackColor[#cold])
-			Else
-				Circle(X, Y, #ToggleSize * 0.4, \Theme\BackColor[#cold])
-			EndIf
-		EndWith
-	EndProcedure
-	
-	Procedure Toggle_RedrawVector(*this.PB_Gadget)
-		Protected *GadgetData.ToggleData = *this\vt, X, Y, ToggleSize = #ToggleSize
-		
-		With *GadgetData
 			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
 				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
-				X = \OriginX + ToggleSize * 0.5 + BorderMargin
+				X = \OriginX + #ToggleSize * 0.5 + BorderMargin
 			Else
 				DrawVectorTextBlock(@\TextBock, X, Y)
-				X = \OriginX + \Width - ToggleSize * 1.5 - BorderMargin
+				X = \OriginX + \Width - #ToggleSize * 1.5 - BorderMargin
 			EndIf
 			
-			Y = \OriginY + Floor((\Height - ToggleSize) * 0.5 + ToggleSize * 0.5)
+			Y = \OriginY + Floor((\Height - #ToggleSize) * 0.5 + #ToggleSize * 0.5)
 			
-			AddPathCircle(X, Y, ToggleSize * 0.5, 0, 360, #PB_Path_Default)
-			AddPathCircle(ToggleSize * 0.5, 0, ToggleSize * 0.5, 0, 360, #PB_Path_Relative)
-			AddPathBox(-ToggleSize * 1.5, -ToggleSize * 0.5, ToggleSize, ToggleSize, #PB_Path_Relative)
-			VectorSourceColor(\Theme\LineColor[\MouseState])
-			FillPath(#PB_Path_Winding)
-			
-			VectorSourceColor(\Theme\BackColor[#cold])
+			AddPathCircle(X, Y, #ToggleSize * 0.5, 0, 360, #PB_Path_Default)
+			AddPathCircle(#ToggleSize * 0.5, 0, #ToggleSize * 0.5, 0, 360, #PB_Path_Relative)
+			AddPathBox(-#ToggleSize * 1.5, -#ToggleSize * 0.5, #ToggleSize, #ToggleSize, #PB_Path_Relative)
 			
 			If \State
-				AddPathCircle(X + ToggleSize, Y, ToggleSize * 0.4)
+				X + #ToggleSize
+				VectorSourceColor(\Theme\Special[\MouseState])
+				FillPath(#PB_Path_Winding)
+				AddPathCircle(X, Y, #ToggleSize * 0.37)
+				VectorSourceColor(\Theme\Highlight)
+				FillPath()
+				
+				VectorSourceColor(\Theme\Special[\MouseState])
+				MovePathCursor(X - #ToggleSize * 0.26, Y, #PB_Path_Default)
+				AddPathLine(#ToggleSize * 0.18, #ToggleSize * 0.18, #PB_Path_Relative)
+				AddPathLine(#ToggleSize * 0.27, #ToggleSize * -0.37, #PB_Path_Relative)
+				
+				StrokePath(2)
 			Else
-				AddPathCircle(X, Y, ToggleSize * 0.4)
+				VectorSourceColor(\Theme\LineColor[\MouseState])
+				FillPath(#PB_Path_Winding)
+				AddPathCircle(X, Y, #ToggleSize * 0.37)
+				VectorSourceColor(\Theme\Highlight)
+				FillPath()
+				
+				VectorSourceColor(\Theme\LineColor[\MouseState])
+				MovePathCursor(X - #ToggleSize * 0.18, Y - #ToggleSize * 0.18, #PB_Path_Default)
+				AddPathLine(#ToggleSize * 0.36, #ToggleSize * 0.36, #PB_Path_Relative)
+				MovePathCursor(0, #ToggleSize * -0.36, #PB_Path_Relative)
+				AddPathLine(#ToggleSize * -0.36, #ToggleSize * 0.36, #PB_Path_Relative)
+				StrokePath(2)
 			EndIf
 			
-			FillPath()
 			
 		EndWith
 	EndProcedure
@@ -2145,7 +2114,7 @@ Module UITK
 				
 				\TextBock\VAlign = #VAlignCenter
 				
-				PrepareText()
+				PrepareVectorTextBlock(@*GadgetData\TextBock)
 				
 				; Enable only the needed events
 				\SupportedEvent[#LeftClick] = #True
@@ -2171,44 +2140,6 @@ Module UITK
 	EndStructure
 	
 	Procedure CheckBox_Redraw(*this.PB_Gadget)
-		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
-		
-		With *GadgetData
-			DrawingFont(\FontID)
-			DrawingMode(#PB_2DDrawing_Transparent)
-			FrontColor(\Theme\FrontColor[\MouseState])
-			
-			If \TextBock\HAlign = #HAlignRight
-				DrawTextBlock(@\TextBock, X + \HMargin * 2, Y)
-				X = BorderMargin
-			Else
-				DrawTextBlock(@\TextBock, X, Y)
-				X = \Width - #CheckboxSize - BorderMargin
-			EndIf
-			
-			DrawingMode(#PB_2DDrawing_Default)
-			
-			Y = (\Height - #CheckboxSize) * 0.5
-			
-			Box(X, Y, #CheckboxSize, #CheckboxSize, \Theme\LineColor[\MouseState])
-			Box(X + #CheckboxSize * 0.1, Y + #CheckboxSize * 0.1, #CheckboxSize * 0.8, #CheckboxSize * 0.8, \Theme\WindowColor)
-			
-			If \State = #True
-				Box(X + #CheckboxSize * 0.75, Y, #CheckboxSize * 0.25, #CheckboxSize * 0.3, \Theme\WindowColor)
-				
-				Line(X + #CheckboxSize * 0.2, Y + #CheckboxSize * 0.38, #CheckboxSize * 0.2, #CheckboxSize * 0.2, \Theme\LineColor[\MouseState])
-				Line(X + #CheckboxSize * 0.2 - 1, Y + #CheckboxSize * 0.38, #CheckboxSize * 0.2, #CheckboxSize * 0.2, \Theme\LineColor[\MouseState])
-				
-				Line(X + #CheckboxSize * 0.4, Y + #CheckboxSize * 0.58, #CheckboxSize * 0.6, - #CheckboxSize * 0.6, \Theme\LineColor[\MouseState])
-				Line(X + #CheckboxSize * 0.4 - 1, Y + #CheckboxSize * 0.58, #CheckboxSize * 0.6, -#CheckboxSize * 0.6, \Theme\LineColor[\MouseState])
-			ElseIf \State = #PB_Checkbox_Inbetween
-				Box(X + #CheckboxSize * 0.25, Y + #CheckboxSize * 0.25, #CheckboxSize * 0.5, #CheckboxSize * 0.5, \Theme\LineColor[\MouseState])
-			EndIf
-			
-		EndWith
-	EndProcedure
-	
-	Procedure CheckBox_RedrawVector(*this.PB_Gadget)
 		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
 		
 		With *GadgetData
@@ -2322,7 +2253,7 @@ Module UITK
 					
 					\TextBock\VAlign = #VAlignCenter
 					
-					PrepareText()
+					PrepareVectorTextBlock(@*GadgetData\TextBock)
 					
 					; Enable only the needed events
 					\SupportedEvent[#LeftClick] = #True
@@ -2357,42 +2288,12 @@ Module UITK
 	EndStructure
 	
 	Procedure ScrollBar_Redraw(*this.PB_Gadget)
-		Protected *GadgetData.ScrollBarData = *this\vt, Radius
-		
-		With *GadgetData
-			Radius = Floor(\Thickness * 0.5)
-			Circle(Radius, Radius, Radius, \Theme\BackColor[#Cold])
-			
-			If \Vertical
-				Box(0, Radius, \Width, \Height - \Thickness, \Theme\BackColor[#Cold])
-				Circle(Radius, \Height - Radius - 1, Radius, \Theme\BackColor[#Cold])
-				
-				If \BarSize >= 0
-					Circle(Radius, Radius + \Position, Radius, \Theme\LineColor[\MouseState])
-					Box(0, Radius + \Position, \Width, \BarSize, \Theme\LineColor[\MouseState])
-					Circle(Radius, Radius + \Position + \BarSize, Radius, \Theme\LineColor[\MouseState])
-				EndIf
-			Else
-				Box(Radius, 0, \Width - \Thickness, \Height, \Theme\BackColor[#Cold])
-				Circle(\Width - Radius - 1, Radius, Radius, \Theme\BackColor[#Cold])
-				
-				If \BarSize >= 0
-					Circle(Radius + \Position, Radius, Radius, \Theme\LineColor[\MouseState])
-					Box(Radius + \Position, 0, \BarSize, \Height, \Theme\LineColor[\MouseState])
-					Circle(Radius + \Position + \BarSize, Radius, Radius, \Theme\LineColor[\MouseState])
-				EndIf
-			EndIf
-			
-		EndWith
-	EndProcedure
-	
-	Procedure ScrollBar_RedrawVector(*this.PB_Gadget)
 		Protected *GadgetData.ScrollBarData = *this\vt, Radius.f, Point
 		
 		With *GadgetData
 			Radius = \Thickness * 0.5
 			AddPathCircle(\OriginX + Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-			VectorSourceColor(\Theme\BackColor[#Warm])
+			VectorSourceColor(\Theme\BackColor[#Cold])
 			
 			If \Vertical
 				AddPathBox(- \Thickness, 0, \Width, \Height - \Thickness, #PB_Path_Relative)
@@ -2682,7 +2583,9 @@ Module UITK
 				
 				InitializeObject(ScrollBar)
 				
-				If Not Flags & #DarkMode
+				If Flags & #DarkMode
+					CopyStructure(@AltDarkTheme, *GadgetData\Theme, Theme)
+				Else
 					CopyStructure(@AltTheme, *GadgetData\Theme, Theme)
 				EndIf
 				
@@ -2735,17 +2638,6 @@ Module UITK
 		Protected *GadgetData.LabelData = *this\vt
 		
 		With *GadgetData
-			DrawingFont(\FontID)
-			DrawingMode(#PB_2DDrawing_Transparent)
-			FrontColor(\Theme\FrontColor[\MouseState])
-			DrawTextBlock(@\TextBock, \OriginX, \OriginY)
-		EndWith
-	EndProcedure
-	
-	Procedure Label_RedrawVector(*this.PB_Gadget)
-		Protected *GadgetData.LabelData = *this\vt
-		
-		With *GadgetData
 			VectorFont(\FontID)
 			VectorSourceColor(\Theme\FrontColor[#Cold])
 			DrawVectorTextBlock(@\TextBock, \OriginX, \OriginY)
@@ -2777,7 +2669,7 @@ Module UITK
 					\TextBock\Height = Height
 					\TextBock\OriginalText = Text
 					
-					PrepareText()
+					PrepareVectorTextBlock(@*GadgetData\TextBock)
 					
 					UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
 					*GadgetData\DefaultEventHandler = 0
@@ -2988,14 +2880,11 @@ Module UITK
 				
 				\Width = Width
 				\Height = Height
-				\VerticalScrollbar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness, \Height, #ScrollBar_Vertical |
-				                                                                                                                                                                                                                     (Bool(Flags & #DarkMode) * #DarkMode) |
-				                                                                                                                                                                                                                     (Bool(Flags & #Vector) * #Vector))
+				\VerticalScrollbar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness, \Height, #ScrollBar_Vertical | (Bool(Flags & #DarkMode) * #DarkMode))
 				BindGadgetEvent(\VerticalScrollbar, @ScrollArea_ScrollbarHandler(), #PB_EventType_Change)
 				SetProp_(GadgetID(\VerticalScrollbar), "UITK_ScrollAreaData", *GadgetData)
 				
-				\HorizontalScrollbar = ScrollBar(#PB_Any, x, y + \Height - #ScrollArea_Bar_Thickness, \Width - #ScrollArea_Bar_Thickness, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth + #ScrollArea_Bar_Thickness, \Width, (Bool(Flags & #DarkMode) * #DarkMode) |
-				                                                                                                                                                                                                                     (Bool(Flags & #Vector) * #Vector))
+				\HorizontalScrollbar = ScrollBar(#PB_Any, x, y + \Height - #ScrollArea_Bar_Thickness, \Width - #ScrollArea_Bar_Thickness, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth + #ScrollArea_Bar_Thickness, \Width, (Bool(Flags & #DarkMode) * #DarkMode))
 				BindGadgetEvent(\HorizontalScrollbar, @ScrollArea_ScrollbarHandler(), #PB_EventType_Change)
 				SetProp_(GadgetID(\HorizontalScrollbar), "UITK_ScrollAreaData", *GadgetData)
 				
@@ -3034,6 +2923,45 @@ Module UITK
 	
 	
 	;}
+	
+	;{ TrackBar
+	Structure TrackBarData Extends GadgetData
+	EndStructure
+	
+	Procedure TrackBar_Redraw(*this.PB_Gadget)
+		
+	EndProcedure
+		
+	Procedure TrackBar_EventHandler(*this.PB_Gadget, *Event.Event)
+		
+	EndProcedure
+		
+	Procedure TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.TrackBarData
+		
+		If AccessibilityMode
+			Result = TrackBarGadget(Gadget, x, y, Width, Height, Minimum, Maximum, Bool(Flags & #Trackbar_Vertical) * #PB_TrackBar_Vertical)
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				InitializeObject(TrackBar)
+				
+				With *GadgetData
+				EndWith
+				
+				RedrawObject()
+				
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	;}
 EndModule
 
 
@@ -3068,7 +2996,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 1347
-; FirstLine = 154
-; Folding = NYDAIAAIgEB5BgAAEAAAIAAA+
+; CursorPosition = 599
+; Folding = JAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
