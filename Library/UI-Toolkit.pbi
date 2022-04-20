@@ -2873,6 +2873,7 @@ Module UITK
 				
 				If Flags & #DarkMode
 					SetGadgetColor(\ScrollArea, #PB_Gadget_BackColor, RGB(Red(DarkTheme\WindowColor), Green(DarkTheme\WindowColor), Blue(DarkTheme\WindowColor)))
+					SetGadgetColor(\Gadget, #PB_Gadget_BackColor, RGB(Red(DarkTheme\WindowColor), Green(DarkTheme\WindowColor), Blue(DarkTheme\WindowColor)))
 				EndIf
 				
 				CloseGadgetList()
@@ -2996,6 +2997,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 599
+; CursorPosition = 2875
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
