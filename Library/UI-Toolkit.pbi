@@ -65,6 +65,7 @@
 	Declare SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 	Declare SetWindowIcon(Window, Image)
 	Declare GetWindowIcon(Window)
+	
 	; Menu
 	Declare FlatMenu(Flags = #Default)
 	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0)
@@ -81,6 +82,7 @@
 	Declare ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags = #Default)
 	Declare Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
+	Declare TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
 	
 	; Misc
 	
@@ -389,7 +391,9 @@ Module UITK
 		BackColor.l[4]
 		FrontColor.l[4]
 		LineColor.l[4]
-		Special.l[4]
+		Special1.l[4]
+		Special2.l[4]
+		Special3.l[4]
 		WindowColor.l
 		Highlight.l
 	EndStructure
@@ -432,9 +436,11 @@ Module UITK
 	Global AccessibilityMode = #False
 	Global DefaultTheme.Theme, AltTheme.Theme, DarkTheme.Theme, AltDarkTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
+	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
 	Global MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 12, #PB_Font_HighQuality))
 	
-	With DefaultTheme
+	;{ Set default themes
+	With DefaultTheme 
 		\WindowColor = SetAlpha(FixColor($F0F0F0), 255)
 		
 		\BackColor[#Cold]		= SetAlpha(FixColor($F0F0F0), 255)
@@ -449,9 +455,17 @@ Module UITK
 		\FrontColor[#Warm]		= SetAlpha(FixColor($000000), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($000000), 255)
 		
-		\Special[#Cold]			= SetAlpha(FixColor($3AA55D), 255)
-		\Special[#Warm]			= SetAlpha(FixColor($6BBC85), 255)
-		\Special[#Hot]			= SetAlpha(FixColor($6BBC85), 255)
+		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
+		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
+		\Special1[#Hot]			= SetAlpha(FixColor($E06365), 255)
+		
+		\Special2[#Cold]		= SetAlpha(FixColor($3AA55D), 255)
+		\Special2[#Warm]		= SetAlpha(FixColor($6BD08B), 255)
+		\Special2[#Hot]			= SetAlpha(FixColor($6BD08B), 255)
+		
+		\Special3[#Cold]		= SetAlpha(FixColor($5865F2), 255)
+		\Special3[#Warm]		= SetAlpha(FixColor($7984F5), 255)
+		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
 	EndWith
@@ -471,9 +485,17 @@ Module UITK
 		\FrontColor[#Warm]		= SetAlpha(FixColor($000000), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($000000), 255)
 		
-		\Special[#Cold]			= SetAlpha(FixColor($3AA55D), 255)
-		\Special[#Warm]			= SetAlpha(FixColor($6BBC85), 255)
-		\Special[#Hot]			= SetAlpha(FixColor($6BBC85), 255)
+		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
+		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
+		\Special1[#Hot]			= SetAlpha(FixColor($E06365), 255)
+		
+		\Special2[#Cold]		= SetAlpha(FixColor($3AA55D), 255)
+		\Special2[#Warm]		= SetAlpha(FixColor($6BD08B), 255)
+		\Special2[#Hot]			= SetAlpha(FixColor($6BD08B), 255)
+		
+		\Special3[#Cold]		= SetAlpha(FixColor($5865F2), 255)
+		\Special3[#Warm]		= SetAlpha(FixColor($7984F5), 255)
+		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
 	EndWith
@@ -493,9 +515,17 @@ Module UITK
 		\FrontColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
 		
-		\Special[#Cold]			= SetAlpha(FixColor($3AA55D), 255)
-		\Special[#Warm]			= SetAlpha(FixColor($6BBC85), 255)
-		\Special[#Hot]			= SetAlpha(FixColor($6BBC85), 255)
+		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
+		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
+		\Special1[#Hot]			= SetAlpha(FixColor($E06365), 255)
+		
+		\Special2[#Cold]		= SetAlpha(FixColor($3AA55D), 255)
+		\Special2[#Warm]		= SetAlpha(FixColor($6BD08B), 255)
+		\Special2[#Hot]			= SetAlpha(FixColor($6BD08B), 255)
+		
+		\Special3[#Cold]		= SetAlpha(FixColor($5865F2), 255)
+		\Special3[#Warm]		= SetAlpha(FixColor($7984F5), 255)
+		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
 	EndWith
@@ -515,12 +545,21 @@ Module UITK
 		\FrontColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
 		
-		\Special[#Cold]			= SetAlpha(FixColor($3AA55D), 255)
-		\Special[#Warm]			= SetAlpha(FixColor($6BBC85), 255)
-		\Special[#Hot]			= SetAlpha(FixColor($6BBC85), 255)
+		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
+		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
+		\Special1[#Hot]			= SetAlpha(FixColor($E06365), 255)
+		
+		\Special2[#Cold]		= SetAlpha(FixColor($3AA55D), 255)
+		\Special2[#Warm]		= SetAlpha(FixColor($6BD08B), 255)
+		\Special2[#Hot]			= SetAlpha(FixColor($6BD08B), 255)
+		
+		\Special3[#Cold]		= SetAlpha(FixColor($5865F2), 255)
+		\Special3[#Warm]		= SetAlpha(FixColor($7984F5), 255)
+		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
 	EndWith
+	;}
 	;}
 	
 	
@@ -593,7 +632,7 @@ Module UITK
 		ProcedureReturn Window
 	EndProcedure
 	
-	; Default functions
+	; Drawing functions
 	#TextBlock_ImageMargin = 4
 	
 	Procedure PrepareVectorTextBlock(*TextData.Text)
@@ -730,6 +769,20 @@ Module UITK
 		EndIf
 		
 	EndProcedure
+	
+	Procedure AddPathRoundedBox(x, y, Width, Height, Radius, Flag = #PB_Path_Default)
+		MovePathCursor(x, y + Radius, Flag)
+		
+		AddPathArc(0, Height - radius, Width, Height - radius, Radius, #PB_Path_Relative)
+		AddPathArc(Width - Radius, 0, Width - Radius, - Height, Radius, #PB_Path_Relative)
+		AddPathArc(0, Radius - Height, -Width, Radius - Height, Radius, #PB_Path_Relative)
+		AddPathArc(Radius - Width, 0, Radius - Width, Height, Radius, #PB_Path_Relative)
+		ClosePath()
+		
+		MovePathCursor(-x,-y-Radius, Flag)
+	EndProcedure
+	
+	; Default functions
 	
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
@@ -2023,13 +2076,13 @@ Module UITK
 			
 			If \State
 				X + #ToggleSize
-				VectorSourceColor(\Theme\Special[\MouseState])
+				VectorSourceColor(\Theme\Special2[\MouseState])
 				FillPath(#PB_Path_Winding)
 				AddPathCircle(X, Y, #ToggleSize * 0.37)
 				VectorSourceColor(\Theme\Highlight)
 				FillPath()
 				
-				VectorSourceColor(\Theme\Special[\MouseState])
+				VectorSourceColor(\Theme\Special2[\MouseState])
 				MovePathCursor(X - #ToggleSize * 0.26, Y, #PB_Path_Default)
 				AddPathLine(#ToggleSize * 0.18, #ToggleSize * 0.18, #PB_Path_Relative)
 				AddPathLine(#ToggleSize * 0.27, #ToggleSize * -0.37, #PB_Path_Relative)
@@ -2926,17 +2979,277 @@ Module UITK
 	;}
 	
 	;{ TrackBar
+	#Trackbar_Thickness = 7
+	#TracKbar_CursorWidth = 10
+	#TracKbar_CursorHeight = 24
+	#Trackbar_IndentWidth = 20
+	#Trackbar_Margin = 3
+	
+	Structure TrackBarIndent
+		Text.s
+		Position.l
+	EndStructure
+	
 	Structure TrackBarData Extends GadgetData
+		Minimum.i
+		Maximum.i
+		Vertical.b
+		Drag.b
+		DragOffset.i
+		Hover.b
+		List IndentList.TrackBarIndent()
 	EndStructure
 	
 	Procedure TrackBar_Redraw(*this.PB_Gadget)
+		Protected *GadgetData.TrackBarData = *this\vt, Progress, X, Y, Ratio.d, TextHeight, Height, Width
+		
+		With *GadgetData
+			VectorFont(\TextBock\FontID)
+			VectorSourceColor(\Theme\LineColor[#Cold])
+			TextHeight = VectorTextHeight("a")
+			
+			If \Vertical
+				Height = \Height - 2 * #Trackbar_Margin
+				Ratio = (Height - #TracKbar_CursorWidth) / (\Maximum - \Minimum)
+				Progress = Round((\State - \Minimum) * Ratio, #PB_Round_Nearest)
+				
+				If \TextBock\HAlign = #HAlignRight
+					X = \OriginX + \Width - #TracKbar_CursorHeight - #Trackbar_Margin
+					
+					ForEach \IndentList()
+						Y = Round((\IndentList()\Position - \Minimum) * Ratio, #PB_Round_Nearest) + #Trackbar_Thickness * 0.5 + #Trackbar_Margin
+						MovePathCursor(X + 2, Y + 1.5)
+						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
+						MovePathCursor(0, Y - Floor(TextHeight * 0.5 ))
+						DrawVectorParagraph(\IndentList()\Text, \Width - X, TextHeight, #PB_VectorParagraph_Right)
+					Next
+					
+					X + #TracKbar_CursorHeight * 0.5
+				Else
+					X = \OriginX + #Trackbar_Margin
+					
+					ForEach \IndentList()
+						Y = Round((\IndentList()\Position - \Minimum) * Ratio, #PB_Round_Nearest) + #Trackbar_Thickness * 0.5 + #Trackbar_Margin
+						MovePathCursor(X + 2, Y + 1.5)
+						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
+						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, Y - Floor(TextHeight * 0.5 ))
+						DrawVectorParagraph(\IndentList()\Text, \Width, TextHeight, #PB_VectorParagraph_Left)
+					Next
+					
+					X + #TracKbar_CursorHeight * 0.5
+				EndIf
+				VectorSourceColor(\Theme\LineColor[#Cold])
+				StrokePath(0.5)
+				
+				VectorSourceColor(\Theme\Special3[#Cold])
+				
+				Y = \OriginY + #Trackbar_Margin
+				
+				AddPathCircle(X, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
+				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness, Progress)
+				FillPath(#PB_Path_Winding)
+				
+				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5 + Progress, #Trackbar_Thickness, Height - #Trackbar_Thickness - Progress)
+				AddPathCircle(X, Y + Height - #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
+				VectorSourceColor(\Theme\LineColor[#Cold])
+				FillPath(#PB_Path_Winding)
+				
+				AddPathRoundedBox(X - #TracKbar_CursorHeight * 0.5, Y + Progress, #TracKbar_CursorHeight, #TracKbar_CursorWidth, 3)
+			Else
+				Width = \Width - 2 * #Trackbar_Margin
+				Ratio = (Width - #TracKbar_CursorWidth) / (\Maximum - \Minimum)
+				Progress = Round((\State - \Minimum) * Ratio, #PB_Round_Nearest)
+				
+				If \TextBock\VAlign = #VAlignTop
+					Y = \OriginY + #Trackbar_Margin
+					
+					ForEach \IndentList()
+						X = Round((\IndentList()\Position - \Minimum) * Ratio, #PB_Round_Nearest) + #Trackbar_Thickness * 0.5 + #Trackbar_Margin
+						
+						MovePathCursor(X + 1.5, Y + 2)
+						AddPathLine(0, #Trackbar_IndentWidth, #PB_Path_Relative)
+						MovePathCursor(X - 25, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
+						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
+					Next
+					
+					Y + #TracKbar_CursorHeight * 0.5
+				Else
+					Y = \OriginY + \Height - #TracKbar_CursorHeight - #Trackbar_Margin
+					
+					ForEach \IndentList()
+						X = Round((\IndentList()\Position - \Minimum) * Ratio, #PB_Round_Nearest) + #Trackbar_Thickness * 0.5 + #Trackbar_Margin
+						
+						MovePathCursor(X + 1.5, Y + 2)
+						AddPathLine(0, #Trackbar_IndentWidth, #PB_Path_Relative)
+						MovePathCursor(X - 25, Y - TextHeight - #Trackbar_Margin)
+						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
+					Next
+					
+					Y + #TracKbar_CursorHeight * 0.5
+				EndIf
+				VectorSourceColor(\Theme\LineColor[#Cold])
+				StrokePath(0.5)
+				
+				VectorSourceColor(\Theme\Special3[#Cold])
+				
+				X = \OriginX + #Trackbar_Margin
+				
+				AddPathCircle(X + #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
+				AddPathBox(X + #Trackbar_Thickness * 0.5, Y - #Trackbar_Thickness * 0.5, Progress, #Trackbar_Thickness)
+				FillPath(#PB_Path_Winding)
+				
+				AddPathBox(X + #Trackbar_Thickness * 0.5 + Progress, Y - #Trackbar_Thickness * 0.5, Width - #Trackbar_Thickness - Progress, #Trackbar_Thickness)
+				AddPathCircle(X + Width - #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
+				VectorSourceColor(\Theme\LineColor[#Cold])
+				FillPath(#PB_Path_Winding)
+				
+				AddPathRoundedBox(X + Progress, Y - #TracKbar_CursorHeight * 0.5, #TracKbar_CursorWidth, #TracKbar_CursorHeight, 3)
+			EndIf
+			
+			VectorSourceColor(\Theme\FrontColor[#Cold])
+			StrokePath(1, #PB_Path_Preserve)
+			VectorSourceColor(\Theme\Highlight)
+			FillPath(#PB_Path_Winding)
+		EndWith
 		
 	EndProcedure
 		
 	Procedure TrackBar_EventHandler(*this.PB_Gadget, *Event.Event)
+		Protected *GadgetData.TrackBarData = *this\vt, Redraw, CursorX, CursorY, NewState
 		
+		With *GadgetData
+			Select *Event\EventType
+				Case #MouseMove ;{
+					If \Drag
+						If \Vertical
+							NewState = Clamp(\Minimum + Round((*Event\MouseY - \DragOffset) / (\Height - #TracKbar_CursorWidth - #Trackbar_Margin * 2) * (\Maximum - \Minimum), #PB_Round_Nearest), \Minimum, \Maximum)
+							If \State <> NewState
+								\State = NewState
+								Redraw = #True
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							EndIf
+						Else
+							NewState = Clamp(\Minimum + Round((*Event\MouseX - \DragOffset) / (\Width - #TracKbar_CursorWidth - #Trackbar_Margin * 2) * (\Maximum - \Minimum), #PB_Round_Nearest), \Minimum, \Maximum)
+							If \State <> NewState
+								\State = NewState
+								Redraw = #True
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							EndIf
+						EndIf
+					Else
+						If \Vertical
+							CursorY = \OriginY + Round((\State - \Minimum) / (\Maximum - \Minimum) * (\Height - #TracKbar_CursorWidth - #Trackbar_Margin * 2), #PB_Round_Nearest) + #Trackbar_Margin
+							
+							If \TextBock\HAlign = #HAlignRight
+								CursorX = \OriginX + \Width - #TracKbar_CursorHeight - #Trackbar_Margin
+							Else
+								CursorX = \OriginX + #Trackbar_Margin
+							EndIf
+							
+							If (*Event\MouseX >= CursorX) And (*Event\MouseY >= CursorY) And (*Event\MouseX <= CursorX + #TracKbar_CursorHeight) And (*Event\MouseY <= CursorY + #TracKbar_CursorWidth)
+								SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_UpDown)
+								\Hover = #True
+							Else
+								SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
+								\Hover = #False
+							EndIf
+						Else
+							CursorX = \OriginX + Round((\State - \Minimum) / (\Maximum - \Minimum) * (\Width - #TracKbar_CursorWidth - #Trackbar_Margin * 2), #PB_Round_Nearest) + #Trackbar_Margin
+							
+							If \TextBock\VAlign = #VAlignBottom
+								CursorY = \OriginY + \Height - #TracKbar_CursorHeight - #Trackbar_Margin
+							Else
+								CursorY = \OriginY + #Trackbar_Margin
+							EndIf
+							
+							If (*Event\MouseX >= CursorX) And (*Event\MouseY >= CursorY) And (*Event\MouseX <= CursorX + #TracKbar_CursorWidth) And (*Event\MouseY <= CursorY + #TracKbar_CursorHeight)
+								SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
+								\Hover = #True
+							Else
+								SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
+								\Hover = #False
+							EndIf
+						EndIf
+					EndIf
+					;}
+				Case #LeftButtonDown ;{
+					If \Hover
+						\Drag = #True
+						If \Vertical
+							\DragOffset = *Event\MouseY - Round((\State - \Minimum) / (\Maximum - \Minimum) * (\Height - #TracKbar_CursorWidth - #Trackbar_Margin * 2), #PB_Round_Nearest)
+						Else
+							\DragOffset = *Event\MouseX - Round((\State - \Minimum) / (\Maximum - \Minimum) * (\Width - #TracKbar_CursorWidth - #Trackbar_Margin * 2), #PB_Round_Nearest)
+						EndIf
+					Else
+						If \Vertical
+							CursorY = \OriginY + Round((\State - \Minimum) / (\Maximum - \Minimum) * (\Height - #TracKbar_CursorWidth), #PB_Round_Nearest)
+							
+							If *Event\MouseY < CursorY
+								NewState = Clamp(\State - Max(Round((\Maximum - \Minimum) * 0.1, #PB_Round_Nearest), 1), \Minimum, \Maximum)
+							Else
+								NewState = Clamp(\State + Max(Round((\Maximum - \Minimum) * 0.1, #PB_Round_Nearest), 1), \Minimum, \Maximum)
+							EndIf
+							
+						Else
+							CursorX = \OriginX + Round((\State - \Minimum) / (\Maximum - \Minimum) * (\Width - #TracKbar_CursorWidth), #PB_Round_Nearest)
+							
+							If *Event\MouseX < CursorX
+								NewState = Clamp(\State - Max(Round((\Maximum - \Minimum) * 0.1, #PB_Round_Nearest), 1), \Minimum, \Maximum)
+							Else
+								NewState = Clamp(\State + Max(Round((\Maximum - \Minimum) * 0.1, #PB_Round_Nearest), 1), \Minimum, \Maximum)
+							EndIf
+							
+						EndIf
+						
+						If \State <> NewState
+							\State = NewState
+							Redraw = #True
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						EndIf
+					EndIf
+					;}
+				Case #LeftButtonUp ;{
+					\Drag = #False
+					
+					;}
+			EndSelect
+			
+			If Redraw
+				RedrawObject()
+			EndIf
+			
+		EndWith
 	EndProcedure
+	
+	Procedure Trackbar_AddGadgetItem(*this.PB_Gadget, Position, *Text, ImageID, Flag)
+		Protected *GadgetData.TrackBarData = *this\vt, ListSize
 		
+		With *GadgetData
+			ListSize = ListSize(\IndentList())
+			
+			If ListSize
+				ListSize - 1
+				ForEach \IndentList()
+					If \IndentList()\Position = Position
+						Break
+					ElseIf \IndentList()\Position > Position
+						InsertElement(\IndentList())
+						Break
+					ElseIf ListIndex(\IndentList()) = ListSize
+						AddElement(\IndentList())
+					EndIf
+				Next
+			Else
+				AddElement(\IndentList())
+			EndIf
+			
+			\IndentList()\Text = PeekS(*Text)
+			\IndentList()\Position = Position
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
 	Procedure TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.TrackBarData
 		
@@ -2953,6 +3266,38 @@ Module UITK
 				InitializeObject(TrackBar)
 				
 				With *GadgetData
+					
+					If Flags & #DarkMode
+						CopyStructure(@AltDarkTheme, *GadgetData\Theme, Theme)
+					Else
+						CopyStructure(@AltTheme, *GadgetData\Theme, Theme)
+					EndIf
+					
+					\Vertical = Bool(Flags & #Trackbar_Vertical)
+					\Maximum = Maximum
+					\Minimum = Minimum
+					
+					If \Vertical
+						\HMargin = 30
+						\VMargin = 50
+					Else
+						\HMargin = 50
+						\VMargin = 20
+					EndIf
+					
+					\TextBock\RequieredHeight = \VMargin * 2
+					\TextBock\RequieredWidth = \HMargin * 2
+					\TextBock\FontID = BoldFont
+					
+					\VT\AddGadgetItem2 = @Trackbar_AddGadgetItem()
+					
+					\SupportedEvent[#LeftClick] = #True
+					\SupportedEvent[#LeftButtonDown] = #True
+					\SupportedEvent[#LeftButtonUp] = #True
+					\SupportedEvent[#MouseLeave] = #True
+					\SupportedEvent[#MouseMove] = #True
+					\SupportedEvent[#KeyDown] = #True
+					\SupportedEvent[#KeyUp] = #True
 				EndWith
 				
 				RedrawObject()
@@ -2997,6 +3342,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 2875
-; Folding = JAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 3108
+; FirstLine = 411
+; Folding = NAQIAAAAAAAAAAAiAAAAAAAD9
 ; EnableXP
