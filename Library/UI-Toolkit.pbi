@@ -1171,8 +1171,7 @@ Module UITK
 					SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 0, 0, 0, #SWP_NOSIZE)
 				EndIf
 				
-				ResizeGadget(*WindowData\Container, #PB_Ignore, #PB_Ignore, *WindowData\Width, *WindowData\Height - #WindowBarHeight)
-				
+				SetWindowPos_(GadgetID(*WindowData\Container), 0, 0, 0, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #SWP_NOMOVE | #SWP_NOZORDER)
 				;}
 			Case #WM_NCACTIVATE ;{
 				ProcedureReturn 1
@@ -1846,7 +1845,7 @@ Module UITK
 	; Setters
 	
 	;}
-
+	
 	
 	;Gadgets:
 	;{ Button
@@ -2876,6 +2875,7 @@ Module UITK
 				BindGadgetEvent(\ScrollArea, @ScrollArea_Handler())
 				
 				SetGadgetColor(\ScrollArea, #PB_Gadget_BackColor, RGB(Red(*GadgetData\Theme\WindowColor), Green(*GadgetData\Theme\WindowColor), Blue(*GadgetData\Theme\WindowColor)))
+				SetGadgetColor(\Gadget, #PB_Gadget_BackColor, RGB(Red(*GadgetData\Theme\WindowColor), Green(*GadgetData\Theme\WindowColor), Blue(*GadgetData\Theme\WindowColor)))
 				
 				CloseGadgetList()
 				CloseGadgetList()
@@ -3284,6 +3284,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 1087
-; Folding = IAAAAAAAIAAgAAAAAAAAIAAC9
+; CursorPosition = 1172
+; FirstLine = 42
+; Folding = IAAAAAAAIRAAAAAAAAAAIBEC9
 ; EnableXP
