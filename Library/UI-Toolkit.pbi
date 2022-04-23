@@ -11,6 +11,7 @@
 		#VAlignBottom									; Align text bottom
 		#Border											; Draw a border arround the gadget
 		#DarkMode										; Use the dark color scheme
+		#LightMode										; Use the light color scheme
 		
 		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
@@ -35,19 +36,18 @@
 	#ScrollArea_ScrollStep		= #PB_ScrollArea_ScrollStep 
 	
 	Enumeration; Colors
-		#Color_Back_Cold	= #PB_Gadget_FrontColor
-		#Color_Front_Cold	= #PB_Gadget_BackColor 
+		#Color_Text_Cold	= #PB_Gadget_FrontColor
+		#Color_Back_Cold	= #PB_Gadget_BackColor 
 		#Color_Line			= #PB_Gadget_LineColor 
 		
 		#Color_Back_Warm
 		#Color_Back_Hot
 		
-		#Color_Front_Warm
-		#Color_Front_Hot
+		#Color_Text_Warm
+		#Color_Text_Hot
 		
 		#Color_Parent										; The parent (window or container) color, used for rounded corners and stuff like that
 	EndEnumeration
-	
 	;}
 	
 	;{ Public procedures declaration
@@ -110,8 +110,15 @@ Module UITK
 		
 		If Flags & #DarkMode
 			CopyStructure(@DarkTheme, *GadgetData\Theme, Theme)
-		Else
+		ElseIf Flags & #LightMode
 			CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
+		Else
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+			If *WindowData
+				CopyStructure(@*WindowData\Theme, *GadgetData\Theme, Theme)
+			Else
+				CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
+			EndIf
 		EndIf
 		
 		*GadgetData\Redraw = @GadgetType#_Redraw()
@@ -178,7 +185,6 @@ Module UITK
 			StopVectorDrawing()
 		EndIf
 	EndMacro
-	
 	
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows ; Fix color
 		Macro FixColor(Color)
@@ -389,7 +395,8 @@ Module UITK
 	
 	Structure Theme
 		BackColor.l[4]
-		FrontColor.l[4]
+		ShaderColor.l[4]
+		TextColor.l[4]
 		LineColor.l[4]
 		Special1.l[4]
 		Special2.l[4]
@@ -434,7 +441,7 @@ Module UITK
 	EndStructure
 	
 	Global AccessibilityMode = #False
-	Global DefaultTheme.Theme, AltTheme.Theme, DarkTheme.Theme, AltDarkTheme.Theme
+	Global DefaultTheme.Theme, DarkTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
 	Global MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 12, #PB_Font_HighQuality))
@@ -446,44 +453,18 @@ Module UITK
 		\BackColor[#Cold]		= SetAlpha(FixColor($F0F0F0), 255)
 		\BackColor[#Warm]		= SetAlpha(FixColor($D8E6F2), 255)
 		\BackColor[#Hot]		= SetAlpha(FixColor($C0DCF3), 255)
-		                    
+		
+		\ShaderColor[#Cold]		= SetAlpha(FixColor($DEDEDE), 255)
+		\ShaderColor[#Warm]		= SetAlpha(FixColor($D3D3D3), 255)
+		\ShaderColor[#Hot]		= SetAlpha(FixColor($C0DCF3), 255)
+		
 		\LineColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($90C8F6), 255)
 		\LineColor[#Hot]		= SetAlpha(FixColor($90C8F6), 255)
 		
-		\FrontColor[#Cold] 		= SetAlpha(FixColor($000000), 255)
-		\FrontColor[#Warm]		= SetAlpha(FixColor($000000), 255)
-		\FrontColor[#Hot]		= SetAlpha(FixColor($000000), 255)
-		
-		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
-		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
-		\Special1[#Hot]			= SetAlpha(FixColor($E06365), 255)
-		
-		\Special2[#Cold]		= SetAlpha(FixColor($3AA55D), 255)
-		\Special2[#Warm]		= SetAlpha(FixColor($6BD08B), 255)
-		\Special2[#Hot]			= SetAlpha(FixColor($6BD08B), 255)
-		
-		\Special3[#Cold]		= SetAlpha(FixColor($5865F2), 255)
-		\Special3[#Warm]		= SetAlpha(FixColor($7984F5), 255)
-		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
-		
-		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
-	EndWith
-	
-	With AltTheme
-		\WindowColor = SetAlpha(FixColor($F0F0F0), 255)
-		
-		\BackColor[#Cold]		= SetAlpha(FixColor($DEDEDE), 255)
-		\BackColor[#Warm]		= SetAlpha(FixColor($D8E6F2), 255)
-		\BackColor[#Hot]		= SetAlpha(FixColor($C0DCF3), 255)
-		                    
-		\LineColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
-		\LineColor[#Warm]		= SetAlpha(FixColor($8D8D8D), 255)
-		\LineColor[#Hot]		= SetAlpha(FixColor($FDFDFD), 255)
-		
-		\FrontColor[#Cold] 		= SetAlpha(FixColor($000000), 255)
-		\FrontColor[#Warm]		= SetAlpha(FixColor($000000), 255)
-		\FrontColor[#Hot]		= SetAlpha(FixColor($000000), 255)
+		\TextColor[#Cold] 		= SetAlpha(FixColor($000000), 255)
+		\TextColor[#Warm]		= SetAlpha(FixColor($000000), 255)
+		\TextColor[#Hot]		= SetAlpha(FixColor($000000), 255)
 		
 		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
 		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
@@ -506,44 +487,18 @@ Module UITK
 		\BackColor[#Cold]		= SetAlpha(FixColor($36393F), 255)
 		\BackColor[#Warm]		= SetAlpha(FixColor($44474C), 255)
 		\BackColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
-		                    
+		
+		\ShaderColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
+		\ShaderColor[#Warm]		= SetAlpha(FixColor($4F545C), 255)
+		\ShaderColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
+		
 		\LineColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($A2A3A5), 255)
 		\LineColor[#Hot]		= SetAlpha(FixColor($A2A3A5), 255)
 		
-		\FrontColor[#Cold]	 	= SetAlpha(FixColor($FAFAFB), 255)
-		\FrontColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
-		\FrontColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
-		
-		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
-		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
-		\Special1[#Hot]			= SetAlpha(FixColor($E06365), 255)
-		
-		\Special2[#Cold]		= SetAlpha(FixColor($3AA55D), 255)
-		\Special2[#Warm]		= SetAlpha(FixColor($6BD08B), 255)
-		\Special2[#Hot]			= SetAlpha(FixColor($6BD08B), 255)
-		
-		\Special3[#Cold]		= SetAlpha(FixColor($5865F2), 255)
-		\Special3[#Warm]		= SetAlpha(FixColor($7984F5), 255)
-		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
-		
-		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
-	EndWith
-	
-	With AltDarkTheme
-		\WindowColor			= SetAlpha(FixColor($36393F), 255)
-		
-		\BackColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
-		\BackColor[#Warm]		= SetAlpha(FixColor($44474C), 255)
-		\BackColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
-		                    
-		\LineColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
-		\LineColor[#Warm]		= SetAlpha(FixColor($A2A3A5), 255)
-		\LineColor[#Hot]		= SetAlpha(FixColor($A2A3A5), 255)
-		
-		\FrontColor[#Cold]	 	= SetAlpha(FixColor($FAFAFB), 255)
-		\FrontColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
-		\FrontColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
+		\TextColor[#Cold]	 	= SetAlpha(FixColor($FAFAFB), 255)
+		\TextColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
+		\TextColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
 		
 		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
 		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
@@ -616,7 +571,7 @@ Module UITK
 		CompilerEndIf  
 	EndProcedure
 	
-	; Is this still needed?
+	; Misc
 	Procedure CurrentWindow()
 		Protected Window =- 1
 		PB_Object_EnumerateStart(PB_Window_Objects)
@@ -1004,12 +959,12 @@ Module UITK
 				Result = *GadgetData\Theme\BackColor[#Warm]
 			Case #Color_Back_Hot
 				Result = *GadgetData\Theme\BackColor[#Hot]
-			Case #Color_Front_Cold
-				Result = *GadgetData\Theme\FrontColor[#Cold]
-			Case #Color_Front_Warm
-				Result = *GadgetData\Theme\FrontColor[#Warm]
-			Case #Color_Front_Hot
-				Result = *GadgetData\Theme\FrontColor[#Hot]
+			Case #Color_Text_Cold
+				Result = *GadgetData\Theme\TextColor[#Cold]
+			Case #Color_Text_Warm
+				Result = *GadgetData\Theme\TextColor[#Warm]
+			Case #Color_Text_Hot
+				Result = *GadgetData\Theme\TextColor[#Hot]
 			Case #Color_Line
 				Result = *GadgetData\Theme\LineColor
 			Case #Color_Parent
@@ -1064,12 +1019,12 @@ Module UITK
 				*GadgetData\Theme\BackColor[#Warm] = Color
 			Case #Color_Back_Hot
 				*GadgetData\Theme\BackColor[#Hot] = Color
-			Case #Color_Front_Cold
-				*GadgetData\Theme\FrontColor[#Cold] = Color
-			Case #Color_Front_Warm
-				*GadgetData\Theme\FrontColor[#Warm] = Color
-			Case #Color_Front_Hot
-				*GadgetData\Theme\FrontColor[#Hot] = Color
+			Case #Color_Text_Cold
+				*GadgetData\Theme\TextColor[#Cold] = Color
+			Case #Color_Text_Warm
+				*GadgetData\Theme\TextColor[#Warm] = Color
+			Case #Color_Text_Hot
+				*GadgetData\Theme\TextColor[#Hot] = Color
 			Case #Color_Line
 				*GadgetData\Theme\LineColor = Color
 			Case #Color_Parent
@@ -1437,20 +1392,15 @@ Module UITK
 			
 			If Flags & #DarkMode
 				Image = CreateImage(#PB_Any, 8, 8, 32, FixColor($202225))
+				CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
 			Else
 				Image = CreateImage(#PB_Any, 8, 8, 32, FixColor($FFFFFF))
+				CopyStructure(@DefaultTheme, *WindowData\Theme, Theme)
 			EndIf
 			
 			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
 			*WindowData\Width = WindowWidth(Window)
 			*WindowData\Height = WindowHeight(Window)
-
-			
-			If Flags & #DarkMode
-				CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
-			Else
-				CopyStructure(@DefaultTheme, *WindowData\Theme, Theme)
-			EndIf
 			
 			FreeImage(Image)
 			
@@ -1462,7 +1412,7 @@ Module UITK
 			
 			If Flags & #Window_CloseButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖭", Bool(Flags & #DarkMode) * #DarkMode)
+				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖭", Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetFont(*WindowData\ButtonClose, MaterialFont)
 				
@@ -1477,13 +1427,13 @@ Module UITK
 				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Warm, SetAlpha(FixColor($E81123), 255))
 				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Hot, SetAlpha(FixColor($F1707A), 255))
 				
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Front_Warm, SetAlpha(FixColor($FFFFFF), 255))
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Front_Hot, SetAlpha(FixColor($FFFFFF), 255))
+				SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Warm, SetAlpha(FixColor($FFFFFF), 255))
+				SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Hot, SetAlpha(FixColor($FFFFFF), 255))
 			EndIf
 			
 			If Flags & #Window_MaximizeButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖯", Bool(Flags & #DarkMode) * #DarkMode)
+				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖯", Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetFont(*WindowData\ButtonMaximize, MaterialFont)
 				
@@ -1496,7 +1446,7 @@ Module UITK
 			
 			If Flags & #Window_MinimizeButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖰", Bool(Flags & #DarkMode) * #DarkMode)
+				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖰",Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetFont(*WindowData\ButtonMinimize, MaterialFont)
 				
@@ -1507,7 +1457,7 @@ Module UITK
 				EndIf
 			EndIf
 			
-			*WindowData\Label = Label(#PB_Any, #SizableBorder, 0, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Bool(Flags & #DarkMode) * #DarkMode) | #HAlignLeft | #VAlignCenter)
+			*WindowData\Label = Label(#PB_Any, #SizableBorder, 0, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
 			If Flags & #DarkMode
 				SetGadgetColor(*WindowData\Label, #Color_Parent, SetAlpha(FixColor($202225), 255))
 			Else
@@ -1636,9 +1586,9 @@ Module UITK
 						DrawingMode(#PB_2DDrawing_Default)
 						Box(#MenuMargin, Y,  \Width - 2 * #MenuMargin, \ItemHeight, \Theme\BackColor[#Hot])
 						DrawingMode(#PB_2DDrawing_Transparent)
-						DrawText(#MenuItemLeftMargin, Y + VerticalOffset, \Item()\Text, \Theme\FrontColor[#Hot])
+						DrawText(#MenuItemLeftMargin, Y + VerticalOffset, \Item()\Text, \Theme\TextColor[#Hot])
 					Else
-						DrawText(#MenuItemLeftMargin, Y + VerticalOffset, \Item()\Text, \Theme\FrontColor[#Cold])
+						DrawText(#MenuItemLeftMargin, Y + VerticalOffset, \Item()\Text, \Theme\TextColor[#Cold])
 					EndIf
 					Y + \ItemHeight
 				Else
@@ -1896,7 +1846,7 @@ Module UITK
 	; Setters
 	
 	;}
-	
+
 	
 	;Gadgets:
 	;{ Button
@@ -1912,7 +1862,7 @@ Module UITK
 			VectorSourceColor(\Theme\BackColor[\MouseState])
 			FillPath()
 			
-			VectorSourceColor(\Theme\FrontColor[\MouseState])
+			VectorSourceColor(\Theme\TextColor[\MouseState])
 			VectorFont(\TextBock\FontID)
 			
 			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin)
@@ -2058,7 +2008,7 @@ Module UITK
 		
 		With *GadgetData
 			VectorFont(\FontID)
-			VectorSourceColor(\Theme\FrontColor[\MouseState])
+			VectorSourceColor(\Theme\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
 				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
@@ -2197,7 +2147,7 @@ Module UITK
 		
 		With *GadgetData
 			VectorFont(\FontID)
-			VectorSourceColor(\Theme\FrontColor[\MouseState])
+			VectorSourceColor(\Theme\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
 				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
@@ -2346,7 +2296,7 @@ Module UITK
 		With *GadgetData
 			Radius = \Thickness * 0.5
 			AddPathCircle(\OriginX + Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-			VectorSourceColor(\Theme\BackColor[#Cold])
+			VectorSourceColor(\Theme\ShaderColor[#Cold])
 			
 			If \Vertical
 				AddPathBox(- \Thickness, 0, \Width, \Height - \Thickness, #PB_Path_Relative)
@@ -2636,12 +2586,6 @@ Module UITK
 				
 				InitializeObject(ScrollBar)
 				
-				If Flags & #DarkMode
-					CopyStructure(@AltDarkTheme, *GadgetData\Theme, Theme)
-				Else
-					CopyStructure(@AltTheme, *GadgetData\Theme, Theme)
-				EndIf
-				
 				With *GadgetData
 					\Max = Max
 					\Min = Min
@@ -2692,7 +2636,7 @@ Module UITK
 		
 		With *GadgetData
 			VectorFont(\FontID)
-			VectorSourceColor(\Theme\FrontColor[#Cold])
+			VectorSourceColor(\Theme\TextColor[#Cold])
 			DrawVectorTextBlock(@\TextBock, \OriginX, \OriginY)
 		EndWith
 	EndProcedure
@@ -2869,12 +2813,12 @@ Module UITK
 					*GadgetData\Theme\BackColor[#Warm] = Color
 				Case #Color_Back_Hot
 					*GadgetData\Theme\BackColor[#Hot] = Color
-				Case #Color_Front_Cold
-					*GadgetData\Theme\FrontColor[#Cold] = Color
-				Case #Color_Front_Warm
-					*GadgetData\Theme\FrontColor[#Warm] = Color
-				Case #Color_Front_Hot
-					*GadgetData\Theme\FrontColor[#Hot] = Color
+				Case #Color_Text_Cold
+					*GadgetData\Theme\TextColor[#Cold] = Color
+				Case #Color_Text_Warm
+					*GadgetData\Theme\TextColor[#Warm] = Color
+				Case #Color_Text_Hot
+					*GadgetData\Theme\TextColor[#Hot] = Color
 				Case #Color_Line
 					*GadgetData\Theme\LineColor = Color
 				Case #Color_Parent
@@ -2916,29 +2860,33 @@ Module UITK
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *GadgetData\Theme, Theme)
-				Else
+				ElseIf Flags & #LightMode
 					CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *GadgetData\Theme, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
+					EndIf
 				EndIf
 				
 				*GadgetData\ScrollArea = ScrollAreaGadget(#PB_Any, 0, 0, Width - #ScrollArea_Bar_Thickness + ScrollbarThickness, Height - #ScrollArea_Bar_Thickness + ScrollbarThickness, ScrollAreaWidth, ScrollAreaHeight, ScrollStep, #PB_ScrollArea_BorderLess)
 				SetProp_(GadgetID(\ScrollArea), "UITK_ScrollAreaData", *GadgetData)
 				BindGadgetEvent(\ScrollArea, @ScrollArea_Handler())
 				
-				If Flags & #DarkMode
-					SetGadgetColor(\ScrollArea, #PB_Gadget_BackColor, RGB(Red(DarkTheme\WindowColor), Green(DarkTheme\WindowColor), Blue(DarkTheme\WindowColor)))
-					SetGadgetColor(\Gadget, #PB_Gadget_BackColor, RGB(Red(DarkTheme\WindowColor), Green(DarkTheme\WindowColor), Blue(DarkTheme\WindowColor)))
-				EndIf
+				SetGadgetColor(\ScrollArea, #PB_Gadget_BackColor, RGB(Red(*GadgetData\Theme\WindowColor), Green(*GadgetData\Theme\WindowColor), Blue(*GadgetData\Theme\WindowColor)))
 				
 				CloseGadgetList()
 				CloseGadgetList()
 				
 				\Width = Width
 				\Height = Height
-				\VerticalScrollbar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness, \Height, #ScrollBar_Vertical | (Bool(Flags & #DarkMode) * #DarkMode))
+				\VerticalScrollbar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness, \Height, #ScrollBar_Vertical)
 				BindGadgetEvent(\VerticalScrollbar, @ScrollArea_ScrollbarHandler(), #PB_EventType_Change)
 				SetProp_(GadgetID(\VerticalScrollbar), "UITK_ScrollAreaData", *GadgetData)
 				
-				\HorizontalScrollbar = ScrollBar(#PB_Any, x, y + \Height - #ScrollArea_Bar_Thickness, \Width - #ScrollArea_Bar_Thickness, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth + #ScrollArea_Bar_Thickness, \Width, (Bool(Flags & #DarkMode) * #DarkMode))
+				\HorizontalScrollbar = ScrollBar(#PB_Any, x, y + \Height - #ScrollArea_Bar_Thickness, \Width - #ScrollArea_Bar_Thickness, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth + #ScrollArea_Bar_Thickness, \Width)
 				BindGadgetEvent(\HorizontalScrollbar, @ScrollArea_ScrollbarHandler(), #PB_EventType_Change)
 				SetProp_(GadgetID(\HorizontalScrollbar), "UITK_ScrollAreaData", *GadgetData)
 				
@@ -2982,7 +2930,7 @@ Module UITK
 	#Trackbar_Thickness = 7
 	#TracKbar_CursorWidth = 10
 	#TracKbar_CursorHeight = 24
-	#Trackbar_IndentWidth = 20
+	#Trackbar_IndentWidth = 20.5
 	#Trackbar_Margin = 3
 	
 	Structure TrackBarIndent
@@ -3017,8 +2965,8 @@ Module UITK
 					X = \OriginX + \Width - #TracKbar_CursorHeight - #Trackbar_Margin
 					
 					ForEach \IndentList()
-						Y = Round((\IndentList()\Position - \Minimum) * Ratio, #PB_Round_Nearest) + #Trackbar_Thickness * 0.5 + #Trackbar_Margin
-						MovePathCursor(X + 2, Y + 1.5)
+						Y = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
+						MovePathCursor(X + 2, Y)
 						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
 						MovePathCursor(0, Y - Floor(TextHeight * 0.5 ))
 						DrawVectorParagraph(\IndentList()\Text, \Width - X, TextHeight, #PB_VectorParagraph_Right)
@@ -3029,8 +2977,8 @@ Module UITK
 					X = \OriginX + #Trackbar_Margin
 					
 					ForEach \IndentList()
-						Y = Round((\IndentList()\Position - \Minimum) * Ratio, #PB_Round_Nearest) + #Trackbar_Thickness * 0.5 + #Trackbar_Margin
-						MovePathCursor(X + 2, Y + 1.5)
+						Y = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
+						MovePathCursor(X + 2, Y)
 						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
 						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, Y - Floor(TextHeight * 0.5 ))
 						DrawVectorParagraph(\IndentList()\Text, \Width, TextHeight, #PB_VectorParagraph_Left)
@@ -3038,20 +2986,18 @@ Module UITK
 					
 					X + #TracKbar_CursorHeight * 0.5
 				EndIf
-				VectorSourceColor(\Theme\LineColor[#Cold])
-				StrokePath(0.5)
-				
-				VectorSourceColor(\Theme\Special3[#Cold])
 				
 				Y = \OriginY + #Trackbar_Margin
 				
-				AddPathCircle(X, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
-				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness, Progress)
-				FillPath(#PB_Path_Winding)
-				
+				VectorSourceColor(\Theme\ShaderColor[#Warm])
+				StrokePath(1)
 				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5 + Progress, #Trackbar_Thickness, Height - #Trackbar_Thickness - Progress)
 				AddPathCircle(X, Y + Height - #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
-				VectorSourceColor(\Theme\LineColor[#Cold])
+				FillPath(#PB_Path_Winding)
+				
+				VectorSourceColor(\Theme\Special3[#Cold])
+				AddPathCircle(X, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
+				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness, Progress)
 				FillPath(#PB_Path_Winding)
 				
 				AddPathRoundedBox(X - #TracKbar_CursorHeight * 0.5, Y + Progress, #TracKbar_CursorHeight, #TracKbar_CursorWidth, 3)
@@ -3064,11 +3010,11 @@ Module UITK
 					Y = \OriginY + #Trackbar_Margin
 					
 					ForEach \IndentList()
-						X = Round((\IndentList()\Position - \Minimum) * Ratio, #PB_Round_Nearest) + #Trackbar_Thickness * 0.5 + #Trackbar_Margin
+						X = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
 						
-						MovePathCursor(X + 1.5, Y + 2)
+						MovePathCursor(X, Y + 2)
 						AddPathLine(0, #Trackbar_IndentWidth, #PB_Path_Relative)
-						MovePathCursor(X - 25, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
+						MovePathCursor(X - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
 						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
 					Next
 					
@@ -3077,36 +3023,34 @@ Module UITK
 					Y = \OriginY + \Height - #TracKbar_CursorHeight - #Trackbar_Margin
 					
 					ForEach \IndentList()
-						X = Round((\IndentList()\Position - \Minimum) * Ratio, #PB_Round_Nearest) + #Trackbar_Thickness * 0.5 + #Trackbar_Margin
+						X = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
 						
-						MovePathCursor(X + 1.5, Y + 2)
+						MovePathCursor(X, Y + 2)
 						AddPathLine(0, #Trackbar_IndentWidth, #PB_Path_Relative)
-						MovePathCursor(X - 25, Y - TextHeight - #Trackbar_Margin)
+						MovePathCursor(X - 24, Y - TextHeight - #Trackbar_Margin)
 						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
 					Next
 					
 					Y + #TracKbar_CursorHeight * 0.5
 				EndIf
-				VectorSourceColor(\Theme\LineColor[#Cold])
-				StrokePath(0.5)
-				
-				VectorSourceColor(\Theme\Special3[#Cold])
 				
 				X = \OriginX + #Trackbar_Margin
 				
-				AddPathCircle(X + #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
-				AddPathBox(X + #Trackbar_Thickness * 0.5, Y - #Trackbar_Thickness * 0.5, Progress, #Trackbar_Thickness)
-				FillPath(#PB_Path_Winding)
-				
+				VectorSourceColor(\Theme\ShaderColor[#Warm])
+				StrokePath(1)
 				AddPathBox(X + #Trackbar_Thickness * 0.5 + Progress, Y - #Trackbar_Thickness * 0.5, Width - #Trackbar_Thickness - Progress, #Trackbar_Thickness)
 				AddPathCircle(X + Width - #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
-				VectorSourceColor(\Theme\LineColor[#Cold])
+				FillPath(#PB_Path_Winding)
+				
+				VectorSourceColor(\Theme\Special3[#Cold])
+				AddPathCircle(X + #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
+				AddPathBox(X + #Trackbar_Thickness * 0.5, Y - #Trackbar_Thickness * 0.5, Progress, #Trackbar_Thickness)
 				FillPath(#PB_Path_Winding)
 				
 				AddPathRoundedBox(X + Progress, Y - #TracKbar_CursorHeight * 0.5, #TracKbar_CursorWidth, #TracKbar_CursorHeight, 3)
 			EndIf
 			
-			VectorSourceColor(\Theme\FrontColor[#Cold])
+			VectorSourceColor(\Theme\TextColor[#Cold])
 			StrokePath(1, #PB_Path_Preserve)
 			VectorSourceColor(\Theme\Highlight)
 			FillPath(#PB_Path_Winding)
@@ -3267,12 +3211,6 @@ Module UITK
 				
 				With *GadgetData
 					
-					If Flags & #DarkMode
-						CopyStructure(@AltDarkTheme, *GadgetData\Theme, Theme)
-					Else
-						CopyStructure(@AltTheme, *GadgetData\Theme, Theme)
-					EndIf
-					
 					\Vertical = Bool(Flags & #Trackbar_Vertical)
 					\Maximum = Maximum
 					\Minimum = Minimum
@@ -3308,6 +3246,10 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	;}
+	
+	;{ Combo
+	
+	;}
 EndModule
 
 
@@ -3342,7 +3284,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 3108
-; FirstLine = 411
-; Folding = NAQIAAAAAAAAAAAiAAAAAAAD9
+; CursorPosition = 1087
+; Folding = IAAAAAAAIAAgAAAAAAAAIAAC9
 ; EnableXP
