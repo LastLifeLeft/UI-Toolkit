@@ -83,6 +83,7 @@
 	Declare Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
 	Declare TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
+	Declare Combo(Gadget, x, y, Width, Height, Flags = #Default)
 	
 	; Misc
 	
@@ -177,11 +178,6 @@ Module UITK
 			VectorSourceColor(*GadgetData\Theme\WindowColor)
 			FillPath()
 			*GadgetData\Redraw(*this)
-			If *GadgetData\Border
-				AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
-				VectorSourceColor(*GadgetData\Theme\LineColor[*GadgetData\MouseState])
-				StrokePath(2)
-			EndIf
 			StopVectorDrawing()
 		EndIf
 	EndMacro
@@ -395,6 +391,7 @@ Module UITK
 	
 	Structure Theme
 		BackColor.l[4]
+		FrontColor.l[4]
 		ShaderColor.l[4]
 		TextColor.l[4]
 		LineColor.l[4]
@@ -454,6 +451,10 @@ Module UITK
 		\BackColor[#Warm]		= SetAlpha(FixColor($D8E6F2), 255)
 		\BackColor[#Hot]		= SetAlpha(FixColor($C0DCF3), 255)
 		
+		\FrontColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
+		\FrontColor[#Warm]		= SetAlpha(FixColor($999999), 255)
+		\FrontColor[#Hot]		= SetAlpha(FixColor($999999), 255)
+		
 		\ShaderColor[#Cold]		= SetAlpha(FixColor($DEDEDE), 255)
 		\ShaderColor[#Warm]		= SetAlpha(FixColor($D3D3D3), 255)
 		\ShaderColor[#Hot]		= SetAlpha(FixColor($C0DCF3), 255)
@@ -487,6 +488,10 @@ Module UITK
 		\BackColor[#Cold]		= SetAlpha(FixColor($36393F), 255)
 		\BackColor[#Warm]		= SetAlpha(FixColor($44474C), 255)
 		\BackColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
+		
+		\FrontColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
+		\FrontColor[#Warm]		= SetAlpha(FixColor($8F9399), 255)
+		\FrontColor[#Hot]		= SetAlpha(FixColor($8F9399), 255)
 		
 		\ShaderColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
 		\ShaderColor[#Warm]		= SetAlpha(FixColor($4F545C), 255)
@@ -561,14 +566,6 @@ Module UITK
 			ProcedureReturn B
 		EndIf
 		ProcedureReturn A
-	EndProcedure
-	
-	Procedure GetGadgetParent(Gadget.i)
-		CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-			ProcedureReturn GetParent_(Gadget)
-		CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux
-			ProcedureReturn Gtk_Widget_Get_Parent_(Gadget)
-		CompilerEndIf  
 	EndProcedure
 	
 	; Misc
@@ -1857,7 +1854,15 @@ Module UITK
 	Procedure Button_Redraw(*this.PB_Gadget)
 		Protected *GadgetData.ButtonData = *this\vt
 		With *GadgetData
-			AddPathBox(\OriginX, \OriginY, \Width, \Height, #PB_Path_Default)
+			
+			If *GadgetData\Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, 4)
+				VectorSourceColor(*GadgetData\Theme\LineColor[*GadgetData\MouseState])
+				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, 4)
+			EndIf
+			
 			VectorSourceColor(\Theme\BackColor[\MouseState])
 			FillPath()
 			
@@ -1926,10 +1931,6 @@ Module UITK
 			EndIf
 			
 		EndWith
-	EndProcedure
-	
-	Procedure Button_Free()
-		
 	EndProcedure
 	
 	Procedure Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -2038,13 +2039,13 @@ Module UITK
 				
 				StrokePath(2)
 			Else
-				VectorSourceColor(\Theme\LineColor[\MouseState])
+				VectorSourceColor(\Theme\FrontColor[\MouseState])
 				FillPath(#PB_Path_Winding)
 				AddPathCircle(X, Y, #ToggleSize * 0.37)
 				VectorSourceColor(\Theme\Highlight)
 				FillPath()
 				
-				VectorSourceColor(\Theme\LineColor[\MouseState])
+				VectorSourceColor(\Theme\FrontColor[\MouseState])
 				MovePathCursor(X - #ToggleSize * 0.18, Y - #ToggleSize * 0.18, #PB_Path_Default)
 				AddPathLine(#ToggleSize * 0.36, #ToggleSize * 0.36, #PB_Path_Relative)
 				MovePathCursor(0, #ToggleSize * -0.36, #PB_Path_Relative)
@@ -2141,7 +2142,7 @@ Module UITK
 	Structure CheckBoxData Extends GadgetData
 	EndStructure
 	
-	Procedure CheckBox_Redraw(*this.PB_Gadget)
+	Procedure CheckBox_Redraw(*this.PB_Gadget) ; /!\ Going to be a problem in meta gadgets!
 		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
 		
 		With *GadgetData
@@ -2158,26 +2159,29 @@ Module UITK
 			
 			Y = Floor(\OriginY + (\Height - #CheckboxSize) * 0.5)
 			
+			VectorSourceColor(\Theme\FrontColor[\MouseState])
 			AddPathBox(X, Y, #CheckboxSize, #CheckboxSize)
 			AddPathBox(X + #CheckboxSize * 0.1, Y + #CheckboxSize * 0.1, #CheckboxSize * 0.8, #CheckboxSize * 0.8)
-			VectorSourceColor(\Theme\LineColor[\MouseState])
-			FillPath()
 			
 			If \State = #True
-				AddPathBox(X + #CheckboxSize * 0.75, Y, #CheckboxSize * 0.25, #CheckboxSize * 0.3)
-				VectorSourceColor(\Theme\WindowColor)
+				AddPathBox(X + #CheckboxSize, Y, #CheckboxSize * -0.25, #CheckboxSize * 0.1)
+				AddPathBox(X + #CheckboxSize * 0.9, Y + #CheckboxSize * 0.1, #CheckboxSize * 0.1, #CheckboxSize * 0.25)
 				FillPath()
-				VectorSourceColor(\Theme\LineColor[\MouseState])
+				
+				VectorSourceColor(\Theme\FrontColor[\MouseState])
 				
 				MovePathCursor(X + #CheckboxSize * 0.2, Y + #CheckboxSize * 0.4)
 				AddPathLine(#CheckboxSize * 0.28, #CheckboxSize * 0.28, #PB_Path_Relative)
 				AddPathLine(#CheckboxSize * 0.5, -#CheckboxSize * 0.7, #PB_Path_Relative)
 				
 				StrokePath(2)
-			ElseIf \State = #PB_Checkbox_Inbetween
-				AddPathBox(X + #CheckboxSize * 0.25, Y + #CheckboxSize * 0.25, #CheckboxSize * 0.5, #CheckboxSize * 0.5)
-				VectorSourceColor(\Theme\LineColor[\MouseState])
+			Else
 				FillPath()
+				If \State = #PB_Checkbox_Inbetween
+					AddPathBox(X + #CheckboxSize * 0.25, Y + #CheckboxSize * 0.25, #CheckboxSize * 0.5, #CheckboxSize * 0.5)
+					VectorSourceColor(\Theme\FrontColor[\MouseState])
+					FillPath()
+				EndIf
 			EndIf
 		EndWith
 	EndProcedure
@@ -2302,7 +2306,7 @@ Module UITK
 				AddPathCircle(\OriginX + Radius, \OriginY + \Height - Radius, Radius, 0, 360, #PB_Path_Default)
 				FillPath(#PB_Path_Winding)
 				
-				VectorSourceColor(\Theme\LineColor[\MouseState])
+				VectorSourceColor(\Theme\FrontColor[\MouseState])
 				
 				If \BarSize >= 0
 					AddPathCircle(\OriginX + Radius, \OriginY + Radius + \Position, Radius, 0, 360, #PB_Path_Default)
@@ -2317,7 +2321,7 @@ Module UITK
 				FillPath(#PB_Path_Winding)
 				
 				If \BarSize >= 0
-					VectorSourceColor(\Theme\LineColor[\MouseState])
+					VectorSourceColor(\Theme\FrontColor[\MouseState])
 					
 					AddPathCircle(\OriginX + Radius + \Position, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
 					AddPathBox(- Radius, - Radius, \BarSize, \Height, #PB_Path_Relative)
@@ -2930,7 +2934,7 @@ Module UITK
 	#Trackbar_Thickness = 7
 	#TracKbar_CursorWidth = 10
 	#TracKbar_CursorHeight = 24
-	#Trackbar_IndentWidth = 20.5
+	#Trackbar_IndentWidth = 20
 	#Trackbar_Margin = 3
 	
 	Structure TrackBarIndent
@@ -2966,7 +2970,7 @@ Module UITK
 					
 					ForEach \IndentList()
 						Y = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
-						MovePathCursor(X + 2, Y)
+						MovePathCursor(X + 2, Y + 1)
 						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
 						MovePathCursor(0, Y - Floor(TextHeight * 0.5 ))
 						DrawVectorParagraph(\IndentList()\Text, \Width - X, TextHeight, #PB_VectorParagraph_Right)
@@ -2978,7 +2982,7 @@ Module UITK
 					
 					ForEach \IndentList()
 						Y = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
-						MovePathCursor(X + 2, Y)
+						MovePathCursor(X + 2, Y + 1)
 						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
 						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, Y - Floor(TextHeight * 0.5 ))
 						DrawVectorParagraph(\IndentList()\Text, \Width, TextHeight, #PB_VectorParagraph_Left)
@@ -2990,7 +2994,7 @@ Module UITK
 				Y = \OriginY + #Trackbar_Margin
 				
 				VectorSourceColor(\Theme\ShaderColor[#Warm])
-				StrokePath(1)
+				StrokePath(2)
 				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5 + Progress, #Trackbar_Thickness, Height - #Trackbar_Thickness - Progress)
 				AddPathCircle(X, Y + Height - #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
 				FillPath(#PB_Path_Winding)
@@ -3012,7 +3016,7 @@ Module UITK
 					ForEach \IndentList()
 						X = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
 						
-						MovePathCursor(X, Y + 2)
+						MovePathCursor(X + 1, Y + 2)
 						AddPathLine(0, #Trackbar_IndentWidth, #PB_Path_Relative)
 						MovePathCursor(X - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
 						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
@@ -3025,7 +3029,7 @@ Module UITK
 					ForEach \IndentList()
 						X = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
 						
-						MovePathCursor(X, Y + 2)
+						MovePathCursor(X + 1, Y + 2)
 						AddPathLine(0, #Trackbar_IndentWidth, #PB_Path_Relative)
 						MovePathCursor(X - 24, Y - TextHeight - #Trackbar_Margin)
 						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
@@ -3037,7 +3041,7 @@ Module UITK
 				X = \OriginX + #Trackbar_Margin
 				
 				VectorSourceColor(\Theme\ShaderColor[#Warm])
-				StrokePath(1)
+				StrokePath(2)
 				AddPathBox(X + #Trackbar_Thickness * 0.5 + Progress, Y - #Trackbar_Thickness * 0.5, Width - #Trackbar_Thickness - Progress, #Trackbar_Thickness)
 				AddPathCircle(X + Width - #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
 				FillPath(#PB_Path_Winding)
@@ -3248,6 +3252,266 @@ Module UITK
 	;}
 	
 	;{ Combo
+	#Combo_Margin = 3
+	#Combo_IconMargin = 34
+	#Combo_IconWidth = 28
+	#Combo_IconHeight = 17
+	#Combo_Icon = 8
+	#Combo_ItemHeight = 40
+	#Combo_ItemMargin = 8
+	#Combo_Corner = 4
+	
+	Structure ComboData Extends GadgetData
+		Unfolded.b
+		MenuWindow.i
+		MenuCanvas.i
+		MenuState.i
+		List Items.Text()
+	EndStructure
+	
+	Procedure Combo_Redraw(*this.PB_Gadget)
+		Protected *GadgetData.ComboData = *this\vt
+		With *GadgetData
+			
+			If *GadgetData\Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, 4)
+				VectorSourceColor(\Theme\LineColor[Bool(\MouseState Or \Unfolded)])
+				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, 4)
+			EndIf
+			
+			VectorSourceColor(\Theme\BackColor[Bool(\MouseState Or \Unfolded)])
+			FillPath()
+			
+			VectorSourceColor(\Theme\TextColor[\MouseState])
+			VectorFont(\TextBock\FontID)
+			
+			DrawVectorTextBlock(@\TextBock, \OriginX + #Combo_ItemMargin, \OriginY + \VMargin)
+			VectorFont(MaterialFont, 20)
+			VectorSourceColor(\Theme\TextColor[#Cold])
+			MovePathCursor(\Width - #Combo_IconWidth, (\Height - #Combo_IconHeight) * 0.5)
+			
+			If \Unfolded
+				DrawVectorText("󰅃")
+			Else
+				DrawVectorText("󰅀")
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure Combo_MenuRedraw(*GadgetData.ComboData)
+		Protected Y, Index
+		
+		With *GadgetData
+			
+			StartVectorDrawing(CanvasVectorOutput(\MenuCanvas))
+			If *GadgetData\Border
+				AddPathBox(1, 0, \Width - 2, VectorOutputHeight() -1)
+				VectorSourceColor(\Theme\LineColor[#Warm])
+				StrokePath(1, #PB_Path_Preserve)
+			Else
+				AddPathBox(\OriginX, \OriginY, \Width, VectorOutputHeight())
+			EndIf
+			
+			VectorSourceColor(\Theme\BackColor[#True])
+			FillPath()
+			
+			VectorSourceColor(\Theme\TextColor[#Cold])
+			VectorFont(\TextBock\FontID)
+			
+			ForEach \Items()
+				If Index = \MenuState
+					AddPathBox(\Border, Y, \Width - \Border * 2, #Combo_ItemHeight)
+					VectorSourceColor(\Theme\BackColor[#Hot])
+					FillPath()
+					VectorSourceColor(\Theme\TextColor[#Cold])
+				EndIf
+				
+				DrawVectorTextBlock(@\Items(), #Combo_ItemMargin, Y)
+				
+				If Index = \State
+					MovePathCursor(\Width - #Combo_IconWidth, Y + (#Combo_ItemHeight - 14) * 0.5)
+					VectorFont(MaterialFont, 16)
+					DrawVectorText("󰗠")
+					VectorFont(\TextBock\FontID)
+				EndIf
+				
+				Index + 1
+				Y + #Combo_ItemHeight
+			Next
+			
+			StopVectorDrawing()
+		EndWith
+	EndProcedure
+	
+	Procedure Combo_EventHandler(*this.PB_Gadget, *Event.Event)
+		Protected *GadgetData.ComboData = *this\vt, Redraw
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #MouseEnter
+					\MouseState = #True
+					Redraw = #True
+					
+				Case #MouseLeave
+					\MouseState = #Cold
+					Redraw = #True
+					
+				Case #LeftButtonDown
+					If \Unfolded
+						\Unfolded = #False
+						Redraw = #True
+					Else
+						SetWindowPos_(WindowID(\MenuWindow), 0, GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate), GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Height - #Combo_Corner, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
+						HideWindow(\MenuWindow, #False)
+						SetActiveGadget(\MenuCanvas)
+						\Unfolded = #True
+						Redraw = #True
+					EndIf
+				Case #KeyUp
+			EndSelect
+			
+			If Redraw
+				RedrawObject()
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure Combo_MenuHandler()
+		Protected *this.PB_Gadget = GetProp_(GadgetID(EventGadget()), "UITK_ComboData"), *GadgetData.ComboData = *this\vt, Item
+		
+		With *GadgetData
+			Select EventType()
+				Case #PB_EventType_LostFocus
+					\Unfolded = #False
+					RedrawObject()
+					HideWindow(\MenuWindow , #True)
+					Combo_MenuRedraw(*GadgetData)
+					
+				Case #PB_EventType_MouseMove
+					Item = Floor(GetGadgetAttribute(\MenuCanvas, #PB_Canvas_MouseY) / #Combo_ItemHeight)
+					If Item <> \MenuState
+						\MenuState = Item
+						Combo_MenuRedraw(*GadgetData)
+					EndIf
+					
+				Case #PB_EventType_LeftButtonDown
+					If \MenuState < ListSize(\Items())
+						\State = \MenuState
+						SelectElement(\Items(), \State)
+						\TextBock\OriginalText = \Items()\OriginalText
+						PrepareVectorTextBlock(@\TextBock)
+						\Unfolded = #False
+						RedrawObject()
+					EndIf
+					HideWindow(\MenuWindow, #True)
+				Case #PB_EventType_MouseLeave
+					If \MenuState > -1
+						\MenuState = -1
+						Combo_MenuRedraw(*GadgetData)
+					EndIf
+			EndSelect
+		EndWith
+	EndProcedure
+	
+	Procedure Combo_Free(*this.PB_Gadget)
+		Protected *GadgetData.ComboData = *this\vt
+		
+		If *GadgetData\DefaultEventHandler
+			UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
+		EndIf
+		
+		*this\vt = *GadgetData\OriginalVT
+		FreeStructure(*GadgetData)
+		
+		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
+	EndProcedure
+	
+	Procedure Combo_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Flag)
+		Protected *GadgetData.ComboData = *this\vt
+		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				InsertElement(\Items())
+			Else
+				LastElement(\Items())
+				AddElement(\Items())
+			EndIf
+			
+			\Items()\OriginalText = PeekS(*Text)
+			\Items()\LineLimit = -1
+			\Items()\FontID = \TextBock\FontID
+			
+			\Items()\Width = \TextBock\Width - #Combo_Margin
+			\Items()\Height = #Combo_ItemHeight
+			\Items()\VAlign = #VAlignCenter
+			
+			PrepareVectorTextBlock(@\Items())
+			
+			ResizeGadget(\MenuCanvas, #PB_Ignore, #PB_Ignore, #PB_Ignore, ListSize(\Items()) * #Combo_ItemHeight + \Border)
+			Combo_MenuRedraw(*GadgetData)
+			ResizeWindow(\MenuWindow, #PB_Ignore, #PB_Ignore, #PB_Ignore, ListSize(\Items()) * #Combo_ItemHeight + \Border)
+			
+		EndWith
+	EndProcedure
+	
+	Procedure Combo(Gadget, x, y, Width, Height, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.ComboData, GadgetList = UseGadgetList(0)
+		
+		If AccessibilityMode
+			Result = ComboBoxGadget(Gadget, x, y, Width, Height)
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				InitializeObject(Combo)
+				
+				With *GadgetData
+					*GadgetData\TextBock\VAlign = #VAlignCenter
+					
+					\HMargin = #Combo_Margin + \Border
+					\VMargin = #Combo_Margin
+					
+					\TextBock\Width = Width - \HMargin * 2
+					\TextBock\Height = Height - \VMargin * 2
+					
+					\MenuState = -1
+					\State = -1
+					
+					\MenuWindow = OpenWindow(#PB_Any, 0, 0, \Width, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(CurrentWindow()))
+					SetWindowColor(\MenuWindow, RGB(Red(\Theme\LineColor[#Warm]), Green(\Theme\LineColor[#Warm]), Blue(\Theme\LineColor[#Warm])))
+					\MenuCanvas = CanvasGadget(#PB_Any, 0, 0, \Width, 0, #PB_Canvas_Keyboard)
+					SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *this.PB_Gadget)
+					
+					BindGadgetEvent(\MenuCanvas, @Combo_MenuHandler())
+					
+					\VT\AddGadgetItem2 = @Combo_AddItem()
+					
+					; Enable only the needed events
+					\SupportedEvent[#LeftButtonDown] = #True
+					\SupportedEvent[#MouseEnter] = #True
+					\SupportedEvent[#MouseLeave] = #True
+					\SupportedEvent[#KeyDown] = #True
+					\SupportedEvent[#KeyUp] = #True
+				EndWith
+				
+				RedrawObject()
+				
+			EndIf
+			
+			UseGadgetList(GadgetList)
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
 	
 	;}
 EndModule
@@ -3284,7 +3548,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 1172
-; FirstLine = 42
-; Folding = IAAAAAAAIRAAAAAAAAAAIBEC9
+; CursorPosition = 3335
+; FirstLine = 134
+; Folding = NAAAAAAAAAAAAAgBABAABAAgr-
 ; EnableXP
