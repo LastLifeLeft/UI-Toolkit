@@ -140,8 +140,6 @@ Module UITK
 			*GadgetData\TextBock\VAlign = #VAlignTop
 		EndIf
 		
-		*GadgetData\FontID = DefaultFont
-		
 		*GadgetData\EventHandler = @GadgetType#_EventHandler()
 		*GadgetData\VT\FreeGadget = @Default_FreeGadget()
 		*GadgetData\VT\ResizeGadget = @Default_ResizeGadget()
@@ -410,14 +408,12 @@ Module UITK
 		*OriginalVT.GadgetVT
 		Gadget.i
 		*MetaGadget
-		MaterialIcon.b
 		Border.b
 		
 		OriginX.i
 		OriginY.i
 		Width.i
 		Height.i
-		FontID.i
 		
 		State.i
 		
@@ -943,7 +939,7 @@ Module UITK
 	
 	Procedure Default_GetFont(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
-		ProcedureReturn *GadgetData\FontID
+		ProcedureReturn *GadgetData\TextBock\FontID
 	EndProcedure
 	
 	Procedure Default_GetColor(*This.PB_Gadget, ColorType)
@@ -1003,6 +999,7 @@ Module UITK
 	Procedure Default_SetFont(*this.PB_Gadget, FontID)
 		Protected *GadgetData.GadgetData = *this\vt
 		*GadgetData\TextBock\FontID = FontID
+		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		RedrawObject()
 	EndProcedure
 	
@@ -2007,7 +2004,7 @@ Module UITK
 		Protected *GadgetData.ToggleData = *this\vt, X, Y
 		
 		With *GadgetData
-			VectorFont(\FontID)
+			VectorFont(\TextBock\FontID)
 			VectorSourceColor(\Theme\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
@@ -2146,7 +2143,7 @@ Module UITK
 		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
 		
 		With *GadgetData
-			VectorFont(\FontID)
+			VectorFont(\TextBock\FontID)
 			VectorSourceColor(\Theme\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
@@ -2574,6 +2571,10 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure MetaScrollbar()
+		
+	EndProcedure
+	
 	Procedure ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ScrollBarData
 		
@@ -2638,7 +2639,7 @@ Module UITK
 		Protected *GadgetData.LabelData = *this\vt
 		
 		With *GadgetData
-			VectorFont(\FontID)
+			VectorFont(\TextBock\FontID)
 			VectorSourceColor(\Theme\TextColor[#Cold])
 			DrawVectorTextBlock(@\TextBock, \OriginX, \OriginY)
 		EndWith
@@ -3459,6 +3460,27 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Combo_SetState(*this.PB_Gadget, State)
+		Protected *GadgetData.ComboData = *this\vt
+		
+		With *GadgetData
+			If State < ListSize(\Items()) And \State <> State
+				\State = State
+				
+				If \State < 0
+					\TextBock\OriginalText = ""
+					PrepareVectorTextBlock(@\TextBock)
+				Else
+					SelectElement(\Items(), \State)
+					\TextBock\OriginalText = \Items()\OriginalText
+					PrepareVectorTextBlock(@\TextBock)
+				EndIf
+				RedrawObject()
+				Combo_MenuRedraw(*GadgetData)
+			EndIf
+		EndWith
+	EndProcedure
+	
 	Procedure Combo(Gadget, x, y, Width, Height, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ComboData, GadgetList = UseGadgetList(0)
 		
@@ -3494,6 +3516,7 @@ Module UITK
 					BindGadgetEvent(\MenuCanvas, @Combo_MenuHandler())
 					
 					\VT\AddGadgetItem2 = @Combo_AddItem()
+					\VT\SetGadgetState = @Combo_SetState()
 					
 					; Enable only the needed events
 					\SupportedEvent[#LeftButtonDown] = #True
@@ -3548,7 +3571,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 3335
-; FirstLine = 134
-; Folding = NAAAAAAAAAAAAAgBABAABAAgr-
+; CursorPosition = 2641
+; FirstLine = 594
+; Folding = 0AQIAAAAAAAAAAgcmAAwDAAAA5
 ; EnableXP
