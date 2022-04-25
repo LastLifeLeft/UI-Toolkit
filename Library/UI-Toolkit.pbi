@@ -95,12 +95,7 @@ Module UITK
 	EnableExplicit
 	
 	;{ Macro
-	Macro InitializeObject(GadgetType)
-		*this = IsGadget(Gadget)
-		*GadgetData = AllocateStructure(GadgetType#Data)
-		CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-		*GadgetData\OriginalVT = *this\VT
-		*this\VT = *GadgetData
+	Macro MetaInitializeObject(GadgetType)
 		*GadgetData\Gadget = Gadget
 		*GadgetData\ParentWindow = CurrentWindow()
 		
@@ -168,14 +163,14 @@ Module UITK
 	
 	Macro RedrawObject()
 		If *GadgetData\MetaGadget
-			*GadgetData\Redraw(*this)
+			*GadgetData\Redraw(*GadgetData)
 		Else
 			StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
 			AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
 			ClipPath(#PB_Path_Preserve)
 			VectorSourceColor(*GadgetData\Theme\WindowColor)
 			FillPath()
-			*GadgetData\Redraw(*this)
+			*GadgetData\Redraw(*GadgetData)
 			StopVectorDrawing()
 		EndIf
 	EndMacro
@@ -1848,8 +1843,7 @@ Module UITK
 		Toggle.b
 	EndStructure
 	
-	Procedure Button_Redraw(*this.PB_Gadget)
-		Protected *GadgetData.ButtonData = *this\vt
+	Procedure Button_Redraw(*GadgetData.ButtonData)
 		With *GadgetData
 			
 			If *GadgetData\Border
@@ -1930,6 +1924,48 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Button_Meta(*GadgetData.ButtonData, Gadget, x, y, Width, Height, Text.s, Flags)
+		MetaInitializeObject(Button)
+		
+		With *GadgetData
+			\Toggle = Bool(Flags & #Button_Toggle)
+			\TextBock\OriginalText = Text
+			
+			; Button alignement is different from default alignement.
+			If Flags & #VAlignTop
+				\TextBock\VAlign = #VAlignTop
+			ElseIf Flags & #VAlignBottom
+				\TextBock\VAlign = #VAlignBottom
+			Else
+				\TextBock\VAlign = #VAlignCenter
+			EndIf
+			
+			If Flags & #HAlignLeft
+				*GadgetData\TextBock\HAlign = #HAlignLeft
+			ElseIf Flags & #HAlignRight
+				*GadgetData\TextBock\HAlign = #HAlignRight
+			Else
+				*GadgetData\TextBock\HAlign = #HAlignCenter
+			EndIf
+			
+			\HMargin = #Button_Margin + \Border
+			\VMargin = #Button_Margin
+			
+			\TextBock\Width = Width - \HMargin * 2
+			\TextBock\Height = Height - \VMargin * 2
+			
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			
+			; Enable only the needed events
+			\SupportedEvent[#LeftClick] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#MouseEnter] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#KeyUp] = #True
+		EndWith
+	EndProcedure
+	
 	Procedure Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ButtonData
 		
@@ -1945,45 +1981,13 @@ Module UITK
 					Gadget = Result
 				EndIf
 				
-				InitializeObject(Button)
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(ButtonData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
 				
-				With *GadgetData
-					\Toggle = Bool(Flags & #Button_Toggle)
-					\TextBock\OriginalText = Text
-					
-					; Button alignement is different from default alignement.
-					If Flags & #VAlignTop
-						\TextBock\VAlign = #VAlignTop
-					ElseIf Flags & #VAlignBottom
-						\TextBock\VAlign = #VAlignBottom
-					Else
-						\TextBock\VAlign = #VAlignCenter
-					EndIf
-					
-					If Flags & #HAlignLeft
-						*GadgetData\TextBock\HAlign = #HAlignLeft
-					ElseIf Flags & #HAlignRight
-						*GadgetData\TextBock\HAlign = #HAlignRight
-					Else
-						*GadgetData\TextBock\HAlign = #HAlignCenter
-					EndIf
-					
-					\HMargin = #Button_Margin + \Border
-					\VMargin = #Button_Margin
-					
-					\TextBock\Width = Width - \HMargin * 2
-					\TextBock\Height = Height - \VMargin * 2
-					
-					PrepareVectorTextBlock(@*GadgetData\TextBock)
-					
-					; Enable only the needed events
-					\SupportedEvent[#LeftClick] = #True
-					\SupportedEvent[#LeftButtonDown] = #True
-					\SupportedEvent[#MouseEnter] = #True
-					\SupportedEvent[#MouseLeave] = #True
-					\SupportedEvent[#KeyDown] = #True
-					\SupportedEvent[#KeyUp] = #True
-				EndWith
+				Button_Meta(*GadgetData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
 				
@@ -2000,8 +2004,8 @@ Module UITK
 	Structure ToggleData Extends GadgetData
 	EndStructure
 	
-	Procedure Toggle_Redraw(*this.PB_Gadget)
-		Protected *GadgetData.ToggleData = *this\vt, X, Y
+	Procedure Toggle_Redraw(*GadgetData.ToggleData)
+		Protected X, Y
 		
 		With *GadgetData
 			VectorFont(\TextBock\FontID)
@@ -2089,6 +2093,34 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Toggle_Meta(*GadgetData.ToggleData, Gadget, x, y, Width, Height, Text.s, Flags)
+		MetaInitializeObject(Toggle)
+		
+		With *GadgetData
+			\TextBock\Width = Width - #ToggleSize * 2 - BorderMargin * 2
+			\TextBock\Height = Height - BorderMargin * 2
+			\TextBock\OriginalText = Text
+			\HMargin = #ToggleSize + BorderMargin
+			\VMargin = BorderMargin
+			
+			If Flags & #HAlignCenter
+				\TextBock\HAlign = #HAlignLeft
+			EndIf
+			
+			\TextBock\VAlign = #VAlignCenter
+			
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			
+			; Enable only the needed events
+			\SupportedEvent[#LeftClick] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#MouseEnter] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#KeyUp] = #True
+		EndWith
+	EndProcedure
+	
 	Procedure Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ToggleData
 		
@@ -2099,31 +2131,13 @@ Module UITK
 				Gadget = Result
 			EndIf
 			
-			InitializeObject(Toggle)
+			*this = IsGadget(Gadget)
+			*GadgetData = AllocateStructure(ToggleData)
+			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+			*GadgetData\OriginalVT = *this\VT
+			*this\VT = *GadgetData
 			
-			With *GadgetData
-				\TextBock\Width = Width - #ToggleSize * 2 - BorderMargin * 2
-				\TextBock\Height = Height - BorderMargin * 2
-				\TextBock\OriginalText = Text
-				\HMargin = #ToggleSize + BorderMargin
-				\VMargin = BorderMargin
-				
-				If Flags & #HAlignCenter
-					\TextBock\HAlign = #HAlignLeft
-				EndIf
-				
-				\TextBock\VAlign = #VAlignCenter
-				
-				PrepareVectorTextBlock(@*GadgetData\TextBock)
-				
-				; Enable only the needed events
-				\SupportedEvent[#LeftClick] = #True
-				\SupportedEvent[#LeftButtonDown] = #True
-				\SupportedEvent[#MouseEnter] = #True
-				\SupportedEvent[#MouseLeave] = #True
-				\SupportedEvent[#KeyDown] = #True
-				\SupportedEvent[#KeyUp] = #True
-			EndWith
+			Toggle_Meta(*GadgetData, Gadget, x, y, Width, Height, Text.s, Flags)
 			
 			RedrawObject()
 		EndIf
@@ -2139,8 +2153,8 @@ Module UITK
 	Structure CheckBoxData Extends GadgetData
 	EndStructure
 	
-	Procedure CheckBox_Redraw(*this.PB_Gadget) ; /!\ Going to be a problem in meta gadgets!
-		Protected *GadgetData.CheckBoxData = *this\vt, X, Y
+	Procedure CheckBox_Redraw(*GadgetData.CheckBoxData)
+		Protected X, Y
 		
 		With *GadgetData
 			VectorFont(\TextBock\FontID)
@@ -2226,6 +2240,34 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure CheckBox_Meta(*GadgetData.CheckBoxData, Gadget, x, y, Width, Height, Text.s, Flags)
+		MetaInitializeObject(CheckBox)
+		
+		With *GadgetData
+			\TextBock\Width = Width - #CheckboxSize - BorderMargin * 2
+			\TextBock\Height = Height - BorderMargin * 2
+			\TextBock\OriginalText = Text
+			\HMargin = #CheckboxSize * 0.5 + BorderMargin
+			\VMargin = BorderMargin
+			
+			If Flags & #HAlignCenter
+				\TextBock\HAlign = #HAlignLeft
+			EndIf
+			
+			\TextBock\VAlign = #VAlignCenter
+			
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			
+			; Enable only the needed events
+			\SupportedEvent[#LeftClick] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#MouseEnter] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#KeyUp] = #True
+		EndWith
+	EndProcedure
+	
 	Procedure CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.CheckBoxData
 		
@@ -2241,31 +2283,13 @@ Module UITK
 					Gadget = Result
 				EndIf
 				
-				InitializeObject(CheckBox)
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(CheckBoxData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
 				
-				With *GadgetData
-					\TextBock\Width = Width - #CheckboxSize - BorderMargin * 2
-					\TextBock\Height = Height - BorderMargin * 2
-					\TextBock\OriginalText = Text
-					\HMargin = #CheckboxSize * 0.5 + BorderMargin
-					\VMargin = BorderMargin
-					
-					If Flags & #HAlignCenter
-						\TextBock\HAlign = #HAlignLeft
-					EndIf
-					
-					\TextBock\VAlign = #VAlignCenter
-					
-					PrepareVectorTextBlock(@*GadgetData\TextBock)
-					
-					; Enable only the needed events
-					\SupportedEvent[#LeftClick] = #True
-					\SupportedEvent[#LeftButtonDown] = #True
-					\SupportedEvent[#MouseEnter] = #True
-					\SupportedEvent[#MouseLeave] = #True
-					\SupportedEvent[#KeyDown] = #True
-					\SupportedEvent[#KeyUp] = #True
-				EndWith
+				CheckBox_Meta(*GadgetData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -2290,8 +2314,8 @@ Module UITK
 		ScrollStep.l
 	EndStructure
 	
-	Procedure ScrollBar_Redraw(*this.PB_Gadget)
-		Protected *GadgetData.ScrollBarData = *this\vt, Radius.f, Point
+	Procedure ScrollBar_Redraw(*GadgetData.ScrollBarData)
+		Protected Radius.f, Point
 		
 		With *GadgetData
 			Radius = \Thickness * 0.5
@@ -2571,12 +2595,47 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure MetaScrollbar()
+	Procedure Scrollbar_Meta(*GadgetData.ScrollBarData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
+		MetaInitializeObject(ScrollBar)
 		
+		With *GadgetData
+			\Max = Max
+			\Min = Min
+			\PageLenght = PageLenght
+			
+			If Flags & #ScrollBar_Vertical
+				\Vertical = #True
+				\Thickness = \Width
+				\BarSize = Clamp(Round(PageLenght / (max - min) * Height, #PB_Round_Nearest) - \Thickness, 0, Height - \Thickness)
+			Else
+				\Thickness = \Height
+				\BarSize = Clamp(Round(PageLenght / (max - min) * Width, #PB_Round_Nearest) - \Thickness, 0, Width - \Thickness)
+			EndIf
+			
+			If \PageLenght >= (\Max - \Min)
+				\BarSize = -1
+			EndIf
+			
+			\ScrollStep = 3
+			
+			\VT\GetGadgetAttribute = @ScrollBar_GetAttribute()
+			\VT\SetGadgetAttribute = @ScrollBar_SetAttribute()
+			\VT\SetGadgetState = @Scrollbar_SetState()
+			\VT\ResizeGadget = @Scrollbar_Resize()
+			
+			; Enable only the needed events
+			\SupportedEvent[#MouseWheel] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
+		EndWith
+		
+		ProcedureReturn *GadgetData
 	EndProcedure
 	
 	Procedure ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.ScrollBarData
+		Protected Result, *GadgetData.ScrollBarData, *this.PB_Gadget
 		
 		If AccessibilityMode
 			Result = ScrollBarGadget(Gadget, x, y, Width, Height, Min, Max, PageLenght, Bool(Flags & #ScrollBar_Vertical) * #PB_ScrollBar_Vertical)
@@ -2588,40 +2647,13 @@ Module UITK
 					Gadget = Result
 				EndIf
 				
-				InitializeObject(ScrollBar)
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(ScrollBarData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
 				
-				With *GadgetData
-					\Max = Max
-					\Min = Min
-					\PageLenght = PageLenght
-					
-					If Flags & #ScrollBar_Vertical
-						\Vertical = #True
-						\Thickness = \Width
-						\BarSize = Clamp(Round(PageLenght / (max - min) * Height, #PB_Round_Nearest) - \Thickness, 0, Height - \Thickness)
-					Else
-						\Thickness = \Height
-						\BarSize = Clamp(Round(PageLenght / (max - min) * Width, #PB_Round_Nearest) - \Thickness, 0, Width - \Thickness)
-					EndIf
-					
-					If \PageLenght >= (\Max - \Min)
-						\BarSize = -1
-					EndIf
-					
-					\ScrollStep = 3
-					
-					\VT\GetGadgetAttribute = @ScrollBar_GetAttribute()
-					\VT\SetGadgetAttribute = @ScrollBar_SetAttribute()
-					\VT\SetGadgetState = @Scrollbar_SetState()
-					\VT\ResizeGadget = @Scrollbar_Resize()
-					
-					; Enable only the needed events
-					\SupportedEvent[#MouseWheel] = #True
-					\SupportedEvent[#MouseLeave] = #True
-					\SupportedEvent[#MouseMove] = #True
-					\SupportedEvent[#LeftButtonDown] = #True
-					\SupportedEvent[#LeftButtonUp] = #True
-				EndWith
+				Scrollbar_Meta(*GadgetData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -2635,9 +2667,7 @@ Module UITK
 	Structure LabelData Extends GadgetData
 	EndStructure
 	
-	Procedure Label_Redraw(*this.PB_Gadget)
-		Protected *GadgetData.LabelData = *this\vt
-		
+	Procedure Label_Redraw(*GadgetData.LabelData)
 		With *GadgetData
 			VectorFont(\TextBock\FontID)
 			VectorSourceColor(\Theme\TextColor[#Cold])
@@ -2646,6 +2676,21 @@ Module UITK
 	EndProcedure
 	
 	Procedure Label_EventHandler(*this.PB_Gadget, *Event.Event)
+	EndProcedure
+	
+	Procedure Label_Meta(*GadgetData.LabelData, Gadget, x, y, Width, Height, Text.s, Flags)
+		metaInitializeObject(Label)
+		
+		With *GadgetData
+			\TextBock\Width = Width
+			\TextBock\Height = Height
+			\TextBock\OriginalText = Text
+			
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			
+			UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
+			*GadgetData\DefaultEventHandler = 0
+		EndWith
 	EndProcedure
 	
 	Procedure Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -2663,18 +2708,13 @@ Module UITK
 					Gadget = Result
 				EndIf
 				
-				InitializeObject(Label)
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(LabelData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
 				
-				With *GadgetData
-					\TextBock\Width = Width
-					\TextBock\Height = Height
-					\TextBock\OriginalText = Text
-					
-					PrepareVectorTextBlock(@*GadgetData\TextBock)
-					
-					UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
-					*GadgetData\DefaultEventHandler = 0
-				EndWith
+				Label_Meta(*GadgetData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -2953,8 +2993,8 @@ Module UITK
 		List IndentList.TrackBarIndent()
 	EndStructure
 	
-	Procedure TrackBar_Redraw(*this.PB_Gadget)
-		Protected *GadgetData.TrackBarData = *this\vt, Progress, X, Y, Ratio.d, TextHeight, Height, Width
+	Procedure TrackBar_Redraw(*GadgetData.TrackBarData)
+		Protected Progress, X, Y, Ratio.d, TextHeight, Height, Width
 		
 		With *GadgetData
 			VectorFont(\TextBock\FontID)
@@ -3199,6 +3239,39 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure TrackBar_Meta(*GadgetData.TrackBarData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
+		metaInitializeObject(TrackBar)
+				
+		With *GadgetData
+			
+			\Vertical = Bool(Flags & #Trackbar_Vertical)
+			\Maximum = Maximum
+			\Minimum = Minimum
+			
+			If \Vertical
+				\HMargin = 30
+				\VMargin = 50
+			Else
+				\HMargin = 50
+				\VMargin = 20
+			EndIf
+			
+			\TextBock\RequieredHeight = \VMargin * 2
+			\TextBock\RequieredWidth = \HMargin * 2
+			\TextBock\FontID = BoldFont
+			
+			\VT\AddGadgetItem2 = @Trackbar_AddGadgetItem()
+			
+			\SupportedEvent[#LeftClick] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#KeyUp] = #True
+		EndWith
+	EndProcedure
+	
 	Procedure TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.TrackBarData
 		
@@ -3212,36 +3285,13 @@ Module UITK
 					Gadget = Result
 				EndIf
 				
-				InitializeObject(TrackBar)
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(TrackBarData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
 				
-				With *GadgetData
-					
-					\Vertical = Bool(Flags & #Trackbar_Vertical)
-					\Maximum = Maximum
-					\Minimum = Minimum
-					
-					If \Vertical
-						\HMargin = 30
-						\VMargin = 50
-					Else
-						\HMargin = 50
-						\VMargin = 20
-					EndIf
-					
-					\TextBock\RequieredHeight = \VMargin * 2
-					\TextBock\RequieredWidth = \HMargin * 2
-					\TextBock\FontID = BoldFont
-					
-					\VT\AddGadgetItem2 = @Trackbar_AddGadgetItem()
-					
-					\SupportedEvent[#LeftClick] = #True
-					\SupportedEvent[#LeftButtonDown] = #True
-					\SupportedEvent[#LeftButtonUp] = #True
-					\SupportedEvent[#MouseLeave] = #True
-					\SupportedEvent[#MouseMove] = #True
-					\SupportedEvent[#KeyDown] = #True
-					\SupportedEvent[#KeyUp] = #True
-				EndWith
+				TrackBar_Meta(*GadgetData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
 				
 				RedrawObject()
 				
@@ -3268,10 +3318,10 @@ Module UITK
 		MenuCanvas.i
 		MenuState.i
 		List Items.Text()
+		*Scrollbar.ScrollBarData
 	EndStructure
 	
-	Procedure Combo_Redraw(*this.PB_Gadget)
-		Protected *GadgetData.ComboData = *this\vt
+	Procedure Combo_Redraw(*GadgetData.ComboData)
 		With *GadgetData
 			
 			If *GadgetData\Border
@@ -3371,7 +3421,9 @@ Module UITK
 						\Unfolded = #True
 						Redraw = #True
 					EndIf
-				Case #KeyUp
+					
+				Case #KeyDown
+					
 			EndSelect
 			
 			If Redraw
@@ -3382,7 +3434,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Combo_MenuHandler()
-		Protected *this.PB_Gadget = GetProp_(GadgetID(EventGadget()), "UITK_ComboData"), *GadgetData.ComboData = *this\vt, Item
+		Protected *GadgetData.ComboData = GetProp_(GadgetID(EventGadget()), "UITK_ComboData"), Item
 		
 		With *GadgetData
 			Select EventType()
@@ -3481,6 +3533,40 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Combo_Meta(*GadgetData.ComboData, Gadget, x, y, Width, Height, Flags)
+		metaInitializeObject(Combo)
+		
+		With *GadgetData
+			*GadgetData\TextBock\VAlign = #VAlignCenter
+			
+			\HMargin = #Combo_Margin + \Border
+			\VMargin = #Combo_Margin
+			
+			\TextBock\Width = Width - \HMargin * 2
+			\TextBock\Height = Height - \VMargin * 2
+			
+			\MenuState = -1
+			\State = -1
+			
+			\MenuWindow = OpenWindow(#PB_Any, 0, 0, \Width, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(CurrentWindow()))
+			SetWindowColor(\MenuWindow, RGB(Red(\Theme\LineColor[#Warm]), Green(\Theme\LineColor[#Warm]), Blue(\Theme\LineColor[#Warm])))
+			\MenuCanvas = CanvasGadget(#PB_Any, 0, 0, \Width, 0, #PB_Canvas_Keyboard)
+			SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *GadgetData)
+			
+			BindGadgetEvent(\MenuCanvas, @Combo_MenuHandler())
+			
+			\VT\AddGadgetItem2 = @Combo_AddItem()
+			\VT\SetGadgetState = @Combo_SetState()
+			
+			; Enable only the needed events
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#MouseEnter] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#KeyUp] = #True
+		EndWith
+	EndProcedure
+	
 	Procedure Combo(Gadget, x, y, Width, Height, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ComboData, GadgetList = UseGadgetList(0)
 		
@@ -3494,37 +3580,13 @@ Module UITK
 					Gadget = Result
 				EndIf
 				
-				InitializeObject(Combo)
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(ComboData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
 				
-				With *GadgetData
-					*GadgetData\TextBock\VAlign = #VAlignCenter
-					
-					\HMargin = #Combo_Margin + \Border
-					\VMargin = #Combo_Margin
-					
-					\TextBock\Width = Width - \HMargin * 2
-					\TextBock\Height = Height - \VMargin * 2
-					
-					\MenuState = -1
-					\State = -1
-					
-					\MenuWindow = OpenWindow(#PB_Any, 0, 0, \Width, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(CurrentWindow()))
-					SetWindowColor(\MenuWindow, RGB(Red(\Theme\LineColor[#Warm]), Green(\Theme\LineColor[#Warm]), Blue(\Theme\LineColor[#Warm])))
-					\MenuCanvas = CanvasGadget(#PB_Any, 0, 0, \Width, 0, #PB_Canvas_Keyboard)
-					SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *this.PB_Gadget)
-					
-					BindGadgetEvent(\MenuCanvas, @Combo_MenuHandler())
-					
-					\VT\AddGadgetItem2 = @Combo_AddItem()
-					\VT\SetGadgetState = @Combo_SetState()
-					
-					; Enable only the needed events
-					\SupportedEvent[#LeftButtonDown] = #True
-					\SupportedEvent[#MouseEnter] = #True
-					\SupportedEvent[#MouseLeave] = #True
-					\SupportedEvent[#KeyDown] = #True
-					\SupportedEvent[#KeyUp] = #True
-				EndWith
+				Combo_Meta(*GadgetData.ComboData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
 				
@@ -3535,8 +3597,8 @@ Module UITK
 		
 		ProcedureReturn Result
 	EndProcedure
-	
 	;}
+	
 EndModule
 
 
@@ -3571,7 +3633,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 2641
-; FirstLine = 594
-; Folding = 0AQIAAAAAAAAAAgcmAAwDAAAA5
+; CursorPosition = 96
+; Folding = ZAAAAAAAAAAAAAAAAAAAIFQAAA5
 ; EnableXP
