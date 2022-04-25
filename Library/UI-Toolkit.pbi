@@ -48,12 +48,18 @@
 		
 		#Color_Parent										; The parent (window or container) color, used for rounded corners and stuff like that
 	EndEnumeration
+	
+	Enumeration; Properties
+		#Properties_CornerRadius
+		#Properties_Border
+	EndEnumeration
 	;}
 	
 	;{ Public procedures declaration
 	; Setters
-	Declare SetAccessibilityMode(MouseState) 					; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
+	Declare SetAccessibilityMode(MouseState) 				; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
 	Declare SetGadgetColorScheme(Gadget, ThemeJson.s)		; Apply a complete color scheme at once
+	Declare SetGadgetProperty(Gadget, Property, Value)		; 
 	
 	; Getters
 	Declare GetAccessibilityMode()							; Returns the current accessibility MouseState.
@@ -84,7 +90,7 @@
 	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
 	Declare TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
 	Declare Combo(Gadget, x, y, Width, Height, Flags = #Default)
-	
+	Declare VerticalList(Gadget, x, y, Width, Height, Flags = #Default, CurstomItem = #False)
 	; Misc
 	
 	
@@ -95,7 +101,7 @@ Module UITK
 	EnableExplicit
 	
 	;{ Macro
-	Macro MetaInitializeObject(GadgetType)
+	Macro InitializeObject(GadgetType)
 		*GadgetData\Gadget = Gadget
 		*GadgetData\ParentWindow = CurrentWindow()
 		
@@ -393,6 +399,7 @@ Module UITK
 		Special3.l[4]
 		WindowColor.l
 		Highlight.l
+		CornerRadius.b
 	EndStructure
 	
 	Prototype Redraw(*this.PB_Gadget)
@@ -471,6 +478,8 @@ Module UITK
 		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
+		
+		\CornerRadius			= 4
 	EndWith
 	
 	With DarkTheme
@@ -509,6 +518,8 @@ Module UITK
 		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
+		
+		\CornerRadius			= 4
 	EndWith
 	;}
 	;}
@@ -736,7 +747,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MouseEnter
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_MouseLeave
@@ -744,7 +755,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MouseLeave
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_MouseMove
@@ -752,13 +763,13 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MouseMove
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_MouseWheel
 				If *GadgetData\SupportedEvent[#MouseWheel]
 					Event\EventType = #MouseWheel
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_LeftButtonDown
@@ -766,7 +777,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #LeftButtonDown
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_LeftButtonUp
@@ -774,7 +785,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #LeftButtonUp
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_LeftClick
@@ -782,7 +793,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #LeftClick
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_LeftDoubleClick
@@ -790,7 +801,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #LeftDoubleClick
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_RightButtonDown
@@ -798,7 +809,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #RightButtonDown
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_RightButtonUp
@@ -806,7 +817,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #RightButtonUp
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_RightClick
@@ -814,7 +825,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #RightClick
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_RightDoubleClick
@@ -822,7 +833,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #RightDoubleClick
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_MiddleButtonDown
@@ -830,7 +841,7 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MiddleButtonDown
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_MiddleButtonUp
@@ -838,43 +849,43 @@ Module UITK
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 					Event\EventType = #MiddleButtonUp
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_Focus
 				If *GadgetData\SupportedEvent[#Focus]
 					Event\EventType = #Focus
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_LostFocus
 				If *GadgetData\SupportedEvent[#LostFocus]
 					Event\EventType = #LostFocus
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_KeyDown
 				If *GadgetData\SupportedEvent[#KeyDown]
 					Event\EventType = #KeyDown
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_KeyUp
 				If *GadgetData\SupportedEvent[#KeyUp]
 					Event\EventType = #KeyUp
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_Input
 				If *GadgetData\SupportedEvent[#Input]
 					Event\EventType = #Input
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Case #PB_EventType_Resize
 				If *GadgetData\SupportedEvent[#Resize]
 					Event\EventType = #Resize
-					*GadgetData\EventHandler(*this, Event)
+					*GadgetData\EventHandler(*GadgetData, Event)
 				EndIf
 				
 			Default
@@ -930,6 +941,21 @@ Module UITK
 	EndProcedure
 	
 	Procedure SetGadgetColorScheme(Gadget, ThemeJson.s)
+	EndProcedure
+	
+	Procedure SetGadgetProperty(Gadget, Property, Value)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		
+		With *GadgetData
+			Select Property
+				Case #Properties_CornerRadius
+					\Theme\CornerRadius = Value
+				Case #Properties_Border
+					\Border = Value
+			EndSelect
+		EndWith
+		
+		RedrawObject()
 	EndProcedure
 	
 	Procedure Default_GetFont(*this.PB_Gadget)
@@ -1402,6 +1428,8 @@ Module UITK
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖭", Flags & #DarkMode * #DarkMode)
 				
+				SetGadgetProperty(*WindowData\ButtonClose, #Properties_CornerRadius, 0)
+				
 				SetGadgetFont(*WindowData\ButtonClose, MaterialFont)
 				
 				If Flags & #DarkMode
@@ -1423,6 +1451,8 @@ Module UITK
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖯", Flags & #DarkMode * #DarkMode)
 				
+				SetGadgetProperty(*WindowData\ButtonMaximize, #Properties_CornerRadius, 0)
+				
 				SetGadgetFont(*WindowData\ButtonMaximize, MaterialFont)
 				
 				If Flags & #DarkMode
@@ -1435,6 +1465,8 @@ Module UITK
 			If Flags & #Window_MinimizeButton
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖰",Flags & #DarkMode * #DarkMode)
+				
+				SetGadgetProperty(*WindowData\ButtonMinimize, #Properties_CornerRadius, 0)
 				
 				SetGadgetFont(*WindowData\ButtonMinimize, MaterialFont)
 				
@@ -1847,11 +1879,11 @@ Module UITK
 		With *GadgetData
 			
 			If *GadgetData\Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, 4)
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \Theme\CornerRadius)
 				VectorSourceColor(*GadgetData\Theme\LineColor[*GadgetData\MouseState])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
-				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, 4)
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \Theme\CornerRadius)
 			EndIf
 			
 			VectorSourceColor(\Theme\BackColor[\MouseState])
@@ -1865,8 +1897,8 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Button_EventHandler(*this.PB_Gadget, *Event.Event)
-		Protected *GadgetData.ButtonData = *this\vt, Redraw
+	Procedure Button_EventHandler(*GadgetData.ButtonData, *Event.Event)
+		Protected Redraw
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -1925,7 +1957,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Button_Meta(*GadgetData.ButtonData, Gadget, x, y, Width, Height, Text.s, Flags)
-		MetaInitializeObject(Button)
+		InitializeObject(Button)
 		
 		With *GadgetData
 			\Toggle = Bool(Flags & #Button_Toggle)
@@ -2058,8 +2090,8 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Toggle_EventHandler(*this.PB_Gadget, *Event.Event)
-		Protected *GadgetData.ToggleData = *this\vt, Redraw
+	Procedure Toggle_EventHandler(*GadgetData.ToggleData, *Event.Event)
+		Protected Redraw
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -2094,7 +2126,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Toggle_Meta(*GadgetData.ToggleData, Gadget, x, y, Width, Height, Text.s, Flags)
-		MetaInitializeObject(Toggle)
+		InitializeObject(Toggle)
 		
 		With *GadgetData
 			\TextBock\Width = Width - #ToggleSize * 2 - BorderMargin * 2
@@ -2197,8 +2229,8 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure CheckBox_EventHandler(*this.PB_Gadget, *Event.Event)
-		Protected *GadgetData.CheckBoxData = *this\vt, Redraw
+	Procedure CheckBox_EventHandler(*GadgetData.CheckBoxData, *Event.Event)
+		Protected Redraw
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -2241,7 +2273,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure CheckBox_Meta(*GadgetData.CheckBoxData, Gadget, x, y, Width, Height, Text.s, Flags)
-		MetaInitializeObject(CheckBox)
+		InitializeObject(CheckBox)
 		
 		With *GadgetData
 			\TextBock\Width = Width - #CheckboxSize - BorderMargin * 2
@@ -2354,8 +2386,8 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure ScrollBar_EventHandler(*this.PB_Gadget, *Event.Event)
-		Protected *GadgetData.ScrollBarData = *this\vt, Redraw, Mouse, Lenght, Position
+	Procedure ScrollBar_EventHandler(*GadgetData.ScrollBarData, *Event.Event)
+		Protected Redraw, Mouse, Lenght, Position
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -2596,7 +2628,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Scrollbar_Meta(*GadgetData.ScrollBarData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
-		MetaInitializeObject(ScrollBar)
+		InitializeObject(ScrollBar)
 		
 		With *GadgetData
 			\Max = Max
@@ -2675,11 +2707,11 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Label_EventHandler(*this.PB_Gadget, *Event.Event)
+	Procedure Label_EventHandler(*GadgetData.LabelData, *Event.Event)
 	EndProcedure
 	
 	Procedure Label_Meta(*GadgetData.LabelData, Gadget, x, y, Width, Height, Text.s, Flags)
-		metaInitializeObject(Label)
+		InitializeObject(Label)
 		
 		With *GadgetData
 			\TextBock\Width = Width
@@ -2951,24 +2983,53 @@ Module UITK
 	EndProcedure
 	;}
 	
-	;{ One-way List
-	Structure OneWayList Extends GadgetData
-		
-	EndStructure
-	;}
-	
-	;{ Two-way list
-	Structure TwoWayList Extends GadgetData
-		
-	EndStructure
-	;}
-	
-	;{ Menu bar
-	Structure ScrollMenuBar Extends GadgetData
+	;{ VerticalList
+	Structure VerticalListData Extends GadgetData
 		
 	EndStructure
 	
+	Procedure VerticalList_Redraw(*GadgetData.LabelData)
+		
+	EndProcedure
 	
+	Procedure VerticalList_EventHandler(*GadgetData.LabelData, *Event.Event)
+		
+	EndProcedure
+	
+	Procedure VerticalList_Meta(*GadgetData.VerticalListData, Gadget, x, y, Width, Height, Flags, CurstomItem)
+		InitializeObject(VerticalList)
+		
+		With *GadgetData
+		EndWith
+	EndProcedure
+	
+	Procedure VerticalList(Gadget, x, y, Width, Height, Flags = #Default, CurstomItem = #False)
+		Protected Result, *this.PB_Gadget, *GadgetData.VerticalListData
+		
+		If AccessibilityMode
+			
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(VerticalListData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				VerticalList_Meta(*GadgetData, Gadget, x, y, Width, Height, Flags, CurstomItem)
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
 	;}
 	
 	;{ TrackBar
@@ -3103,8 +3164,8 @@ Module UITK
 		
 	EndProcedure
 		
-	Procedure TrackBar_EventHandler(*this.PB_Gadget, *Event.Event)
-		Protected *GadgetData.TrackBarData = *this\vt, Redraw, CursorX, CursorY, NewState
+	Procedure TrackBar_EventHandler(*GadgetData.TrackBarData, *Event.Event)
+		Protected Redraw, CursorX, CursorY, NewState
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -3240,7 +3301,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure TrackBar_Meta(*GadgetData.TrackBarData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
-		metaInitializeObject(TrackBar)
+		InitializeObject(TrackBar)
 				
 		With *GadgetData
 			
@@ -3397,8 +3458,8 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Combo_EventHandler(*this.PB_Gadget, *Event.Event)
-		Protected *GadgetData.ComboData = *this\vt, Redraw
+	Procedure Combo_EventHandler(*GadgetData.ComboData, *Event.Event)
+		Protected Redraw
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -3534,7 +3595,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Combo_Meta(*GadgetData.ComboData, Gadget, x, y, Width, Height, Flags)
-		metaInitializeObject(Combo)
+		InitializeObject(Combo)
 		
 		With *GadgetData
 			*GadgetData\TextBock\VAlign = #VAlignCenter
@@ -3633,6 +3694,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 96
-; Folding = ZAAAAAAAAAAAAAAAAAAAIFQAAA5
+; CursorPosition = 3033
+; FirstLine = 417
+; Folding = PAQMAAAAAAAAAAAhQAAAQAAFAAA-
 ; EnableXP
