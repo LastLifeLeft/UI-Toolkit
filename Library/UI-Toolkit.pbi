@@ -2548,16 +2548,14 @@ Module UITK
 							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
 						EndIf
 						
+						\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
+						
 						RedrawObject()
 					EndIf
 					;}
 				Case #ScrollBar_Maximum ;{
 					If Value > \Min
 						\Max = Value
-						
-						If \State < \Max - \PageLenght
-							\State = \Max - \PageLenght
-						EndIf
 						
 						If \PageLenght >= (\Max - \Min)
 							\BarSize = -1
@@ -2568,6 +2566,8 @@ Module UITK
 						Else
 							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
 						EndIf
+						
+						\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
 						
 						RedrawObject()
 					EndIf
@@ -2584,6 +2584,8 @@ Module UITK
 						EndIf
 					EndIf
 					
+						\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
+						
 					RedrawObject()
 					;}
 					CompilerIf #PB_Compiler_Debugger
@@ -3006,6 +3008,7 @@ Module UITK
 	
 	;{ VerticalList
 	#VerticalList_Margin = 3
+	#VerticalList_IconWidth = 30
 	#VerticalList_ItemHeight = 40
 	
 	Structure VerticalListItem
@@ -3026,10 +3029,18 @@ Module UITK
 	
 	Procedure VerticalList_ItemRedraw(*Item.VerticalListItem, X, Y, Width, Height, State)
 		DrawVectorTextBlock(@*Item\Text, X, Y)
+		
+		If State = #Hot
+			MovePathCursor(X + *Item\Text\Width - #VerticalList_IconWidth, Y + (*Item\Text\Height - 14) * 0.5)
+			VectorFont(MaterialFont, 16)
+			DrawVectorText("󰗠")
+			VectorFont(*Item\Text\FontID)
+		EndIf
+		
 	EndProcedure
 	
 	Procedure VerticalList_Redraw(*GadgetData.VerticalListData)
-		Protected Y = *GadgetData\OriginY, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount
+		Protected Y = *GadgetData\OriginY, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State
 		
 		With *GadgetData
 			If *GadgetData\Border
@@ -3055,21 +3066,23 @@ Module UITK
 				VectorFont(\TextBock\FontID)
 				
 				Repeat
-					If ListIndex(\ItemList()) = \MouseState
+					If ListIndex(\ItemList()) = \State
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
 						VectorSourceColor(\Theme\ShaderColor[#Warm])
 						FillPath()
-						VectorSourceColor(\Theme\TextColor[#Warm])
-					ElseIf ListIndex(\ItemList()) = \State
+						State = #Hot
+					ElseIf ListIndex(\ItemList()) = \MouseState
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
 						VectorSourceColor(\Theme\ShaderColor[#Warm])
 						FillPath()
-						VectorSourceColor(\Theme\TextColor[#Hot])
+						State = #Warm
 					Else
-						VectorSourceColor(\Theme\TextColor[#Cold])
+						State = #Cold
 					EndIf
 					
-					\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, #False)
+					VectorSourceColor(\Theme\TextColor[State])
+					
+					\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State)
 					Y + \ItemHeight
 					ItemCount + 1
 				Until (Not NextElement(\ItemList())) Or ItemCount = \MaxDisplayedItem
@@ -3096,7 +3109,7 @@ Module UITK
 						EndIf
 						
 						Item = Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight)
-						If Item <> \MouseState
+						If Item <> \MouseState And item < ListSize(\ItemList())
 							\MouseState = Item
 							Redraw = #True
 						EndIf
@@ -3105,7 +3118,10 @@ Module UITK
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					Else
-						
+						If \MouseState > -1 And \MouseState <> \State
+							\State = \MouseState
+							Redraw = #True
+						EndIf
 					EndIf
 				Case #LeftButtonUp
 					If \ScrollBar\Drag 
@@ -3897,7 +3913,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 3162
-; FirstLine = 110
-; Folding = ZAAAAAAAAAAAAAABQIAAAAAEDAAg
+; CursorPosition = 3832
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
