@@ -54,6 +54,8 @@
 		#Properties_CornerRadius
 		#Properties_Border
 	EndEnumeration
+	
+	Global MaterialFont
 	;}
 	
 	;{ Public procedures declaration
@@ -447,7 +449,7 @@ Module UITK
 	Global DefaultTheme.Theme, DarkTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
-	Global MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 12, #PB_Font_HighQuality))
+	MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 12, #PB_Font_HighQuality))
 	
 	;{ Set default themes
 	With DefaultTheme 
@@ -3948,6 +3950,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 57
+; CursorPosition = 102
 ; Folding = JAAAAAAAAAACAAAAAAEAAAAAAAAA5
 ; EnableXP
