@@ -39,7 +39,7 @@
 	Enumeration; Colors
 		#Color_Text_Cold	= #PB_Gadget_FrontColor
 		#Color_Back_Cold	= #PB_Gadget_BackColor 
-		#Color_Line			= #PB_Gadget_LineColor 
+		#Color_Line_Cold	= #PB_Gadget_LineColor 
 		
 		#Color_Back_Warm
 		#Color_Back_Hot
@@ -48,6 +48,15 @@
 		#Color_Text_Hot
 		
 		#Color_Parent										; The parent (window or container) color, used for rounded corners and stuff like that
+		
+		#Color_Shade_Cold
+		#Color_Shade_Warm
+		#Color_Shade_Hot
+		#Color_Shade_Disabled
+		
+		#Color_Line_Warm
+		#Color_Line_Hot
+		#Color_Line_Disabled
 	EndEnumeration
 	
 	Enumeration; Properties
@@ -993,10 +1002,24 @@ Module UITK
 				Result = *GadgetData\Theme\TextColor[#Warm]
 			Case #Color_Text_Hot
 				Result = *GadgetData\Theme\TextColor[#Hot]
-			Case #Color_Line
-				Result = *GadgetData\Theme\LineColor
 			Case #Color_Parent
 				Result = *GadgetData\Theme\WindowColor
+			Case #Color_Shade_Cold
+				Result = *GadgetData\Theme\ShaderColor[#Cold]
+			Case #Color_Shade_Warm                      
+				Result = *GadgetData\Theme\ShaderColor[#Warm]
+			Case #Color_Shade_Hot                       
+				Result = *GadgetData\Theme\ShaderColor[#Hot]
+			Case #Color_Shade_Disabled
+				Result = *GadgetData\Theme\ShaderColor[#Disabled]
+			Case #Color_Line_Cold
+				Result = *GadgetData\Theme\LineColor[#Cold]
+			Case #Color_Line_Warm                   
+				Result = *GadgetData\Theme\LineColor[#Warm]
+			Case #Color_Line_Hot                    
+				Result = *GadgetData\Theme\LineColor[#Hot]
+			Case #Color_Line_Disabled              
+				Result = *GadgetData\Theme\LineColor[#Disabled]
 		EndSelect
 		
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
@@ -1054,10 +1077,24 @@ Module UITK
 				*GadgetData\Theme\TextColor[#Warm] = Color
 			Case #Color_Text_Hot
 				*GadgetData\Theme\TextColor[#Hot] = Color
-			Case #Color_Line
-				*GadgetData\Theme\LineColor = Color
 			Case #Color_Parent
 				*GadgetData\Theme\WindowColor = Color
+			Case #Color_Shade_Cold
+				*GadgetData\Theme\ShaderColor[#Cold] = Color
+			Case #Color_Shade_Warm                      
+				*GadgetData\Theme\ShaderColor[#Warm] = Color
+			Case #Color_Shade_Hot                       
+				*GadgetData\Theme\ShaderColor[#Hot] = Color
+			Case #Color_Shade_Disabled
+				*GadgetData\Theme\ShaderColor[#Disabled] = Color
+			Case #Color_Line_Cold
+				*GadgetData\Theme\LineColor[#Cold] = Color
+			Case #Color_Line_Warm                   
+				*GadgetData\Theme\LineColor[#Warm] = Color
+			Case #Color_Line_Hot                    
+				*GadgetData\Theme\LineColor[#Hot] = Color
+			Case #Color_Line_Disabled              
+				*GadgetData\Theme\LineColor[#Disabled] = Color
 		EndSelect
 		
 		RedrawObject()
@@ -2933,10 +2970,11 @@ Module UITK
 					*GadgetData\Theme\TextColor[#Warm] = Color
 				Case #Color_Text_Hot
 					*GadgetData\Theme\TextColor[#Hot] = Color
-				Case #Color_Line
+				Case #Color_Line_Cold
 					*GadgetData\Theme\LineColor = Color
 				Case #Color_Parent
 					*GadgetData\Theme\WindowColor = Color
+					SetGadgetColor(*GadgetData\ScrollArea, #PB_Gadget_BackColor, RGB(Red(*GadgetData\Theme\WindowColor), Green(*GadgetData\Theme\WindowColor), Blue(*GadgetData\Theme\WindowColor)))
 			EndSelect
 		EndWith
 	EndProcedure
@@ -3950,6 +3988,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 102
+; CursorPosition = 68
 ; Folding = JAAAAAAAAAACAAAAAAEAAAAAAAAA5
 ; EnableXP

@@ -120,7 +120,7 @@ AddGadgetItem(Gadget, -1, "Item ♥")
 AddGadgetItem(Gadget, 2, "Prout?")
 SetGadgetState(Gadget, 2)
 
-Gadget = UITK::VerticalList(#PB_Any,  500, 80, 200, 250, UITK::#Border | UITK::#VList_Toolbar)
+Gadget = UITK::VerticalList(#PB_Any,  500, 80, 200, 250, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1")
 AddGadgetItem(Gadget, -1, "Item 2")
