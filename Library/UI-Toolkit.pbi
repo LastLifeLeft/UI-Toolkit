@@ -17,6 +17,7 @@
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
 		#ScrollBar_Vertical								; The scrollbar is vertical (instead of horizontal, which is the default).
 		#Trackbar_Vertical								; The trackbar is vertical (instead of horizontal which is the default).
+		#VList_Toolbar									; Add a 32 pixel heigh toolbar at the top.
 		
 		; Window
 		#Window_CloseButton
@@ -3021,6 +3022,7 @@ Module UITK
 	;{ VerticalList
 	#VerticalList_Margin = 3
 	#VerticalList_IconWidth = 30
+	#VerticalList_IconBarSize = 40
 	#VerticalList_ItemHeight = 40
 	
 	Structure VerticalListItem
@@ -3032,6 +3034,7 @@ Module UITK
 		ItemHeight.l
 		MaxDisplayedItem.i
 		VisibleScrollbar.b
+		ToolBarHeight.w
 		
 		*ItemRedraw.ItemRedraw
 		*ScrollBar.ScrollBarData
@@ -3052,7 +3055,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_Redraw(*GadgetData.VerticalListData)
-		Protected Y = *GadgetData\OriginY, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State
+		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State
 		
 		With *GadgetData
 			If *GadgetData\Border
@@ -3102,6 +3105,13 @@ Module UITK
 				If \VisibleScrollbar
 	 				\ScrollBar\Redraw(\ScrollBar)
 	 			EndIf
+	 			
+	 			If \ToolBarHeight
+	 				AddPathBox(0,0, \Width, #VerticalList_IconBarSize)
+	 				VectorSourceColor(\Theme\ShaderColor[#Cold])
+	 				ClipPath(#PB_Path_Preserve)
+	 				FillPath()
+	 			EndIf
 	 		EndIf
 		EndWith
 	EndProcedure
@@ -3121,9 +3131,9 @@ Module UITK
 					EndIf
 					
 					If Not \ScrollBar\MouseState
-						Item = Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight)
+						Item = Floor((*Event\MouseY - \ToolBarHeight + \ScrollBar\State) / \ItemHeight)
 						
-						If item >= ListSize(\ItemList())
+						If item >= ListSize(\ItemList()) Or *Event\MouseY < \ToolBarHeight
 							Item = -1
 						EndIf
 						
@@ -3220,6 +3230,8 @@ Module UITK
 				\ItemRedraw = @VerticalList_ItemRedraw() 
 			EndIf
 			
+			\ToolBarHeight = Bool(Flags & #VList_Toolbar) * #VerticalList_IconBarSize
+			Height - \ToolBarHeight
 			\VT\AddGadgetItem2 = @VerticalList_AddItem()
 			\ItemHeight = #VerticalList_ItemHeight
 			\State = -1
@@ -3227,11 +3239,9 @@ Module UITK
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 			\ScrollBar = AllocateStructure(ScrollBarData)
 			
-			Scrollbar_Meta(\ScrollBar, - 1, Width - 7 - \Border, 0, 7, Height, 0, Height, Height, #ScrollBar_Vertical)
+			Scrollbar_Meta(\ScrollBar, - 1, Width - 7 - \Border, \ToolBarHeight, 7, Height, 0, \ItemHeight, Height , #ScrollBar_Vertical)
 			
 			\ScrollBar\Theme\ShaderColor[#Cold] = 0
-			
-			
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -3249,7 +3259,7 @@ Module UITK
 		If AccessibilityMode
 			
 		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | Bool(Flags & #VList_Toolbar) * #PB_Canvas_Container)
 			
 			If Result
 				If Gadget = #PB_Any
@@ -3938,6 +3948,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1886
+; CursorPosition = 57
 ; Folding = JAAAAAAAAAACAAAAAAEAAAAAAAAA5
 ; EnableXP
