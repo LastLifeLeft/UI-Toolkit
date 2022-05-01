@@ -3063,6 +3063,10 @@ Module UITK
 				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \Theme\CornerRadius)
 			EndIf
 			
+			VectorSourceColor(\Theme\ShaderColor[#Cold])
+			ClipPath(#PB_Path_Preserve)
+			FillPath()
+			
 			If ListSize(\ItemList())
 				If \VisibleScrollbar
 					Position = Floor(\ScrollBar\State / \ItemHeight)
@@ -3070,10 +3074,6 @@ Module UITK
 				EndIf
 				
 				SelectElement(\ItemList(), Position)
-				
-				VectorSourceColor(\Theme\ShaderColor[#Cold])
-				ClipPath(#PB_Path_Preserve)
-				FillPath()
 				
 				VectorFont(\TextBock\FontID)
 				
@@ -3933,7 +3933,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1392
-; FirstLine = 33
-; Folding = JAAAAAAAEAAKAAAAAAEAAAAgBAAA5
+; CursorPosition = 3064
+; FirstLine = 39
+; Folding = JAAAAAAAAAACAAAAAAEAAAAUBAAA5
 ; EnableXP
