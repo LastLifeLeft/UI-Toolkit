@@ -3122,7 +3122,12 @@ Module UITK
 					
 					If Not \ScrollBar\MouseState
 						Item = Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight)
-						If Item <> \MouseState And item < ListSize(\ItemList())
+						
+						If item >= ListSize(\ItemList())
+							Item = -1
+						EndIf
+						
+						If Item <> \MouseState
 							\MouseState = Item
 							Redraw = #True
 						EndIf
@@ -3933,7 +3938,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3064
-; FirstLine = 39
-; Folding = JAAAAAAAAAACAAAAAAEAAAAUBAAA5
+; CursorPosition = 1886
+; Folding = JAAAAAAAAAACAAAAAAEAAAAAAAAA5
 ; EnableXP
