@@ -1401,11 +1401,12 @@ Module UITK
 		EndIf
 		
 		If AccessibilityMode Or DWMEnabled = #False Or (Flags & #PB_Window_BorderLess)
-			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (Bool(Flags & #Window_CloseButton) * #PB_Window_ScreenCentered) |
+			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (Bool(Flags & #Window_CloseButton) * #PB_Window_SystemMenu) |
 			                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
-			                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize), Parent)
+			                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize) |
+			                                                                  (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 		Else
-			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible, Parent)
+			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			
 			If Window = #PB_Any
 				Window = Result
@@ -3927,7 +3928,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 2466
-; FirstLine = 30
-; Folding = ZAAAAAAAAAAAAAAAAoAAAAAkBAAA5
+; CursorPosition = 1124
+; FirstLine = 45
+; Folding = JAAAAAAAEAAQAAAAAAEAAAAgBAAA5
 ; EnableXP
