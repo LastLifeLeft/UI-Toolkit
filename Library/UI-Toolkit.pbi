@@ -2359,7 +2359,7 @@ Module UITK
 		BarSize.l
 		Thickness.l
 		Drag.b
-		DragOffset.b
+		DragOffset.l
 		ScrollStep.l
 	EndStructure
 	
@@ -2424,7 +2424,9 @@ Module UITK
 							\Position = Position
 							\State = Round(Position / (Lenght) * (\Max - \Min - \PageLenght), #PB_Round_Down)
 							Redraw = #True
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							If \Gadget > -1
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							EndIf
 						EndIf
 					Else
 						If \Vertical
@@ -2460,7 +2462,7 @@ Module UITK
 							Lenght = \Width
 						EndIf
 						
-						If Mouse >= \Position And Mouse < \Position + \BarSize + \Thickness
+						If \MouseState
 							\Drag = #True
 							\DragOffset = Mouse - \Position
 						Else
@@ -2472,7 +2474,9 @@ Module UITK
 								Redraw = #True
 							EndIf
 							
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							If \Gadget > -1
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							EndIf
 							\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
 						EndIf
 					EndIf
@@ -2493,7 +2497,9 @@ Module UITK
 					If Position <> \State
 						\State = Position
 						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						If \Gadget > -1
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						EndIf
 						Redraw = #True
 					EndIf
 					;}
@@ -3099,22 +3105,26 @@ Module UITK
 		With *GadgetData
 			
 			Select *Event\EventType
-				Case #MouseMove
+				Case #MouseMove ;{
 					If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					Else
-						If \ScrollBar\MouseState
-							\ScrollBar\MouseState = #False
-							Redraw = #True
-						EndIf
 						
+					ElseIf \ScrollBar\MouseState
+						\ScrollBar\MouseState = #False
+						Redraw = #True
+					EndIf
+					
+					If Not \ScrollBar\MouseState
 						Item = Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight)
 						If Item <> \MouseState And item < ListSize(\ItemList())
 							\MouseState = Item
 							Redraw = #True
 						EndIf
+					Else
+						\MouseState = -1
 					EndIf
-				Case #LeftButtonDown
+					;}
+				Case #LeftButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					Else
@@ -3123,18 +3133,22 @@ Module UITK
 							Redraw = #True
 						EndIf
 					EndIf
-				Case #LeftButtonUp
+					;}
+				Case #LeftButtonUp ;{
 					If \ScrollBar\Drag 
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
-				Case #MouseLeave
+					;}
+				Case #MouseLeave ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf \MouseState > -1
+					EndIf
+					
+					If \MouseState > -1
 						\MouseState = -1
 						Redraw = #True
 					EndIf
-					
+					;}
 				Case #MouseWheel ;{
 					ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_WheelDelta) * \ItemHeight * 0.5)
 					*Event\EventType = #MouseMove
@@ -3913,6 +3927,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 3832
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 2466
+; FirstLine = 30
+; Folding = ZAAAAAAAAAAAAAAAAoAAAAAkBAAA5
 ; EnableXP
