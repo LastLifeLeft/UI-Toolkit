@@ -179,7 +179,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 122
-; FirstLine = 75
+; CursorPosition = 135
+; FirstLine = 81
 ; Folding = +
 ; EnableXP

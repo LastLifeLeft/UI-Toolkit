@@ -2039,8 +2039,10 @@ Module UITK
 				*GadgetData\TextBock\HAlign = #HAlignCenter
 			EndIf
 			
-			\HMargin = #Button_Margin + \Border
-			\VMargin = #Button_Margin
+			If \TextBock\HAlign <> #HAlignCenter
+				\HMargin = #Button_Margin + \Border
+				\VMargin = #Button_Margin
+			EndIf
 			
 			\TextBock\Width = Width - \HMargin * 2
 			\TextBock\Height = Height - \VMargin * 2
@@ -3988,6 +3990,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 68
-; Folding = JAAAAAAAAAACAAAAAAEAAAAAAAAA5
+; CursorPosition = 2045
+; FirstLine = 189
+; Folding = LAQAAAAAAAACAAAJAAEAAAAAAAAA5
 ; EnableXP
