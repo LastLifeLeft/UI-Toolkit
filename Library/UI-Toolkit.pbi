@@ -1101,6 +1101,7 @@ Module UITK
 		MinHeight.l
 		
 		SizeCursor.l
+		Sizable.l
 		
 		ButtonClose.l
 		ButtonMinimize.l
@@ -1224,7 +1225,7 @@ Module UITK
 				Protected posY = (lParam >> 16) & $FFFF
 				*WindowData\sizeCursor = 0
 				
-				If IsZoomed_(hWnd) = 0
+				If *WindowData\Sizable And IsZoomed_(hWnd) = 0
 					If posX <= #SizableBorder And posY <= #SizableBorder
 						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
 						*WindowData\sizeCursor = #HTTOPLEFT
@@ -1321,23 +1322,25 @@ Module UITK
 				posY = (lParam >> 16) & $FFFF
 				*ContainerData\sizeCursor = 0
 				
-				If posY > *WindowData\Height - #SizableBorder - #WindowBarHeight
-					If posX <= #SizableBorder
-						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
-						*ContainerData\sizeCursor = #HTBOTTOMLEFT
+				If *WindowData\Sizable
+					If posY > *WindowData\Height - #SizableBorder - #WindowBarHeight
+						If posX <= #SizableBorder
+							SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
+							*ContainerData\sizeCursor = #HTBOTTOMLEFT
+						ElseIf posX > *WindowData\Width - #SizableBorder 
+							SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
+							*ContainerData\sizeCursor = #HTBOTTOMRIGHT
+						Else
+							SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+							*ContainerData\sizeCursor = #HTBOTTOM
+						EndIf
+					ElseIf posX <= #SizableBorder
+						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+						*ContainerData\sizeCursor = #HTLEFT
 					ElseIf posX > *WindowData\Width - #SizableBorder 
-						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
-						*ContainerData\sizeCursor = #HTBOTTOMRIGHT
-					Else
-						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-						*ContainerData\sizeCursor = #HTBOTTOM
+						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
+						*ContainerData\sizeCursor = #HTRIGHT
 					EndIf
-				ElseIf posX <= #SizableBorder
-					SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-					*ContainerData\sizeCursor = #HTLEFT
-				ElseIf posX > *WindowData\Width - #SizableBorder 
-					SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-					*ContainerData\sizeCursor = #HTRIGHT
 				EndIf
 				;}
 			Case #WM_LBUTTONDOWN ;{
@@ -1379,13 +1382,15 @@ Module UITK
 		ElseIf  msg = #WM_MOUSEMOVE
 			*WindowData.ThemedWindow = GetProp_(*WindowBarData\Parent, "UITK_WindowData")
 			
-			posX = lParam & $FFFF
-			posY = (lParam >> 16) & $FFFF
-			*WindowBarData\sizeCursor = 0
-			
-			If posY < #SizableBorder
-				SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-				*WindowBarData\sizeCursor = #HTTOP
+			If *WindowData\Sizable
+				posX = lParam & $FFFF
+				posY = (lParam >> 16) & $FFFF
+				*WindowBarData\sizeCursor = 0
+				
+				If posY < #SizableBorder
+					SetCursor_(LoadCursor_(0, #IDC_SIZENS))
+					*WindowBarData\sizeCursor = #HTTOP
+				EndIf
 			EndIf
 			
 		EndIf
@@ -1404,6 +1409,7 @@ Module UITK
 			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (Bool(Flags & #Window_CloseButton) * #PB_Window_SystemMenu) |
 			                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
 			                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize) |
+			                                                                  (Bool(Flags & #PB_Window_SizeGadget) * #PB_Window_SizeGadget) |
 			                                                                  (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 		Else
 			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
@@ -1427,7 +1433,7 @@ Module UITK
 			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
 			*WindowData\Width = WindowWidth(Window)
 			*WindowData\Height = WindowHeight(Window)
-			
+			*WindowData\Sizable = Bool(Flags & #PB_Window_SizeGadget)
 			FreeImage(Image)
 			
 			SetClassLongPtr_(WindowID, #GCL_HBRBACKGROUND, *WindowData\Brush)
@@ -1508,7 +1514,6 @@ Module UITK
 			
 			*WindowBarData = AllocateStructure(WindowBar)
 			*WindowBarData\Parent = WindowID
-			UnbindGadgetEvent(*WindowData\Label, @Default_EventHandle())
 			SetProp_(GadgetID(*WindowData\Label), "UITK_WindowBarData", *WindowBarData)
 			*WindowBarData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Label), #GWL_WNDPROC, @WindowBar_Handler())
 			
@@ -3927,8 +3932,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 1124
-; FirstLine = 45
-; Folding = JAAAAAAAEAAQAAAAAAEAAAAgBAAA5
+; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
+; CursorPosition = 1392
+; FirstLine = 33
+; Folding = JAAAAAAAEAAKAAAAAAEAAAAgBAAA5
 ; EnableXP

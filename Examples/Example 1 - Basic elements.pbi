@@ -12,7 +12,7 @@ Procedure ButtonEvent()
 	UITK::ShowFlatMenu(Menu)
 EndProcedure
 
-Window0 = UITK::Window(#PB_Any, (Width - 1024) * 0.5 - 200, (Height - 600) * 0.5 - 100, 705, 600, "UI Toolkit : component showcase", UITK::#Window_CloseButton)
+Window0 = UITK::Window(#PB_Any, (Width - 1024) * 0.5 - 200, (Height - 600) * 0.5 - 100, 705, 600, "UI Toolkit : component showcase", UITK::#Window_CloseButton | #PB_Window_SizeGadget)
 
 UITK::SetWindowIcon(Window0, Image)
 
@@ -76,7 +76,6 @@ AddGadgetItem(Gadget, -1, "Item 11")
 
 Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 705, 600, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
 UITK::SetWindowIcon(Window1, Image)
-UITK::SetWindowBounds(Window1, 720, 630, 0, 0)
 
 Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center")
 UITK::SetGadgetImage(Gadget, Image)
@@ -179,8 +178,7 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 76
-; FirstLine = 24
+; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
+; CursorPosition = 14
 ; Folding = +
 ; EnableXP
