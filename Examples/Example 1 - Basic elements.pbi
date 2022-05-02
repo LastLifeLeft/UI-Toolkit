@@ -120,7 +120,7 @@ AddGadgetItem(Gadget, -1, "Item ♥")
 AddGadgetItem(Gadget, 2, "Prout?")
 SetGadgetState(Gadget, 2)
 
-Gadget = UITK::VerticalList(#PB_Any,  500, 80, 200, 250, UITK::#Border | UITK::#VList_Toolbar)
+Gadget = UITK::VerticalList(#PB_Any,  500, 80, 200, 250, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1")
 AddGadgetItem(Gadget, -1, "Item 2")
@@ -133,7 +133,7 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
-SetGadgetAttribute(Gadget, UITK::#Properties_ToolBarHeight, 75)
+SetGadgetAttribute(Gadget, UITK::#Properties_ItemHeight, 75)
 
 SetGadgetAttribute(Gadget, 1, 1)
 
@@ -182,7 +182,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 132
-; FirstLine = 82
+; CursorPosition = 136
+; FirstLine = 97
 ; Folding = +
 ; EnableXP

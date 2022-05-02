@@ -36,7 +36,8 @@
 		#ScrollArea_Y				= #PB_ScrollArea_Y          
 		#ScrollArea_ScrollStep		= #PB_ScrollArea_ScrollStep 
 		
-		#Properties_ToolBarHeight	
+		#Properties_ToolBarHeight
+		#Properties_ItemHeight
 	EndEnumeration
 
 	Enumeration; Colors
@@ -3272,13 +3273,30 @@ Module UITK
 	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
-		Select Attribute
-			Case #Properties_ToolBarHeight
-				*GadgetData\ToolBarHeight = Value
-				Scrollbar_ResizeMeta(*GadgetData\ScrollBar, *GadgetData\ScrollBar\OriginX, *GadgetData\ToolBarHeight, #VerticalList_ToolbarThickness, *GadgetData\Height - *GadgetData\ToolBarHeight)
-				ScrollBar_SetAttribute_Meta(*GadgetData\ScrollBar, #ScrollBar_PageLength, *GadgetData\Height - *GadgetData\ToolBarHeight)
-		EndSelect
-		
+		With *GadgetData
+			Select Attribute
+				Case #Properties_ItemHeight
+					\ItemHeight = Value
+					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
+					
+					If ListSize(\ItemList()) >= \MaxDisplayedItem
+						\VisibleScrollbar = #True
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
+					Else
+						\VisibleScrollbar = #False
+					EndIf
+					
+					ForEach \ItemList()
+						\ItemList()\Text\Height = \ItemHeight
+						PrepareVectorTextBlock(@\ItemList()\Text)
+					Next
+					
+				Case #Properties_ToolBarHeight
+					\ToolBarHeight = Value
+					Scrollbar_ResizeMeta(\ScrollBar, \ScrollBar\OriginX, \ToolBarHeight, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight)
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
+			EndSelect
+		EndWith
 		RedrawObject()
 	EndProcedure
 	
@@ -4014,6 +4032,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 548
-; Folding = JAAAAAAAABgAAAAAAAAAAAAAAAAA5
+; CursorPosition = 3290
+; FirstLine = 48
+; Folding = JAAAAAAAABgAAAAAAAAAAAACQAAA5
 ; EnableXP
