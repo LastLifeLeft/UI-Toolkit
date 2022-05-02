@@ -25,17 +25,20 @@
 		#Window_MinimizeButton
 	EndEnumeration
 	
-	; Gadget attribues
-	#ScrollBar_Minimum			= #PB_ScrollBar_Minimum
-	#ScrollBar_Maximum			= #PB_ScrollBar_Maximum
-	#ScrollBar_PageLength		= #PB_ScrollBar_PageLength
-	
-	#ScrollArea_InnerWidth		= #PB_ScrollArea_InnerWidth 
-	#ScrollArea_InnerHeight		= #PB_ScrollArea_InnerHeight
-	#ScrollArea_X				= #PB_ScrollArea_X          
-	#ScrollArea_Y				= #PB_ScrollArea_Y          
-	#ScrollArea_ScrollStep		= #PB_ScrollArea_ScrollStep 
-	
+	Enumeration ; Gadget attribues
+		#ScrollBar_Minimum			= #PB_ScrollBar_Minimum
+		#ScrollBar_Maximum			= #PB_ScrollBar_Maximum
+		#ScrollBar_PageLength		= #PB_ScrollBar_PageLength
+		
+		#ScrollArea_InnerWidth		= #PB_ScrollArea_InnerWidth 
+		#ScrollArea_InnerHeight		= #PB_ScrollArea_InnerHeight
+		#ScrollArea_X				= #PB_ScrollArea_X          
+		#ScrollArea_Y				= #PB_ScrollArea_Y          
+		#ScrollArea_ScrollStep		= #PB_ScrollArea_ScrollStep 
+		
+		#Properties_ToolBarHeight	
+	EndEnumeration
+
 	Enumeration; Colors
 		#Color_Text_Cold	= #PB_Gadget_FrontColor
 		#Color_Back_Cold	= #PB_Gadget_BackColor 
@@ -2458,10 +2461,10 @@ Module UITK
 				Case #MouseMove ;{
 					If \Drag
 						If \Vertical
-							Mouse = *Event\MouseY
+							Mouse = *Event\MouseY - \OriginY
 							Lenght = \Height - \BarSize - \Thickness
 						Else
-							Mouse = *Event\MouseX
+							Mouse = *Event\MouseX - \OriginX
 							Lenght = \Width - \BarSize - \Thickness
 						EndIf
 						
@@ -2477,9 +2480,9 @@ Module UITK
 						EndIf
 					Else
 						If \Vertical
-							Mouse = *Event\MouseY
+							Mouse = *Event\MouseY - \OriginY
 						Else
-							Mouse = *Event\MouseX
+							Mouse = *Event\MouseX - \OriginX
 						EndIf
 						
 						If Mouse >= \Position And Mouse < \Position + \BarSize + \Thickness
@@ -2502,10 +2505,10 @@ Module UITK
 				Case #LeftButtonDown ;{
 					If \BarSize >= 0
 						If \Vertical
-							Mouse = *Event\MouseY
+							Mouse = *Event\MouseY - \OriginY
 							Lenght = \Height
 						Else
-							Mouse = *Event\MouseX
+							Mouse = *Event\MouseX - \OriginX
 							Lenght = \Width
 						EndIf
 						
@@ -2676,16 +2679,12 @@ Module UITK
 		ScrollBar_SetState_Meta(*this\vt, State)
 	EndProcedure
 	
-	Procedure Scrollbar_Resize(*This.PB_Gadget, x, y, Width, Height)
-		Protected *GadgetData.ScrollBarData = *this\vt
-		
-		*this\VT = *GadgetData\OriginalVT
-		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
-		*this\VT = *GadgetData
-		
+	Procedure Scrollbar_ResizeMeta(*GadgetData.ScrollBarData, X, Y, Width, Height)
 		With *GadgetData
-			\Width = GadgetWidth(\Gadget)
-			\Height = GadgetHeight(\Gadget)
+			\Width = Width
+			\Height = Height
+			\OriginX = X
+			\OriginY = Y
 			
 			If \Vertical
 				\Thickness = \Width
@@ -2701,6 +2700,16 @@ Module UITK
 			
 			RedrawObject()
 		EndWith
+	EndProcedure
+	
+	Procedure Scrollbar_Resize(*This.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.ScrollBarData = *this\vt
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		Scrollbar_ResizeMeta(*GadgetData, 0, 0, GadgetWidth(*GadgetData\Gadget), GadgetHeight(*GadgetData\Gadget))
 	EndProcedure
 	
 	Procedure Scrollbar_Meta(*GadgetData.ScrollBarData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
@@ -3065,6 +3074,7 @@ Module UITK
 	#VerticalList_IconWidth = 30
 	#VerticalList_IconBarSize = 40
 	#VerticalList_ItemHeight = 40
+	#VerticalList_ToolbarThickness = 7
 	
 	Structure VerticalListItem
 		Text.Text
@@ -3259,6 +3269,19 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.VerticalListData = *this\vt
+		
+		Select Attribute
+			Case #Properties_ToolBarHeight
+				*GadgetData\ToolBarHeight = Value
+				Scrollbar_ResizeMeta(*GadgetData\ScrollBar, *GadgetData\ScrollBar\OriginX, *GadgetData\ToolBarHeight, #VerticalList_ToolbarThickness, *GadgetData\Height - *GadgetData\ToolBarHeight)
+				ScrollBar_SetAttribute_Meta(*GadgetData\ScrollBar, #ScrollBar_PageLength, *GadgetData\Height - *GadgetData\ToolBarHeight)
+		EndSelect
+		
+		RedrawObject()
+	EndProcedure
+	
 	Procedure VerticalList_Meta(*GadgetData.VerticalListData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 		InitializeObject(VerticalList)
 		
@@ -3280,9 +3303,11 @@ Module UITK
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 			\ScrollBar = AllocateStructure(ScrollBarData)
 			
-			Scrollbar_Meta(\ScrollBar, - 1, Width - 7 - \Border, \ToolBarHeight, 7, Height, 0, \ItemHeight, Height , #ScrollBar_Vertical)
+			Scrollbar_Meta(\ScrollBar, - 1, Width - #VerticalList_ToolbarThickness - \Border, \ToolBarHeight, #VerticalList_ToolbarThickness, Height, 0, \ItemHeight, Height , #ScrollBar_Vertical)
 			
 			\ScrollBar\Theme\ShaderColor[#Cold] = 0
+			
+			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -3989,7 +4014,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1472
-; FirstLine = 295
-; Folding = PAQAAAAAEBgEAAAAAABAAAAAAAAA+
+; CursorPosition = 548
+; Folding = JAAAAAAAABgAAAAAAAAAAAAAAAAA5
 ; EnableXP
