@@ -1449,6 +1449,7 @@ Module UITK
 			If *WindowData\Sizable
 				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			Else
+				InnerHeight + #WindowBarHeight
 				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, #PB_Window_BorderLess | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			EndIf
 			
@@ -1469,13 +1470,6 @@ Module UITK
 			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
 			*WindowData\Width = WindowWidth(Window)
 			*WindowData\Height = WindowHeight(Window)
-			
-			If Not *WindowData\Sizable
-				*WindowData\MaxHeight = InnerHeight
-				*WindowData\MaxWidth = InnerWidth
-				*WindowData\MinHeight = InnerHeight
-				*WindowData\MinWidth = InnerWidth
-			EndIf
 			
 			FreeImage(Image)
 			
@@ -3995,7 +3989,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1445
-; FirstLine = 304
+; CursorPosition = 1472
+; FirstLine = 295
 ; Folding = PAQAAAAAEBgEAAAAAABAAAAAAAAA+
 ; EnableXP

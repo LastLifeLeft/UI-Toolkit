@@ -74,7 +74,7 @@ AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
 
 
-Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 721, 639, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
+Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 721, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
 UITK::SetWindowIcon(Window1, Image)
 
 Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center")
