@@ -3248,6 +3248,7 @@ Module UITK
 					Else
 						If \MouseState > -1 And \MouseState <> \State
 							\State = \MouseState
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 							Redraw = #True
 						EndIf
 					EndIf
@@ -4115,6 +4116,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 103
-; Folding = JAAAAAAAAEACAAAAAAAAAAAAAAAAAw
+; CursorPosition = 568
+; Folding = JAAAAAAAAEACAAAAAAAAAAAACAAAAw
 ; EnableXP
