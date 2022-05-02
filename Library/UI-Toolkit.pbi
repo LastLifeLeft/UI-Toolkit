@@ -3287,6 +3287,17 @@ Module UITK
 		ProcedureReturn ListSize(*GadgetData\ItemList())
 	EndProcedure
 	
+	Procedure VerticalList_GetItemData(*this.PB_Gadget, Position)
+		Protected *GadgetData.VerticalListData = *this\vt, *Result
+		
+		If Position > -1 And Position < ListSize(*GadgetData\ItemList())
+			SelectElement(*GadgetData\ItemList(), Position)
+			*Result = *GadgetData\ItemList()\Data
+		EndIf
+		
+		ProcedureReturn *Result
+	EndProcedure
+	
 	; Setters
 	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
 		Protected *GadgetData.VerticalListData = *this\vt
@@ -3361,6 +3372,7 @@ Module UITK
 			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
 			\VT\CountGadgetItems = @VerticalList_CountItem()
 			\VT\SetGadgetItemData = @VerticalList_SetItemData()
+			\VT\GetGadgetItemAttribute2 = @VerticalList_GetItemData()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -4067,7 +4079,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3331
-; FirstLine = 43
-; Folding = JAAAAAAAACABAAAAAAAAAAACAQAAA9
+; CursorPosition = 4066
+; FirstLine = 90
+; Folding = JAQAAAAAACABAAAAAAAAAAAAAAAAA5
 ; EnableXP
