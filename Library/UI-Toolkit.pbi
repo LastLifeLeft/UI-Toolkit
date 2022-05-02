@@ -68,6 +68,31 @@
 		#Properties_Border
 	EndEnumeration
 	
+	Structure Text
+		OriginalText.s
+		LineCount.b
+		LineLimit.b
+		Image.i
+		ImageX.i
+		ImageY.i
+		Text.s
+		TextX.i
+		TextY.i
+		VectorAlign.i
+		FontID.i
+		HAlign.b
+		VAlign.b
+		Width.l
+		Height.l
+		RequieredWidth.w
+		RequieredHeight.w
+	EndStructure
+	
+	Structure VerticalListItem
+		Text.Text
+		*Data
+	EndStructure
+	
 	Global MaterialFont
 	;}
 	
@@ -109,8 +134,8 @@
 	Declare VerticalList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 	
 	; Misc
-	
-	
+	Declare PrepareVectorTextBlock(*TextData.Text)
+	Declare DrawVectorTextBlock(*TextData.Text, X, Y)
 	;}
 EndDeclareModule
 
@@ -388,26 +413,6 @@ Module UITK
 		EventType.l
 		MouseX.l
 		MouseY.l
-	EndStructure
-	
-	Structure Text
-		OriginalText.s
-		LineCount.b
-		LineLimit.b
-		Image.i
-		ImageX.i
-		ImageY.i
-		Text.s
-		TextX.i
-		TextY.i
-		VectorAlign.i
-		FontID.i
-		HAlign.b
-		VAlign.b
-		Width.l
-		Height.l
-		RequieredWidth.w
-		RequieredHeight.w
 	EndStructure
 	
 	Structure Theme
@@ -3077,11 +3082,6 @@ Module UITK
 	#VerticalList_ItemHeight = 40
 	#VerticalList_ToolbarThickness = 7
 	
-	Structure VerticalListItem
-		Text.Text
-		*Data
-	EndStructure
-	
 	Structure VerticalListData Extends GadgetData
 		ItemHeight.l
 		MaxDisplayedItem.i
@@ -4032,7 +4032,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3290
-; FirstLine = 48
-; Folding = JAAAAAAAABgAAAAAAAAAAAACQAAA5
+; CursorPosition = 3095
+; Folding = JAAAAAAAABgAAAAAAAAAAAAAAAAA5
 ; EnableXP
