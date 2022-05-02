@@ -3272,7 +3272,7 @@ Module UITK
 			
 			PrepareVectorTextBlock(@\ItemList()\Text)
 			
-			If ListSize(\ItemList()) >= \MaxDisplayedItem
+			If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
 				\VisibleScrollbar = #True
 				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
 			Else
@@ -3310,7 +3310,7 @@ Module UITK
 					\ItemHeight = Value
 					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 					
-					If ListSize(\ItemList()) >= \MaxDisplayedItem
+					If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
 						\VisibleScrollbar = #True
 						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
 					Else
@@ -4081,6 +4081,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 4057
+; CursorPosition = 3088
 ; Folding = JAAAAAAAACABAAAAAAAAAAAAAAAAA5
 ; EnableXP
