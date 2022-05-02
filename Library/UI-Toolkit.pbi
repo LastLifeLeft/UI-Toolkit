@@ -3324,8 +3324,9 @@ Module UITK
 	
 	Procedure VerticalList_SetItemData(*this.PB_Gadget, Position, *Data)
 		Protected *GadgetData.VerticalListData = *this\vt
-		
+		Debug "Ok, data..."
 		If Position > -1 And Position < ListSize(*GadgetData\ItemList())
+			Debug "data should be set"
 			SelectElement(*GadgetData\ItemList(), Position)
 			*GadgetData\ItemList()\Data = *Data
 		EndIf
@@ -4065,7 +4066,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3360
-; FirstLine = 48
-; Folding = JAAAAAAAACABAAAAAAAAAAACAwAAA9
+; CursorPosition = 3326
+; FirstLine = 43
+; Folding = JAAAAAAAACABAAAAAAAAAAACAQAAA9
 ; EnableXP
