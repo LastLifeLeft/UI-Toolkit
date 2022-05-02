@@ -65,6 +65,13 @@
 		#Color_Line_Disabled
 	EndEnumeration
 	
+	Enumeration ;State
+		#Cold
+		#Warm
+		#Hot
+		#Disabled
+	EndEnumeration
+	
 	Structure Text
 		OriginalText.s
 		LineCount.b
@@ -372,13 +379,6 @@ Module UITK
 			CompilerError "MacOS isn't supported, sorry."
 			;}
 	CompilerEndSelect
-	
-	Enumeration ;Theme MouseState
-		#Cold
-		#Warm
-		#Hot
-		#Disabled
-	EndEnumeration
 	
 	Enumeration ;Ordered Canvas event, starting from 0
 		#LeftClick       	
@@ -4047,6 +4047,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1146
-; Folding = JAAAAAAAACABAAAAAAAAAAAAAAAAA-
+; CursorPosition = 67
+; FirstLine = 33
+; Folding = LAAAAAAAACABAAAAAAAAAAAAAAAAA-
 ; EnableXP
