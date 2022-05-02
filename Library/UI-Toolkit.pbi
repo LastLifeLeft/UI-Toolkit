@@ -3281,6 +3281,13 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	; Getters
+	Procedure VerticalList_CountItem(*this.PB_Gadget)
+		Protected *GadgetData.VerticalListData = *this\vt
+		ProcedureReturn ListSize(*GadgetData\ItemList())
+	EndProcedure
+	
+	; Setters
 	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
@@ -3315,6 +3322,15 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
+	Procedure VerticalList_SetItemData(*this.PB_Gadget, Position, *Data)
+		Protected *GadgetData.VerticalListData = *this\vt
+		
+		If Position > -1 And Position < ListSize(*GadgetData\ItemList())
+			SelectElement(*GadgetData\ItemList(), Position)
+			*GadgetData\ItemList()\Data = *Data
+		EndIf
+	EndProcedure
+	
 	Procedure VerticalList_Meta(*GadgetData.VerticalListData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 		InitializeObject(VerticalList)
 		
@@ -3341,6 +3357,8 @@ Module UITK
 			\ScrollBar\Theme\ShaderColor[#Cold] = 0
 			
 			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
+			\VT\CountGadgetItems = @VerticalList_CountItem()
+			\VT\SetGadgetItemData = @VerticalList_SetItemData()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -4047,7 +4065,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 67
-; FirstLine = 33
-; Folding = LAAAAAAAACABAAAAAAAAAAAAAAAAA-
+; CursorPosition = 3360
+; FirstLine = 48
+; Folding = JAAAAAAAACABAAAAAAAAAAACAwAAA9
 ; EnableXP

@@ -133,7 +133,6 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
-SetGadgetAttribute(Gadget, UITK::#Properties_ItemHeight, 75)
 
 SetGadgetAttribute(Gadget, 1, 1)
 
@@ -182,7 +181,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 136
+; CursorPosition = 134
 ; FirstLine = 97
 ; Folding = +
 ; EnableXP
