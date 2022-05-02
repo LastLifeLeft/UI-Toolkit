@@ -1503,7 +1503,7 @@ Module UITK
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖭", Flags & #DarkMode * #DarkMode)
 				
-				SetGadgetProperty(*WindowData\ButtonClose, #Properties_CornerRadius, 0)
+				SetGadgetAttribute(*WindowData\ButtonClose, #Properties_CornerRadius, 0)
 				
 				SetGadgetFont(*WindowData\ButtonClose, MaterialFont)
 				
@@ -1526,7 +1526,7 @@ Module UITK
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖯", Flags & #DarkMode * #DarkMode)
 				
-				SetGadgetProperty(*WindowData\ButtonMaximize, #Properties_CornerRadius, 0)
+				SetGadgetAttribute(*WindowData\ButtonMaximize, #Properties_CornerRadius, 0)
 				
 				SetGadgetFont(*WindowData\ButtonMaximize, MaterialFont)
 				
@@ -1541,7 +1541,7 @@ Module UITK
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖰",Flags & #DarkMode * #DarkMode)
 				
-				SetGadgetProperty(*WindowData\ButtonMinimize, #Properties_CornerRadius, 0)
+				SetGadgetAttribute(*WindowData\ButtonMinimize, #Properties_CornerRadius, 0)
 				
 				SetGadgetFont(*WindowData\ButtonMinimize, MaterialFont)
 				
@@ -4047,6 +4047,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 136
+; CursorPosition = 1146
 ; Folding = JAAAAAAAACABAAAAAAAAAAAAAAAAA-
 ; EnableXP
