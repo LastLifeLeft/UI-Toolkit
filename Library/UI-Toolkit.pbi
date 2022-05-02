@@ -126,6 +126,7 @@
 	; Gadgets
 	Declare GetGadgetImage(Gadget)
 	Declare SetGadgetImage(Gadget, Image)
+	
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -139,6 +140,8 @@
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
 	Declare DrawVectorTextBlock(*TextData.Text, X, Y)
+	Declare Disable(Gadget, State)
+	
 	;}
 EndDeclareModule
 
@@ -203,11 +206,15 @@ Module UITK
 		*GadgetData\VT\SetGadgetColor = @Default_SetColor()
 		*GadgetData\VT\SetGadgetState = @Default_SetState()
 		*GadgetData\VT\SetGadgetText = @Default_SetText()
+		*GadgetData\VT\SetGadgetAttribute = @Default_SetAttribute()
 		
 		*GadgetData\DefaultEventHandler = @Default_EventHandle()
 		
 		*GadgetData\TextBock\LineLimit = -1
 		*GadgetData\TextBock\FontID = DefaultFont
+		
+		*GadgetData\Enabled = #True
+		
 		If Gadget > -1
 			BindGadgetEvent(Gadget, *GadgetData\DefaultEventHandler)
 		Else
@@ -455,6 +462,8 @@ Module UITK
 		TextBock.Text
 		ParentWindow.i
 		
+		Enabled.b
+		
 		*DefaultEventHandler
 	EndStructure
 	
@@ -465,6 +474,8 @@ Module UITK
 	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
 	MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 12, #PB_Font_HighQuality))
 	
+	Prototype ItemRedraw(*Item, X, Y, Width, Height, State)
+	
 	;{ Set default themes
 	With DefaultTheme 
 		\WindowColor = SetAlpha(FixColor($F0F0F0), 255)
@@ -472,6 +483,7 @@ Module UITK
 		\BackColor[#Cold]		= SetAlpha(FixColor($F0F0F0), 255)
 		\BackColor[#Warm]		= SetAlpha(FixColor($D8E6F2), 255)
 		\BackColor[#Hot]		= SetAlpha(FixColor($C0DCF3), 255)
+		\BackColor[#Disabled]	= SetAlpha(FixColor($F0F0F0), 255)
 		
 		\FrontColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
 		\FrontColor[#Warm]		= SetAlpha(FixColor($999999), 255)
@@ -488,6 +500,7 @@ Module UITK
 		\TextColor[#Cold] 		= SetAlpha(FixColor($000000), 255)
 		\TextColor[#Warm]		= SetAlpha(FixColor($000000), 255)
 		\TextColor[#Hot]		= SetAlpha(FixColor($000000), 255)
+		\TextColor[#Disabled]	= SetAlpha(FixColor($808080), 255)
 		
 		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
 		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
@@ -512,6 +525,7 @@ Module UITK
 		\BackColor[#Cold]		= SetAlpha(FixColor($36393F), 255)
 		\BackColor[#Warm]		= SetAlpha(FixColor($44474C), 255)
 		\BackColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
+		\BackColor[#Disabled]	= SetAlpha(FixColor($36393F), 255)
 		
 		\FrontColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
 		\FrontColor[#Warm]		= SetAlpha(FixColor($8F9399), 255)
@@ -528,6 +542,7 @@ Module UITK
 		\TextColor[#Cold]	 	= SetAlpha(FixColor($FAFAFB), 255)
 		\TextColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
 		\TextColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
+		\TextColor[#Disabled]	= SetAlpha(FixColor($808080), 255)
 		
 		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
 		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
@@ -547,7 +562,6 @@ Module UITK
 	EndWith
 	;}
 	;}
-	
 	
 	;General:
 	;{ Shared
@@ -760,168 +774,171 @@ Module UITK
 		MovePathCursor(-x,-y-Radius, Flag)
 	EndProcedure
 	
-	Prototype ItemRedraw(*Item, X, Y, Width, Height, State)
+	Procedure Disable(Gadget, State)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		
+		*GadgetData\Enabled = Bool(Not State)
+		RedrawObject()
+	EndProcedure
 	
 	; Default functions
 	
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
-		
-		Select EventType()
-			Case #PB_EventType_MouseEnter
-				If *GadgetData\SupportedEvent[#MouseEnter]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #MouseEnter
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_MouseLeave
-				If *GadgetData\SupportedEvent[#MouseLeave]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #MouseLeave
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_MouseMove
-				If *GadgetData\SupportedEvent[#MouseMove]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #MouseMove
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_MouseWheel
-				If *GadgetData\SupportedEvent[#MouseWheel]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #MouseWheel
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_LeftButtonDown
-				If *GadgetData\SupportedEvent[#LeftButtonDown]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #LeftButtonDown
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_LeftButtonUp
-				If *GadgetData\SupportedEvent[#LeftButtonUp]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #LeftButtonUp
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_LeftClick
-				If *GadgetData\SupportedEvent[#LeftClick]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #LeftClick
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_LeftDoubleClick
-				If *GadgetData\SupportedEvent[#LeftDoubleClick]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #LeftDoubleClick
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_RightButtonDown
-				If *GadgetData\SupportedEvent[#RightButtonDown]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #RightButtonDown
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_RightButtonUp
-				If *GadgetData\SupportedEvent[#RightButtonUp]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #RightButtonUp
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_RightClick
-				If *GadgetData\SupportedEvent[#RightClick]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #RightClick
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_RightDoubleClick
-				If *GadgetData\SupportedEvent[#RightDoubleClick]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #RightDoubleClick
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_MiddleButtonDown
-				If *GadgetData\SupportedEvent[#MiddleButtonDown]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #MiddleButtonDown
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_MiddleButtonUp
-				If *GadgetData\SupportedEvent[#MiddleButtonUp]
-					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-					Event\EventType = #MiddleButtonUp
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_Focus
-				If *GadgetData\SupportedEvent[#Focus]
-					Event\EventType = #Focus
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_LostFocus
-				If *GadgetData\SupportedEvent[#LostFocus]
-					Event\EventType = #LostFocus
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_KeyDown
-				If *GadgetData\SupportedEvent[#KeyDown]
-					Event\EventType = #KeyDown
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_KeyUp
-				If *GadgetData\SupportedEvent[#KeyUp]
-					Event\EventType = #KeyUp
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_Input
-				If *GadgetData\SupportedEvent[#Input]
-					Event\EventType = #Input
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Case #PB_EventType_Resize
-				If *GadgetData\SupportedEvent[#Resize]
-					Event\EventType = #Resize
-					*GadgetData\EventHandler(*GadgetData, Event)
-				EndIf
-				
-			Default
-				ProcedureReturn
-		EndSelect
-		
-		
-		
+		If *GadgetData\Enabled
+			Select EventType()
+				Case #PB_EventType_MouseEnter
+					If *GadgetData\SupportedEvent[#MouseEnter]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #MouseEnter
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_MouseLeave
+					If *GadgetData\SupportedEvent[#MouseLeave]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #MouseLeave
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_MouseMove
+					If *GadgetData\SupportedEvent[#MouseMove]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #MouseMove
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_MouseWheel
+					If *GadgetData\SupportedEvent[#MouseWheel]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #MouseWheel
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_LeftButtonDown
+					If *GadgetData\SupportedEvent[#LeftButtonDown]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #LeftButtonDown
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_LeftButtonUp
+					If *GadgetData\SupportedEvent[#LeftButtonUp]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #LeftButtonUp
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_LeftClick
+					If *GadgetData\SupportedEvent[#LeftClick]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #LeftClick
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_LeftDoubleClick
+					If *GadgetData\SupportedEvent[#LeftDoubleClick]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #LeftDoubleClick
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_RightButtonDown
+					If *GadgetData\SupportedEvent[#RightButtonDown]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #RightButtonDown
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_RightButtonUp
+					If *GadgetData\SupportedEvent[#RightButtonUp]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #RightButtonUp
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_RightClick
+					If *GadgetData\SupportedEvent[#RightClick]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #RightClick
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_RightDoubleClick
+					If *GadgetData\SupportedEvent[#RightDoubleClick]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #RightDoubleClick
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_MiddleButtonDown
+					If *GadgetData\SupportedEvent[#MiddleButtonDown]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #MiddleButtonDown
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_MiddleButtonUp
+					If *GadgetData\SupportedEvent[#MiddleButtonUp]
+						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\EventType = #MiddleButtonUp
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_Focus
+					If *GadgetData\SupportedEvent[#Focus]
+						Event\EventType = #Focus
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_LostFocus
+					If *GadgetData\SupportedEvent[#LostFocus]
+						Event\EventType = #LostFocus
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_KeyDown
+					If *GadgetData\SupportedEvent[#KeyDown]
+						Event\EventType = #KeyDown
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_KeyUp
+					If *GadgetData\SupportedEvent[#KeyUp]
+						Event\EventType = #KeyUp
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_Input
+					If *GadgetData\SupportedEvent[#Input]
+						Event\EventType = #Input
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Case #PB_EventType_Resize
+					If *GadgetData\SupportedEvent[#Resize]
+						Event\EventType = #Resize
+						*GadgetData\EventHandler(*GadgetData, Event)
+					EndIf
+					
+				Default
+					ProcedureReturn
+			EndSelect
+		EndIf
 	EndProcedure
 
 	Procedure Default_FreeGadget(*this.PB_Gadget)
@@ -1066,7 +1083,6 @@ Module UITK
 		
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		RedrawObject()
-		
 	EndProcedure
 	
 	Procedure Default_SetAttribute(*This.PB_Gadget, Property, Value)
@@ -1952,20 +1968,28 @@ Module UITK
 	EndStructure
 	
 	Procedure Button_Redraw(*GadgetData.ButtonData)
+		Protected State
+		
 		With *GadgetData
 			
-			If *GadgetData\Border
+			If \Enabled
+				State = \MouseState
+			Else
+				State = #Disabled
+			EndIf
+			
+			If \Border
 				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \Theme\CornerRadius)
-				VectorSourceColor(*GadgetData\Theme\LineColor[*GadgetData\MouseState])
+				VectorSourceColor(\Theme\LineColor[State])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
 				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \Theme\CornerRadius)
 			EndIf
 			
-			VectorSourceColor(\Theme\BackColor[\MouseState])
+			VectorSourceColor(\Theme\BackColor[State])
 			FillPath()
 			
-			VectorSourceColor(\Theme\TextColor[\MouseState])
+			VectorSourceColor(\Theme\TextColor[State])
 			VectorFont(\TextBock\FontID)
 			
 			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin)
@@ -4081,6 +4105,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3088
-; Folding = JAAAAAAAACABAAAAAAAAAAAAAAAAA5
+; CursorPosition = 1960
+; Folding = JAAAAAAAAEACAAAAAAAAAAAAAAAAAw
 ; EnableXP

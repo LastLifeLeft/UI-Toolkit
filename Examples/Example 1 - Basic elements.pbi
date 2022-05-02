@@ -20,6 +20,7 @@ Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center")
 UITK::SetGadgetImage(Gadget, Image)
 Gadget = UITK::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UITK::#HAlignRight | UITK::#Button_Toggle)
 UITK::SetGadgetImage(Gadget, Image)
+UITK::Disable(Gadget, #True)
 Gadget = UITK::Button(#PB_Any, 20, 120, 200, 40, "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.", UITK::#HAlignLeft | UITK::#Border)
 UITK::SetGadgetImage(Gadget, Image)
 
@@ -81,6 +82,7 @@ Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center")
 UITK::SetGadgetImage(Gadget, Image)
 Gadget = UITK::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UITK::#HAlignRight | UITK::#Button_Toggle)
 UITK::SetGadgetImage(Gadget, Image)
+UITK::Disable(Gadget, #True)
 Gadget = UITK::Button(#PB_Any, 20, 120, 200, 40, "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.", UITK::#HAlignLeft | UITK::#Border)
 UITK::SetGadgetImage(Gadget, Image)
 
@@ -181,7 +183,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 134
-; FirstLine = 97
+; CursorPosition = 22
+; FirstLine = 1
 ; Folding = +
 ; EnableXP
