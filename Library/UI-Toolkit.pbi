@@ -1139,6 +1139,8 @@ Module UITK
 		Height.l
 		MinWidth.l
 		MinHeight.l
+		MaxWidth.l
+		MaxHeight.l
 		
 		SizeCursor.l
 		Sizable.l
@@ -1200,8 +1202,19 @@ Module UITK
 				GetMonitorInfo_(hMon, mie)
 				*mmi\ptMaxPosition\x = Abs(mie\rcWork\left - mie\rcMonitor\left)
 				*mmi\ptMaxPosition\y = Abs(mie\rcWork\top - mie\rcMonitor\top)
-				*mmi\ptMaxSize\x = Abs(mie\rcWork\right - mie\rcWork\left)
-				*mmi\ptMaxSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) - 1
+				
+				If *WindowData\MaxWidth > 0
+					*mmi\ptMaxSize\x = *WindowData\MaxWidth
+				Else
+					*mmi\ptMaxSize\x = Abs(mie\rcWork\right - mie\rcWork\left)
+				EndIf
+				
+				If *WindowData\MaxHeight > 0
+					*mmi\ptMaxSize\y = *WindowData\MaxHeight
+				Else
+					*mmi\ptMaxSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) - 1
+				EndIf
+				
 				*mmi\ptMinTrackSize\x = *WindowData\MinWidth
 				*mmi\ptMinTrackSize\y = *WindowData\MinHeight
 				ProcedureReturn 0
@@ -1242,23 +1255,6 @@ Module UITK
 				;}
 			Case #WM_NCACTIVATE ;{
 				ProcedureReturn 1
-				;}
-			Case #WM_COMMAND ;{
-; 				Select wParam
-; 					Case 1
-; 						ShowWindow_(hWnd, #SW_MINIMIZE)
-; 					Case 2
-; 						If IsZoomed_(hWnd)
-; 							ShowWindow_(hWnd, #SW_RESTORE)
-; 						Else
-; 							ShowWindow_(hWnd, #SW_MAXIMIZE)
-; 						EndIf
-; 					Case 3
-; 						SendMessage_(hWnd, #WM_CLOSE, 0, 0)
-; 					Case 4
-; 						MapWindowPoints_(hWnd, 0, p.POINT, 1)
-; 						SendMessage_(hWnd, #WM_SYSMENU, 0, (p\y+22+border)<<16 + p\x)
-; 				EndSelect
 				;}
 			Case #WM_MOUSEMOVE ;{
 				Protected posX = lParam & $FFFF
@@ -1328,12 +1324,6 @@ Module UITK
 					Case #HTLEFT, #HTRIGHT
 						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
 				EndSelect
-				;}
-			Case #WM_SYSMENU ;{
-				SetWindowLongPtr_(hwnd, #GWL_STYLE, GetWindowLongPtr_(hwnd, #GWL_STYLE)|#WS_SYSMENU)
-				DefWindowProc_(hWnd, Msg, wParam, lParam)
-				SetWindowLongPtr_(hwnd, #GWL_STYLE, GetWindowLongPtr_(hwnd, #GWL_STYLE)&~#WS_SYSMENU)
-				ProcedureReturn 0
 				;}
 			Case #WM_NCDESTROY ;{
 				If *WindowData\ButtonClose And IsGadget(*WindowData\ButtonClose)
@@ -1450,17 +1440,23 @@ Module UITK
 			                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
 			                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize) |
 			                                                                  (Bool(Flags & #PB_Window_SizeGadget) * #PB_Window_SizeGadget) |
+			                                                                  (Bool(Flags & #PB_Window_Invisible) * #PB_Window_Invisible) |
 			                                                                  (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 		Else
-			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+			*WindowData = AllocateStructure(ThemedWindow)
+			*WindowData\Sizable = Bool(Flags & #PB_Window_SizeGadget)
+			
+			If *WindowData\Sizable
+				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+			Else
+				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, #PB_Window_BorderLess | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+			EndIf
 			
 			If Window = #PB_Any
 				Window = Result
 			EndIf
 			
 			WindowID = WindowID(Window)
-			
-			*WindowData = AllocateStructure(ThemedWindow)
 			
 			If Flags & #DarkMode
 				Image = CreateImage(#PB_Any, 8, 8, 32, FixColor($202225))
@@ -1473,7 +1469,14 @@ Module UITK
 			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
 			*WindowData\Width = WindowWidth(Window)
 			*WindowData\Height = WindowHeight(Window)
-			*WindowData\Sizable = Bool(Flags & #PB_Window_SizeGadget)
+			
+			If Not *WindowData\Sizable
+				*WindowData\MaxHeight = InnerHeight
+				*WindowData\MaxWidth = InnerWidth
+				*WindowData\MinHeight = InnerHeight
+				*WindowData\MinWidth = InnerWidth
+			EndIf
+			
 			FreeImage(Image)
 			
 			SetClassLongPtr_(WindowID, #GCL_HBRBACKGROUND, *WindowData\Brush)
@@ -1585,6 +1588,8 @@ Module UITK
 		
 		*WindowData\MinHeight = MinHeight
 		*WindowData\MinWidth = MinWidth
+		*WindowData\MaxWidth = MaxWidth
+		*WindowData\MaxHeight = MaxHeight
 	EndProcedure
 	
 	Procedure SetWindowIcon(Window, Image)
@@ -3990,7 +3995,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 2045
-; FirstLine = 189
-; Folding = LAQAAAAAAAACAAAJAAEAAAAAAAAA5
+; CursorPosition = 1445
+; FirstLine = 304
+; Folding = PAQAAAAAEBgEAAAAAABAAAAAAAAA+
 ; EnableXP
