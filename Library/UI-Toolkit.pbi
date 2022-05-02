@@ -3234,9 +3234,11 @@ Module UITK
 					EndIf
 					;}
 				Case #MouseWheel ;{
-					ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_WheelDelta) * \ItemHeight * 0.5)
-					*Event\EventType = #MouseMove
- 					Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
+					If \VisibleScrollbar
+						ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_WheelDelta) * \ItemHeight * 0.5)
+						*Event\EventType = #MouseMove
+						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
+					EndIf
 					;}
 			EndSelect
 			
@@ -4079,6 +4081,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 552
+; CursorPosition = 4057
 ; Folding = JAAAAAAAACABAAAAAAAAAAAAAAAAA5
 ; EnableXP
