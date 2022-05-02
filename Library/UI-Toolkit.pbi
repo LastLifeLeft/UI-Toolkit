@@ -3372,7 +3372,7 @@ Module UITK
 			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
 			\VT\CountGadgetItems = @VerticalList_CountItem()
 			\VT\SetGadgetItemData = @VerticalList_SetItemData()
-			\VT\GetGadgetItemAttribute2 = @VerticalList_GetItemData()
+			\VT\GetGadgetItemData = @VerticalList_GetItemData()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -4079,7 +4079,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 4066
-; FirstLine = 90
-; Folding = JAQAAAAAACABAAAAAAAAAAAAAAAAA5
+; CursorPosition = 552
+; Folding = JAAAAAAAACABAAAAAAAAAAAAAAAAA5
 ; EnableXP
