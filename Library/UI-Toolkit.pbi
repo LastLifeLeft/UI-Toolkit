@@ -49,9 +49,11 @@
 		
 		#Color_Back_Warm
 		#Color_Back_Hot
+		#Color_Back_Disabled
 		
 		#Color_Text_Warm
 		#Color_Text_Hot
+		#Color_Text_Disabled
 		
 		#Color_Parent										; The parent (window or container) color, used for rounded corners and stuff like that
 		
@@ -996,12 +998,16 @@ Module UITK
 				Result = *GadgetData\Theme\BackColor[#Warm]
 			Case #Color_Back_Hot
 				Result = *GadgetData\Theme\BackColor[#Hot]
+			Case #Color_Back_Disabled
+				Result = *GadgetData\Theme\BackColor[#Disabled]
 			Case #Color_Text_Cold
 				Result = *GadgetData\Theme\TextColor[#Cold]
 			Case #Color_Text_Warm
 				Result = *GadgetData\Theme\TextColor[#Warm]
 			Case #Color_Text_Hot
 				Result = *GadgetData\Theme\TextColor[#Hot]
+			Case #Color_Text_Disabled
+				Result = *GadgetData\Theme\TextColor[#Disabled]
 			Case #Color_Parent
 				Result = *GadgetData\Theme\WindowColor
 			Case #Color_Shade_Cold
@@ -1117,12 +1123,16 @@ Module UITK
 				*GadgetData\Theme\BackColor[#Warm] = Color
 			Case #Color_Back_Hot
 				*GadgetData\Theme\BackColor[#Hot] = Color
+			Case #Color_Back_Disabled
+				*GadgetData\Theme\BackColor[#Disabled] = Color
 			Case #Color_Text_Cold
 				*GadgetData\Theme\TextColor[#Cold] = Color
 			Case #Color_Text_Warm
 				*GadgetData\Theme\TextColor[#Warm] = Color
 			Case #Color_Text_Hot
 				*GadgetData\Theme\TextColor[#Hot] = Color
+			Case #Color_Text_Disabled
+				*GadgetData\Theme\TextColor[#Disabled] = Color
 			Case #Color_Parent
 				*GadgetData\Theme\WindowColor = Color
 			Case #Color_Shade_Cold
@@ -4105,6 +4115,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1960
+; CursorPosition = 103
 ; Folding = JAAAAAAAAEACAAAAAAAAAAAAAAAAAw
 ; EnableXP
