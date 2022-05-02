@@ -38,6 +38,8 @@
 		
 		#Properties_ToolBarHeight
 		#Properties_ItemHeight
+		#Properties_CornerRadius
+		#Properties_Border
 	EndEnumeration
 
 	Enumeration; Colors
@@ -61,11 +63,6 @@
 		#Color_Line_Warm
 		#Color_Line_Hot
 		#Color_Line_Disabled
-	EndEnumeration
-	
-	Enumeration; Properties
-		#Properties_CornerRadius
-		#Properties_Border
 	EndEnumeration
 	
 	Structure Text
@@ -100,7 +97,6 @@
 	; Setters
 	Declare SetAccessibilityMode(MouseState) 				; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
 	Declare SetGadgetColorScheme(Gadget, ThemeJson.s)		; Apply a complete color scheme at once
-	Declare SetGadgetProperty(Gadget, Property, Value)		; 
 	
 	; Getters
 	Declare GetAccessibilityMode()							; Returns the current accessibility MouseState.
@@ -968,28 +964,6 @@ Module UITK
 	EndProcedure
 	
 	; Getters
-	Procedure SetAccessibilityMode(MouseState)
-		AccessibilityMode = MouseState
-	EndProcedure
-	
-	Procedure SetGadgetColorScheme(Gadget, ThemeJson.s)
-	EndProcedure
-	
-	Procedure SetGadgetProperty(Gadget, Property, Value)
-		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
-		
-		With *GadgetData
-			Select Property
-				Case #Properties_CornerRadius
-					\Theme\CornerRadius = Value
-				Case #Properties_Border
-					\Border = Value
-			EndSelect
-		EndWith
-		
-		RedrawObject()
-	EndProcedure
-	
 	Procedure Default_GetFont(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
 		ProcedureReturn *GadgetData\TextBock\FontID
@@ -1046,6 +1020,21 @@ Module UITK
 		PokeW(*Height, *GadgetData\TextBock\RequieredHeight + *GadgetData\VMargin * 2)
 	EndProcedure
 	
+	Procedure Default_GetAttribute(*This.PB_Gadget, Property)
+		Protected *GadgetData.GadgetData = *this\vt, Result
+		
+		With *GadgetData
+			Select Property
+				Case #Properties_CornerRadius
+					Result = \Theme\CornerRadius
+				Case #Properties_Border
+					Result = \Border
+			EndSelect
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
 	Procedure.s Default_GetText(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
 		ProcedureReturn *GadgetData\TextBock\OriginalText
@@ -1056,11 +1045,43 @@ Module UITK
 	EndProcedure
 	
 	; Setters
+	Procedure SetAccessibilityMode(MouseState)
+		AccessibilityMode = MouseState
+	EndProcedure
+	
+	Procedure SetGadgetColorScheme(Gadget, ThemeJson.s)
+	EndProcedure
+	
 	Procedure GetAccessibilityMode()
 		ProcedureReturn AccessibilityMode
 	EndProcedure
 	
 	Procedure.s GetGadgetColorScheme(Gadget)	
+	EndProcedure
+	
+	Procedure SetGadgetImage(Gadget, Image)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		
+		*GadgetData\TextBock\Image = Image
+		
+		PrepareVectorTextBlock(@*GadgetData\TextBock)
+		RedrawObject()
+		
+	EndProcedure
+	
+	Procedure Default_SetAttribute(*This.PB_Gadget, Property, Value)
+		Protected *GadgetData.GadgetData = *this\vt
+		
+		With *GadgetData
+			Select Property
+				Case #Properties_CornerRadius
+					\Theme\CornerRadius = Value
+				Case #Properties_Border
+					\Border = Value
+			EndSelect
+		EndWith
+		
+		RedrawObject()
 	EndProcedure
 	
 	Procedure Default_SetFont(*this.PB_Gadget, FontID)
@@ -1121,16 +1142,6 @@ Module UITK
 		*GadgetData\TextBock\OriginalText = Text
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		RedrawObject()
-	EndProcedure
-	
-	Procedure SetGadgetImage(Gadget, Image)
-		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
-		
-		*GadgetData\TextBock\Image = Image
-		
-		PrepareVectorTextBlock(@*GadgetData\TextBock)
-		RedrawObject()
-		
 	EndProcedure
 	;}
 	
@@ -2650,10 +2661,8 @@ Module UITK
 						
 					RedrawObject()
 					;}
-					CompilerIf #PB_Compiler_Debugger
-					Default	
-						Debug "WARNING! Attribute #"+Attribute+ " unused on Scrollbar gadget... Might be wanting to set canvas attribute?"
-					CompilerEndIf
+				Default	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
 			EndSelect
 		EndWith
 	EndProcedure
@@ -2965,6 +2974,8 @@ Module UITK
 					
 				Case #ScrollArea_ScrollStep
 					
+				Default	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
 			EndSelect
 		EndWith
 	EndProcedure
@@ -3275,7 +3286,7 @@ Module UITK
 		
 		With *GadgetData
 			Select Attribute
-				Case #Properties_ItemHeight
+				Case #Properties_ItemHeight ;{
 					\ItemHeight = Value
 					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 					
@@ -3290,11 +3301,15 @@ Module UITK
 						\ItemList()\Text\Height = \ItemHeight
 						PrepareVectorTextBlock(@\ItemList()\Text)
 					Next
-					
-				Case #Properties_ToolBarHeight
+					;}
+				Case #Properties_ToolBarHeight ;{
 					\ToolBarHeight = Value
 					Scrollbar_ResizeMeta(\ScrollBar, \ScrollBar\OriginX, \ToolBarHeight, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight)
 					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
+					;}
+				Default ;{	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+					;}
 			EndSelect
 		EndWith
 		RedrawObject()
@@ -4032,6 +4047,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3095
-; Folding = JAAAAAAAABgAAAAAAAAAAAAAAAAA5
+; CursorPosition = 136
+; Folding = JAAAAAAAACABAAAAAAAAAAAAAAAAA-
 ; EnableXP
