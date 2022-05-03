@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<font>
+<format>3.21</format>
+<program version="4.28.0" os="windows" />
+
+<postscript_name>UITK Icon Font </postscript_name>
+<name>UITK Icon Font</name>
+<subfamily>Regular</subfamily>
+<bold>false</bold>
+<italic>false</italic>
+<full_name>UITK Icon Font</full_name>
+<unique_identifier>UITK Icon Font</unique_identifier>
+<version>Version 1.0</version>
+<description></description>
+<copyright>SIL Open Font License (OFL)</copyright>
+<license>SIL Open Font License (OFL)</license>
+<license_url>http://scripts.sil.org/OFL</license_url>
+<weight>400</weight>
+<units_per_em>1024</units_per_em>
+<trademark></trademark>
+<manufacturer></manufacturer>
+<designer></designer>
+<vendor_url></vendor_url>
+<vendor_id>Bird</vendor_id>
+<designer_url></designer_url>
+<underline_position>-10</underline_position>
+<underline_thickness>3.5</underline_thickness>
+<open_engraving>false</open_engraving>
+<same_way_back_engraving>false</same_way_back_engraving>
+<external_backgrunds>false</external_backgrunds>
+
+<horizontal>
+	<top_limit>78</top_limit>
+	<top_position>72</top_position>
+	<x-height>56</x-height>
+	<base_line>0</base_line>
+	<bottom_position>-20</bottom_position>
+	<bottom_limit>-21</bottom_limit>
+	<line_gap>10</line_gap>
+</horizontal>
+
+<grid width="1"/>
+<grid width="2"/>
+<grid width="4"/>
+
+<background scale="1" />
+
+<base_filename>UITK Icon Font</base_filename>
+<base_filename_mac>UITK Icon Font Mac</base_filename_mac>
+<export_ttf_font>true</export_ttf_font>
+<export_otf_font>true</export_otf_font>
+<export_eot_font>false</export_eot_font>
+<export_svg_font>false</export_svg_font>
+<export_colr_table>true</export_colr_table>
+<export_svg_table>true</export_svg_table>
+<optimize_otf_for_size>false</optimize_otf_for_size>
+<optimize_otf_for_details>true</optimize_otf_for_details>
+
+<default_foreground_color></default_foreground_color>
+
+<svg_units_per_em>100</svg_units_per_em>
+<svg_decimals>5</svg_decimals>
+<ligature_tag>clig</ligature_tag>
+
+<collection unicode="U+20" svg="false" colr="false" auto_generate="false" meta_name="">
+	<selected id="0"/>
+	<glyph id="0" left="0" right="27">
+	</glyph>
+</collection>
+
+<collection name=".notdef" svg="false" colr="false" auto_generate="false" meta_name="">
+	<selected id="0"/>
+	<glyph id="0" left="-20" right="33">
+		<layer name="Layer" visible="true">
+			<path data="S -15,10 L 15,10 L 15,62 L -15,62 M -15,10" />
+			<path data="S -20,67 L 20,67 L 20,5 L -20,5 M -20,67" />
+		</layer>
+	</glyph>
+</collection>
+
+<collection unicode="U+41" svg="false" colr="false" auto_generate="false" meta_name="">
+	<selected id="0"/>
+	<glyph id="0" left="-28" right="28">
+		<layer name="Layer" visible="true">
+			<path data="B 27.90887,5.8751 M 27.90887,0.0621 M 22.09687,0.0621 M -0.02813,22.1871 M -22.15313,0.0621 M -27.96613,0.0621 M -27.96613,5.8751 M -5.84113,28.0001 M -27.96613,50.1251 M -27.96613,55.9371 M -22.15313,55.9371 M -0.02813,33.8121 M 22.09687,55.9371 M 27.90887,55.9371 M 27.90887,50.1251 M 5.78387,28.0001 C 13.15887,20.6251 20.53387,13.2501 27.90887,5.8751" />
+		</layer>
+	</glyph>
+</collection>
+
+<collection unicode="U+42" svg="false" colr="false" auto_generate="false" meta_name="">
+	<selected id="0"/>
+	<glyph id="0" left="-28" right="28">
+		<layer name="Layer" visible="true">
+			<path data="B 54.0624,60.0621 M 54.0624,-4.0629 M -10.0626,-4.0629 M -10.0626,60.0621 C 11.3124,60.0621 32.6874,60.0621 54.0624,60.0621" />
+			<path data="B -1.9996,4.0001 M 46.0004,4.0001 M 46.0004,43.9371 M -1.9996,43.9371 C -1.9996,30.62477 -1.9996,17.31243 -1.9996,4.0001" />
+		</layer>
+	</glyph>
+</collection>
+
+<collection unicode="U+43" svg="false" colr="false" auto_generate="false" meta_name="">
+	<selected id="0"/>
+	<glyph id="0" left="-28" right="28">
+		<layer name="Layer" visible="true">
+			<path data="B -9.1056,36.0621 M 55.0194,36.0621 M 55.0194,19.9371 M -9.1056,19.9371 M -9.1056,36.0621" />
+		</layer>
+	</glyph>
+</collection>
+
+<collection unicode="U+44" svg="false" colr="false" auto_generate="false" meta_name="">
+	<selected id="0"/>
+	<glyph id="0" left="-28" right="28">
+		<layer name="Layer" visible="true">
+			<path data="B 22.0004,22.3341 M 40.3754,40.7091 M 46.0004,35.0841 M 22.0004,11.0841 M -1.9996,35.0841 M 3.6254,40.7091 C 9.7504,34.5841 15.8754,28.4591 22.0004,22.3341" />
+		</layer>
+	</glyph>
+</collection>
+
+<collection unicode="U+45" svg="false" colr="false" auto_generate="false" meta_name="">
+	<selected id="0"/>
+	<glyph id="0" left="-28" right="28">
+		<layer name="Layer" visible="true">
+			<path data="B 3.6254,13.3341 M -1.9996,18.9591 M 22.0004,42.9591 M 46.0004,18.9591 M 40.3754,13.3341 M 22.0004,31.7091 C 15.8754,25.5841 9.7504,19.4591 3.6254,13.3341" />
+		</layer>
+	</glyph>
+</collection>
+
+<collection unicode="U+46" svg="false" colr="false" auto_generate="false" meta_name="">
+	<selected id="0"/>
+	<glyph id="0" left="-28" right="28">
+		<layer name="Layer" visible="true">
+			<path data="B 22.9574,75.81471 C 30.2074,75.81471 36.89483,74.03446 43.0194,70.47171 T C 49.1444,66.90871 53.9884,62.06471 57.5504,55.93971 C 61.1134,49.81471 62.8944,43.12771 62.8944,35.87771 T C 62.8944,28.62771 61.1134,21.93971 57.5504,15.81471 C 53.9884,9.68971 49.14483,4.84596 43.0194,1.28371 T C 36.8944,-2.27829 30.2074,-4.06029 22.9574,-4.06029 T C 15.7074,-4.06029 9.01897,-2.27904 2.8944,1.28371 T C -3.2306,4.84671 -8.0746,9.68971 -11.6366,15.81471 C -15.1996,21.93971 -16.9806,28.62771 -16.9806,35.87771 C -16.9806,43.12771 -15.1996,49.81471 -11.6366,55.93971 C -8.0746,62.06471 -3.23103,66.90946 2.8944,70.47171 T C 9.0194,74.03371 15.7074,75.81471 22.9574,75.81471 T" />
+			<path data="B 14.8944,15.81471 M 50.8944,51.81471 M 45.2694,57.62771 M 14.8944,27.25271 M 0.6444,41.50271 M -4.9806,35.87771 C 1.6444,29.19005 8.2694,22.50238 14.8944,15.81471" />
+		</layer>
+	</glyph>
+</collection>
+
+</font>

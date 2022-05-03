@@ -99,7 +99,7 @@
 		*Data
 	EndStructure
 	
-	Global MaterialFont
+	Global UITKFont
 	;}
 	
 	;{ Public procedures declaration
@@ -474,7 +474,7 @@ Module UITK
 	Global DefaultTheme.Theme, DarkTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
-	MaterialFont = FontID(LoadFont(#PB_Any, "Material Design Icons Desktop", 12, #PB_Font_HighQuality))
+	UITKFont = FontID(LoadFont(#PB_Any, "UITK Icon Font", 12, #PB_Font_HighQuality))
 	
 	Prototype ItemRedraw(*Item, X, Y, Width, Height, State)
 	
@@ -1527,11 +1527,11 @@ Module UITK
 			
 			If Flags & #Window_CloseButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖭", Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "A", Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonClose, #Properties_CornerRadius, 0)
 				
-				SetGadgetFont(*WindowData\ButtonClose, MaterialFont)
+				SetGadgetFont(*WindowData\ButtonClose, UITKFont)
 				
 				If Flags & #DarkMode
 					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
@@ -1550,11 +1550,11 @@ Module UITK
 			
 			If Flags & #Window_MaximizeButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖯", Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "B", Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonMaximize, #Properties_CornerRadius, 0)
 				
-				SetGadgetFont(*WindowData\ButtonMaximize, MaterialFont)
+				SetGadgetFont(*WindowData\ButtonMaximize, UITKFont)
 				
 				If Flags & #DarkMode
 					SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
@@ -1565,11 +1565,11 @@ Module UITK
 			
 			If Flags & #Window_MinimizeButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "󰖰",Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "C",Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonMinimize, #Properties_CornerRadius, 0)
 				
-				SetGadgetFont(*WindowData\ButtonMinimize, MaterialFont)
+				SetGadgetFont(*WindowData\ButtonMinimize, UITKFont)
 				
 				If Flags & #DarkMode
 					SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
@@ -3144,8 +3144,8 @@ Module UITK
 		
 		If State = #Hot
 			MovePathCursor(X + *Item\Text\Width - #VerticalList_IconWidth, Y + (*Item\Text\Height - 14) * 0.5)
-			VectorFont(MaterialFont, 16)
-			DrawVectorText("󰗠")
+			VectorFont(UITKFont, 16)
+			DrawVectorText("F")
 			VectorFont(*Item\Text\FontID)
 		EndIf
 		
@@ -3850,14 +3850,14 @@ Module UITK
 			VectorFont(\TextBock\FontID)
 			
 			DrawVectorTextBlock(@\TextBock, \OriginX + #Combo_ItemMargin, \OriginY + \VMargin)
-			VectorFont(MaterialFont, 20)
+			VectorFont(UITKFont, 20)
 			VectorSourceColor(\Theme\TextColor[#Cold])
 			MovePathCursor(\Width - #Combo_IconWidth, (\Height - #Combo_IconHeight) * 0.5)
 			
 			If \Unfolded
-				DrawVectorText("󰅃")
+				DrawVectorText("E")
 			Else
-				DrawVectorText("󰅀")
+				DrawVectorText("D")
 			EndIf
 			
 		EndWith
@@ -3895,8 +3895,8 @@ Module UITK
 				
 				If Index = \State
 					MovePathCursor(\Width - #Combo_IconWidth, Y + (#Combo_ItemHeight - 14) * 0.5)
-					VectorFont(MaterialFont, 16)
-					DrawVectorText("󰗠")
+					VectorFont(UITKFont, 16)
+					DrawVectorText("F")
 					VectorFont(\TextBock\FontID)
 				EndIf
 				
@@ -4146,6 +4146,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3340
+; CursorPosition = 103
 ; Folding = JAAAAAAAAEACAAAAAAAAAAAACAAAAg
 ; EnableXP
