@@ -73,6 +73,7 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
+RemoveGadgetItem(Gadget, 3)
 
 
 Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 721, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
@@ -135,6 +136,7 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
+RemoveGadgetItem(Gadget, 3)
 
 SetGadgetAttribute(Gadget, 1, 1)
 
@@ -183,7 +185,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 22
-; FirstLine = 1
+; CursorPosition = 75
+; FirstLine = 49
 ; Folding = +
 ; EnableXP

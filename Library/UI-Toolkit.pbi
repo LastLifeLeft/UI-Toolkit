@@ -3318,6 +3318,34 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure VerticalList_RemoveItem(*this.PB_Gadget, Position)
+		Protected *GadgetData.VerticalListData = *this\vt, *Result
+		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\ItemList())
+				SelectElement(\ItemList(), Position)
+				DeleteElement(\ItemList())
+				
+				If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
+					\VisibleScrollbar = #True
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
+				Else
+					\VisibleScrollbar = #False
+				EndIf
+				
+				If \State = Position
+					If \State = ListSize(\ItemList())
+						\State - 1
+					EndIf
+					
+					PostEvent(#PB_Event_Gadget, CurrentWindow(), \Gadget, #PB_EventType_Change)
+				EndIf
+				
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
 	; Getters
 	Procedure VerticalList_CountItem(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
@@ -3395,7 +3423,7 @@ Module UITK
 			
 			\ToolBarHeight = Bool(Flags & #VList_Toolbar) * #VerticalList_IconBarSize
 			Height - \ToolBarHeight
-			\VT\AddGadgetItem2 = @VerticalList_AddItem()
+			
 			\ItemHeight = #VerticalList_ItemHeight
 			\State = -1
 			\MouseState = -1
@@ -3410,6 +3438,8 @@ Module UITK
 			\VT\CountGadgetItems = @VerticalList_CountItem()
 			\VT\SetGadgetItemData = @VerticalList_SetItemData()
 			\VT\GetGadgetItemData = @VerticalList_GetItemData()
+			\VT\RemoveGadgetItem = @VerticalList_RemoveItem()
+			\VT\AddGadgetItem2 = @VerticalList_AddItem()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -4116,6 +4146,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 568
-; Folding = JAAAAAAAAEACAAAAAAAAAAAACAAAAw
+; CursorPosition = 3340
+; Folding = JAAAAAAAAEACAAAAAAAAAAAACAAAAg
 ; EnableXP
