@@ -4126,7 +4126,7 @@ Module UITK
 		If AccessibilityMode
 			Result = ContainerGadget(#PB_Any, x, y, Width, Height)
 		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container)
 			
 			If Result
 				If Gadget = #PB_Any
@@ -4186,6 +4186,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 141
-; Folding = NAAAAAAAAEAiAAAAAAAgAMAAEAEAAAI9
+; CursorPosition = 149
+; Folding = JAAAAAAAAEAiAAAAAAAgAMAAEAEAAAA9
 ; EnableXP
