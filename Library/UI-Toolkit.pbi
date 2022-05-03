@@ -565,6 +565,7 @@ Module UITK
 	;}
 	;}
 	
+	
 	;General:
 	;{ Shared
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
@@ -2680,10 +2681,10 @@ Module UITK
 					EndIf
 					;}
 				Case #ScrollBar_PageLength ;{
+					\PageLenght = Value
 					If \PageLenght >= (\Max - \Min)
 						\BarSize = -1
 					Else
-						\PageLenght = Value
 						If \Vertical
 							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
 						Else
@@ -3346,6 +3347,40 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure VerticalList_Resize(*this.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.VerticalListData = *this\vt
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		With *GadgetData
+			\Width = GadgetWidth(\Gadget)
+			\Height = GadgetHeight(\Gadget)
+			
+			ForEach \ItemList()
+				\ItemList()\Text\Width = \Width - #VerticalList_Margin * 2
+				PrepareVectorTextBlock(@\ItemList()\Text)
+			Next
+			
+			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
+			
+			
+			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border, \ToolBarHeight, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight)
+			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
+			
+			If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
+				\VisibleScrollbar = #True
+			Else
+				\VisibleScrollbar = #False
+			EndIf
+			
+		EndWith
+		
+		RedrawObject()
+	EndProcedure
+	
+	
 	; Getters
 	Procedure VerticalList_CountItem(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
@@ -3362,6 +3397,18 @@ Module UITK
 		
 		ProcedureReturn *Result
 	EndProcedure
+	
+	Procedure.s VerticalList_GetItemText(*this.PB_Gadget, Position)
+		Protected *GadgetData.VerticalListData = *this\vt, Result.s
+		
+		If Position > -1 And Position < ListSize(*GadgetData\ItemList())
+			SelectElement(*GadgetData\ItemList(), Position)
+			Result = *GadgetData\ItemList()\Text\OriginalText
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	
 	
 	; Setters
 	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
@@ -3409,6 +3456,12 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure VerticalList_SetItemText(*this.PB_Gadget, Position, *Text)
+		
+		
+	EndProcedure
+	
+		
 	Procedure VerticalList_Meta(*GadgetData.VerticalListData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 		InitializeObject(VerticalList)
 		
@@ -3440,6 +3493,8 @@ Module UITK
 			\VT\GetGadgetItemData = @VerticalList_GetItemData()
 			\VT\RemoveGadgetItem = @VerticalList_RemoveItem()
 			\VT\AddGadgetItem2 = @VerticalList_AddItem()
+			\VT\ResizeGadget = @VerticalList_Resize()
+			\VT\GetGadgetItemText = @VerticalList_GetItemText()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -3828,6 +3883,7 @@ Module UITK
 		MenuWindow.i
 		MenuCanvas.i
 		MenuState.i
+		ItemCount.i
 		List ItemList.Text()
 		*Scrollbar.ScrollBarData
 	EndStructure
@@ -3860,51 +3916,6 @@ Module UITK
 				DrawVectorText("D")
 			EndIf
 			
-		EndWith
-	EndProcedure
-	
-	Procedure Combo_MenuRedraw(*GadgetData.ComboData)
-		Protected Y, Index
-		
-		With *GadgetData
-			
-			StartVectorDrawing(CanvasVectorOutput(\MenuCanvas))
-			If *GadgetData\Border
-				AddPathBox(1, 0, \Width - 2, VectorOutputHeight() -1)
-				VectorSourceColor(\Theme\LineColor[#Warm])
-				StrokePath(1, #PB_Path_Preserve)
-			Else
-				AddPathBox(\OriginX, \OriginY, \Width, VectorOutputHeight())
-			EndIf
-			
-			VectorSourceColor(\Theme\BackColor[#True])
-			FillPath()
-			
-			VectorSourceColor(\Theme\TextColor[#Cold])
-			VectorFont(\TextBock\FontID)
-			
-			ForEach \ItemList()
-				If Index = \MenuState
-					AddPathBox(\Border, Y, \Width - \Border * 2, #Combo_ItemHeight)
-					VectorSourceColor(\Theme\BackColor[#Hot])
-					FillPath()
-					VectorSourceColor(\Theme\TextColor[#Cold])
-				EndIf
-				
-				DrawVectorTextBlock(@\ItemList(), #Combo_ItemMargin, Y)
-				
-				If Index = \State
-					MovePathCursor(\Width - #Combo_IconWidth, Y + (#Combo_ItemHeight - 14) * 0.5)
-					VectorFont(UITKFont, 16)
-					DrawVectorText("F")
-					VectorFont(\TextBock\FontID)
-				EndIf
-				
-				Index + 1
-				Y + #Combo_ItemHeight
-			Next
-			
-			StopVectorDrawing()
 		EndWith
 	EndProcedure
 	
@@ -3946,41 +3957,22 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure Combo_MenuHandler()
-		Protected *GadgetData.ComboData = GetProp_(GadgetID(EventGadget()), "UITK_ComboData"), Item
+	Procedure Combo_WindowHandler()
+		Protected Window = EventWindow(), *GadgetData.ComboData = GetProp_(WindowID(Window), "UITK_ComboData")
 		
-		With *GadgetData
-			Select EventType()
-				Case #PB_EventType_LostFocus
-					\Unfolded = #False
-					RedrawObject()
-					HideWindow(\MenuWindow , #True)
-					Combo_MenuRedraw(*GadgetData)
-					
-				Case #PB_EventType_MouseMove
-					Item = Floor(GetGadgetAttribute(\MenuCanvas, #PB_Canvas_MouseY) / #Combo_ItemHeight)
-					If Item <> \MenuState
-						\MenuState = Item
-						Combo_MenuRedraw(*GadgetData)
-					EndIf
-					
-				Case #PB_EventType_LeftButtonDown
-					If \MenuState < ListSize(\ItemList())
-						\State = \MenuState
-						SelectElement(\ItemList(), \State)
-						\TextBock\OriginalText = \ItemList()\OriginalText
-						PrepareVectorTextBlock(@\TextBock)
-						\Unfolded = #False
-						RedrawObject()
-					EndIf
-					HideWindow(\MenuWindow, #True)
-				Case #PB_EventType_MouseLeave
-					If \MenuState > -1
-						\MenuState = -1
-						Combo_MenuRedraw(*GadgetData)
-					EndIf
-			EndSelect
-		EndWith
+		*GadgetData\Unfolded = #False
+		RedrawObject()
+		HideWindow(*GadgetData\MenuWindow , #True)
+	EndProcedure
+	
+	Procedure Combo_VListHandler()
+		Protected Gadget = EventGadget(), *GadgetData.ComboData = GetProp_(GadgetID(Gadget), "UITK_ComboData")
+		
+		*GadgetData\TextBock\OriginalText = GetGadgetItemText(*GadgetData\MenuCanvas, GetGadgetState(*GadgetData\MenuCanvas))
+		PrepareVectorTextBlock(@*GadgetData\TextBock)
+		*GadgetData\Unfolded = #False
+		RedrawObject()
+		HideWindow(*GadgetData\MenuWindow , #True)
 	EndProcedure
 	
 	Procedure Combo_Free(*this.PB_Gadget)
@@ -3999,54 +3991,29 @@ Module UITK
 	Procedure Combo_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Flag)
 		Protected *GadgetData.ComboData = *this\vt
 		
-		With *GadgetData
-			If Position > -1 And Position < ListSize(\ItemList())
-				SelectElement(\ItemList(), Position)
-				InsertElement(\ItemList())
-			Else
-				LastElement(\ItemList())
-				AddElement(\ItemList())
-			EndIf
-			
-			\ItemList()\OriginalText = PeekS(*Text)
-			\ItemList()\LineLimit = -1
-			\ItemList()\FontID = \TextBock\FontID
-			
-			\ItemList()\Width = \TextBock\Width - #Combo_Margin
-			\ItemList()\Height = #Combo_ItemHeight
-			\ItemList()\VAlign = #VAlignCenter
-			
-			PrepareVectorTextBlock(@\ItemList())
-			
-			ResizeGadget(\MenuCanvas, #PB_Ignore, #PB_Ignore, #PB_Ignore, ListSize(\ItemList()) * #Combo_ItemHeight + \Border)
-			Combo_MenuRedraw(*GadgetData)
-			ResizeWindow(\MenuWindow, #PB_Ignore, #PB_Ignore, #PB_Ignore, ListSize(\ItemList()) * #Combo_ItemHeight + \Border)
-			
-		EndWith
+		*GadgetData\ItemCount + 1
+		
+		If *GadgetData\ItemCount <= 7
+			ResizeGadget(*GadgetData\MenuCanvas, #PB_Ignore, #PB_Ignore, #PB_Ignore, *GadgetData\ItemCount * #Combo_ItemHeight)
+			ResizeWindow(*GadgetData\MenuWindow, #PB_Ignore, #PB_Ignore, #PB_Ignore, *GadgetData\ItemCount * #Combo_ItemHeight + *GadgetData\Border)
+		EndIf
+		
+		AddGadgetItem(*GadgetData\MenuCanvas, Position, PeekS(*Text), ImageID, Flag)
 	EndProcedure
 	
 	Procedure Combo_SetState(*this.PB_Gadget, State)
 		Protected *GadgetData.ComboData = *this\vt
 		
-		With *GadgetData
-			If State < ListSize(\ItemList()) And \State <> State
-				\State = State
-				
-				If \State < 0
-					\TextBock\OriginalText = ""
-					PrepareVectorTextBlock(@\TextBock)
-				Else
-					SelectElement(\ItemList(), \State)
-					\TextBock\OriginalText = \ItemList()\OriginalText
-					PrepareVectorTextBlock(@\TextBock)
-				EndIf
-				RedrawObject()
-				Combo_MenuRedraw(*GadgetData)
-			EndIf
-		EndWith
+		SetGadgetState(*GadgetData\MenuCanvas, State)
+		*GadgetData\TextBock\OriginalText = GetGadgetItemText(*GadgetData\MenuCanvas, GetGadgetState(*GadgetData\MenuCanvas))
+		
+		PrepareVectorTextBlock(@*GadgetData\TextBock)
+		*GadgetData\Unfolded = #False
+		RedrawObject()
 	EndProcedure
 	
 	Procedure Combo_Meta(*GadgetData.ComboData, Gadget, x, y, Width, Height, Flags)
+		Protected *ListData.GadgetData, *List.PB_Gadget
 		InitializeObject(Combo)
 		
 		With *GadgetData
@@ -4062,11 +4029,18 @@ Module UITK
 			\State = -1
 			
 			\MenuWindow = OpenWindow(#PB_Any, 0, 0, \Width, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(CurrentWindow()))
-			SetWindowColor(\MenuWindow, RGB(Red(\Theme\LineColor[#Warm]), Green(\Theme\LineColor[#Warm]), Blue(\Theme\LineColor[#Warm])))
-			\MenuCanvas = CanvasGadget(#PB_Any, 0, 0, \Width, 0, #PB_Canvas_Keyboard)
-			SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *GadgetData)
+			SetProp_(WindowID(\MenuWindow), "UITK_ComboData", *GadgetData)
+			BindEvent(#PB_Event_DeactivateWindow, @Combo_WindowHandler(), \MenuWindow)
 			
-			BindGadgetEvent(\MenuCanvas, @Combo_MenuHandler())
+			SetWindowColor(\MenuWindow, RGB(Red(\Theme\LineColor[#Warm]), Green(\Theme\LineColor[#Warm]), Blue(\Theme\LineColor[#Warm])))
+			
+			\MenuCanvas = VerticalList(#PB_Any, \Border, 0, \Width - \Border * 2, \Height)
+			*List = IsGadget(\MenuCanvas)
+			*ListData = *List\vt
+			CopyStructure(@\Theme, @*ListData\Theme, Theme)
+			SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *GadgetData)
+			BindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
+			SetGadgetAttribute(\MenuCanvas, #Properties_CornerRadius, 0)
 			
 			\VT\AddGadgetItem2 = @Combo_AddItem()
 			\VT\SetGadgetState = @Combo_SetState()
@@ -4150,6 +4124,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 4114
-; Folding = JAAAAAAAAEACAAAAAAAAAAAACAAAAg
+; CursorPosition = 4100
+; Folding = JAAAAAAAAEACAAAAAAAQAAAACAQAAA9
 ; EnableXP
