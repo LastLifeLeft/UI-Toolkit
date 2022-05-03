@@ -1616,6 +1616,10 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
+	Procedure AddWindowMenu(Window, Menu, Title.s)
+		
+	EndProcedure
+	
 	Procedure OpenWindowGadgetList(Window)
 		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
 		
@@ -3366,7 +3370,7 @@ Module UITK
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 			
 			
-			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border, \ToolBarHeight, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight)
+			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight - \Border * 2 - 2)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
 			
 			If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
@@ -3434,7 +3438,7 @@ Module UITK
 					;}
 				Case #Properties_ToolBarHeight ;{
 					\ToolBarHeight = Value
-					Scrollbar_ResizeMeta(\ScrollBar, \ScrollBar\OriginX, \ToolBarHeight, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight)
+					Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight - \Border * 2 - 2)
 					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
 					;}
 				Default ;{	
@@ -3483,7 +3487,7 @@ Module UITK
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 			\ScrollBar = AllocateStructure(ScrollBarData)
 			
-			Scrollbar_Meta(\ScrollBar, - 1, Width - #VerticalList_ToolbarThickness - \Border, \ToolBarHeight, #VerticalList_ToolbarThickness, Height, 0, \ItemHeight, Height , #ScrollBar_Vertical)
+			Scrollbar_Meta(\ScrollBar, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #ScrollBar_Vertical)
 			
 			\ScrollBar\Theme\ShaderColor[#Cold] = 0
 			
@@ -4124,6 +4128,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 4100
-; Folding = JAAAAAAAAEACAAAAAAAQAAAACAQAAA9
+; CursorPosition = 567
+; Folding = JAAAAAAAAEAiAAAAAAAgAAAAEAEAAA5
 ; EnableXP

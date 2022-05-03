@@ -53,14 +53,7 @@ Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4, UITK::#Trackbar_Vertic
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
-Gadget = UITK::Combo(#PB_Any, 500, 20, 200, 40, UITK::#Border)
-AddGadgetItem(Gadget, -1, "Testouille ?")
-AddGadgetItem(Gadget, -1, "Item 2")
-AddGadgetItem(Gadget, -1, "Item 3")
-AddGadgetItem(Gadget, -1, "Item ♥")
-SetGadgetState(Gadget, 2)
-
-Gadget = UITK::VerticalList(#PB_Any,  500, 80, 200, 250, UITK::#Border)
+Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 250, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1")
 AddGadgetItem(Gadget, -1, "Item 2")
@@ -74,6 +67,18 @@ AddGadgetItem(Gadget, -1, "Item 9")
 AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
 RemoveGadgetItem(Gadget, 3)
+
+Gadget = UITK::Combo(#PB_Any, 500, 290, 200, 40, UITK::#Border)
+AddGadgetItem(Gadget, -1, "Item 0")
+AddGadgetItem(Gadget, -1, "Item 2")
+AddGadgetItem(Gadget, -1, "Item 3")
+AddGadgetItem(Gadget, -1, "Item ♥")
+AddGadgetItem(Gadget, -1, "Item 5")
+AddGadgetItem(Gadget, -1, "Item 6")
+AddGadgetItem(Gadget, -1, "Item 7")
+AddGadgetItem(Gadget, -1, "Item 8")
+AddGadgetItem(Gadget, -1, "Item 9")
+SetGadgetState(Gadget, 2)
 
 
 Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 721, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
@@ -115,19 +120,7 @@ Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4,  UITK::#Trackbar_Verti
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
-Gadget = UITK::Combo(#PB_Any, 500, 20, 200, 40, UITK::#Border)
-AddGadgetItem(Gadget, -1, "Item 0")
-AddGadgetItem(Gadget, -1, "Item 2")
-AddGadgetItem(Gadget, -1, "Item 3")
-AddGadgetItem(Gadget, -1, "Item ♥")
-AddGadgetItem(Gadget, -1, "Item 5")
-AddGadgetItem(Gadget, -1, "Item 6")
-AddGadgetItem(Gadget, -1, "Item 7")
-AddGadgetItem(Gadget, -1, "Item 8")
-AddGadgetItem(Gadget, -1, "Item 9")
-SetGadgetState(Gadget, 2)
-
-Gadget = UITK::VerticalList(#PB_Any,  500, 80, 200, 250, UITK::#Border)
+Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 250, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1")
 AddGadgetItem(Gadget, -1, "Item 2")
@@ -142,7 +135,18 @@ AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
 RemoveGadgetItem(Gadget, 3)
 
-SetGadgetAttribute(Gadget, 1, 1)
+Gadget = UITK::Combo(#PB_Any, 500, 290, 200, 40, UITK::#Border)
+AddGadgetItem(Gadget, -1, "Item 0")
+AddGadgetItem(Gadget, -1, "Item 2")
+AddGadgetItem(Gadget, -1, "Item 3")
+AddGadgetItem(Gadget, -1, "Item ♥")
+AddGadgetItem(Gadget, -1, "Item 5")
+AddGadgetItem(Gadget, -1, "Item 6")
+AddGadgetItem(Gadget, -1, "Item 7")
+AddGadgetItem(Gadget, -1, "Item 8")
+AddGadgetItem(Gadget, -1, "Item 9")
+SetGadgetState(Gadget, 2)
+
 
 ; UITK::SetAccessibilityMode(#True)
 ; OpenWindow(2, (Width - 1024) * 0.5 + 200, (Height - 600) * 0.5 + 100, 1024, 600, "UI Toolkit : Accessibility", #PB_Window_SystemMenu)
@@ -189,7 +193,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 137
+; CursorPosition = 80
 ; FirstLine = 70
 ; Folding = +
 ; EnableXP
