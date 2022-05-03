@@ -80,6 +80,8 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 SetGadgetState(Gadget, 2)
 
+Gadget = UITK::Container(#PB_Any, 500, 350, 200, 230)
+CloseGadgetList()
 
 Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 721, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
 UITK::SetWindowIcon(Window1, Image)
@@ -147,27 +149,8 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 SetGadgetState(Gadget, 2)
 
-
-; UITK::SetAccessibilityMode(#True)
-; OpenWindow(2, (Width - 1024) * 0.5 + 200, (Height - 600) * 0.5 + 100, 1024, 600, "UI Toolkit : Accessibility", #PB_Window_SystemMenu)
-; UITK::Button(#PB_Any, 20, 20, 200, 40, "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
-; UITK::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UITK::#HAlignRight | UITK::#Button_Toggle)
-; UITK::Button(#PB_Any, 20, 120, 200, 40, "Button left", UITK::#HAlignLeft)
-; 
-; UITK::Toggle(#PB_Any, 20, 190, 200, 28, "Toggle")
-; UITK::Toggle(#PB_Any, 20, 230, 200, 28, "Toggle aligned right", UITK::#HAlignRight)
-; 
-; UITK::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox")
-; Gadget = UITK::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UITK::#HAlignRight)
-; SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
-; 
-; UITK::ScrollBar(#PB_Any, 213, 420, 17, 148, 0, 100, 25, UITK::#ScrollBar_Vertical)
-; UITK::ScrollBar(#PB_Any, 20, 568, 193, 17, 0, 100, 25)
-; 
-; UITK::Label(#PB_Any, 260, 20, 200, 20, "Label")
-; UITK::Label(#PB_Any, 260, 50, 200, 20, "Label to the right", UITK::#HAlignRight)
-; UITK::Label(#PB_Any, 260, 80, 200, 20, "Label centered", UITK::#HAlignCenter)
-
+Gadget = UITK::Container(#PB_Any, 500, 350, 200, 230)
+CloseGadgetList()
 
 
 Menu = UITK::FlatMenu(UITK::#DarkMode)
@@ -193,7 +176,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 80
-; FirstLine = 70
+; CursorPosition = 152
+; FirstLine = 93
 ; Folding = +
 ; EnableXP

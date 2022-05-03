@@ -138,6 +138,7 @@
 	Declare TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
 	Declare Combo(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare VerticalList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
+	Declare Container(Gadget, x, y, Width, Height, Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -4090,6 +4091,63 @@ Module UITK
 	EndProcedure
 	;}
 	
+	;{ Container
+	Structure ContainerData Extends GadgetData
+	EndStructure
+	
+	Procedure Container_Redraw(*GadgetData.ContainerData)
+		With *GadgetData
+			If *GadgetData\Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \Theme\CornerRadius)
+				VectorSourceColor(*GadgetData\Theme\LineColor[#Cold])
+				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \Theme\CornerRadius)
+			EndIf
+			
+			VectorSourceColor(\Theme\ShaderColor[#Cold])
+			FillPath()
+		EndWith
+	EndProcedure
+	
+	Procedure Container_EventHandler(*GadgetData.ContainerData, *Event.Event)
+	EndProcedure
+	
+	Procedure Container_Meta(*GadgetData.ContainerData, Gadget, x, y, Width, Height, Flags)
+		InitializeObject(Container)
+		
+		UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
+		*GadgetData\DefaultEventHandler = 0
+	EndProcedure
+	
+	Procedure Container(Gadget, x, y, Width, Height, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.ContainerData
+		
+		If AccessibilityMode
+			Result = ContainerGadget(#PB_Any, x, y, Width, Height)
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(ContainerData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				Container_Meta(*GadgetData, Gadget, x, y, Width, Height, Flags)
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	;}
 EndModule
 
 
@@ -4128,6 +4186,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 567
-; Folding = JAAAAAAAAEAiAAAAAAAgAAAAEAEAAA5
+; CursorPosition = 141
+; Folding = NAAAAAAAAEAiAAAAAAAgAMAAEAEAAAI9
 ; EnableXP
