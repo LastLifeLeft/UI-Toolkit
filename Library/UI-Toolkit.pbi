@@ -163,19 +163,6 @@ Module UITK
 		
 		*GadgetData\Border = Bool(Flags & #Border)
 		
-		If Flags & #DarkMode
-			CopyStructure(@DarkTheme, *GadgetData\Theme, Theme)
-		ElseIf Flags & #LightMode
-			CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
-		Else
-			Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-			If *WindowData
-				CopyStructure(@*WindowData\Theme, *GadgetData\Theme, Theme)
-			Else
-				CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
-			EndIf
-		EndIf
-		
 		*GadgetData\Redraw = @GadgetType#_Redraw()
 		
 		If Flags & #HAlignCenter
@@ -236,7 +223,7 @@ Module UITK
 			StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
 			AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
 			ClipPath(#PB_Path_Preserve)
-			VectorSourceColor(*GadgetData\Theme\WindowColor)
+			VectorSourceColor(*GadgetData\ThemeData\WindowColor)
 			FillPath()
 			*GadgetData\Redraw(*GadgetData)
 			StopVectorDrawing()
@@ -460,6 +447,8 @@ Module UITK
 		
 		HMargin.w
 		VMargin.w
+		
+		*ThemeData.THeme
 		
 		Redraw.Redraw
 		EventHandler.EventHandler
@@ -2004,17 +1993,17 @@ Module UITK
 			EndIf
 			
 			If \Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \Theme\CornerRadius)
-				VectorSourceColor(\Theme\LineColor[State])
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \ThemeData\CornerRadius)
+				VectorSourceColor(\ThemeData\LineColor[State])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
-				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \Theme\CornerRadius)
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius)
 			EndIf
 			
-			VectorSourceColor(\Theme\BackColor[State])
+			VectorSourceColor(\ThemeData\BackColor[State])
 			FillPath()
 			
-			VectorSourceColor(\Theme\TextColor[State])
+			VectorSourceColor(\ThemeData\TextColor[State])
 			
 			If \TextBock\FontScale
 				VectorFont(\TextBock\FontID, \TextBock\FontScale)
@@ -2088,7 +2077,8 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure Button_Meta(*GadgetData.ButtonData, Gadget, x, y, Width, Height, Text.s, Flags)
+	Procedure Button_Meta(*GadgetData.ButtonData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Button)
 		
 		With *GadgetData
@@ -2153,7 +2143,22 @@ Module UITK
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Button_Meta(*GadgetData, Gadget, x, y, Width, Height, Text.s, Flags)
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				Button_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
 				
@@ -2180,7 +2185,7 @@ Module UITK
 				VectorFont(\TextBock\FontID)
 			EndIf
 			
-			VectorSourceColor(\Theme\TextColor[\MouseState])
+			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
 				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
@@ -2198,26 +2203,26 @@ Module UITK
 			
 			If \State
 				X + #ToggleSize
-				VectorSourceColor(\Theme\Special2[\MouseState])
+				VectorSourceColor(\ThemeData\Special2[\MouseState])
 				FillPath(#PB_Path_Winding)
 				AddPathCircle(X, Y, #ToggleSize * 0.37)
-				VectorSourceColor(\Theme\Highlight)
+				VectorSourceColor(\ThemeData\Highlight)
 				FillPath()
 				
-				VectorSourceColor(\Theme\Special2[\MouseState])
+				VectorSourceColor(\ThemeData\Special2[\MouseState])
 				MovePathCursor(X - #ToggleSize * 0.26, Y, #PB_Path_Default)
 				AddPathLine(#ToggleSize * 0.18, #ToggleSize * 0.18, #PB_Path_Relative)
 				AddPathLine(#ToggleSize * 0.27, #ToggleSize * -0.37, #PB_Path_Relative)
 				
 				StrokePath(2)
 			Else
-				VectorSourceColor(\Theme\FrontColor[\MouseState])
+				VectorSourceColor(\ThemeData\FrontColor[\MouseState])
 				FillPath(#PB_Path_Winding)
 				AddPathCircle(X, Y, #ToggleSize * 0.37)
-				VectorSourceColor(\Theme\Highlight)
+				VectorSourceColor(\ThemeData\Highlight)
 				FillPath()
 				
-				VectorSourceColor(\Theme\FrontColor[\MouseState])
+				VectorSourceColor(\ThemeData\FrontColor[\MouseState])
 				MovePathCursor(X - #ToggleSize * 0.18, Y - #ToggleSize * 0.18, #PB_Path_Default)
 				AddPathLine(#ToggleSize * 0.36, #ToggleSize * 0.36, #PB_Path_Relative)
 				MovePathCursor(0, #ToggleSize * -0.36, #PB_Path_Relative)
@@ -2265,7 +2270,8 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure Toggle_Meta(*GadgetData.ToggleData, Gadget, x, y, Width, Height, Text.s, Flags)
+	Procedure Toggle_Meta(*GadgetData.ToggleData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Toggle)
 		
 		With *GadgetData
@@ -2309,7 +2315,22 @@ Module UITK
 			*GadgetData\OriginalVT = *this\VT
 			*this\VT = *GadgetData
 			
-			Toggle_Meta(*GadgetData, Gadget, x, y, Width, Height, Text.s, Flags)
+			Protected *ThemeData = AllocateStructure(Theme)
+			
+			If Flags & #DarkMode
+				CopyStructure(@DarkTheme, *ThemeData, Theme)
+			ElseIf Flags & #LightMode
+				CopyStructure(@DefaultTheme, *ThemeData, Theme)
+			Else
+				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+				If *WindowData
+					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+				Else
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				EndIf
+			EndIf
+				
+			Toggle_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 			
 			RedrawObject()
 		EndIf
@@ -2335,7 +2356,7 @@ Module UITK
 				VectorFont(\TextBock\FontID)
 			EndIf
 			
-			VectorSourceColor(\Theme\TextColor[\MouseState])
+			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
 				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
@@ -2347,7 +2368,7 @@ Module UITK
 			
 			Y = Floor(\OriginY + (\Height - #CheckboxSize) * 0.5)
 			
-			VectorSourceColor(\Theme\FrontColor[\MouseState])
+			VectorSourceColor(\ThemeData\FrontColor[\MouseState])
 			AddPathBox(X, Y, #CheckboxSize, #CheckboxSize)
 			AddPathBox(X + #CheckboxSize * 0.1, Y + #CheckboxSize * 0.1, #CheckboxSize * 0.8, #CheckboxSize * 0.8)
 			
@@ -2356,7 +2377,7 @@ Module UITK
 				AddPathBox(X + #CheckboxSize * 0.9, Y + #CheckboxSize * 0.1, #CheckboxSize * 0.1, #CheckboxSize * 0.25)
 				FillPath()
 				
-				VectorSourceColor(\Theme\FrontColor[\MouseState])
+				VectorSourceColor(\ThemeData\FrontColor[\MouseState])
 				
 				MovePathCursor(X + #CheckboxSize * 0.2, Y + #CheckboxSize * 0.4)
 				AddPathLine(#CheckboxSize * 0.28, #CheckboxSize * 0.28, #PB_Path_Relative)
@@ -2367,7 +2388,7 @@ Module UITK
 				FillPath()
 				If \State = #PB_Checkbox_Inbetween
 					AddPathBox(X + #CheckboxSize * 0.25, Y + #CheckboxSize * 0.25, #CheckboxSize * 0.5, #CheckboxSize * 0.5)
-					VectorSourceColor(\Theme\FrontColor[\MouseState])
+					VectorSourceColor(\ThemeData\FrontColor[\MouseState])
 					FillPath()
 				EndIf
 			EndIf
@@ -2419,7 +2440,8 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure CheckBox_Meta(*GadgetData.CheckBoxData, Gadget, x, y, Width, Height, Text.s, Flags)
+	Procedure CheckBox_Meta(*GadgetData.CheckBoxData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(CheckBox)
 		
 		With *GadgetData
@@ -2468,7 +2490,22 @@ Module UITK
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				CheckBox_Meta(*GadgetData, Gadget, x, y, Width, Height, Text.s, Flags)
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				CheckBox_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -2499,14 +2536,14 @@ Module UITK
 		With *GadgetData
 			Radius = \Thickness * 0.5
 			AddPathCircle(\OriginX + Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-			VectorSourceColor(\Theme\ShaderColor[#Cold])
+			VectorSourceColor(\ThemeData\ShaderColor[#Cold])
 			
 			If \Vertical
 				AddPathBox(- \Thickness, 0, \Width, \Height - \Thickness, #PB_Path_Relative)
 				AddPathCircle(\OriginX + Radius, \OriginY + \Height - Radius, Radius, 0, 360, #PB_Path_Default)
 				FillPath(#PB_Path_Winding)
 				
-				VectorSourceColor(\Theme\FrontColor[\MouseState])
+				VectorSourceColor(\ThemeData\FrontColor[\MouseState])
 				
 				If \BarSize >= 0
 					AddPathCircle(\OriginX + Radius, \OriginY + Radius + \Position, Radius, 0, 360, #PB_Path_Default)
@@ -2521,7 +2558,7 @@ Module UITK
 				FillPath(#PB_Path_Winding)
 				
 				If \BarSize >= 0
-					VectorSourceColor(\Theme\FrontColor[\MouseState])
+					VectorSourceColor(\ThemeData\FrontColor[\MouseState])
 					
 					AddPathCircle(\OriginX + Radius + \Position, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
 					AddPathBox(- Radius, - Radius, \BarSize, \Height, #PB_Path_Relative)
@@ -2790,7 +2827,8 @@ Module UITK
 		Scrollbar_ResizeMeta(*GadgetData, 0, 0, GadgetWidth(*GadgetData\Gadget), GadgetHeight(*GadgetData\Gadget))
 	EndProcedure
 	
-	Procedure Scrollbar_Meta(*GadgetData.ScrollBarData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
+	Procedure Scrollbar_Meta(*GadgetData.ScrollBarData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
+		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(ScrollBar)
 		
 		With *GadgetData
@@ -2848,7 +2886,22 @@ Module UITK
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Scrollbar_Meta(*GadgetData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				Scrollbar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -2869,7 +2922,7 @@ Module UITK
 			Else
 				VectorFont(\TextBock\FontID)
 			EndIf
-			VectorSourceColor(\Theme\TextColor[#Cold])
+			VectorSourceColor(\ThemeData\TextColor[#Cold])
 			DrawVectorTextBlock(@\TextBock, \OriginX, \OriginY)
 		EndWith
 	EndProcedure
@@ -2877,7 +2930,8 @@ Module UITK
 	Procedure Label_EventHandler(*GadgetData.LabelData, *Event.Event)
 	EndProcedure
 	
-	Procedure Label_Meta(*GadgetData.LabelData, Gadget, x, y, Width, Height, Text.s, Flags)
+	Procedure Label_Meta(*GadgetData.LabelData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Label)
 		
 		With *GadgetData
@@ -2913,7 +2967,22 @@ Module UITK
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Label_Meta(*GadgetData, Gadget, x, y, Width, Height, Text.s, Flags)
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				Label_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -3104,18 +3173,35 @@ Module UITK
 				\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *GadgetData\Theme, Theme)
 				ElseIf Flags & #LightMode
 					CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
 				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					*WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *GadgetData\Theme, Theme)
 					Else
 						CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
 					EndIf
 				EndIf
+				
 				
 				*GadgetData\ScrollArea = ScrollAreaGadget(#PB_Any, 0, 0, Width - #ScrollArea_Bar_Thickness + ScrollbarThickness, Height - #ScrollArea_Bar_Thickness + ScrollbarThickness, ScrollAreaWidth, ScrollAreaHeight, ScrollStep, #PB_ScrollArea_BorderLess)
 				SetProp_(GadgetID(\ScrollArea), "UITK_ScrollAreaData", *GadgetData)
@@ -3194,14 +3280,14 @@ Module UITK
 		
 		With *GadgetData
 			If *GadgetData\Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \Theme\CornerRadius)
-				VectorSourceColor(*GadgetData\Theme\LineColor[#Cold])
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \ThemeData\CornerRadius)
+				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
-				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \Theme\CornerRadius)
+				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius)
 			EndIf
 			
-			VectorSourceColor(\Theme\ShaderColor[#Cold])
+			VectorSourceColor(\ThemeData\ShaderColor[#Cold])
 			ClipPath(#PB_Path_Preserve)
 			FillPath()
 			
@@ -3222,19 +3308,19 @@ Module UITK
 				Repeat
 					If ListIndex(\ItemList()) = \State
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
-						VectorSourceColor(\Theme\ShaderColor[#Warm])
+						VectorSourceColor(\ThemeData\ShaderColor[#Warm])
 						FillPath()
 						State = #Hot
 					ElseIf ListIndex(\ItemList()) = \MouseState
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
-						VectorSourceColor(\Theme\ShaderColor[#Warm])
+						VectorSourceColor(\ThemeData\ShaderColor[#Warm])
 						FillPath()
 						State = #Warm
 					Else
 						State = #Cold
 					EndIf
 					
-					VectorSourceColor(\Theme\TextColor[State])
+					VectorSourceColor(\ThemeData\TextColor[State])
 					
 					\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State)
 					Y + \ItemHeight
@@ -3247,7 +3333,7 @@ Module UITK
 	 			
 	 			If \ToolBarHeight
 	 				AddPathBox(0,0, \Width, #VerticalList_IconBarSize)
-	 				VectorSourceColor(\Theme\ShaderColor[#Cold])
+	 				VectorSourceColor(\ThemeData\ShaderColor[#Cold])
 	 				ClipPath(#PB_Path_Preserve)
 	 				FillPath()
 	 			EndIf
@@ -3503,7 +3589,8 @@ Module UITK
 	EndProcedure
 	
 		
-	Procedure VerticalList_Meta(*GadgetData.VerticalListData, Gadget, x, y, Width, Height, Flags, *CustomItem)
+	Procedure VerticalList_Meta(*GadgetData.VerticalListData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
+		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(VerticalList)
 		
 		With *GadgetData
@@ -3524,7 +3611,7 @@ Module UITK
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 			\ScrollBar = AllocateStructure(ScrollBarData)
 			
-			Scrollbar_Meta(\ScrollBar, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #ScrollBar_Vertical)
+			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #ScrollBar_Vertical)
 			
 			\ScrollBar\Theme\ShaderColor[#Cold] = 0
 			
@@ -3566,7 +3653,22 @@ Module UITK
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				VerticalList_Meta(*GadgetData, Gadget, x, y, Width, Height, Flags, *CustomItem)
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				VerticalList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 				
 				RedrawObject()
 			EndIf
@@ -3608,7 +3710,7 @@ Module UITK
 				VectorFont(\TextBock\FontID)
 			EndIf
 			
-			VectorSourceColor(\Theme\LineColor[#Cold])
+			VectorSourceColor(\ThemeData\LineColor[#Cold])
 			TextHeight = VectorTextHeight("a")
 			
 			If \Vertical
@@ -3644,13 +3746,13 @@ Module UITK
 				
 				Y = \OriginY + #Trackbar_Margin
 				
-				VectorSourceColor(\Theme\ShaderColor[#Warm])
+				VectorSourceColor(\ThemeData\ShaderColor[#Warm])
 				StrokePath(2)
 				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5 + Progress, #Trackbar_Thickness, Height - #Trackbar_Thickness - Progress)
 				AddPathCircle(X, Y + Height - #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
 				FillPath(#PB_Path_Winding)
 				
-				VectorSourceColor(\Theme\Special3[#Cold])
+				VectorSourceColor(\ThemeData\Special3[#Cold])
 				AddPathCircle(X, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
 				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness, Progress)
 				FillPath(#PB_Path_Winding)
@@ -3691,13 +3793,13 @@ Module UITK
 				
 				X = \OriginX + #Trackbar_Margin
 				
-				VectorSourceColor(\Theme\ShaderColor[#Warm])
+				VectorSourceColor(\ThemeData\ShaderColor[#Warm])
 				StrokePath(2)
 				AddPathBox(X + #Trackbar_Thickness * 0.5 + Progress, Y - #Trackbar_Thickness * 0.5, Width - #Trackbar_Thickness - Progress, #Trackbar_Thickness)
 				AddPathCircle(X + Width - #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
 				FillPath(#PB_Path_Winding)
 				
-				VectorSourceColor(\Theme\Special3[#Cold])
+				VectorSourceColor(\ThemeData\Special3[#Cold])
 				AddPathCircle(X + #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
 				AddPathBox(X + #Trackbar_Thickness * 0.5, Y - #Trackbar_Thickness * 0.5, Progress, #Trackbar_Thickness)
 				FillPath(#PB_Path_Winding)
@@ -3705,9 +3807,9 @@ Module UITK
 				AddPathRoundedBox(X + Progress, Y - #TracKbar_CursorHeight * 0.5, #TracKbar_CursorWidth, #TracKbar_CursorHeight, 3)
 			EndIf
 			
-			VectorSourceColor(\Theme\TextColor[#Cold])
+			VectorSourceColor(\ThemeData\TextColor[#Cold])
 			StrokePath(1, #PB_Path_Preserve)
-			VectorSourceColor(\Theme\Highlight)
+			VectorSourceColor(\ThemeData\Highlight)
 			FillPath(#PB_Path_Winding)
 		EndWith
 		
@@ -3851,7 +3953,8 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure TrackBar_Meta(*GadgetData.TrackBarData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
+	Procedure TrackBar_Meta(*GadgetData.TrackBarData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
+		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(TrackBar)
 				
 		With *GadgetData
@@ -3903,7 +4006,22 @@ Module UITK
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				TrackBar_Meta(*GadgetData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				TrackBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
 				
 				RedrawObject()
 				
@@ -3939,16 +4057,16 @@ Module UITK
 			
 			If *GadgetData\Border
 				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, 4)
-				VectorSourceColor(\Theme\LineColor[Bool(\MouseState Or \Unfolded)])
+				VectorSourceColor(\ThemeData\LineColor[Bool(\MouseState Or \Unfolded)])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
 				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, 4)
 			EndIf
 			
-			VectorSourceColor(\Theme\BackColor[Bool(\MouseState Or \Unfolded)])
+			VectorSourceColor(\ThemeData\BackColor[Bool(\MouseState Or \Unfolded)])
 			FillPath()
 			
-			VectorSourceColor(\Theme\TextColor[\MouseState])
+			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
 			If \TextBock\FontScale
 				VectorFont(\TextBock\FontID, \TextBock\FontScale)
@@ -3958,7 +4076,7 @@ Module UITK
 			
 			DrawVectorTextBlock(@\TextBock, \OriginX + #Combo_ItemMargin, \OriginY + \VMargin)
 			VectorFont(UITKFont, 20)
-			VectorSourceColor(\Theme\TextColor[#Cold])
+			VectorSourceColor(\ThemeData\TextColor[#Cold])
 			MovePathCursor(\Width - #Combo_IconWidth, (\Height - #Combo_IconHeight) * 0.5)
 			
 			If \Unfolded
@@ -4063,7 +4181,8 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure Combo_Meta(*GadgetData.ComboData, Gadget, x, y, Width, Height, Flags)
+	Procedure Combo_Meta(*GadgetData.ComboData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+		*GadgetData\ThemeData = *ThemeData
 		Protected *ListData.GadgetData, *List.PB_Gadget
 		InitializeObject(Combo)
 		
@@ -4124,7 +4243,22 @@ Module UITK
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Combo_Meta(*GadgetData.ComboData, Gadget, x, y, Width, Height, Flags)
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				Combo_Meta(*GadgetData.ComboData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
 				
@@ -4144,14 +4278,14 @@ Module UITK
 	Procedure Container_Redraw(*GadgetData.ContainerData)
 		With *GadgetData
 			If *GadgetData\Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \Theme\CornerRadius)
-				VectorSourceColor(*GadgetData\Theme\LineColor[#Cold])
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \ThemeData\CornerRadius)
+				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
-				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \Theme\CornerRadius)
+				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius)
 			EndIf
 			
-			VectorSourceColor(\Theme\ShaderColor[#Cold])
+			VectorSourceColor(\ThemeData\ShaderColor[#Cold])
 			FillPath()
 		EndWith
 	EndProcedure
@@ -4159,7 +4293,8 @@ Module UITK
 	Procedure Container_EventHandler(*GadgetData.ContainerData, *Event.Event)
 	EndProcedure
 	
-	Procedure Container_Meta(*GadgetData.ContainerData, Gadget, x, y, Width, Height, Flags)
+	Procedure Container_Meta(*GadgetData.ContainerData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Container)
 		
 		UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
@@ -4185,7 +4320,22 @@ Module UITK
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Container_Meta(*GadgetData, Gadget, x, y, Width, Height, Flags)
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				Container_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -4232,6 +4382,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 151
-; Folding = JAAAAAAAAEACAAAAAAAgAAAAEAAAAAA9
+; CursorPosition = 4280
+; FirstLine = 935
+; Folding = JAAIAAJgSEASwBBAgQAgACBOEAAFgAa9
 ; EnableXP
