@@ -4222,6 +4222,7 @@ Module UITK
 			
 			\VT\AddGadgetItem2 = @Combo_AddItem()
 			\VT\SetGadgetState = @Combo_SetState()
+			\VT\SetGadgetColor = @Combo_SetColor()
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftButtonDown] = #True
@@ -4390,6 +4391,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 559
-; Folding = JAAAAAAAAEASAAAAAAAgAAAGEAAAAAA5
+; CursorPosition = 4224
+; FirstLine = 54
+; Folding = JAAAAAAAAEASAAAAAAAgAAAGEAAAgAE5
 ; EnableXP
