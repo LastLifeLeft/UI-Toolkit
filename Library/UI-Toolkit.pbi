@@ -3173,42 +3173,27 @@ Module UITK
 				\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				*GadgetData\ThemeData = AllocateStructure(Theme)
 				
 				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
+					CopyStructure(@DarkTheme, *GadgetData\ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@DefaultTheme, *GadgetData\ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+						CopyStructure(@*WindowData\Theme, *GadgetData\ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(@DefaultTheme, *GadgetData\ThemeData, Theme)
 					EndIf
 				EndIf
-				
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *GadgetData\Theme, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
-				Else
-					*WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *GadgetData\Theme, Theme)
-					Else
-						CopyStructure(@DefaultTheme, *GadgetData\Theme, Theme)
-					EndIf
-				EndIf
-				
 				
 				*GadgetData\ScrollArea = ScrollAreaGadget(#PB_Any, 0, 0, Width - #ScrollArea_Bar_Thickness + ScrollbarThickness, Height - #ScrollArea_Bar_Thickness + ScrollbarThickness, ScrollAreaWidth, ScrollAreaHeight, ScrollStep, #PB_ScrollArea_BorderLess)
 				SetProp_(GadgetID(\ScrollArea), "UITK_ScrollAreaData", *GadgetData)
 				BindGadgetEvent(\ScrollArea, @ScrollArea_Handler())
 				
-				SetGadgetColor(\ScrollArea, #PB_Gadget_BackColor, RGB(Red(*GadgetData\Theme\WindowColor), Green(*GadgetData\Theme\WindowColor), Blue(*GadgetData\Theme\WindowColor)))
-				SetGadgetColor(\Gadget, #PB_Gadget_BackColor, RGB(Red(*GadgetData\Theme\WindowColor), Green(*GadgetData\Theme\WindowColor), Blue(*GadgetData\Theme\WindowColor)))
+				SetGadgetColor(\ScrollArea, #PB_Gadget_BackColor, RGB(Red(*GadgetData\ThemeData\WindowColor), Green(*GadgetData\ThemeData\WindowColor), Blue(*GadgetData\ThemeData\WindowColor)))
+				SetGadgetColor(\Gadget, #PB_Gadget_BackColor, RGB(Red(*GadgetData\ThemeData\WindowColor), Green(*GadgetData\ThemeData\WindowColor), Blue(*GadgetData\ThemeData\WindowColor)))
 				
 				CloseGadgetList()
 				CloseGadgetList()
@@ -4382,7 +4367,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 4280
-; FirstLine = 935
-; Folding = JAAIAAJgSEASwBBAgQAgACBOEAAFgAa9
+; CursorPosition = 3195
+; FirstLine = 673
+; Folding = JAAIAAJgSEASwBBAgQAgACBOEAAEgAI9
 ; EnableXP
