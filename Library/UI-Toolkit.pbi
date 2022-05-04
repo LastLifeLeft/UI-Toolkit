@@ -267,6 +267,7 @@ Module UITK
 	CompilerSelect #PB_Compiler_OS
 		CompilerCase #PB_OS_Windows ;{
 			Prototype GetAttribute(*This, Attribute)
+			Prototype SetAttribute(*This, Attribute, Value)
 			Structure GadgetVT
 				GadgetType.l
 				SizeOf.l
@@ -295,7 +296,7 @@ Module UITK
 				*AddGadgetColumn
 				*RemoveGadgetColumn
 				*GetGadgetAttribute.GetAttribute
-				*SetGadgetAttribute
+				*SetGadgetAttribute.SetAttribute
 				*GetGadgetItemAttribute2
 				*SetGadgetItemAttribute2
 				*SetGadgetColor
@@ -1040,15 +1041,19 @@ Module UITK
 		PokeW(*Height, *GadgetData\TextBock\RequieredHeight + *GadgetData\VMargin * 2)
 	EndProcedure
 	
-	Procedure Default_GetAttribute(*This.PB_Gadget, Property)
+	Procedure Default_GetAttribute(*This.PB_Gadget, Attribute)
 		Protected *GadgetData.GadgetData = *this\vt, Result
 		
 		With *GadgetData
-			Select Property
+			Select Attribute
 				Case #Attribute_CornerRadius
 					Result = \ThemeData\CornerRadius
 				Case #Attribute_Border
 					Result = \Border
+				Case #Attribute_TextScale
+					Result = \TextBock\FontScale
+				Default
+					*GadgetData\OriginalVT\GetGadgetAttribute(*This, Attribute)
 			EndSelect
 		EndWith
 		
@@ -1100,6 +1105,8 @@ Module UITK
 				Case #Attribute_TextScale
 					\TextBock\FontScale = Value
 					PrepareVectorTextBlock(@\TextBock)
+				Default
+					*GadgetData\OriginalVT\SetGadgetAttribute(*This, Attribute, Value)
 			EndSelect
 		EndWith
 		
@@ -4391,7 +4398,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 4224
-; FirstLine = 54
-; Folding = JAAAAAAAAEASAAAAAAAgAAAGEAAAgAE5
+; CursorPosition = 1047
+; Folding = JAAAAAAAAEASAAAAAAAgAAAGEAAAAAA5
 ; EnableXP
