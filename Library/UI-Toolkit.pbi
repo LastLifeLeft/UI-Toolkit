@@ -990,39 +990,39 @@ Module UITK
 		
 		Select ColorType
 			Case #Color_Back_Cold
-				Result = *GadgetData\Theme\BackColor[#Cold]
+				Result = *GadgetData\ThemeData\BackColor[#Cold]
 			Case #Color_Back_Warm
-				Result = *GadgetData\Theme\BackColor[#Warm]
+				Result = *GadgetData\ThemeData\BackColor[#Warm]
 			Case #Color_Back_Hot
-				Result = *GadgetData\Theme\BackColor[#Hot]
+				Result = *GadgetData\ThemeData\BackColor[#Hot]
 			Case #Color_Back_Disabled
-				Result = *GadgetData\Theme\BackColor[#Disabled]
+				Result = *GadgetData\ThemeData\BackColor[#Disabled]
 			Case #Color_Text_Cold
-				Result = *GadgetData\Theme\TextColor[#Cold]
+				Result = *GadgetData\ThemeData\TextColor[#Cold]
 			Case #Color_Text_Warm
-				Result = *GadgetData\Theme\TextColor[#Warm]
+				Result = *GadgetData\ThemeData\TextColor[#Warm]
 			Case #Color_Text_Hot
-				Result = *GadgetData\Theme\TextColor[#Hot]
+				Result = *GadgetData\ThemeData\TextColor[#Hot]
 			Case #Color_Text_Disabled
-				Result = *GadgetData\Theme\TextColor[#Disabled]
+				Result = *GadgetData\ThemeData\TextColor[#Disabled]
 			Case #Color_Parent
-				Result = *GadgetData\Theme\WindowColor
+				Result = *GadgetData\ThemeData\WindowColor
 			Case #Color_Shade_Cold
-				Result = *GadgetData\Theme\ShaderColor[#Cold]
+				Result = *GadgetData\ThemeData\ShaderColor[#Cold]
 			Case #Color_Shade_Warm                      
-				Result = *GadgetData\Theme\ShaderColor[#Warm]
+				Result = *GadgetData\ThemeData\ShaderColor[#Warm]
 			Case #Color_Shade_Hot                       
-				Result = *GadgetData\Theme\ShaderColor[#Hot]
+				Result = *GadgetData\ThemeData\ShaderColor[#Hot]
 			Case #Color_Shade_Disabled
-				Result = *GadgetData\Theme\ShaderColor[#Disabled]
+				Result = *GadgetData\ThemeData\ShaderColor[#Disabled]
 			Case #Color_Line_Cold
-				Result = *GadgetData\Theme\LineColor[#Cold]
+				Result = *GadgetData\ThemeData\LineColor[#Cold]
 			Case #Color_Line_Warm                   
-				Result = *GadgetData\Theme\LineColor[#Warm]
+				Result = *GadgetData\ThemeData\LineColor[#Warm]
 			Case #Color_Line_Hot                    
-				Result = *GadgetData\Theme\LineColor[#Hot]
+				Result = *GadgetData\ThemeData\LineColor[#Hot]
 			Case #Color_Line_Disabled              
-				Result = *GadgetData\Theme\LineColor[#Disabled]
+				Result = *GadgetData\ThemeData\LineColor[#Disabled]
 		EndSelect
 		
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
@@ -1046,7 +1046,7 @@ Module UITK
 		With *GadgetData
 			Select Property
 				Case #Attribute_CornerRadius
-					Result = \Theme\CornerRadius
+					Result = \ThemeData\CornerRadius
 				Case #Attribute_Border
 					Result = \Border
 			EndSelect
@@ -1094,7 +1094,7 @@ Module UITK
 		With *GadgetData
 			Select Attribute
 				Case #Attribute_CornerRadius
-					\Theme\CornerRadius = Value
+					\ThemeData\CornerRadius = Value
 				Case #Attribute_Border
 					\Border = Value
 				Case #Attribute_TextScale
@@ -1118,39 +1118,39 @@ Module UITK
 		
 		Select ColorType
 			Case #Color_Back_Cold
-				*GadgetData\Theme\BackColor[#Cold] = Color
+				*GadgetData\ThemeData\BackColor[#Cold] = Color
 			Case #Color_Back_Warm
-				*GadgetData\Theme\BackColor[#Warm] = Color
+				*GadgetData\ThemeData\BackColor[#Warm] = Color
 			Case #Color_Back_Hot
-				*GadgetData\Theme\BackColor[#Hot] = Color
+				*GadgetData\ThemeData\BackColor[#Hot] = Color
 			Case #Color_Back_Disabled
-				*GadgetData\Theme\BackColor[#Disabled] = Color
+				*GadgetData\ThemeData\BackColor[#Disabled] = Color
 			Case #Color_Text_Cold
-				*GadgetData\Theme\TextColor[#Cold] = Color
+				*GadgetData\ThemeData\TextColor[#Cold] = Color
 			Case #Color_Text_Warm
-				*GadgetData\Theme\TextColor[#Warm] = Color
+				*GadgetData\ThemeData\TextColor[#Warm] = Color
 			Case #Color_Text_Hot
-				*GadgetData\Theme\TextColor[#Hot] = Color
+				*GadgetData\ThemeData\TextColor[#Hot] = Color
 			Case #Color_Text_Disabled
-				*GadgetData\Theme\TextColor[#Disabled] = Color
+				*GadgetData\ThemeData\TextColor[#Disabled] = Color
 			Case #Color_Parent
-				*GadgetData\Theme\WindowColor = Color
+				*GadgetData\ThemeData\WindowColor = Color
 			Case #Color_Shade_Cold
-				*GadgetData\Theme\ShaderColor[#Cold] = Color
+				*GadgetData\ThemeData\ShaderColor[#Cold] = Color
 			Case #Color_Shade_Warm                      
-				*GadgetData\Theme\ShaderColor[#Warm] = Color
+				*GadgetData\ThemeData\ShaderColor[#Warm] = Color
 			Case #Color_Shade_Hot                       
-				*GadgetData\Theme\ShaderColor[#Hot] = Color
+				*GadgetData\ThemeData\ShaderColor[#Hot] = Color
 			Case #Color_Shade_Disabled
-				*GadgetData\Theme\ShaderColor[#Disabled] = Color
+				*GadgetData\ThemeData\ShaderColor[#Disabled] = Color
 			Case #Color_Line_Cold
-				*GadgetData\Theme\LineColor[#Cold] = Color
+				*GadgetData\ThemeData\LineColor[#Cold] = Color
 			Case #Color_Line_Warm                   
-				*GadgetData\Theme\LineColor[#Warm] = Color
+				*GadgetData\ThemeData\LineColor[#Warm] = Color
 			Case #Color_Line_Hot                    
-				*GadgetData\Theme\LineColor[#Hot] = Color
+				*GadgetData\ThemeData\LineColor[#Hot] = Color
 			Case #Color_Line_Disabled              
-				*GadgetData\Theme\LineColor[#Disabled] = Color
+				*GadgetData\ThemeData\LineColor[#Disabled] = Color
 		EndSelect
 		
 		RedrawObject()
@@ -2528,6 +2528,7 @@ Module UITK
 		Drag.b
 		DragOffset.l
 		ScrollStep.l
+		Background.b
 	EndStructure
 	
 	Procedure ScrollBar_Redraw(*GadgetData.ScrollBarData)
@@ -2536,7 +2537,11 @@ Module UITK
 		With *GadgetData
 			Radius = \Thickness * 0.5
 			AddPathCircle(\OriginX + Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-			VectorSourceColor(\ThemeData\ShaderColor[#Cold])
+			If \Background
+				VectorSourceColor(\ThemeData\ShaderColor[#Cold])
+			Else
+				VectorSourceColor(0)
+			EndIf
 			
 			If \Vertical
 				AddPathBox(- \Thickness, 0, \Width, \Height - \Thickness, #PB_Path_Relative)
@@ -2885,6 +2890,7 @@ Module UITK
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
+				*GadgetData\Background = #True
 				
 				Protected *ThemeData = AllocateStructure(Theme)
 				
@@ -3122,22 +3128,22 @@ Module UITK
 		With *GadgetData
 			Select ColorType
 				Case #Color_Back_Cold
-					*GadgetData\Theme\BackColor[#Cold] = Color
+					*GadgetData\ThemeData\BackColor[#Cold] = Color
 				Case #Color_Back_Warm
-					*GadgetData\Theme\BackColor[#Warm] = Color
+					*GadgetData\ThemeData\BackColor[#Warm] = Color
 				Case #Color_Back_Hot
-					*GadgetData\Theme\BackColor[#Hot] = Color
+					*GadgetData\ThemeData\BackColor[#Hot] = Color
 				Case #Color_Text_Cold
-					*GadgetData\Theme\TextColor[#Cold] = Color
+					*GadgetData\ThemeData\TextColor[#Cold] = Color
 				Case #Color_Text_Warm
-					*GadgetData\Theme\TextColor[#Warm] = Color
+					*GadgetData\ThemeData\TextColor[#Warm] = Color
 				Case #Color_Text_Hot
-					*GadgetData\Theme\TextColor[#Hot] = Color
+					*GadgetData\ThemeData\TextColor[#Hot] = Color
 				Case #Color_Line_Cold
-					*GadgetData\Theme\LineColor = Color
+					*GadgetData\ThemeData\LineColor = Color
 				Case #Color_Parent
-					*GadgetData\Theme\WindowColor = Color
-					SetGadgetColor(*GadgetData\ScrollArea, #PB_Gadget_BackColor, RGB(Red(*GadgetData\Theme\WindowColor), Green(*GadgetData\Theme\WindowColor), Blue(*GadgetData\Theme\WindowColor)))
+					*GadgetData\ThemeData\WindowColor = Color
+					SetGadgetColor(*GadgetData\ScrollArea, #PB_Gadget_BackColor, RGB(Red(*GadgetData\ThemeData\WindowColor), Green(*GadgetData\ThemeData\WindowColor), Blue(*GadgetData\ThemeData\WindowColor)))
 			EndSelect
 		EndWith
 	EndProcedure
@@ -3598,7 +3604,7 @@ Module UITK
 			
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #ScrollBar_Vertical)
 			
-			\ScrollBar\Theme\ShaderColor[#Cold] = 0
+; 			\ScrollBar\Theme\ShaderColor[#Cold] = 0
 			
 			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
 			\VT\CountGadgetItems = @VerticalList_CountItem()
@@ -4166,9 +4172,22 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
+	Procedure Combo_SetColor(*This.PB_Gadget, ColorType, Color)
+		Protected *GadgetData.ComboData = *this\vt
+		Default_SetColor(*This, ColorType, Color)
+		
+		With *GadgetData
+			SetGadgetColor(\MenuCanvas, #Color_Shade_Cold, \ThemeData\BackColor[#Warm])
+			SetGadgetColor(\MenuCanvas, #Color_Shade_Warm, \ThemeData\BackColor[#Hot])
+			SetGadgetColor(\MenuCanvas, #Color_Text_Cold, \ThemeData\TextColor[#Cold])
+			SetGadgetColor(\MenuCanvas, #Color_Text_Warm, \ThemeData\TextColor[#Warm])
+			SetGadgetColor(\MenuCanvas, #Color_Text_Hot, \ThemeData\TextColor[#Hot])
+		EndWith
+	EndProcedure
+	
 	Procedure Combo_Meta(*GadgetData.ComboData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
-		Protected *ListData.GadgetData, *List.PB_Gadget
+		Protected *ListData.VerticalListData, *List.PB_Gadget
 		InitializeObject(Combo)
 		
 		With *GadgetData
@@ -4187,15 +4206,19 @@ Module UITK
 			SetProp_(WindowID(\MenuWindow), "UITK_ComboData", *GadgetData)
 			BindEvent(#PB_Event_DeactivateWindow, @Combo_WindowHandler(), \MenuWindow)
 			
-			SetWindowColor(\MenuWindow, RGB(Red(\Theme\LineColor[#Warm]), Green(\Theme\LineColor[#Warm]), Blue(\Theme\LineColor[#Warm])))
+			SetWindowColor(\MenuWindow, RGB(Red(\ThemeData\LineColor[#Warm]), Green(\ThemeData\LineColor[#Warm]), Blue(\ThemeData\LineColor[#Warm])))
 			
 			\MenuCanvas = VerticalList(#PB_Any, \Border, 0, \Width - \Border * 2, \Height)
-			*List = IsGadget(\MenuCanvas)
-			*ListData = *List\vt
-			CopyStructure(@\Theme, @*ListData\Theme, Theme)
+
 			SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *GadgetData)
 			BindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
 			SetGadgetAttribute(\MenuCanvas, #Attribute_CornerRadius, 0)
+			
+			SetGadgetColor(\MenuCanvas, #Color_Shade_Cold, \ThemeData\BackColor[#Warm])
+			SetGadgetColor(\MenuCanvas, #Color_Shade_Warm, \ThemeData\BackColor[#Hot])
+			SetGadgetColor(\MenuCanvas, #Color_Text_Cold, \ThemeData\TextColor[#Cold])
+			SetGadgetColor(\MenuCanvas, #Color_Text_Warm, \ThemeData\TextColor[#Warm])
+			SetGadgetColor(\MenuCanvas, #Color_Text_Hot, \ThemeData\TextColor[#Hot])
 			
 			\VT\AddGadgetItem2 = @Combo_AddItem()
 			\VT\SetGadgetState = @Combo_SetState()
@@ -4367,7 +4390,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3195
-; FirstLine = 673
-; Folding = JAAIAAJgSEASwBBAgQAgACBOEAAEgAI9
+; CursorPosition = 559
+; Folding = JAAAAAAAAEASAAAAAAAgAAAGEAAAAAA5
 ; EnableXP
