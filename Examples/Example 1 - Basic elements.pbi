@@ -18,6 +18,7 @@ UITK::SetWindowIcon(Window0, Image)
 
 Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center")
 UITK::SetGadgetImage(Gadget, Image)
+SetGadgetAttribute(Gadget, UITK::#Attribute_TextScale, 16)
 Gadget = UITK::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UITK::#HAlignRight | UITK::#Button_Toggle)
 UITK::SetGadgetImage(Gadget, Image)
 UITK::Disable(Gadget, #True)
@@ -88,6 +89,7 @@ UITK::SetWindowIcon(Window1, Image)
 
 Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center")
 UITK::SetGadgetImage(Gadget, Image)
+SetGadgetAttribute(Gadget, UITK::#Attribute_TextScale, 16)
 Gadget = UITK::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UITK::#HAlignRight | UITK::#Button_Toggle)
 UITK::SetGadgetImage(Gadget, Image)
 UITK::Disable(Gadget, #True)
@@ -176,7 +178,6 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 152
-; FirstLine = 93
+; CursorPosition = 20
 ; Folding = +
 ; EnableXP

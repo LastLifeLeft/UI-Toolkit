@@ -36,10 +36,11 @@
 		#ScrollArea_Y				= #PB_ScrollArea_Y          
 		#ScrollArea_ScrollStep		= #PB_ScrollArea_ScrollStep 
 		
-		#Properties_ToolBarHeight
-		#Properties_ItemHeight
-		#Properties_CornerRadius
-		#Properties_Border
+		#Attribute_ToolBarHeight
+		#Attribute_ItemHeight
+		#Attribute_CornerRadius
+		#Attribute_Border
+		#Attribute_TextScale
 	EndEnumeration
 
 	Enumeration; Colors
@@ -86,6 +87,7 @@
 		TextY.i
 		VectorAlign.i
 		FontID.i
+		FontScale.i
 		HAlign.b
 		VAlign.b
 		Width.l
@@ -645,7 +647,11 @@ Module UITK
 		
 		Image = CreateImage(#PB_Any, 10, 19)
 		StartVectorDrawing(ImageVectorOutput(Image))
-		VectorFont(*TextData\FontID)
+		If *TextData\FontScale
+			VectorFont(*TextData\FontID, *TextData\FontScale)
+		Else
+			VectorFont(*TextData\FontID)
+		EndIf
 		TextHeight = VectorTextHeight("a")
 		MaxLine = Floor(*TextData\Height / TextHeight)
 		
@@ -1050,9 +1056,9 @@ Module UITK
 		
 		With *GadgetData
 			Select Property
-				Case #Properties_CornerRadius
+				Case #Attribute_CornerRadius
 					Result = \Theme\CornerRadius
-				Case #Properties_Border
+				Case #Attribute_Border
 					Result = \Border
 			EndSelect
 		EndWith
@@ -1093,15 +1099,18 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure Default_SetAttribute(*This.PB_Gadget, Property, Value)
+	Procedure Default_SetAttribute(*This.PB_Gadget, Attribute, Value)
 		Protected *GadgetData.GadgetData = *this\vt
 		
 		With *GadgetData
-			Select Property
-				Case #Properties_CornerRadius
+			Select Attribute
+				Case #Attribute_CornerRadius
 					\Theme\CornerRadius = Value
-				Case #Properties_Border
+				Case #Attribute_Border
 					\Border = Value
+				Case #Attribute_TextScale
+					\TextBock\FontScale = Value
+					PrepareVectorTextBlock(@\TextBock)
 			EndSelect
 		EndWith
 		
@@ -1531,7 +1540,7 @@ Module UITK
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "A", Flags & #DarkMode * #DarkMode)
 				
-				SetGadgetAttribute(*WindowData\ButtonClose, #Properties_CornerRadius, 0)
+				SetGadgetAttribute(*WindowData\ButtonClose, #Attribute_CornerRadius, 0)
 				
 				SetGadgetFont(*WindowData\ButtonClose, UITKFont)
 				
@@ -1554,7 +1563,7 @@ Module UITK
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "B", Flags & #DarkMode * #DarkMode)
 				
-				SetGadgetAttribute(*WindowData\ButtonMaximize, #Properties_CornerRadius, 0)
+				SetGadgetAttribute(*WindowData\ButtonMaximize, #Attribute_CornerRadius, 0)
 				
 				SetGadgetFont(*WindowData\ButtonMaximize, UITKFont)
 				
@@ -1569,7 +1578,7 @@ Module UITK
 				OffsetX + #WindowButtonWidth
 				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "C",Flags & #DarkMode * #DarkMode)
 				
-				SetGadgetAttribute(*WindowData\ButtonMinimize, #Properties_CornerRadius, 0)
+				SetGadgetAttribute(*WindowData\ButtonMinimize, #Attribute_CornerRadius, 0)
 				
 				SetGadgetFont(*WindowData\ButtonMinimize, UITKFont)
 				
@@ -2006,7 +2015,12 @@ Module UITK
 			FillPath()
 			
 			VectorSourceColor(\Theme\TextColor[State])
-			VectorFont(\TextBock\FontID)
+			
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
 			
 			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin)
 			
@@ -2160,7 +2174,12 @@ Module UITK
 		Protected X, Y
 		
 		With *GadgetData
-			VectorFont(\TextBock\FontID)
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			
 			VectorSourceColor(\Theme\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
@@ -2205,7 +2224,6 @@ Module UITK
 				AddPathLine(#ToggleSize * -0.36, #ToggleSize * 0.36, #PB_Path_Relative)
 				StrokePath(2)
 			EndIf
-			
 			
 		EndWith
 	EndProcedure
@@ -2311,7 +2329,12 @@ Module UITK
 		Protected X, Y
 		
 		With *GadgetData
-			VectorFont(\TextBock\FontID)
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			
 			VectorSourceColor(\Theme\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
@@ -2841,7 +2864,11 @@ Module UITK
 	
 	Procedure Label_Redraw(*GadgetData.LabelData)
 		With *GadgetData
-			VectorFont(\TextBock\FontID)
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
 			VectorSourceColor(\Theme\TextColor[#Cold])
 			DrawVectorTextBlock(@\TextBock, \OriginX, \OriginY)
 		EndWith
@@ -3152,7 +3179,12 @@ Module UITK
 			MovePathCursor(X + *Item\Text\Width - #VerticalList_IconWidth, Y + (*Item\Text\Height - 14) * 0.5)
 			VectorFont(UITKFont, 16)
 			DrawVectorText("F")
-			VectorFont(*Item\Text\FontID)
+			
+			If *Item\Text\FontScale
+				VectorFont(*Item\Text\FontID, *Item\Text\FontScale)
+			Else
+				VectorFont(*Item\Text\FontID)
+			EndIf
 		EndIf
 		
 	EndProcedure
@@ -3181,7 +3213,11 @@ Module UITK
 				
 				SelectElement(\ItemList(), Position)
 				
-				VectorFont(\TextBock\FontID)
+				If \TextBock\FontScale
+					VectorFont(\TextBock\FontID, \TextBock\FontScale)
+				Else
+					VectorFont(\TextBock\FontID)
+				EndIf
 				
 				Repeat
 					If ListIndex(\ItemList()) = \State
@@ -3421,7 +3457,7 @@ Module UITK
 		
 		With *GadgetData
 			Select Attribute
-				Case #Properties_ItemHeight ;{
+				Case #Attribute_ItemHeight ;{
 					\ItemHeight = Value
 					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 					
@@ -3437,7 +3473,7 @@ Module UITK
 						PrepareVectorTextBlock(@\ItemList()\Text)
 					Next
 					;}
-				Case #Properties_ToolBarHeight ;{
+				Case #Attribute_ToolBarHeight ;{
 					\ToolBarHeight = Value
 					Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight - \Border * 2 - 2)
 					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
@@ -3566,7 +3602,12 @@ Module UITK
 		Protected Progress, X, Y, Ratio.d, TextHeight, Height, Width
 		
 		With *GadgetData
-			VectorFont(\TextBock\FontID)
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			
 			VectorSourceColor(\Theme\LineColor[#Cold])
 			TextHeight = VectorTextHeight("a")
 			
@@ -3908,7 +3949,12 @@ Module UITK
 			FillPath()
 			
 			VectorSourceColor(\Theme\TextColor[\MouseState])
-			VectorFont(\TextBock\FontID)
+			
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
 			
 			DrawVectorTextBlock(@\TextBock, \OriginX + #Combo_ItemMargin, \OriginY + \VMargin)
 			VectorFont(UITKFont, 20)
@@ -4045,7 +4091,7 @@ Module UITK
 			CopyStructure(@\Theme, @*ListData\Theme, Theme)
 			SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *GadgetData)
 			BindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
-			SetGadgetAttribute(\MenuCanvas, #Properties_CornerRadius, 0)
+			SetGadgetAttribute(\MenuCanvas, #Attribute_CornerRadius, 0)
 			
 			\VT\AddGadgetItem2 = @Combo_AddItem()
 			\VT\SetGadgetState = @Combo_SetState()
@@ -4186,6 +4232,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 149
-; Folding = JAAAAAAAAEAiAAAAAAAgAMAAEAEAAAA9
+; CursorPosition = 151
+; Folding = JAAAAAAAAEACAAAAAAAgAAAAEAAAAAA9
 ; EnableXP
