@@ -4135,7 +4135,8 @@ Module UITK
 	Procedure Combo_VListHandler()
 		Protected Gadget = EventGadget(), *GadgetData.ComboData = GetProp_(GadgetID(Gadget), "UITK_ComboData")
 		
-		*GadgetData\TextBock\OriginalText = GetGadgetItemText(*GadgetData\MenuCanvas, GetGadgetState(*GadgetData\MenuCanvas))
+		*GadgetData\State = GetGadgetState(*GadgetData\MenuCanvas)
+		*GadgetData\TextBock\OriginalText = GetGadgetItemText(*GadgetData\MenuCanvas, *GadgetData\State)
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		*GadgetData\Unfolded = #False
 		RedrawObject()
