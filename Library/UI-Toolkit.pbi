@@ -2713,6 +2713,8 @@ Module UITK
 	EndProcedure
 	
 	Procedure ScrollBar_SetAttribute_Meta(*GadgetData.ScrollBarData, Attribute, Value)
+		Protected Lenght
+		
 		With *GadgetData
 			Select Attribute
 				Case #ScrollBar_Minimum ;{
@@ -2734,6 +2736,12 @@ Module UITK
 						EndIf
 						
 						\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
+						If \Vertical
+							Lenght = \Height
+						Else
+							Lenght = \Width
+						EndIf
+						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
 						
 						RedrawObject()
 					EndIf
@@ -2753,6 +2761,12 @@ Module UITK
 						EndIf
 						
 						\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
+						If \Vertical
+							Lenght = \Height
+						Else
+							Lenght = \Width
+						EndIf
+						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
 						
 						RedrawObject()
 					EndIf
@@ -2769,8 +2783,14 @@ Module UITK
 						EndIf
 					EndIf
 					
-						\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
-						
+					\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
+					If \Vertical
+						Lenght = \Height
+					Else
+						Lenght = \Width
+					EndIf
+					\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+					
 					RedrawObject()
 					;}
 				Default	
@@ -4400,6 +4420,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1982
-; Folding = JAAAAAAAAEASAAAAAAAgAAAGEAAAAAA5
+; CursorPosition = 2773
+; Folding = JAAAAAAAAEASAAAAAAAAAAAGEAAAAAA5
 ; EnableXP
