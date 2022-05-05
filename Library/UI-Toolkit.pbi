@@ -4140,6 +4140,7 @@ Module UITK
 		*GadgetData\Unfolded = #False
 		RedrawObject()
 		HideWindow(*GadgetData\MenuWindow , #True)
+		PostEvent(#PB_Event_Gadget, *GadgetData\ParentWindow, *GadgetData\Gadget, #PB_EventType_Change)
 	EndProcedure
 	
 	Procedure Combo_Free(*this.PB_Gadget)
@@ -4398,6 +4399,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1047
+; CursorPosition = 1982
 ; Folding = JAAAAAAAAEASAAAAAAAgAAAGEAAAAAA5
 ; EnableXP
