@@ -146,6 +146,7 @@
 	Declare PrepareVectorTextBlock(*TextData.Text)
 	Declare DrawVectorTextBlock(*TextData.Text, X, Y)
 	Declare Disable(Gadget, State)
+	Declare Freeze(Gadget, State)
 	
 	;}
 EndDeclareModule
@@ -217,16 +218,18 @@ Module UITK
 	EndMacro
 	
 	Macro RedrawObject()
-		If *GadgetData\MetaGadget
-; 			*GadgetData\Redraw(*GadgetData)
-		Else
-			StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
-			AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
-			ClipPath(#PB_Path_Preserve)
-			VectorSourceColor(*GadgetData\ThemeData\WindowColor)
-			FillPath()
-			*GadgetData\Redraw(*GadgetData)
-			StopVectorDrawing()
+		If Not *GadgetData\Freeze
+			If *GadgetData\MetaGadget
+				
+			Else
+				StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+				AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
+				ClipPath(#PB_Path_Preserve)
+				VectorSourceColor(*GadgetData\ThemeData\WindowColor)
+				FillPath()
+				*GadgetData\Redraw(*GadgetData)
+				StopVectorDrawing()
+			EndIf
 		EndIf
 	EndMacro
 	
@@ -457,6 +460,7 @@ Module UITK
 		TextBock.Text
 		ParentWindow.i
 		
+		Freeze.b
 		Enabled.b
 		
 		*DefaultEventHandler
@@ -778,6 +782,13 @@ Module UITK
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
 		
 		*GadgetData\Enabled = Bool(Not State)
+		RedrawObject()
+	EndProcedure
+	
+	Procedure Freeze(Gadget, State)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		
+		*GadgetData\Freeze = Bool(Not State)
 		RedrawObject()
 	EndProcedure
 	
@@ -4419,6 +4430,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 4386
-; Folding = JAAAAAAAAEASAAAAAAAAAAAGEAAAAAA5
+; CursorPosition = 222
+; Folding = BAAIAAAAAIAkAAAAAAAAAAAMIAAAAAAw
 ; EnableXP
