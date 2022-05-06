@@ -788,7 +788,7 @@ Module UITK
 	Procedure Freeze(Gadget, State)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
 		
-		*GadgetData\Freeze = Bool(Not State)
+		*GadgetData\Freeze = Bool(State)
 		RedrawObject()
 	EndProcedure
 	
@@ -4430,6 +4430,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 222
-; Folding = BAAIAAAAAIAkAAAAAAAAAAAMIAAAAAAw
+; CursorPosition = 564
+; Folding = JAAAAAAAAIAkAAAAAAAAAAAMIAAAAAAw
 ; EnableXP
