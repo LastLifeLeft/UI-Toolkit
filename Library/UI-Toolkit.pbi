@@ -3508,7 +3508,7 @@ Module UITK
 					\VisibleScrollbar = #False
 				EndIf
 				
-				If \State >= Position 
+				If \State >= Position Or ListSize(\ItemList()) = 0
 					\State - 1
 					If \State = Position
 						PostEvent(#PB_Event_Gadget, CurrentWindow(), \Gadget, #PB_EventType_Change)
@@ -4451,6 +4451,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 567
+; CursorPosition = 568
 ; Folding = JAAEAAAAAIAkAAAAAAAAAAAMIAAAAAAg
 ; EnableXP
