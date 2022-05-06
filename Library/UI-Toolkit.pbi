@@ -786,6 +786,7 @@ Module UITK
 		
 		DisableGadget(Gadget, State)
 		*GadgetData\Enabled = Bool(Not State)
+		*GadgetData\MouseState = #Cold
 		RedrawObject()
 	EndProcedure
 	
@@ -967,16 +968,6 @@ Module UITK
 		FreeStructure(*GadgetData)
 		
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
-	EndProcedure
-	
-	Procedure Default_DisableGadget(*This.PB_Gadget, MouseState) ; Wut? Doesn't exist?
-		Protected *GadgetData.GadgetData = *this\vt
-		
-		*this\VT = *GadgetData\OriginalVT
-		DisableGadget(*GadgetData\Gadget, MouseState)
-		*this\VT = *GadgetData
-		
-		RedrawObject()
 	EndProcedure
 	
 	Procedure Default_ResizeGadget(*This.PB_Gadget, x, y, Width, Height)
@@ -3285,6 +3276,7 @@ Module UITK
 		VisibleScrollbar.b
 		ToolBarHeight.w
 		SortItem.i
+		ItemState.i
 		
 		*ItemRedraw.ItemRedraw
 		*ScrollBar.ScrollBarData
@@ -3345,7 +3337,7 @@ Module UITK
 						VectorSourceColor(\ThemeData\ShaderColor[#Warm])
 						FillPath()
 						State = #Hot
-					ElseIf ListIndex(\ItemList()) = \MouseState
+					ElseIf ListIndex(\ItemList()) = \ItemState
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
 						VectorSourceColor(\ThemeData\ShaderColor[#Warm])
 						FillPath()
@@ -3396,20 +3388,20 @@ Module UITK
 							Item = -1
 						EndIf
 						
-						If Item <> \MouseState
-							\MouseState = Item
+						If Item <> \ItemState
+							\ItemState = Item
 							Redraw = #True
 						EndIf
 					Else
-						\MouseState = -1
+						\ItemState = -1
 					EndIf
 					;}
 				Case #LeftButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					Else
-						If \MouseState > -1 And \MouseState <> \State
-							\State = \MouseState
+						If \ItemState > -1 And \ItemState <> \State
+							\State = \ItemState
 							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 							Redraw = #True
 						EndIf
@@ -3425,8 +3417,8 @@ Module UITK
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					
-					If \MouseState > -1
-						\MouseState = -1
+					If \ItemState > -1
+						\ItemState = -1
 						Redraw = #True
 					EndIf
 					;}
@@ -3657,13 +3649,11 @@ Module UITK
 			
 			\ItemHeight = #VerticalList_ItemHeight
 			\State = -1
-			\MouseState = -1
+			\ItemState = -1
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 			\ScrollBar = AllocateStructure(ScrollBarData)
 			
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #ScrollBar_Vertical)
-			
-; 			\ScrollBar\Theme\ShaderColor[#Cold] = 0
 			
 			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
 			\VT\CountGadgetItems = @VerticalList_CountItem()
@@ -4452,7 +4442,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3510
-; FirstLine = 21
-; Folding = JAAEAAAAAIAkAAAAAAAAAAAcIEAAAAAg
+; CursorPosition = 788
+; FirstLine = 9
+; Folding = JAAMABAAAEASAAAAAAAAAAAGAAAAAAAw
 ; EnableXP
