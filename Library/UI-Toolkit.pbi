@@ -3445,7 +3445,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Flag)
-		Protected *GadgetData.VerticalListData = *this\vt, *NewItem, Position
+		Protected *GadgetData.VerticalListData = *this\vt, *NewItem
 		
 		With *GadgetData
 			
@@ -4449,6 +4449,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 3490
+; CursorPosition = 3447
 ; Folding = JAAAAAAAAIAkAAAAAAAAAAAMIAAAAAAg
 ; EnableXP
