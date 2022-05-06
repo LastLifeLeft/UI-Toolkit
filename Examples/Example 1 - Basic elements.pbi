@@ -55,17 +55,18 @@ AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
 Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 250, UITK::#Border)
-AddGadgetItem(Gadget, -1, "Item 0")
+SetGadgetAttribute(Gadget, UITK::#Attribute_SortItems, #True)
+AddGadgetItem(Gadget, -1, "aItem 0")
 AddGadgetItem(Gadget, -1, "Item 1")
-AddGadgetItem(Gadget, -1, "Item 2")
+AddGadgetItem(Gadget, -1, "bItem 2")
 AddGadgetItem(Gadget, -1, "Item 3")
 AddGadgetItem(Gadget, -1, "Item 4")
 AddGadgetItem(Gadget, -1, "Item 5")
 AddGadgetItem(Gadget, -1, "Item 6")
-AddGadgetItem(Gadget, -1, "Item 7")
+AddGadgetItem(Gadget, -1, "vItem 7")
 AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
-AddGadgetItem(Gadget, -1, "Item 10")
+AddGadgetItem(Gadget, -1, "cItem 10")
 AddGadgetItem(Gadget, -1, "Item 11")
 RemoveGadgetItem(Gadget, 3)
 
@@ -177,7 +178,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 20
+; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
+; CursorPosition = 57
+; FirstLine = 24
 ; Folding = +
 ; EnableXP

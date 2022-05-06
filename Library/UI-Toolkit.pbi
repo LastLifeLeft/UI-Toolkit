@@ -41,6 +41,7 @@
 		#Attribute_CornerRadius
 		#Attribute_Border
 		#Attribute_TextScale
+		#Attribute_SortItems
 	EndEnumeration
 
 	Enumeration; Colors
@@ -3280,6 +3281,7 @@ Module UITK
 		MaxDisplayedItem.i
 		VisibleScrollbar.b
 		ToolBarHeight.w
+		SortItem.i
 		
 		*ItemRedraw.ItemRedraw
 		*ScrollBar.ScrollBarData
@@ -3446,6 +3448,8 @@ Module UITK
 		Protected *GadgetData.VerticalListData = *this\vt
 		
 		With *GadgetData
+			;-TODO : if the current state is less than the position (or if the list is alphabeticaly sorted), then the state will change with no event nor warning.
+			
 			If Position > -1 And Position < ListSize(\ItemList())
 				SelectElement(\ItemList(), Position)
 				InsertElement(\ItemList())
@@ -3469,6 +3473,10 @@ Module UITK
 				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
 			Else
 				\VisibleScrollbar = #False
+			EndIf
+			
+			If \SortItem
+				SortStructuredList(\ItemList(), #PB_Sort_Ascending, OffsetOf(VerticalListItem\Text), #PB_String)
 			EndIf
 			
 			RedrawObject()
@@ -3591,6 +3599,9 @@ Module UITK
 					\ToolBarHeight = Value
 					Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight - \Border * 2 - 2)
 					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
+					;}
+				Case #Attribute_SortItems ;{
+					\SortItem = Value
 					;}
 				Default ;{	
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
@@ -4430,6 +4441,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 564
-; Folding = JAAAAAAAAIAkAAAAAAAAAAAMIAAAAAAw
+; CursorPosition = 106
+; Folding = JAAAAAAAAIAkAAAAAAAAAAAMIAAAAAAg
 ; EnableXP
