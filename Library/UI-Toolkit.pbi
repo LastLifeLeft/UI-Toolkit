@@ -491,7 +491,7 @@ Module UITK
 		
 		\ShaderColor[#Cold]		= SetAlpha(FixColor($DEDEDE), 255)
 		\ShaderColor[#Warm]		= SetAlpha(FixColor($D3D3D3), 255)
-		\ShaderColor[#Hot]		= SetAlpha(FixColor($C0DCF3), 255)
+		\ShaderColor[#Hot]		= SetAlpha(FixColor($C4C4C4), 255)
 		
 		\LineColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($90C8F6), 255)
@@ -534,7 +534,7 @@ Module UITK
 		
 		\ShaderColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
 		\ShaderColor[#Warm]		= SetAlpha(FixColor($4F545C), 255)
-		\ShaderColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
+		\ShaderColor[#Hot]		= SetAlpha(FixColor($676A70), 255)
 		
 		\LineColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($A2A3A5), 255)
@@ -3334,7 +3334,7 @@ Module UITK
 				Repeat
 					If ListIndex(\ItemList()) = \State
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
-						VectorSourceColor(\ThemeData\ShaderColor[#Warm])
+						VectorSourceColor(\ThemeData\ShaderColor[#Hot])
 						FillPath()
 						State = #Hot
 					ElseIf ListIndex(\ItemList()) = \ItemState
@@ -4230,6 +4230,7 @@ Module UITK
 		With *GadgetData
 			SetGadgetColor(\MenuCanvas, #Color_Shade_Cold, \ThemeData\BackColor[#Warm])
 			SetGadgetColor(\MenuCanvas, #Color_Shade_Warm, \ThemeData\BackColor[#Hot])
+			SetGadgetColor(\MenuCanvas, #Color_Shade_Hot, \ThemeData\BackColor[#Hot])
 			SetGadgetColor(\MenuCanvas, #Color_Text_Cold, \ThemeData\TextColor[#Cold])
 			SetGadgetColor(\MenuCanvas, #Color_Text_Warm, \ThemeData\TextColor[#Warm])
 			SetGadgetColor(\MenuCanvas, #Color_Text_Hot, \ThemeData\TextColor[#Hot])
@@ -4267,6 +4268,7 @@ Module UITK
 			
 			SetGadgetColor(\MenuCanvas, #Color_Shade_Cold, \ThemeData\BackColor[#Warm])
 			SetGadgetColor(\MenuCanvas, #Color_Shade_Warm, \ThemeData\BackColor[#Hot])
+			SetGadgetColor(\MenuCanvas, #Color_Shade_Hot, \ThemeData\BackColor[#Hot])
 			SetGadgetColor(\MenuCanvas, #Color_Text_Cold, \ThemeData\TextColor[#Cold])
 			SetGadgetColor(\MenuCanvas, #Color_Text_Warm, \ThemeData\TextColor[#Warm])
 			SetGadgetColor(\MenuCanvas, #Color_Text_Hot, \ThemeData\TextColor[#Hot])
@@ -4442,7 +4444,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 788
-; FirstLine = 9
-; Folding = JAAMABAAAEASAAAAAAAAAAAGAAAAAAAw
+; CursorPosition = 4268
+; FirstLine = 339
+; Folding = JAQEAAAAAEASAAAAAAAAAAAoAAAAABAw
 ; EnableXP
