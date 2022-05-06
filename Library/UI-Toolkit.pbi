@@ -3445,17 +3445,16 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Flag)
-		Protected *GadgetData.VerticalListData = *this\vt
+		Protected *GadgetData.VerticalListData = *this\vt, *NewItem, Position
 		
 		With *GadgetData
-			;-TODO : if the current state is less than the position (or if the list is alphabeticaly sorted), then the state will change with no event nor warning.
 			
 			If Position > -1 And Position < ListSize(\ItemList())
 				SelectElement(\ItemList(), Position)
-				InsertElement(\ItemList())
+				*NewItem = InsertElement(\ItemList())
 			Else
 				LastElement(\ItemList())
-				AddElement(\ItemList())
+				*NewItem = AddElement(\ItemList())
 			EndIf
 			
 			\ItemList()\Text\OriginalText = PeekS(*Text)
@@ -3479,8 +3478,17 @@ Module UITK
 				SortStructuredList(\ItemList(), #PB_Sort_Ascending, OffsetOf(VerticalListItem\Text), #PB_String)
 			EndIf
 			
+			ChangeCurrentElement(\ItemList(), *NewItem)
+			Position = ListIndex(\ItemList())
+			
+			If Position <= \State
+				\State + 1
+			EndIf
+			
 			RedrawObject()
 		EndWith
+		
+		ProcedureReturn Position
 	EndProcedure
 	
 	Procedure VerticalList_RemoveItem(*this.PB_Gadget, Position)
@@ -4441,6 +4449,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 106
+; CursorPosition = 3490
 ; Folding = JAAAAAAAAIAkAAAAAAAAAAAMIAAAAAAg
 ; EnableXP
