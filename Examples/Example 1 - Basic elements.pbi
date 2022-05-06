@@ -125,7 +125,7 @@ Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4,  UITK::#Trackbar_Verti
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
-Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 250, UITK::#Border)
+Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 250, UITK::#Border | UITK::#ReOrder)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1")
 AddGadgetItem(Gadget, -1, "Item 2")
@@ -178,8 +178,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 57
-; FirstLine = 24
+; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
+; CursorPosition = 127
+; FirstLine = 96
 ; Folding = +
 ; EnableXP

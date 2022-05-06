@@ -12,6 +12,7 @@
 		#Border											; Draw a border arround the gadget
 		#DarkMode										; Use the dark color scheme
 		#LightMode										; Use the light color scheme
+		#ReOrder										; Allow user to reorder items by draging them arround the gadget.
 		
 		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
@@ -407,6 +408,12 @@ Module UITK
 		#Input           	
 		
 		#__EVENTSIZE
+	EndEnumeration
+	
+	Enumeration ;DragState
+		#Drag_None
+		#Drag_Init
+		#Drag_Active
 	EndEnumeration
 	
 	Structure Event
@@ -3277,6 +3284,14 @@ Module UITK
 		ToolBarHeight.w
 		SortItem.i
 		ItemState.i
+		Reorder.i
+		DragOriginX.i
+		DragOriginY.i
+		DragState.i
+		DragPosition.i
+		ReorderWindow.i
+		ReorderCanvas.i
+		
 		
 		*ItemRedraw.ItemRedraw
 		*ScrollBar.ScrollBarData
@@ -3302,7 +3317,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_Redraw(*GadgetData.VerticalListData)
-		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State
+		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem
 		
 		With *GadgetData
 			If *GadgetData\Border
@@ -3332,12 +3347,23 @@ Module UITK
 				EndIf
 				
 				Repeat
-					If ListIndex(\ItemList()) = \State
+					CurrentItem = ListIndex(\ItemList())
+					
+					If CurrentItem = \DragPosition
+						AddPathBox(\Border, Y - 1, 80, 3)
+						VectorSourceColor(\ThemeData\TextColor[#Cold])
+						FillPath()
+					EndIf
+					
+					If CurrentItem = \State
+						If \DragState = #Drag_Active
+							Continue
+						EndIf
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
 						VectorSourceColor(\ThemeData\ShaderColor[#Hot])
 						FillPath()
 						State = #Hot
-					ElseIf ListIndex(\ItemList()) = \ItemState
+					ElseIf CurrentItem = \ItemState
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
 						VectorSourceColor(\ThemeData\ShaderColor[#Warm])
 						FillPath()
@@ -3352,6 +3378,12 @@ Module UITK
 					Y + \ItemHeight
 					ItemCount + 1
 				Until (Not NextElement(\ItemList())) Or ItemCount = \MaxDisplayedItem
+				
+				If CurrentItem + 1 = \DragPosition
+					AddPathBox(\Border, Y - 1, 80, 3)
+					VectorSourceColor(\ThemeData\TextColor[#Cold])
+					FillPath()
+				EndIf
 				
 				If \VisibleScrollbar
 	 				\ScrollBar\Redraw(\ScrollBar)
@@ -3368,42 +3400,89 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
-		Protected Redraw, Item
+		Protected Redraw, Item, *Element
 		With *GadgetData
 			
 			Select *Event\EventType
 				Case #MouseMove ;{
-					If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-						
-					ElseIf \ScrollBar\MouseState
-						\ScrollBar\MouseState = #False
-						Redraw = #True
-					EndIf
-					
-					If Not \ScrollBar\MouseState
-						Item = Floor((*Event\MouseY - \ToolBarHeight + \ScrollBar\State) / \ItemHeight)
-						
-						If item >= ListSize(\ItemList()) Or *Event\MouseY < \ToolBarHeight
-							Item = -1
-						EndIf
-						
-						If Item <> \ItemState
-							\ItemState = Item
+					If \DragState = #Drag_Init ;{
+						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
+							\DragState = #Drag_Active
+							\DragOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginX
+							\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + \ItemState * \ItemHeight - \ScrollBar\State
+							\DragPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+							
+							StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
+							VectorSourceColor(\ThemeData\ShaderColor[#Hot])
+							AddPathBox(0, 0, \Width, \ItemHeight)
+							
+							If \TextBock\FontScale
+								VectorFont(\TextBock\FontID, \TextBock\FontScale)
+							Else
+								VectorFont(\TextBock\FontID)
+							EndIf
+							FillPath()
+							
+							SelectElement(\ItemList(), \State)
+							VectorSourceColor(\ThemeData\TextColor[#Hot])
+							\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot)
+							
+							StopVectorDrawing()
+							
+							ResizeWindow(\ReorderWindow, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, #PB_Ignore, #PB_Ignore)
+							HideWindow(\ReorderWindow, #False)
 							Redraw = #True
 						EndIf
-					Else
-						\ItemState = -1
-					EndIf
+						;}
+					ElseIf \DragState = #Drag_Active ;{
+						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+						Item + Bool(Item >= \State)
+						If \DragPosition <> Item
+							\DragPosition = Item
+							Redraw = #True
+						EndIf
+						;}
+					Else ;{
+						If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
+							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+							
+						ElseIf \ScrollBar\MouseState
+							\ScrollBar\MouseState = #False
+							Redraw = #True
+						EndIf
+						
+						If Not \ScrollBar\MouseState
+							Item = Floor((*Event\MouseY - \ToolBarHeight + \ScrollBar\State) / \ItemHeight)
+							
+							If item >= ListSize(\ItemList()) Or *Event\MouseY < \ToolBarHeight
+								Item = -1
+							EndIf
+							
+							If Item <> \ItemState
+								\ItemState = Item
+								Redraw = #True
+							EndIf
+						Else
+							\ItemState = -1
+						EndIf
+					EndIf ;}
 					;}
 				Case #LeftButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					Else
-						If \ItemState > -1 And \ItemState <> \State
-							\State = \ItemState
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-							Redraw = #True
+						If \ItemState > -1 
+							If \ItemState <> \State
+								\State = \ItemState
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								Redraw = #True
+							EndIf
+							If \Reorder
+								\DragState = #Drag_Init
+								\DragOriginX = *Event\MouseX
+								\DragOriginY = *Event\MouseY
+							EndIf
 						EndIf
 					EndIf
 					;}
@@ -3411,6 +3490,24 @@ Module UITK
 					If \ScrollBar\Drag 
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
+					
+					If \DragState = #Drag_Active
+						If \DragPosition = ListSize(\ItemList())
+							Item = SelectElement(\ItemList(), \State)
+							MoveElement(\ItemList(), #PB_List_Last)
+						Else
+							*Element = SelectElement(\ItemList(), \DragPosition)
+							Item = SelectElement(\ItemList(), \State)
+							MoveElement(\ItemList(), #PB_List_Before, *Element)
+						EndIf
+						ChangeCurrentElement(\ItemList(), Item)
+						\State = ListIndex(\ItemList())
+						HideWindow(\ReorderWindow, #True)
+						Redraw = #True
+						\DragPosition = -1
+					EndIf
+					
+					\DragState = #Drag_None
 					;}
 				Case #MouseLeave ;{
 					If \ScrollBar\MouseState
@@ -3541,6 +3638,11 @@ Module UITK
 				\VisibleScrollbar = #False
 			EndIf
 			
+			If \Reorder
+				SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
+				ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
+			EndIf
+			
 		EndWith
 		
 		RedrawObject()
@@ -3597,6 +3699,12 @@ Module UITK
 						\ItemList()\Text\Height = \ItemHeight
 						PrepareVectorTextBlock(@\ItemList()\Text)
 					Next
+					
+					If \Reorder
+						SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
+						ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
+					EndIf
+					
 					;}
 				Case #Attribute_ToolBarHeight ;{
 					\ToolBarHeight = Value
@@ -3632,6 +3740,7 @@ Module UITK
 	
 		
 	Procedure VerticalList_Meta(*GadgetData.VerticalListData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
+		Protected GadgetList
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(VerticalList)
 		
@@ -3652,6 +3761,17 @@ Module UITK
 			\ItemState = -1
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
 			\ScrollBar = AllocateStructure(ScrollBarData)
+			\DragPosition = -1
+			
+			If Flags & #ReOrder
+				GadgetList = UseGadgetList(0)
+				\Reorder = #True
+				\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, \ItemHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
+				\ReorderCanvas = CanvasGadget(#PB_Any, 0, 0, Width, \ItemHeight)
+				SetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
+				SetLayeredWindowAttributes_(WindowID(\ReorderWindow), 0, 128, #LWA_ALPHA)
+				UseGadgetList(GadgetList)
+			EndIf
 			
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #ScrollBar_Vertical)
 			
@@ -4444,7 +4564,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 4268
-; FirstLine = 339
-; Folding = JAQEAAAAAEASAAAAAAAAAAAoAAAAABAw
+; CursorPosition = 107
+; Folding = JAAAAAAAAAACAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
