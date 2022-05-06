@@ -3511,12 +3511,9 @@ Module UITK
 				
 				If \State >= Position
 					\State - 1
-					If \State = Position
+					If \State = Position - 1
 						PostEvent(#PB_Event_Gadget, CurrentWindow(), \Gadget, #PB_EventType_Change)
 					EndIf
-				ElseIf \State <> -1 And ListSize(\ItemList()) = 0
-					\State = 1
-					PostEvent(#PB_Event_Gadget, CurrentWindow(), \Gadget, #PB_EventType_Change)
 				EndIf
 				
 				RedrawObject()
@@ -4454,7 +4451,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 567
-; Folding = JAAEAAAAAIAkAAAAAAAAAAAMIAAAAAAg
+; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
+; CursorPosition = 3510
+; FirstLine = 21
+; Folding = JAAEAAAAAIAkAAAAAAAAAAAcIEAAAAAg
 ; EnableXP
