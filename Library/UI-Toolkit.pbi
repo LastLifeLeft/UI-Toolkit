@@ -496,6 +496,7 @@ Module UITK
 		\LineColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($90C8F6), 255)
 		\LineColor[#Hot]		= SetAlpha(FixColor($90C8F6), 255)
+		\LineColor[#Disabled]	= SetAlpha(FixColor($ADADAD), 255)
 		
 		\TextColor[#Cold] 		= SetAlpha(FixColor($000000), 255)
 		\TextColor[#Warm]		= SetAlpha(FixColor($000000), 255)
@@ -538,6 +539,7 @@ Module UITK
 		\LineColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($A2A3A5), 255)
 		\LineColor[#Hot]		= SetAlpha(FixColor($A2A3A5), 255)
+		\LineColor[#Disabled]	= SetAlpha(FixColor($7E8287), 255)
 		
 		\TextColor[#Cold]	 	= SetAlpha(FixColor($FAFAFB), 255)
 		\TextColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
@@ -4449,6 +4451,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 3447
-; Folding = JAAAAAAAAIAkAAAAAAAAAAAMIAAAAAAg
+; CursorPosition = 567
+; Folding = JAAEAAAAAIAkAAAAAAAAAAAMIAAAAAAg
 ; EnableXP
