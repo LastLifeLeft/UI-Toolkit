@@ -784,6 +784,7 @@ Module UITK
 	Procedure Disable(Gadget, State)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
 		
+		DisableGadget(Gadget, State)
 		*GadgetData\Enabled = Bool(Not State)
 		RedrawObject()
 	EndProcedure
@@ -4454,6 +4455,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x64)
-; CursorPosition = 4425
+; CursorPosition = 567
 ; Folding = JAAEAAAAAIAkAAAAAAAAAAAMIAAAAAAg
 ; EnableXP
