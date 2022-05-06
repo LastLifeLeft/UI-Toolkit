@@ -3410,7 +3410,7 @@ Module UITK
 							\DragState = #Drag_Active
 							\DragOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginX
 							\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + \ItemState * \ItemHeight - \ScrollBar\State
-							\DragPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+							\DragPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
 							
 							StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
 							VectorSourceColor(\ThemeData\ShaderColor[#Hot])
@@ -3436,7 +3436,7 @@ Module UITK
 						;}
 					ElseIf \DragState = #Drag_Active ;{
 						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
-						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
 						Item + Bool(Item >= \State)
 						If \DragPosition <> Item
 							\DragPosition = Item
@@ -4564,6 +4564,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1995
+; CursorPosition = 3271
 ; Folding = JAAAAAAAAAACAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
