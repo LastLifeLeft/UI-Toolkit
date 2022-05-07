@@ -77,6 +77,10 @@
 		#Disabled
 	EndEnumeration
 	
+	Enumeration #PB_EventType_FirstCustomValue; EventType
+		#Eventtype_ForcefulChange
+	EndEnumeration	
+	
 	Structure Text
 		OriginalText.s
 		LineCount.b
@@ -3680,8 +3684,10 @@ Module UITK
 						EndSelect
 					EndIf
 					;}
-				Case #KeyUp ;{
-					
+				Case #LeftDoubleClick ;{
+					If \ItemState > -1
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
+					EndIf
 					;}
 			EndSelect
 			
@@ -3950,8 +3956,8 @@ Module UITK
 			\SupportedEvent[#MouseMove] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#LeftDoubleClick] = #True
 			\SupportedEvent[#KeyDown] = #True
-			\SupportedEvent[#KeyUp] = #True
 		EndWith
 		
 	EndProcedure
@@ -4733,6 +4739,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1
+; CursorPosition = 2034
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
