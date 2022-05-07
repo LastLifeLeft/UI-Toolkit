@@ -3649,7 +3649,7 @@ Module UITK
 						
 						If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
 							\VisibleScrollbar = #True
-							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max + \ItemHeight)
+							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
 						Else
 							\VisibleScrollbar = #False
 						EndIf
@@ -4752,6 +4752,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 2578
+; CursorPosition = 3651
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
