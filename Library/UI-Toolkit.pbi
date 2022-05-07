@@ -424,6 +424,7 @@ Module UITK
 		EventType.l
 		MouseX.l
 		MouseY.l
+		MouseWHeel.b
 	EndStructure
 	
 	Structure Theme
@@ -878,6 +879,7 @@ Module UITK
 					If *GadgetData\SupportedEvent[#MouseWheel]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\MouseWHeel = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_WheelDelta)
 						Event\EventType = #MouseWheel
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
@@ -3342,6 +3344,17 @@ Module UITK
 	
 	Declare VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
 	
+	Procedure VerticalList_DragCanvasHandler()
+		Protected Gadget = EventGadget(), *GadgetData.VerticalListData = GetProp_(GadgetID(Gadget), "UITK_VerticalData"), Event.Event
+		
+		Event\EventType = #MouseWheel
+		Event\MouseX =  WindowX(*GadgetData\ReorderWindow) - *GadgetData\DragOriginX
+		Event\MouseY =  WindowY(*GadgetData\ReorderWindow) - *GadgetData\DragOriginY
+		Event\MouseWHeel = GetGadgetAttribute(*GadgetData\ReorderCanvas, #PB_Canvas_WheelDelta)
+		
+		VerticalList_EventHandler(*GadgetData, @Event)
+	EndProcedure
+	
 	Procedure VerticalList_ItemRedraw(*Item.VerticalListItem, X, Y, Width, Height, State)
 		DrawVectorTextBlock(@*Item\Text, X, Y)
 		
@@ -3538,7 +3551,8 @@ Module UITK
 							StopVectorDrawing()
 							
 							ResizeWindow(\ReorderWindow, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, #PB_Ignore, #PB_Ignore)
-							HideWindow(\ReorderWindow, #False)
+							HideWindow(\ReorderWindow, #False, #PB_Window_NoActivate)
+							SetActiveGadget(\Gadget)
 							Redraw = #True
 						EndIf
 						;}
@@ -3671,12 +3685,10 @@ Module UITK
 					EndIf
 					;}
 				Case #MouseWheel ;{
-					If \DragState = #Drag_None
-						If \VisibleScrollbar
-							ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_WheelDelta) * \ItemHeight * 0.5)
-							*Event\EventType = #MouseMove
-							Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
-						EndIf
+					If \VisibleScrollbar
+						ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\MouseWHeel * \ItemHeight * 0.5)
+						*Event\EventType = #MouseMove
+						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
 					EndIf
 					;}
 				Case #KeyDown ;{
@@ -3826,7 +3838,6 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	
 	; Getters
 	Procedure VerticalList_CountItem(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
@@ -3947,6 +3958,8 @@ Module UITK
 				\Reorder = #True
 				\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, \ItemHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
 				\ReorderCanvas = CanvasGadget(#PB_Any, 0, 0, Width, \ItemHeight)
+				SetProp_(GadgetID(\ReorderCanvas), "UITK_VerticalData", *GadgetData)
+				BindGadgetEvent(\ReorderCanvas, @VerticalList_DragCanvasHandler(), #PB_EventType_MouseWheel)
 				SetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
 				SetLayeredWindowAttributes_(WindowID(\ReorderWindow), 0, 128, #LWA_ALPHA)
 				UseGadgetList(GadgetList)
@@ -4752,6 +4765,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3651
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 2037
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
