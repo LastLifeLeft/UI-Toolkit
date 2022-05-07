@@ -3540,12 +3540,16 @@ Module UITK
 							If Not \DragTimer
 								\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
 								\DragDirection = - 1
+								ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight)
+								Redraw = #True
 							EndIf
 							*Event\MouseY = \ToolBarHeight
 						ElseIf (*Event\MouseY > \Height)
 							If Not \DragTimer
 								\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
 								\DragDirection = 1
+								ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight + (\ItemHeight - \ScrollBar\PageLenght % \ItemHeight))
+								Redraw = #True
 							EndIf
 							*Event\MouseY = \Height
 						Else
@@ -3781,7 +3785,7 @@ Module UITK
 				PrepareVectorTextBlock(@\ItemList()\Text)
 			Next
 			
-			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
+			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 			
 			
 			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight - \Border * 2 - 2)
@@ -3841,7 +3845,7 @@ Module UITK
 			Select Attribute
 				Case #Attribute_ItemHeight ;{
 					\ItemHeight = Value
-					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
+					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 					
 					If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
 						\VisibleScrollbar = #True
@@ -3863,6 +3867,7 @@ Module UITK
 					;}
 				Case #Attribute_ToolBarHeight ;{
 					\ToolBarHeight = Value
+					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 					Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight - \Border * 2 - 2)
 					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
 					;}
@@ -3914,7 +3919,7 @@ Module UITK
 			\ItemHeight = #VerticalList_ItemHeight
 			\State = -1
 			\ItemState = -1
-			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight) + 1
+			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 			\ScrollBar = AllocateStructure(ScrollBarData)
 			\DragPosition = -1
 			
@@ -4728,6 +4733,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 2031
-; Folding = JAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 1
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
