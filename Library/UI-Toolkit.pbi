@@ -657,7 +657,7 @@ Module UITK
 			BindEvent(#PB_Event_Timer, @Timer_Handler(), TimerWindow)
 		EndIf
 		
-		Timer = AddWindowTimer(TimerWindow, Random(100000), TimeOut) ; can't use PB_Any with a timer...
+		Timer = AddWindowTimer(TimerWindow, Random(1048575, 1), TimeOut) ; can't use PB_Any with a timer...
 		
 		AddMapElement(Timers(), Hex(Timer))
 		Timers()\Callback = *Callback
@@ -3325,6 +3325,8 @@ Module UITK
 		DragOriginY.i
 		DragState.i
 		DragPosition.i
+		DragTimer.i
+		DragDirection.b
 		ReorderWindow.i
 		ReorderCanvas.i
 		
@@ -3333,6 +3335,8 @@ Module UITK
 		
 		List ItemList.VerticalListItem()
 	EndStructure
+	
+	Declare VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
 	
 	Procedure VerticalList_ItemRedraw(*Item.VerticalListItem, X, Y, Width, Height, State)
 		DrawVectorTextBlock(@*Item\Text, X, Y)
@@ -3352,7 +3356,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_Redraw(*GadgetData.VerticalListData)
-		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem
+		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem, DragPosition
 		
 		With *GadgetData
 			If *GadgetData\Border
@@ -3375,6 +3379,12 @@ Module UITK
 				
 				SelectElement(\ItemList(), Position)
 				
+				DragPosition = \DragPosition
+				
+				If (\DragPosition > - 1) And Position > \ItemState
+					NextElement(\ItemList())
+				EndIf
+				
 				If \TextBock\FontScale
 					VectorFont(\TextBock\FontID, \TextBock\FontScale)
 				Else
@@ -3384,7 +3394,7 @@ Module UITK
 				Repeat
 					CurrentItem = ListIndex(\ItemList())
 					
-					If CurrentItem = \DragPosition
+					If CurrentItem = DragPosition
 						AddPathBox(\Border, Y - 1, 80, 3)
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
 						FillPath()
@@ -3415,7 +3425,7 @@ Module UITK
 				Until (Not NextElement(\ItemList())) Or ItemCount = \MaxDisplayedItem
 				
 				If CurrentItem + 1 = \DragPosition
-					AddPathBox(\Border, Y - 1, 80, 3)
+					AddPathBox(\Border, Y - 2, 80, 3)
 					VectorSourceColor(\ThemeData\TextColor[#Cold])
 					FillPath()
 				EndIf
@@ -3462,6 +3472,30 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure VerticalList_DragTimer(*GadgetData.VerticalListData, Timer)
+		Protected Event.Event
+		
+		With *GadgetData
+			If \DragDirection = -1
+				If \ScrollBar\State > 0
+					Event\EventType = #MouseMove
+					Event\MouseX = WindowX(\ReorderWindow) - \DragOriginX
+					Event\MouseY = WindowY(\ReorderWindow) - \DragOriginY
+					ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight) - 1) * \ItemHeight)
+					VerticalList_EventHandler(*GadgetData, @Event)
+				EndIf
+			Else
+				If \ScrollBar\State < \ScrollBar\Max - \ScrollBar\PageLenght
+					Event\EventType = #MouseMove
+					Event\MouseX = WindowX(\ReorderWindow) - \DragOriginX
+					Event\MouseY = WindowY(\ReorderWindow) - \DragOriginY
+					ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State + \ItemHeight)
+					VerticalList_EventHandler(*GadgetData, @Event)
+				EndIf
+			EndIf
+		EndWith
+	EndProcedure
+	
 	Procedure VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
 		Protected Redraw, Item, *Element
 		With *GadgetData
@@ -3474,6 +3508,8 @@ Module UITK
 							\DragOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginX
 							\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + \ItemState * \ItemHeight - \ScrollBar\State + \ToolBarHeight
 							\DragPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+							
+							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max - \ItemHeight)
 							
 							StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
 							VectorSourceColor(\ThemeData\ShaderColor[#Hot])
@@ -3499,8 +3535,29 @@ Module UITK
 						;}
 					ElseIf \DragState = #Drag_Active ;{
 						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+						
+						If (*Event\MouseY - \ToolBarHeight < 0)
+							If Not \DragTimer
+								\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
+								\DragDirection = - 1
+							EndIf
+							*Event\MouseY = \ToolBarHeight
+						ElseIf (*Event\MouseY > \Height)
+							If Not \DragTimer
+								\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
+								\DragDirection = 1
+							EndIf
+							*Event\MouseY = \Height
+						Else
+							If \DragTimer
+								RemoveGadgetTimer(\DragTimer)
+								\DragTimer = 0
+							EndIf
+						EndIf
+						
 						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
 						Item + Bool(Item >= \State)
+						
 						If \DragPosition <> Item
 							\DragPosition = Item
 							Redraw = #True
@@ -3567,6 +3624,15 @@ Module UITK
 						ChangeCurrentElement(\ItemList(), Item)
 						\State = ListIndex(\ItemList())
 						HideWindow(\ReorderWindow, #True)
+						
+						If \DragTimer
+							RemoveGadgetTimer(\DragTimer)
+							\DragTimer = 0
+						EndIf
+						
+						VerticalList_StateFocus(*GadgetData)
+						
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max + \ItemHeight)
 						Redraw = #True
 						\DragPosition = -1
 					EndIf
@@ -3691,7 +3757,7 @@ Module UITK
 					If \State = ListSize(\ItemList())
 						\State - 1
 					EndIf
-					PostEvent(#PB_Event_Gadget, CurrentWindow(), \Gadget, #PB_EventType_Change)
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 				EndIf
 				
 				RedrawObject()
@@ -3827,7 +3893,7 @@ Module UITK
 		
 	EndProcedure
 	
-		
+	
 	Procedure VerticalList_Meta(*GadgetData.VerticalListData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 		Protected GadgetList
 		*GadgetData\ThemeData = *ThemeData
@@ -4377,11 +4443,18 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
+	Procedure Combo_TimerHandler(*GadgetData.ComboData, Timer)
+		RemoveGadgetTimer(Timer)
+		If *GadgetData\Unfolded
+			*GadgetData\Unfolded = #False
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
 	Procedure Combo_WindowHandler()
 		Protected Window = EventWindow(), *GadgetData.ComboData = GetProp_(WindowID(Window), "UITK_ComboData")
 		
-		*GadgetData\Unfolded = #False
-		RedrawObject()
+		AddGadgetTimer(*GadgetData, 20, @Combo_TimerHandler())
 		HideWindow(*GadgetData\MenuWindow , #True)
 	EndProcedure
 	
@@ -4656,5 +4729,5 @@ EndModule
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
 ; CursorPosition = 2031
-; Folding = JAAAgAAAAAAQAAAAAAAAAAAAAEAAAAAAA9
+; Folding = JAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
