@@ -3528,6 +3528,25 @@ Module UITK
 						EndIf
 					EndIf
 					;}
+				Case #KeyDown ;{
+					If \DragState = #Drag_None
+						Select \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key)
+							Case #PB_Shortcut_Down
+								If \State < ListSize(\ItemList()) - 1
+									\State + 1
+									Redraw = #True
+								EndIf
+							Case #PB_Shortcut_Up
+								If \State > 0
+									\State - 1
+									Redraw = #True
+								EndIf
+						EndSelect
+					EndIf
+					;}
+				Case #KeyUp ;{
+					
+					;}
 			EndSelect
 			
 			If Redraw
@@ -3792,6 +3811,8 @@ Module UITK
 			\SupportedEvent[#MouseMove] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#KeyUp] = #True
 		EndWith
 		
 	EndProcedure
@@ -3802,7 +3823,7 @@ Module UITK
 		If AccessibilityMode
 			
 		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | Bool(Flags & #VList_Toolbar) * #PB_Canvas_Container)
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #VList_Toolbar) * #PB_Canvas_Container))
 			
 			If Result
 				If Gadget = #PB_Any
@@ -4566,7 +4587,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3411
-; FirstLine = 30
-; Folding = JAAAAAAAAAACAAAAAAAAAAAIPAAAAAAA+
+; CursorPosition = 574
+; Folding = JAAAAAAAAAACAAAAAAAAAAAAIAAAAAAA5
 ; EnableXP
