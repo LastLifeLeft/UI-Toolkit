@@ -634,6 +634,43 @@ Module UITK
 		ProcedureReturn Window
 	EndProcedure
 	
+	; Timer
+	Prototype TimerCallback(*Gadget.GadgetData, Timer)
+	Structure TimerData
+		*Callback.TimerCallback
+		*Gadget.GadgetData
+	EndStructure
+	
+	Global NewMap Timers.TimerData(), TimerWindow
+	
+	Procedure Timer_Handler()
+		Protected Timer = EventTimer()
+		FindMapElement(Timers(), Hex(Timer))
+		Timers()\Callback(Timers()\Gadget, Timer)
+	EndProcedure
+	
+	Procedure AddGadgetTimer(*Gadget.GadgetData, TimeOut, *Callback)
+		Protected Timer
+		
+		If TimerWindow = 0
+			TimerWindow = OpenWindow(#PB_Any, 0, 0, 100, 100, "", #PB_Window_Invisible)
+			BindEvent(#PB_Event_Timer, @Timer_Handler(), TimerWindow)
+		EndIf
+		
+		Timer = AddWindowTimer(TimerWindow, Random(100000), TimeOut) ; can't use PB_Any with a timer...
+		
+		AddMapElement(Timers(), Hex(Timer))
+		Timers()\Callback = *Callback
+		Timers()\Gadget = *Gadget
+		
+		ProcedureReturn Timer
+	EndProcedure
+	
+	Procedure RemoveGadgetTimer(Timer)
+		RemoveWindowTimer(TimerWindow, Timer)
+		DeleteMapElement(Timers(), Hex(Timer))
+	EndProcedure
+	
 	; Drawing functions
 	#TextBlock_ImageMargin = 4
 	
@@ -805,7 +842,6 @@ Module UITK
 	EndProcedure
 	
 	; Default functions
-	
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
 		If *GadgetData\Enabled
@@ -3292,7 +3328,6 @@ Module UITK
 		ReorderWindow.i
 		ReorderCanvas.i
 		
-		
 		*ItemRedraw.ItemRedraw
 		*ScrollBar.ScrollBarData
 		
@@ -3399,6 +3434,34 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure VerticalList_StateFocus(*GadgetData.VerticalListData)
+		Protected Result
+		
+		With *GadgetData
+			If \VisibleScrollbar
+				If Ceil(\ScrollBar\State / \ItemHeight) > \State
+					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemHeight)
+					Result = #True
+				Else
+					If (\State + 1) * \ItemHeight - \ScrollBar\State > (\Height - \ToolBarHeight)
+						ScrollBar_SetState_Meta(\ScrollBar, (\State + 1) * \ItemHeight - (\Height - \ToolBarHeight))
+						Result = #True
+					EndIf
+				EndIf
+			EndIf
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure VerticalList_FocusTimer(*GadgetData.VerticalListData, Timer)
+		RemoveGadgetTimer(Timer)
+		
+		If VerticalList_StateFocus(*GadgetData.VerticalListData)
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
 	Procedure VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
 		Protected Redraw, Item, *Element
 		With *GadgetData
@@ -3476,6 +3539,7 @@ Module UITK
 							If \ItemState <> \State
 								\State = \ItemState
 								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								AddGadgetTimer(*GadgetData, 200, @VerticalList_FocusTimer())
 								Redraw = #True
 							EndIf
 							If \Reorder
@@ -3534,11 +3598,13 @@ Module UITK
 							Case #PB_Shortcut_Down
 								If \State < ListSize(\ItemList()) - 1
 									\State + 1
+									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
 								EndIf
 							Case #PB_Shortcut_Up
 								If \State > 0
 									\State - 1
+									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
 								EndIf
 						EndSelect
@@ -3619,12 +3685,12 @@ Module UITK
 					\VisibleScrollbar = #False
 				EndIf
 				
-				If ListSize(\ItemList()) = 0 And \State > -1
-					\State = -1
-					PostEvent(#PB_Event_Gadget, CurrentWindow(), \Gadget, #PB_EventType_Change)
-				ElseIf \State > Position
+				If \State > Position
 					\State - 1
 				ElseIf \State = Position
+					If \State = ListSize(\ItemList())
+						\State - 1
+					EndIf
 					PostEvent(#PB_Event_Gadget, CurrentWindow(), \Gadget, #PB_EventType_Change)
 				EndIf
 				
@@ -4589,6 +4655,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 1995
-; Folding = JAAAAAAAAAACAAAAAAAAAAAAIAAAAAAA5
+; CursorPosition = 2031
+; Folding = JAAAgAAAAAAQAAAAAAAAAAAAAEAAAAAAA9
 ; EnableXP
