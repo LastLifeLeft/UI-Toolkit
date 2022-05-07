@@ -3513,7 +3513,12 @@ Module UITK
 							\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + \ItemState * \ItemHeight - \ScrollBar\State + \ToolBarHeight
 							\DragPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
 							
-							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max - \ItemHeight)
+							If (ListSize(\ItemList()) - 1) * \ItemHeight > \Height - \ToolBarHeight
+								\VisibleScrollbar = #True
+								ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max - \ItemHeight)
+							Else
+								\VisibleScrollbar = #False
+							EndIf
 							
 							StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
 							VectorSourceColor(\ThemeData\ShaderColor[#Hot])
@@ -3540,26 +3545,28 @@ Module UITK
 					ElseIf \DragState = #Drag_Active ;{
 						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
 						
-						If (*Event\MouseY - \ToolBarHeight < 0)
-							If Not \DragTimer
-								\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
-								\DragDirection = - 1
-								ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight)
-								Redraw = #True
-							EndIf
-							*Event\MouseY = \ToolBarHeight
-						ElseIf (*Event\MouseY > \Height)
-							If Not \DragTimer
-								\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
-								\DragDirection = 1
-								ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight + (\ItemHeight - \ScrollBar\PageLenght % \ItemHeight))
-								Redraw = #True
-							EndIf
-							*Event\MouseY = \Height
-						Else
-							If \DragTimer
-								RemoveGadgetTimer(\DragTimer)
-								\DragTimer = 0
+						If \VisibleScrollbar
+							If (*Event\MouseY - \ToolBarHeight < 0)
+								If Not \DragTimer
+									\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
+									\DragDirection = - 1
+									ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight)
+									Redraw = #True
+								EndIf
+								*Event\MouseY = \ToolBarHeight
+							ElseIf (*Event\MouseY > \Height)
+								If Not \DragTimer
+									\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
+									\DragDirection = 1
+									ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight + (\ItemHeight - \ScrollBar\PageLenght % \ItemHeight))
+									Redraw = #True
+								EndIf
+								*Event\MouseY = \Height
+							Else
+								If \DragTimer
+									RemoveGadgetTimer(\DragTimer)
+									\DragTimer = 0
+								EndIf
 							EndIf
 						EndIf
 						
@@ -3640,7 +3647,13 @@ Module UITK
 						
 						VerticalList_StateFocus(*GadgetData)
 						
-						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max + \ItemHeight)
+						If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
+							\VisibleScrollbar = #True
+							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max + \ItemHeight)
+						Else
+							\VisibleScrollbar = #False
+						EndIf
+						
 						Redraw = #True
 						\DragPosition = -1
 					EndIf
@@ -4739,6 +4752,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 2034
+; CursorPosition = 2578
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
