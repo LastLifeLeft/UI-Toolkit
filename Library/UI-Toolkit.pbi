@@ -650,7 +650,7 @@ Module UITK
 		*Gadget.GadgetData
 	EndStructure
 	
-	Global NewMap Timers.TimerData(), TimerWindow
+	Global NewMap Timers.TimerData(), TimerWindow =  OpenWindow(#PB_Any, 0, 0, 100, 100, "", #PB_Window_Invisible)
 	
 	Procedure Timer_Handler()
 		Protected Timer = EventTimer()
@@ -658,13 +658,10 @@ Module UITK
 		Timers()\Callback(Timers()\Gadget, Timer)
 	EndProcedure
 	
+	BindEvent(#PB_Event_Timer, @Timer_Handler(), TimerWindow)
+	
 	Procedure AddGadgetTimer(*Gadget.GadgetData, TimeOut, *Callback)
 		Protected Timer
-		
-		If TimerWindow = 0
-			TimerWindow = OpenWindow(#PB_Any, 0, 0, 100, 100, "", #PB_Window_Invisible)
-			BindEvent(#PB_Event_Timer, @Timer_Handler(), TimerWindow)
-		EndIf
 		
 		Timer = AddWindowTimer(TimerWindow, Random(1048575, 1), TimeOut) ; can't use PB_Any with a timer...
 		
@@ -4632,7 +4629,7 @@ Module UITK
 	
 	Procedure Combo_Meta(*GadgetData.ComboData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
-		Protected *ListData.VerticalListData, *List.PB_Gadget
+		Protected *ListData.VerticalListData, *List.PB_Gadget, GadgetList = UseGadgetList(0)
 		InitializeObject(Combo)
 		
 		With *GadgetData
@@ -4654,7 +4651,9 @@ Module UITK
 			SetWindowColor(\MenuWindow, RGB(Red(\ThemeData\LineColor[#Warm]), Green(\ThemeData\LineColor[#Warm]), Blue(\ThemeData\LineColor[#Warm])))
 			
 			\MenuCanvas = VerticalList(#PB_Any, \Border, 0, \Width - \Border * 2, \Height)
-
+			
+			UseGadgetList(GadgetList)
+			
 			SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *GadgetData)
 			BindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
 			SetGadgetAttribute(\MenuCanvas, #Attribute_CornerRadius, 0)
@@ -5052,6 +5051,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 2086
+; CursorPosition = 277
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
