@@ -85,7 +85,7 @@ SetGadgetState(Gadget, 2)
 Gadget = UITK::Container(#PB_Any, 500, 350, 200, 230)
 CloseGadgetList()
 
-Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 721, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
+Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
 UITK::SetWindowIcon(Window1, Image)
 
 Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center")
@@ -155,6 +155,9 @@ SetGadgetState(Gadget, 2)
 Gadget = UITK::Container(#PB_Any, 500, 350, 200, 230)
 CloseGadgetList()
 
+Gadget = UITK::Radio(#PB_Any, 740, 20, 200, 28, "Prululu", "Exemple group", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Prululu", "Exemple group", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Prululu", "Exemple group", UITK::#HAlignRight)
 
 Menu = UITK::FlatMenu(UITK::#DarkMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
@@ -179,7 +182,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 123
-; FirstLine = 82
+; CursorPosition = 159
+; FirstLine = 98
 ; Folding = +
 ; EnableXP

@@ -149,12 +149,14 @@
 	Declare Combo(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare VerticalList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 	Declare Container(Gadget, x, y, Width, Height, Flags = #Default)
+	Declare Radio(Gadget, x, y, Width, Height, Text.s, RadioGroup.s = "", Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
 	Declare DrawVectorTextBlock(*TextData.Text, X, Y)
 	Declare Disable(Gadget, State)
 	Declare Freeze(Gadget, State)
+	
 	
 	;}
 EndDeclareModule
@@ -4797,6 +4799,224 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	;}
+	
+	;{ Radio
+	#RadioSize = 20
+	
+	Structure RadioGroup
+		List Items.i()
+	EndStructure
+	
+	Global NewMap RadioGroups.RadioGroup()
+	
+	Structure RadioData Extends GadgetData
+		RadioGroup.s	
+	EndStructure
+	
+	Procedure Radio_Redraw(*GadgetData.RadioData)
+		Protected X, Y
+		
+		With *GadgetData
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			
+			VectorSourceColor(\ThemeData\TextColor[\MouseState])
+			
+			If \TextBock\HAlign = #HAlignRight
+				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
+				X = \OriginX + BorderMargin
+			Else
+				DrawVectorTextBlock(@\TextBock, X, Y)
+				X = \OriginX + \Width - #RadioSize - BorderMargin
+			EndIf
+			
+			Y = Floor(\OriginY + (\Height - #RadioSize) * 0.5)
+			
+			VectorSourceColor(\ThemeData\FrontColor[\MouseState])
+			AddPathCircle(X + #RadioSize * 0.5, Y + #RadioSize * 0.5,#RadioSize * 0.5)
+			AddPathCircle(X + #RadioSize * 0.5, Y + #RadioSize * 0.5,#RadioSize * 0.4)
+			
+			If \State = #True
+				AddPathCircle(X + #RadioSize * 0.5, Y + #RadioSize * 0.5,#RadioSize * 0.3)
+			EndIf
+			
+			FillPath()
+		EndWith
+	EndProcedure
+	
+	Procedure Radio_EventHandler(*GadgetData.RadioData, *Event.Event)
+		Protected Redraw
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #MouseEnter
+					\MouseState = #Warm
+					Redraw = #True
+					
+				Case #MouseLeave
+					\MouseState = #Cold
+					Redraw = #True
+					
+				Case #LeftClick
+					If Not \State
+						If \RadioGroup <> ""
+							FindMapElement(RadioGroups(), \RadioGroup)
+							ForEach RadioGroups()\Items()
+								If GetGadgetState(RadioGroups()\Items())
+									SetGadgetState(RadioGroups()\Items(), #False)
+								EndIf
+							Next
+						EndIf
+						
+						\State = #True
+						Redraw = #True
+					EndIf
+					
+				Case #KeyDown
+					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+						*Event\EventType = #LeftClick
+						Radio_EventHandler(*GadgetData, *Event)
+					EndIf
+			EndSelect
+			
+			If Redraw
+				RedrawObject()
+			EndIf
+			
+		EndWith
+		
+		ProcedureReturn Redraw
+	EndProcedure
+	
+	Procedure Radio_Free(*this.PB_Gadget)
+		Protected *GadgetData.RadioData = *this\vt
+		
+		With *GadgetData
+			If \RadioGroup
+				FindMapElement(RadioGroups(), \RadioGroup)
+				ForEach RadioGroups()\Items()
+					If RadioGroups()\Items() = \Gadget
+						DeleteElement(RadioGroups()\Items())
+						Break
+					EndIf
+				Next
+				If ListSize(RadioGroups()\Items()) = 0
+					DeleteMapElement(RadioGroups(), \RadioGroup)
+				EndIf
+			EndIf
+			
+			Default_FreeGadget(*this)
+			
+		EndWith
+	EndProcedure
+	
+	Procedure Radio_SetState(*This.PB_Gadget, State)
+		Protected *GadgetData.RadioData = *this\vt
+		
+		If Bool(State) = #True And *GadgetData\State = #False And *GadgetData\RadioGroup <> ""
+			FindMapElement(RadioGroups(), *GadgetData\RadioGroup)
+			ForEach RadioGroups()\Items()
+				If GetGadgetState(RadioGroups()\Items())
+					SetGadgetState(RadioGroups()\Items(), #False)
+				EndIf
+			Next
+		EndIf
+		
+		*GadgetData\State = Bool(State)
+		RedrawObject()
+	EndProcedure
+	
+	Procedure Radio_Meta(*GadgetData.RadioData, *ThemeData, Gadget, x, y, Width, Height, Text.s, RadioGroup.s, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(Radio)
+		
+		With *GadgetData
+			\TextBock\Width = Width - #RadioSize - BorderMargin * 2
+			\TextBock\Height = Height - BorderMargin * 2
+			\TextBock\OriginalText = Text
+			\HMargin = #RadioSize * 0.5 + BorderMargin
+			\VMargin = BorderMargin
+			
+			If Flags & #HAlignCenter
+				\TextBock\HAlign = #HAlignLeft
+			EndIf
+			
+			\TextBock\VAlign = #VAlignCenter
+			
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			
+			\VT\FreeGadget = @Radio_Free()
+			\VT\SetGadgetState = @Radio_SetState()
+			
+			; Enable only the needed events
+			\SupportedEvent[#LeftClick] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#MouseEnter] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#KeyUp] = #True
+			
+			If RadioGroup <> ""
+				If Not FindMapElement(RadioGroups(), RadioGroup)
+					AddMapElement(RadioGroups(), RadioGroup)
+				EndIf
+				AddElement(RadioGroups()\Items())
+				RadioGroups()\Items() = Gadget
+				\RadioGroup = RadioGroup
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure Radio(Gadget, x, y, Width, Height, Text.s, RadioGroup.s = "", Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.RadioData
+		
+		If AccessibilityMode
+; 			Result = RadioGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Radio_Right) |
+; 			                                                           (Bool(Flags & #HAlignCenter) * #PB_Radio_Center) |
+; 			                                                           #PB_Radio_ThreeState)
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				*GadgetData = AllocateStructure(RadioData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				Protected *ThemeData = AllocateStructure(Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				Radio_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text, RadioGroup, Flags)
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	;}
+		
 EndModule
 
 
@@ -4831,10 +5051,7 @@ EndModule
 
 
 
-
-
-
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 140
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 2086
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
