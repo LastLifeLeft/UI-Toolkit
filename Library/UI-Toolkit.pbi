@@ -126,6 +126,7 @@
 	Declare SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 	Declare SetWindowIcon(Window, Image)
 	Declare GetWindowIcon(Window)
+	Declare WindowGetColor(Window, ColorType)
 	
 	; Menu
 	Declare FlatMenu(Flags = #Default)
@@ -1719,6 +1720,51 @@ Module UITK
 		
 		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
 		ProcedureReturn GetGadgetImage(*WindowData\Label)
+	EndProcedure
+	
+	Procedure WindowGetColor(Window, ColorType)
+		Protected *WindowData.ThemedWindow, Result
+		
+		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+		
+		Select ColorType
+			Case #Color_Back_Cold
+				Result = *WindowData\Theme\BackColor[#Cold]
+			Case #Color_Back_Warm
+				Result = *WindowData\Theme\BackColor[#Warm]
+			Case #Color_Back_Hot
+				Result = *WindowData\Theme\BackColor[#Hot]
+			Case #Color_Back_Disabled
+				Result = *WindowData\Theme\BackColor[#Disabled]
+			Case #Color_Text_Cold
+				Result = *WindowData\Theme\TextColor[#Cold]
+			Case #Color_Text_Warm
+				Result = *WindowData\Theme\TextColor[#Warm]
+			Case #Color_Text_Hot
+				Result = *WindowData\Theme\TextColor[#Hot]
+			Case #Color_Text_Disabled
+				Result = *WindowData\Theme\TextColor[#Disabled]
+			Case #Color_Parent
+				Result = *WindowData\Theme\WindowColor
+			Case #Color_Shade_Cold
+				Result = *WindowData\Theme\ShadeColor[#Cold]
+			Case #Color_Shade_Warm                      
+				Result = *WindowData\Theme\ShadeColor[#Warm]
+			Case #Color_Shade_Hot                       
+				Result = *WindowData\Theme\ShadeColor[#Hot]
+			Case #Color_Shade_Disabled
+				Result = *WindowData\Theme\ShadeColor[#Disabled]
+			Case #Color_Line_Cold
+				Result = *WindowData\Theme\LineColor[#Cold]
+			Case #Color_Line_Warm                   
+				Result = *WindowData\Theme\LineColor[#Warm]
+			Case #Color_Line_Hot                    
+				Result = *WindowData\Theme\LineColor[#Hot]
+			Case #Color_Line_Disabled              
+				Result = *WindowData\Theme\LineColor[#Disabled]
+		EndSelect
+		
+		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
 	EndProcedure
 	;}
 	
@@ -4789,7 +4835,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 2038
-; FirstLine = 106
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 140
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
