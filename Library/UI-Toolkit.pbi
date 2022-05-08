@@ -18,6 +18,7 @@
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
 		#ScrollBar_Vertical								; The scrollbar is vertical (instead of horizontal, which is the default).
 		#Trackbar_Vertical								; The trackbar is vertical (instead of horizontal which is the default).
+		#Trackbar_ShowState								; Display the numerical state on the trackbar
 		#VList_Toolbar									; Add a 32 pixel heigh toolbar at the top.
 		
 		; Window
@@ -430,7 +431,7 @@ Module UITK
 	Structure Theme
 		BackColor.l[4]
 		FrontColor.l[4]
-		ShaderColor.l[4]
+		ShadeColor.l[4]
 		TextColor.l[4]
 		LineColor.l[4]
 		Special1.l[4]
@@ -501,9 +502,9 @@ Module UITK
 		\FrontColor[#Warm]		= SetAlpha(FixColor($999999), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($999999), 255)
 		
-		\ShaderColor[#Cold]		= SetAlpha(FixColor($DEDEDE), 255)
-		\ShaderColor[#Warm]		= SetAlpha(FixColor($D3D3D3), 255)
-		\ShaderColor[#Hot]		= SetAlpha(FixColor($C4C4C4), 255)
+		\ShadeColor[#Cold]		= SetAlpha(FixColor($DEDEDE), 255)
+		\ShadeColor[#Warm]		= SetAlpha(FixColor($D3D3D3), 255)
+		\ShadeColor[#Hot]		= SetAlpha(FixColor($C4C4C4), 255)
 		
 		\LineColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($90C8F6), 255)
@@ -544,9 +545,9 @@ Module UITK
 		\FrontColor[#Warm]		= SetAlpha(FixColor($8F9399), 255)
 		\FrontColor[#Hot]		= SetAlpha(FixColor($8F9399), 255)
 		
-		\ShaderColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
-		\ShaderColor[#Warm]		= SetAlpha(FixColor($4F545C), 255)
-		\ShaderColor[#Hot]		= SetAlpha(FixColor($676A70), 255)
+		\ShadeColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
+		\ShadeColor[#Warm]		= SetAlpha(FixColor($4F545C), 255)
+		\ShadeColor[#Hot]		= SetAlpha(FixColor($676A70), 255)
 		
 		\LineColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($A2A3A5), 255)
@@ -1064,13 +1065,13 @@ Module UITK
 			Case #Color_Parent
 				Result = *GadgetData\ThemeData\WindowColor
 			Case #Color_Shade_Cold
-				Result = *GadgetData\ThemeData\ShaderColor[#Cold]
+				Result = *GadgetData\ThemeData\ShadeColor[#Cold]
 			Case #Color_Shade_Warm                      
-				Result = *GadgetData\ThemeData\ShaderColor[#Warm]
+				Result = *GadgetData\ThemeData\ShadeColor[#Warm]
 			Case #Color_Shade_Hot                       
-				Result = *GadgetData\ThemeData\ShaderColor[#Hot]
+				Result = *GadgetData\ThemeData\ShadeColor[#Hot]
 			Case #Color_Shade_Disabled
-				Result = *GadgetData\ThemeData\ShaderColor[#Disabled]
+				Result = *GadgetData\ThemeData\ShadeColor[#Disabled]
 			Case #Color_Line_Cold
 				Result = *GadgetData\ThemeData\LineColor[#Cold]
 			Case #Color_Line_Warm                   
@@ -1198,13 +1199,13 @@ Module UITK
 			Case #Color_Parent
 				*GadgetData\ThemeData\WindowColor = Color
 			Case #Color_Shade_Cold
-				*GadgetData\ThemeData\ShaderColor[#Cold] = Color
+				*GadgetData\ThemeData\ShadeColor[#Cold] = Color
 			Case #Color_Shade_Warm                      
-				*GadgetData\ThemeData\ShaderColor[#Warm] = Color
+				*GadgetData\ThemeData\ShadeColor[#Warm] = Color
 			Case #Color_Shade_Hot                       
-				*GadgetData\ThemeData\ShaderColor[#Hot] = Color
+				*GadgetData\ThemeData\ShadeColor[#Hot] = Color
 			Case #Color_Shade_Disabled
-				*GadgetData\ThemeData\ShaderColor[#Disabled] = Color
+				*GadgetData\ThemeData\ShadeColor[#Disabled] = Color
 			Case #Color_Line_Cold
 				*GadgetData\ThemeData\LineColor[#Cold] = Color
 			Case #Color_Line_Warm                   
@@ -2600,7 +2601,7 @@ Module UITK
 			Radius = \Thickness * 0.5
 			AddPathCircle(\OriginX + Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
 			If \Background
-				VectorSourceColor(\ThemeData\ShaderColor[#Cold])
+				VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 			Else
 				VectorSourceColor(0)
 			EndIf
@@ -3384,7 +3385,7 @@ Module UITK
 				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius)
 			EndIf
 			
-			VectorSourceColor(\ThemeData\ShaderColor[#Cold])
+			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 			ClipPath(#PB_Path_Preserve)
 			FillPath()
 			
@@ -3422,12 +3423,12 @@ Module UITK
 							Continue
 						EndIf
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
-						VectorSourceColor(\ThemeData\ShaderColor[#Hot])
+						VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 						FillPath()
 						State = #Hot
 					ElseIf CurrentItem = \ItemState
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
-						VectorSourceColor(\ThemeData\ShaderColor[#Warm])
+						VectorSourceColor(\ThemeData\ShadeColor[#Warm])
 						FillPath()
 						State = #Warm
 					Else
@@ -3453,7 +3454,7 @@ Module UITK
 	 			
 	 			If \ToolBarHeight
 	 				AddPathBox(0,0, \Width, #VerticalList_IconBarSize)
-	 				VectorSourceColor(\ThemeData\ShaderColor[#Cold])
+	 				VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 	 				ClipPath(#PB_Path_Preserve)
 	 				FillPath()
 	 			EndIf
@@ -3534,7 +3535,7 @@ Module UITK
 							EndIf
 							
 							StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
-							VectorSourceColor(\ThemeData\ShaderColor[#Hot])
+							VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 							AddPathBox(0, 0, \Width, \ItemHeight)
 							
 							If \TextBock\FontScale
@@ -4051,6 +4052,7 @@ Module UITK
 		Drag.b
 		DragOffset.i
 		Hover.b
+		DisplayState.b
 		List IndentList.TrackBarIndent()
 	EndStructure
 	
@@ -4083,6 +4085,11 @@ Module UITK
 						DrawVectorParagraph(\IndentList()\Text, \Width - X, TextHeight, #PB_VectorParagraph_Right)
 					Next
 					
+					If \DisplayState
+						MovePathCursor(0, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
+						DrawVectorParagraph(\IndentList()\Text, \Width - X, TextHeight, #PB_VectorParagraph_Right)
+					EndIf
+					
 					X + #TracKbar_CursorHeight * 0.5
 				Else
 					X = \OriginX + #Trackbar_Margin
@@ -4092,15 +4099,21 @@ Module UITK
 						MovePathCursor(X + 2, Y + 1)
 						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
 						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, Y - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(\IndentList()\Text, \Width, TextHeight, #PB_VectorParagraph_Left)
+						DrawVectorParagraph(Str(\State), \Width, TextHeight, #PB_VectorParagraph_Left)
 					Next
+					
+					
+					If \DisplayState
+						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
+						DrawVectorParagraph(Str(\State), \Width, TextHeight, #PB_VectorParagraph_Left)
+					EndIf
 					
 					X + #TracKbar_CursorHeight * 0.5
 				EndIf
 				
 				Y = \OriginY + #Trackbar_Margin
 				
-				VectorSourceColor(\ThemeData\ShaderColor[#Warm])
+				VectorSourceColor(\ThemeData\ShadeColor[#Warm])
 				StrokePath(2)
 				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5 + Progress, #Trackbar_Thickness, Height - #Trackbar_Thickness - Progress)
 				AddPathCircle(X, Y + Height - #Trackbar_Thickness * 0.5, #Trackbar_Thickness * 0.5)
@@ -4129,6 +4142,11 @@ Module UITK
 						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
 					Next
 					
+					If \DisplayState
+						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
+						DrawVectorParagraph(Str(\State), 50, TextHeight, #PB_VectorParagraph_Center)
+					EndIf
+						
 					Y + #TracKbar_CursorHeight * 0.5
 				Else
 					Y = \OriginY + \Height - #TracKbar_CursorHeight - #Trackbar_Margin
@@ -4142,12 +4160,17 @@ Module UITK
 						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
 					Next
 					
+					If \DisplayState
+						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
+						DrawVectorParagraph(Str(\State), 50, TextHeight, #PB_VectorParagraph_Center)
+					EndIf
+					
 					Y + #TracKbar_CursorHeight * 0.5
 				EndIf
 				
 				X = \OriginX + #Trackbar_Margin
 				
-				VectorSourceColor(\ThemeData\ShaderColor[#Warm])
+				VectorSourceColor(\ThemeData\ShadeColor[#Warm])
 				StrokePath(2)
 				AddPathBox(X + #Trackbar_Thickness * 0.5 + Progress, Y - #Trackbar_Thickness * 0.5, Width - #Trackbar_Thickness - Progress, #Trackbar_Thickness)
 				AddPathCircle(X + Width - #Trackbar_Thickness * 0.5, Y, #Trackbar_Thickness * 0.5)
@@ -4316,6 +4339,7 @@ Module UITK
 			\Vertical = Bool(Flags & #Trackbar_Vertical)
 			\Maximum = Maximum
 			\Minimum = Minimum
+			\DisplayState = Bool(Flags & #Trackbar_ShowState)
 			
 			If \Vertical
 				\HMargin = 30
@@ -4668,7 +4692,7 @@ Module UITK
 				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius)
 			EndIf
 			
-			VectorSourceColor(\ThemeData\ShaderColor[#Cold])
+			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 			FillPath()
 		EndWith
 	EndProcedure
@@ -4765,6 +4789,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 2037
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 2038
+; FirstLine = 106
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP

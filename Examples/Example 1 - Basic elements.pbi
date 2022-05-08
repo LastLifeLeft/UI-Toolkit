@@ -115,13 +115,13 @@ UITK::ScrollArea(#PB_Any, 260, 120, 200, 180, 300, 300, 10)
 UITK::Label(#PB_Any, 50, 145, 200, 20, "Inside the scroll area",  UITK::#HAlignCenter)
 CloseGadgetList()
 
-Gadget = UITK::TrackBar(#PB_Any, 260, 330, 200, 40, 0, 100,  UITK::#VAlignTop)
+Gadget = UITK::TrackBar(#PB_Any, 260, 330, 200, 40, 0, 100,  UITK::#VAlignTop | UITK::#Trackbar_ShowState)
 AddGadgetItem(Gadget, 0, "x.5")
 AddGadgetItem(Gadget, 13, "x1")
 AddGadgetItem(Gadget, 100, "x4")
 SetGadgetState(Gadget, 31)
 
-Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4,  UITK::#Trackbar_Vertical)
+Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4,  UITK::#Trackbar_Vertical | UITK::#Trackbar_ShowState)
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
@@ -179,7 +179,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 127
-; FirstLine = 96
+; CursorPosition = 123
+; FirstLine = 82
 ; Folding = +
 ; EnableXP
