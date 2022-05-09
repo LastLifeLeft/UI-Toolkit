@@ -3972,7 +3972,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_FreeGadget(*this.PB_Gadget)
-		Protected *GadgetData.VerticalList = *this\vt
+		Protected *GadgetData.VerticalListData = *this\vt
 		
 		FreeStructure(*GadgetData\ScrollBar)
 		
@@ -5156,7 +5156,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 180
-; FirstLine = 120
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 3974
+; FirstLine = 165
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAA9
 ; EnableXP
