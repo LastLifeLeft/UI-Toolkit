@@ -69,6 +69,21 @@
 		#Color_Line_Warm
 		#Color_Line_Hot
 		#Color_Line_Disabled
+		
+		#Color_Special1_Cold
+		#Color_Special1_Warm
+		#Color_Special1_Hot
+		#Color_Special1_Disabled
+		
+		#Color_Special2_Cold
+		#Color_Special2_Warm
+		#Color_Special2_Hot
+		#Color_Special2_Disabled
+		
+		#Color_Special3_Cold
+		#Color_Special3_Warm
+		#Color_Special3_Hot
+		#Color_Special3_Disabled
 	EndEnumeration
 	
 	Enumeration ;State
@@ -1066,20 +1081,44 @@ Module UITK
 				Result = *GadgetData\ThemeData\WindowColor
 			Case #Color_Shade_Cold
 				Result = *GadgetData\ThemeData\ShadeColor[#Cold]
-			Case #Color_Shade_Warm                      
+			Case #Color_Shade_Warm
 				Result = *GadgetData\ThemeData\ShadeColor[#Warm]
-			Case #Color_Shade_Hot                       
+			Case #Color_Shade_Hot
 				Result = *GadgetData\ThemeData\ShadeColor[#Hot]
 			Case #Color_Shade_Disabled
 				Result = *GadgetData\ThemeData\ShadeColor[#Disabled]
 			Case #Color_Line_Cold
 				Result = *GadgetData\ThemeData\LineColor[#Cold]
-			Case #Color_Line_Warm                   
+			Case #Color_Line_Warm
 				Result = *GadgetData\ThemeData\LineColor[#Warm]
-			Case #Color_Line_Hot                    
+			Case #Color_Line_Hot
 				Result = *GadgetData\ThemeData\LineColor[#Hot]
-			Case #Color_Line_Disabled              
+			Case #Color_Line_Disabled
 				Result = *GadgetData\ThemeData\LineColor[#Disabled]
+			Case #Color_Special1_Cold
+				Result = *GadgetData\ThemeData\Special1[#Cold]
+			Case #Color_Special1_Warm
+				Result = *GadgetData\ThemeData\Special1[#Warm]
+			Case #Color_Special1_Hot
+				Result = *GadgetData\ThemeData\Special1[#Hot]
+			Case #Color_Special1_Disabled
+				Result = *GadgetData\ThemeData\Special1[#Disabled]
+			Case #Color_Special2_Cold
+				Result = *GadgetData\ThemeData\Special2[#Cold]
+			Case #Color_Special2_Warm
+				Result = *GadgetData\ThemeData\Special2[#Warm]
+			Case #Color_Special2_Hot
+				Result = *GadgetData\ThemeData\Special2[#Hot]
+			Case #Color_Special2_Disabled
+				Result = *GadgetData\ThemeData\Special2[#Disabled]
+			Case #Color_Special3_Cold
+				Result = *GadgetData\ThemeData\Special3[#Cold]
+			Case #Color_Special3_Warm
+				Result = *GadgetData\ThemeData\Special3[#Warm]
+			Case #Color_Special3_Hot
+				Result = *GadgetData\ThemeData\Special3[#Hot]
+			Case #Color_Special3_Disabled
+				Result = *GadgetData\ThemeData\Special3[#Disabled]
 		EndSelect
 		
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
@@ -1214,6 +1253,30 @@ Module UITK
 				*GadgetData\ThemeData\LineColor[#Hot] = Color
 			Case #Color_Line_Disabled              
 				*GadgetData\ThemeData\LineColor[#Disabled] = Color
+			Case #Color_Special1_Cold
+				*GadgetData\ThemeData\Special1[#Cold] = Color
+			Case #Color_Special1_Warm
+				*GadgetData\ThemeData\Special1[#Warm] = Color
+			Case #Color_Special1_Hot
+				*GadgetData\ThemeData\Special1[#Hot] = Color
+			Case #Color_Special1_Disabled
+				*GadgetData\ThemeData\Special1[#Disabled] = Color
+			Case #Color_Special2_Cold
+				*GadgetData\ThemeData\Special2[#Cold] = Color
+			Case #Color_Special2_Warm
+				*GadgetData\ThemeData\Special2[#Warm] = Color
+			Case #Color_Special2_Hot
+				*GadgetData\ThemeData\Special2[#Hot] = Color
+			Case #Color_Special2_Disabled
+				*GadgetData\ThemeData\Special2[#Disabled] = Color
+			Case #Color_Special3_Cold
+				*GadgetData\ThemeData\Special3[#Cold] = Color
+			Case #Color_Special3_Warm
+				*GadgetData\ThemeData\Special3[#Warm] = Color
+			Case #Color_Special3_Hot
+				*GadgetData\ThemeData\Special3[#Hot] = Color
+			Case #Color_Special3_Disabled
+				*GadgetData\ThemeData\Special3[#Disabled] = Color
 		EndSelect
 		
 		RedrawObject()
@@ -1761,6 +1824,30 @@ Module UITK
 				Result = *WindowData\Theme\LineColor[#Hot]
 			Case #Color_Line_Disabled              
 				Result = *WindowData\Theme\LineColor[#Disabled]
+			Case #Color_Special1_Cold
+				Result = *WindowData\Theme\Special1[#Cold]
+			Case #Color_Special1_Warm
+				Result = *WindowData\Theme\Special1[#Warm]
+			Case #Color_Special1_Hot
+				Result = *WindowData\Theme\Special1[#Hot]
+			Case #Color_Special1_Disabled
+				Result = *WindowData\Theme\Special1[#Disabled]
+			Case #Color_Special2_Cold
+				Result = *WindowData\Theme\Special2[#Cold]
+			Case #Color_Special2_Warm
+				Result = *WindowData\Theme\Special2[#Warm]
+			Case #Color_Special2_Hot
+				Result = *WindowData\Theme\Special2[#Hot]
+			Case #Color_Special2_Disabled
+				Result = *WindowData\Theme\Special2[#Disabled]
+			Case #Color_Special3_Cold
+				Result = *WindowData\Theme\Special3[#Cold]
+			Case #Color_Special3_Warm
+				Result = *WindowData\Theme\Special3[#Warm]
+			Case #Color_Special3_Hot
+				Result = *WindowData\Theme\Special3[#Hot]
+			Case #Color_Special3_Disabled
+				Result = *WindowData\Theme\Special3[#Disabled]
 		EndSelect
 		
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
@@ -5051,6 +5138,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 277
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 597
+; FirstLine = 122
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
