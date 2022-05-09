@@ -128,7 +128,7 @@ AddGadgetItem(Gadget, 4, "High")
 
 Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 250, UITK::#Border | UITK::#ReOrder)
 AddGadgetItem(Gadget, -1, "Item 0")
-AddGadgetItem(Gadget, -1, "Item 1")
+AddGadgetItem(Gadget, -1, "Item 1", ImageID(Image))
 AddGadgetItem(Gadget, -1, "Item 2")
 AddGadgetItem(Gadget, -1, "Item 3")
 AddGadgetItem(Gadget, -1, "Item 4")
@@ -144,7 +144,7 @@ RemoveGadgetItem(Gadget, 3)
 Gadget = UITK::Combo(#PB_Any, 500, 290, 200, 40, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 2")
-AddGadgetItem(Gadget, -1, "Item 3")
+AddGadgetItem(Gadget, -1, "Item 3", ImageID(Image))
 AddGadgetItem(Gadget, -1, "Item ♥")
 AddGadgetItem(Gadget, -1, "Item 5")
 AddGadgetItem(Gadget, -1, "Item 6")
@@ -183,7 +183,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 75
-; FirstLine = 18
+; CursorPosition = 142
+; FirstLine = 78
 ; Folding = +
 ; EnableXP

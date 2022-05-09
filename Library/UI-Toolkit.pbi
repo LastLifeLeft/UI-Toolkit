@@ -3950,9 +3950,7 @@ Module UITK
 			EndIf
 			
 			\ItemList()\Text\OriginalText = PeekS(*Text)
-			If ImageID > -1
-				\ItemList()\Text\Image = ImageID
-			EndIf
+			\ItemList()\Text\Image = ImageID
 			\ItemList()\Text\LineLimit = 1
 			\ItemList()\Text\FontID = \TextBock\FontID
 			
@@ -4743,7 +4741,7 @@ Module UITK
 	
 	Procedure Combo_VListHandler()
 		Protected Gadget = EventGadget(), *GadgetData.ComboData = GetProp_(GadgetID(Gadget), "UITK_ComboData")
-		Protected *this.PB_Gadget = IsGadget(*GadgetData\MenuCanvas), *VListData.VerticalListData = *this\vt
+		Protected *SubGadget.PB_Gadget = IsGadget(*GadgetData\MenuCanvas), *VListData.VerticalListData = *SubGadget\vt
 		
 		*GadgetData\State = *VListData\State
 		SelectElement(*VListData\ItemList(), *VListData\State)
@@ -4792,10 +4790,13 @@ Module UITK
 	
 	Procedure Combo_SetState(*this.PB_Gadget, State)
 		Protected *GadgetData.ComboData = *this\vt
+		Protected *SubGadget.PB_Gadget = IsGadget(*GadgetData\MenuCanvas), *VListData.VerticalListData = *SubGadget\vt
 		
-		SetGadgetState(*GadgetData\MenuCanvas, State)
-		*GadgetData\TextBock\OriginalText = GetGadgetItemText(*GadgetData\MenuCanvas, GetGadgetState(*GadgetData\MenuCanvas))
-		
+		*GadgetData\State = State
+		*VListData\State = State
+		SelectElement(*VListData\ItemList(), *VListData\State)
+		*GadgetData\TextBock\OriginalText = *VListData\ItemList()\Text\OriginalText
+		*GadgetData\TextBock\Image = *VListData\ItemList()\Text\Image
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		*GadgetData\Unfolded = #False
 		RedrawObject()
@@ -5241,6 +5242,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 189
+; CursorPosition = 2244
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
