@@ -3971,6 +3971,14 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
+	Procedure VerticalList_FreeGadget(*this.PB_Gadget)
+		Protected *GadgetData.VerticalList = *this\vt
+		
+		FreeStructure(*GadgetData\ScrollBar)
+		
+		Default_FreeGadget(*this.PB_Gadget)
+	EndProcedure
+	
 	; Getters
 	Procedure VerticalList_CountItem(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
@@ -4108,6 +4116,7 @@ Module UITK
 			\VT\AddGadgetItem2 = @VerticalList_AddItem()
 			\VT\ResizeGadget = @VerticalList_Resize()
 			\VT\GetGadgetItemText = @VerticalList_GetItemText()
+			\VT\FreeGadget = @VerticalList_FreeGadget()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -4666,11 +4675,19 @@ Module UITK
 	Procedure Combo_Free(*this.PB_Gadget)
 		Protected *GadgetData.ComboData = *this\vt
 		
-		If *GadgetData\DefaultEventHandler
-			UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
-		EndIf
-		
-		*this\vt = *GadgetData\OriginalVT
+		With *GadgetData
+			UnbindEvent(#PB_Event_DeactivateWindow, @Combo_WindowHandler(), \MenuWindow)
+			UnbindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
+			FreeGadget(\MenuCanvas)
+			CloseWindow(\MenuWindow)
+			
+			If *GadgetData\DefaultEventHandler
+				UnbindGadgetEvent(\Gadget, \DefaultEventHandler)
+			EndIf
+			
+			*this\vt = \OriginalVT
+		EndWith
+	
 		FreeStructure(*GadgetData)
 		
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
@@ -4755,6 +4772,7 @@ Module UITK
 			\VT\AddGadgetItem2 = @Combo_AddItem()
 			\VT\SetGadgetState = @Combo_SetState()
 			\VT\SetGadgetColor = @Combo_SetColor()
+			\VT\FreeGadget = @Combo_Free()
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftButtonDown] = #True
@@ -5138,7 +5156,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 597
-; FirstLine = 122
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 180
+; FirstLine = 120
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
