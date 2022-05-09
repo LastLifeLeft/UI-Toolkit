@@ -32,7 +32,7 @@ UITK::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox")
 Gadget = UITK::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UITK::#HAlignRight)
 SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
-UITK::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UITK::#ScrollBar_Vertical)
+UITK::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UITK::#Gadget_Vertical)
 UITK::ScrollBar(#PB_Any, 20, 568, 193, 7, 0, 100, 25)
 
 Gadget = UITK::Label(#PB_Any, 260, 20, 200, 20, "Label")
@@ -50,7 +50,7 @@ AddGadgetItem(Gadget, 13, "x1")
 AddGadgetItem(Gadget, 100, "x4")
 SetGadgetState(Gadget, 31)
 
-Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4, UITK::#Trackbar_Vertical)
+Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4, UITK::#Gadget_Vertical)
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
@@ -88,7 +88,8 @@ CloseGadgetList()
 Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
 UITK::SetWindowIcon(Window1, Image)
 
-Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center")
+Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center", UITK::#Border)
+SetGadgetAttribute(Gadget, UITK::#Attribute_CornerType, UITK::#Corner_Right)
 UITK::SetGadgetImage(Gadget, Image)
 SetGadgetAttribute(Gadget, UITK::#Attribute_TextScale, 16)
 Gadget = UITK::Button(#PB_Any, 20, 70, 200, 40, "Toggle button right", UITK::#HAlignRight | UITK::#Button_Toggle)
@@ -104,7 +105,7 @@ UITK::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox")
 Gadget = UITK::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UITK::#HAlignRight)
 SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
-UITK::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UITK::#ScrollBar_Vertical)
+UITK::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UITK::#Gadget_Vertical)
 UITK::ScrollBar(#PB_Any, 20, 568, 193, 7, 0, 100, 25)
 
 Gadget = UITK::Label(#PB_Any, 260, 20, 200, 20, "Label", UITK::#HAlignLeft)
@@ -121,7 +122,7 @@ AddGadgetItem(Gadget, 13, "x1")
 AddGadgetItem(Gadget, 100, "x4")
 SetGadgetState(Gadget, 31)
 
-Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4,  UITK::#Trackbar_Vertical | UITK::#Trackbar_ShowState)
+Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4,  UITK::#Gadget_Vertical | UITK::#Trackbar_ShowState)
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
@@ -181,8 +182,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 159
-; FirstLine = 98
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 90
+; FirstLine = 48
 ; Folding = +
 ; EnableXP

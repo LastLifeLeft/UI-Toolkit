@@ -16,8 +16,7 @@
 		
 		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
-		#ScrollBar_Vertical								; The scrollbar is vertical (instead of horizontal, which is the default).
-		#Trackbar_Vertical								; The trackbar is vertical (instead of horizontal which is the default).
+		#Gadget_Vertical								; scrollbar/trackbar/... is vertical (instead of horizontal, which is the default).
 		#Trackbar_ShowState								; Display the numerical state on the trackbar
 		#VList_Toolbar									; Add a 32 pixel heigh toolbar at the top.
 		
@@ -44,8 +43,21 @@
 		#Attribute_Border
 		#Attribute_TextScale
 		#Attribute_SortItems
+		#Attribute_CornerType
 	EndEnumeration
-
+	
+	Enumeration ; Corners
+		#Corner_All
+		#Corner_Top
+		#Corner_Bottom
+		#Corner_Left
+		#Corner_Right
+		#Corner_TopLeft
+		#Corner_TopRight
+		#Corner_BottomLeft
+		#Corner_BottomRight
+	EndEnumeration
+	
 	Enumeration; Colors
 		#Color_Text_Cold	= #PB_Gadget_FrontColor
 		#Color_Back_Cold	= #PB_Gadget_BackColor 
@@ -484,6 +496,8 @@ Module UITK
 		HMargin.w
 		VMargin.w
 		
+		CornerType.a
+		
 		*ThemeData.THeme
 		
 		Redraw.Redraw
@@ -596,7 +610,6 @@ Module UITK
 	;}
 	;}
 	
-	
 	;General:
 	;{ Shared
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
@@ -695,6 +708,76 @@ Module UITK
 	; Drawing functions
 	#TextBlock_ImageMargin = 4
 	
+	Procedure AddPathRoundedBox(Border_X, Border_Y, Border_Width, Border_Height, Radius, Type = #Corner_All)
+		
+		Select Type
+			Case #Corner_All
+				MovePathCursor(Border_X, Border_Y + Radius + 1)
+				AddPathArc(Border_X, Border_Y + Border_Height, Border_X + Border_Width, Border_Y + Border_Height, Radius)
+				AddPathArc(Border_X + Border_Width, Border_Y + Border_Height, Border_X + Border_Width, Border_Y, Radius)
+				AddPathArc(Border_X + Border_Width, Border_Y, Border_X, Border_Y, Radius)
+				AddPathArc(Border_X, Border_Y, Border_X, Border_Y + Border_Height, Radius)
+				ClosePath()
+				
+			Case #Corner_Top
+				MovePathCursor(Border_X, Border_Y + Border_Height)
+				AddPathArc(Border_X, Border_Y, Border_X + Border_Width,Border_Y, Radius)
+				AddPathArc(Border_X + Border_Width, Border_Y, Border_X + Border_Width, Border_Y + Border_Height, Radius)
+				AddPathLine(Border_X + Border_Width, Border_Y + Border_Height)
+				ClosePath()
+				
+			Case #Corner_Bottom
+				MovePathCursor(Border_X, Border_Y)
+				AddPathLine(Border_X + Border_Width, Border_Y)
+				AddPathArc(Border_X + Border_Width, Border_Y + Border_Height, Border_X, Border_Y + Border_Height, Radius)
+				AddPathArc(Border_X, Border_Y + Border_Height, Border_X, Border_Y, Radius)
+				ClosePath()
+				
+			Case #Corner_Left
+				MovePathCursor(Border_X + Border_Width, Border_Y + Border_Height)
+				AddPathArc(Border_X, Border_Y + Border_Height, Border_X, Border_Y, Radius)
+				AddPathArc(Border_X, Border_Y, Border_X + Border_Width, Border_Y, Radius)
+				AddPathLine(Border_X + Border_Width, Border_Y)
+				ClosePath()
+				
+			Case #Corner_Right
+				MovePathCursor(Border_X, Border_Y)
+				AddPathArc(Border_X + Border_Width, Border_Y, Border_X + Border_Width, Border_Y + Border_Height, Radius)
+				AddPathArc(Border_X + Border_Width, Border_Y + Border_Height, Border_X, Border_Y + Border_Height, Radius)
+				AddPathLine(Border_X, Border_Y + Border_Height)
+				ClosePath()
+				
+			Case #Corner_TopLeft
+				MovePathCursor(Border_X, Border_Y + Border_Height)
+				AddPathArc(Border_X, Border_Y, Border_X + Border_Width, Border_Y, Radius)
+				AddPathLine(Border_X + Border_Width, Border_Y)
+				AddPathLine(Border_X + Border_Width, Border_Y + Border_Height)
+				AddPathLine(Border_X, Border_Y + Border_Height)
+				ClosePath()
+				
+			Case #Corner_TopRight
+				MovePathCursor(Border_X, Border_Y + Border_Height)
+				AddPathLine(Border_X, Border_Y)
+				AddPathArc(Border_X + Border_Width, Border_Y, Border_X + Border_Width, Border_Y + Border_Height, Radius)
+				AddPathLine(Border_X + Border_Width, Border_Y + Border_Height)
+				ClosePath()
+				
+			Case #Corner_BottomLeft
+				MovePathCursor(Border_X, Border_Y)
+				AddPathLine(Border_X + Border_Width, Border_Y)
+				AddPathLine(Border_X + Border_Width, Border_Y + Border_Height)
+				AddPathArc(Border_X, Border_Y + Border_Height, Border_X, Border_Y, Radius)
+				ClosePath()
+				
+			Case #Corner_BottomRight
+				MovePathCursor(Border_X, Border_Y)
+				AddPathLine(Border_X + Border_Width, Border_Y)
+				AddPathArc(Border_X + Border_Width, Border_Y + Border_Height, Border_X, Border_Y + Border_Height, Radius)
+				AddPathLine(Border_X, Border_Y + Border_Height)
+				ClosePath()
+		EndSelect
+	EndProcedure
+	
 	Procedure PrepareVectorTextBlock(*TextData.Text)
 		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, ImageWidth, ImageHeight, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount
 		
@@ -735,7 +818,7 @@ Module UITK
 		EndIf
 		
 		Width = *TextData\Width - ImageWidth
-				
+		
 		If *TextData\LineLimit > 0
 			MaxLine = Min(MaxLine, *TextData\LineLimit)
 		EndIf
@@ -832,18 +915,6 @@ Module UITK
 			DrawVectorImage(ImageID(*TextData\Image))
 		EndIf
 		
-	EndProcedure
-	
-	Procedure AddPathRoundedBox(x, y, Width, Height, Radius, Flag = #PB_Path_Default)
-		MovePathCursor(x, y + Radius, Flag)
-		
-		AddPathArc(0, Height - radius, Width, Height - radius, Radius, #PB_Path_Relative)
-		AddPathArc(Width - Radius, 0, Width - Radius, - Height, Radius, #PB_Path_Relative)
-		AddPathArc(0, Radius - Height, -Width, Radius - Height, Radius, #PB_Path_Relative)
-		AddPathArc(Radius - Width, 0, Radius - Width, Height, Radius, #PB_Path_Relative)
-		ClosePath()
-		
-		MovePathCursor(-x,-y-Radius, Flag)
 	EndProcedure
 	
 	Procedure Disable(Gadget, State)
@@ -1021,7 +1092,7 @@ Module UITK
 			EndSelect
 		EndIf
 	EndProcedure
-
+	
 	Procedure Default_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
 		
@@ -1147,6 +1218,8 @@ Module UITK
 					Result = \Border
 				Case #Attribute_TextScale
 					Result = \TextBock\FontScale
+				Case #Attribute_CornerType
+					Result = \CornerType
 				Default
 					*GadgetData\OriginalVT\GetGadgetAttribute(*This, Attribute)
 			EndSelect
@@ -1200,6 +1273,8 @@ Module UITK
 				Case #Attribute_TextScale
 					\TextBock\FontScale = Value
 					PrepareVectorTextBlock(@\TextBock)
+				Case #Attribute_CornerType
+					\CornerType = Value
 				Default
 					*GadgetData\OriginalVT\SetGadgetAttribute(*This, Attribute, Value)
 			EndSelect
@@ -1358,7 +1433,7 @@ Module UITK
 		
 		CloseWindow(Window)
 	EndProcedure
-		
+	
 	Procedure CloseButton_Handler()
 		PostEvent(#PB_Event_CloseWindow, EventWindow(), 0)
 	EndProcedure
@@ -2117,7 +2192,7 @@ Module UITK
 			
 		EndWith
 	EndProcedure
-		
+	
 	Procedure AddFlatMenuSeparator(Menu, Position)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
 		
@@ -2150,7 +2225,7 @@ Module UITK
 		
 		
 	EndProcedure
-
+	
 	; Getters
 	Procedure FlatMenuWidth(FlatMenu)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
@@ -2167,7 +2242,6 @@ Module UITK
 	; Setters
 	
 	;}
-	
 	
 	;Gadgets:
 	;{ Button
@@ -2188,14 +2262,15 @@ Module UITK
 			EndIf
 			
 			If \Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \ThemeData\CornerRadius)
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
 				VectorSourceColor(\ThemeData\LineColor[State])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
-				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius)
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 			EndIf
 			
 			VectorSourceColor(\ThemeData\BackColor[State])
+			ClipPath(#PB_Path_Preserve)
 			FillPath()
 			
 			VectorSourceColor(\ThemeData\TextColor[State])
@@ -2447,7 +2522,7 @@ Module UITK
 					
 					\MouseState = #Warm
 					Redraw = #True
-				
+					
 				Case #KeyDown
 					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
 						\State = Bool(Not \State)
@@ -2524,7 +2599,7 @@ Module UITK
 					CopyStructure(@DefaultTheme, *ThemeData, Theme)
 				EndIf
 			EndIf
-				
+			
 			Toggle_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 			
 			RedrawObject()
@@ -2613,7 +2688,7 @@ Module UITK
 					
 					\MouseState = #Warm
 					Redraw = #True
-				
+					
 				Case #KeyDown
 					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
 						If \State = #PB_Checkbox_Inbetween
@@ -2891,10 +2966,10 @@ Module UITK
 				Result = *GadgetData\Max
 			Case #ScrollBar_PageLength
 				Result = *GadgetData\PageLenght
-			CompilerIf #PB_Compiler_Debugger
-			Default	
-				Debug "WARNING! Attribute #"+Attribute+ " unused on Scrollbar gadget... Might be wanting to get canvas attribute?"
-			CompilerEndIf
+				CompilerIf #PB_Compiler_Debugger
+				Default	
+					Debug "WARNING! Attribute #"+Attribute+ " unused on Scrollbar gadget... Might be wanting to get canvas attribute?"
+				CompilerEndIf
 		EndSelect
 		
 		ProcedureReturn Result
@@ -3056,7 +3131,7 @@ Module UITK
 			\Min = Min
 			\PageLenght = PageLenght
 			
-			If Flags & #ScrollBar_Vertical
+			If Flags & #Gadget_Vertical
 				\Vertical = #True
 				\Thickness = \Width
 				\BarSize = Clamp(Round(PageLenght / (max - min) * Height, #PB_Round_Nearest) - \Thickness, 0, Height - \Thickness)
@@ -3091,7 +3166,7 @@ Module UITK
 		Protected Result, *GadgetData.ScrollBarData, *this.PB_Gadget
 		
 		If AccessibilityMode
-			Result = ScrollBarGadget(Gadget, x, y, Width, Height, Min, Max, PageLenght, Bool(Flags & #ScrollBar_Vertical) * #PB_ScrollBar_Vertical)
+			Result = ScrollBarGadget(Gadget, x, y, Width, Height, Min, Max, PageLenght, Bool(Flags & #Gadget_Vertical) * #PB_ScrollBar_Vertical)
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
@@ -3239,11 +3314,11 @@ Module UITK
 	
 	Procedure ScrollArea_Handler()
 		Protected Gadget, *GadgetData.ScrollAreaData
-
+		
 		If EventType() = 0
 			Gadget = EventGadget()
 			*GadgetData = GetProp_(GadgetID(Gadget), "UITK_ScrollAreaData")
- 			SetGadgetState(*GadgetData\VerticalScrollbar, GetGadgetAttribute(Gadget, #PB_ScrollArea_Y))
+			SetGadgetState(*GadgetData\VerticalScrollbar, GetGadgetAttribute(Gadget, #PB_ScrollArea_Y))
 		EndIf
 	EndProcedure
 	
@@ -3294,37 +3369,37 @@ Module UITK
 					SetGadgetAttribute(*GadgetData\ScrollArea, #ScrollArea_InnerWidth, Value)
 					SetGadgetAttribute(*GadgetData\HorizontalScrollbar, #ScrollBar_Maximum, Value)
 					
-; 					If Value <= \Width + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
-; 						If Not \HiddenHScrollBar
-; 							\HiddenHScrollBar = #True
-; 							HideGadget(\HorizontalScrollbar, #True)
-; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
-; 						EndIf
-; 					Else
-; 						If \HiddenHScrollBar
-; 							\HiddenHScrollBar = #False
-; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
-; 							HideGadget(\HorizontalScrollbar, #True)
-; 						EndIf
-; 					EndIf
-						
+					; 					If Value <= \Width + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
+					; 						If Not \HiddenHScrollBar
+					; 							\HiddenHScrollBar = #True
+					; 							HideGadget(\HorizontalScrollbar, #True)
+					; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
+					; 						EndIf
+					; 					Else
+					; 						If \HiddenHScrollBar
+					; 							\HiddenHScrollBar = #False
+					; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
+					; 							HideGadget(\HorizontalScrollbar, #True)
+					; 						EndIf
+					; 					EndIf
+					
 				Case #ScrollArea_InnerHeight
 					SetGadgetAttribute(*GadgetData\VerticalScrollbar, #ScrollBar_Maximum, Value)
 					SetGadgetAttribute(*GadgetData\ScrollArea, #ScrollArea_InnerHeight, Value)
 					
-; 					If Value >= \Height + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
-; 						If Not \HiddenHScrollBar
-; 							\HiddenHScrollBar = #True
-; 							HideGadget(\VerticalScrollbar, #True)
-; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
-; 						EndIf
-; 					Else
-; 						If \HiddenHScrollBar
-; 							\HiddenHScrollBar = #False
-; 							HideGadget(\VerticalScrollbar, #False)
-; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
-; 						EndIf
-; 					EndIf
+					; 					If Value >= \Height + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
+					; 						If Not \HiddenHScrollBar
+					; 							\HiddenHScrollBar = #True
+					; 							HideGadget(\VerticalScrollbar, #True)
+					; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
+					; 						EndIf
+					; 					Else
+					; 						If \HiddenHScrollBar
+					; 							\HiddenHScrollBar = #False
+					; 							HideGadget(\VerticalScrollbar, #False)
+					; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
+					; 						EndIf
+					; 					EndIf
 				Case #ScrollArea_X
 					
 				Case #ScrollArea_Y
@@ -3421,7 +3496,7 @@ Module UITK
 				
 				\Width = Width
 				\Height = Height
-				\VerticalScrollbar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness, \Height, #ScrollBar_Vertical)
+				\VerticalScrollbar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness, \Height, #Gadget_Vertical)
 				BindGadgetEvent(\VerticalScrollbar, @ScrollArea_ScrollbarHandler(), #PB_EventType_Change)
 				SetProp_(GadgetID(\VerticalScrollbar), "UITK_ScrollAreaData", *GadgetData)
 				
@@ -3509,12 +3584,16 @@ Module UITK
 		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem, DragPosition
 		
 		With *GadgetData
+			
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
+			EndIf
+			
 			If *GadgetData\Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \ThemeData\CornerRadius)
 				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
 				StrokePath(2, #PB_Path_Preserve)
-			Else
-				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius)
 			EndIf
 			
 			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
@@ -3581,16 +3660,16 @@ Module UITK
 				EndIf
 				
 				If \VisibleScrollbar
-	 				\ScrollBar\Redraw(\ScrollBar)
-	 			EndIf
-	 			
-	 			If \ToolBarHeight
-	 				AddPathBox(0,0, \Width, #VerticalList_IconBarSize)
-	 				VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-	 				ClipPath(#PB_Path_Preserve)
-	 				FillPath()
-	 			EndIf
-	 		EndIf
+					\ScrollBar\Redraw(\ScrollBar)
+				EndIf
+				
+				If \ToolBarHeight
+					AddPathBox(0,0, \Width, #VerticalList_IconBarSize)
+					VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+					ClipPath(#PB_Path_Preserve)
+					FillPath()
+				EndIf
+			EndIf
 		EndWith
 	EndProcedure
 	
@@ -3725,7 +3804,7 @@ Module UITK
 							Redraw = #True
 						EndIf
 						;}
-					Else ;{
+					Else;{
 						If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
 							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 							
@@ -3749,7 +3828,7 @@ Module UITK
 							\ItemState = -1
 						EndIf
 					EndIf ;}
-					;}
+						  ;}
 				Case #LeftButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
@@ -4106,7 +4185,7 @@ Module UITK
 				UseGadgetList(GadgetList)
 			EndIf
 			
-			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #ScrollBar_Vertical)
+			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #Gadget_Vertical)
 			
 			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
 			\VT\CountGadgetItems = @VerticalList_CountItem()
@@ -4265,7 +4344,6 @@ Module UITK
 				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness, Progress)
 				FillPath(#PB_Path_Winding)
 				
-				AddPathRoundedBox(X - #TracKbar_CursorHeight * 0.5, Y + Progress, #TracKbar_CursorHeight, #TracKbar_CursorWidth, 3)
 			Else
 				Width = \Width - 2 * #Trackbar_Margin
 				Ratio = (Width - #TracKbar_CursorWidth) / (\Maximum - \Minimum)
@@ -4287,7 +4365,7 @@ Module UITK
 						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
 						DrawVectorParagraph(Str(\State), 50, TextHeight, #PB_VectorParagraph_Center)
 					EndIf
-						
+					
 					Y + #TracKbar_CursorHeight * 0.5
 				Else
 					Y = \OriginY + \Height - #TracKbar_CursorHeight - #Trackbar_Margin
@@ -4332,7 +4410,7 @@ Module UITK
 		EndWith
 		
 	EndProcedure
-		
+	
 	Procedure TrackBar_EventHandler(*GadgetData.TrackBarData, *Event.Event)
 		Protected Redraw, CursorX, CursorY, NewState
 		
@@ -4474,10 +4552,10 @@ Module UITK
 	Procedure TrackBar_Meta(*GadgetData.TrackBarData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(TrackBar)
-				
+		
 		With *GadgetData
 			
-			\Vertical = Bool(Flags & #Trackbar_Vertical)
+			\Vertical = Bool(Flags & #Gadget_Vertical)
 			\Maximum = Maximum
 			\Minimum = Minimum
 			\DisplayState = Bool(Flags & #Trackbar_ShowState)
@@ -4510,7 +4588,7 @@ Module UITK
 		Protected Result, *this.PB_Gadget, *GadgetData.TrackBarData
 		
 		If AccessibilityMode
-			Result = TrackBarGadget(Gadget, x, y, Width, Height, Minimum, Maximum, Bool(Flags & #Trackbar_Vertical) * #PB_TrackBar_Vertical)
+			Result = TrackBarGadget(Gadget, x, y, Width, Height, Minimum, Maximum, Bool(Flags & #Gadget_Vertical) * #PB_TrackBar_Vertical)
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
@@ -4574,12 +4652,12 @@ Module UITK
 	Procedure Combo_Redraw(*GadgetData.ComboData)
 		With *GadgetData
 			
-			If *GadgetData\Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, 4)
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
 				VectorSourceColor(\ThemeData\LineColor[Bool(\MouseState Or \Unfolded)])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
-				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, 4)
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 			EndIf
 			
 			VectorSourceColor(\ThemeData\BackColor[Bool(\MouseState Or \Unfolded)])
@@ -4687,7 +4765,7 @@ Module UITK
 			
 			*this\vt = \OriginalVT
 		EndWith
-	
+		
 		FreeStructure(*GadgetData)
 		
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
@@ -4836,12 +4914,13 @@ Module UITK
 	
 	Procedure Container_Redraw(*GadgetData.ContainerData)
 		With *GadgetData
-			If *GadgetData\Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height -2, \ThemeData\CornerRadius)
+			
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
 				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
-				AddPathroundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius)
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 			EndIf
 			
 			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
@@ -5079,9 +5158,9 @@ Module UITK
 		Protected Result, *this.PB_Gadget, *GadgetData.RadioData
 		
 		If AccessibilityMode
-; 			Result = RadioGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Radio_Right) |
-; 			                                                           (Bool(Flags & #HAlignCenter) * #PB_Radio_Center) |
-; 			                                                           #PB_Radio_ThreeState)
+			; 			Result = RadioGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Radio_Right) |
+			; 			                                                           (Bool(Flags & #HAlignCenter) * #PB_Radio_Center) |
+			; 			                                                           #PB_Radio_ThreeState)
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
@@ -5120,7 +5199,7 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	;}
-		
+	
 EndModule
 
 
@@ -5155,8 +5234,7 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 6 (Windows - x86)
-; CursorPosition = 3974
-; FirstLine = 165
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAA9
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 5207
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
