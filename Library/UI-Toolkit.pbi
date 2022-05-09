@@ -779,7 +779,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure PrepareVectorTextBlock(*TextData.Text)
-		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, ImageWidth, ImageHeight, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, bmp.BITMAP
 		
 		*TextData\RequieredHeight = 0
 		*TextData\RequieredWidth = 0
@@ -812,12 +812,12 @@ Module UITK
 		Next
 		
 		If *TextData\Image
-			ImageWidth = ImageWidth(*TextData\Image) + #TextBlock_ImageMargin
-			ImageHeight = ImageHeight(*TextData\Image)
-			*TextData\RequieredWidth + ImageWidth
+			GetObject_(*TextData\Image, SizeOf(BITMAP), @bmp.BITMAP)
+			bmp\bmWidth + #TextBlock_ImageMargin
+			*TextData\RequieredWidth + bmp\bmWidth
 		EndIf
 		
-		Width = *TextData\Width - ImageWidth
+		Width = *TextData\Width - bmp\bmWidth
 		
 		If *TextData\LineLimit > 0
 			MaxLine = Min(MaxLine, *TextData\LineLimit)
@@ -878,11 +878,11 @@ Module UITK
 		Next
 		
 		If *TextData\VAlign = #VAlignCenter
-			*TextData\ImageY = (*TextData\Height - ImageHeight) * 0.5
+			*TextData\ImageY = (*TextData\Height - bmp\bmHeight) * 0.5
 			*TextData\TextY = (*TextData\Height - LineCount * TextHeight) * 0.5
 		ElseIf *TextData\VAlign = #VAlignBottom
 			*TextData\TextY = *TextData\Height - LineCount * TextHeight
-			*TextData\ImageY = *TextData\Height - ImageHeight
+			*TextData\ImageY = *TextData\Height - bmp\bmHeight
 		Else 
 			*TextData\TextY = 0
 			*TextData\ImageY = 0
@@ -890,15 +890,15 @@ Module UITK
 		
 		If *TextData\HAlign = #HAlignCenter
 			*TextData\ImageX = (Width - FinalWidth) * 0.5
-			*TextData\TextX = ImageWidth * 0.5
+			*TextData\TextX = bmp\bmWidth * 0.5
 			*TextData\VectorAlign = #PB_VectorParagraph_Center
 		ElseIf *TextData\HAlign = #HAlignRight
 			*TextData\ImageX = Width + #TextBlock_ImageMargin
-			*TextData\TextX = - ImageWidth
+			*TextData\TextX = - bmp\bmWidth
 			*TextData\VectorAlign =  #PB_VectorParagraph_Right
 		Else
 			*TextData\ImageX = 0
-			*TextData\TextX = ImageWidth
+			*TextData\TextX = bmp\bmWidth
 			*TextData\VectorAlign =  #PB_VectorParagraph_Left
 		EndIf
 		
@@ -912,7 +912,7 @@ Module UITK
 		
 		If *TextData\Image
 			MovePathCursor(X + *TextData\ImageX, Y + *TextData\ImageY, #PB_Path_Default)
-			DrawVectorImage(ImageID(*TextData\Image))
+			DrawVectorImage(*TextData\Image)
 		EndIf
 		
 	EndProcedure
@@ -3950,6 +3950,9 @@ Module UITK
 			EndIf
 			
 			\ItemList()\Text\OriginalText = PeekS(*Text)
+			If ImageID > -1
+				\ItemList()\Text\Image = ImageID
+			EndIf
 			\ItemList()\Text\LineLimit = 1
 			\ItemList()\Text\FontID = \TextBock\FontID
 			
@@ -4740,9 +4743,12 @@ Module UITK
 	
 	Procedure Combo_VListHandler()
 		Protected Gadget = EventGadget(), *GadgetData.ComboData = GetProp_(GadgetID(Gadget), "UITK_ComboData")
+		Protected *this.PB_Gadget = IsGadget(*GadgetData\MenuCanvas), *VListData.VerticalListData = *this\vt
 		
-		*GadgetData\State = GetGadgetState(*GadgetData\MenuCanvas)
-		*GadgetData\TextBock\OriginalText = GetGadgetItemText(*GadgetData\MenuCanvas, *GadgetData\State)
+		*GadgetData\State = *VListData\State
+		SelectElement(*VListData\ItemList(), *VListData\State)
+		*GadgetData\TextBock\OriginalText = *VListData\ItemList()\Text\OriginalText
+		*GadgetData\TextBock\Image = *VListData\ItemList()\Text\Image
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		*GadgetData\Unfolded = #False
 		RedrawObject()
@@ -5235,6 +5241,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 5207
+; CursorPosition = 189
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
