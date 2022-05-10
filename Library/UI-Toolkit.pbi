@@ -4573,7 +4573,7 @@ Module UITK
 		Protected *GadgetData.ComboData = *this\vt
 		Protected *SubGadget.PB_Gadget = IsGadget(*GadgetData\MenuCanvas), *VListData.VerticalListData = *SubGadget\vt
 		
-		*GadgetData\State = State
+		SetGadgetState(*GadgetData\MenuCanvas, State)
 		*VListData\State = State
 		SelectElement(*VListData\ItemList(), *VListData\State)
 		*GadgetData\TextBock\OriginalText = *VListData\ItemList()\Text\OriginalText
@@ -5261,6 +5261,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 4990
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgD5
+; CursorPosition = 4574
+; FirstLine = 15
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAgD5
 ; EnableXP
