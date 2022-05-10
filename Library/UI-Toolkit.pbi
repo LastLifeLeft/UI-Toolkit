@@ -5020,10 +5020,10 @@ Module UITK
 						VectorSourceColor(\Theme\ShadeColor[#Warm])
 						FillPath()
 						VectorSourceColor(\Theme\TextColor[#Hot])
-						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y + 2)
+						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
 						VectorSourceColor(\Theme\TextColor[#Warm])
 					Else
-						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y + 2)
+						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
 					EndIf
 					
 					Y + \ItemHeight
@@ -5261,6 +5261,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 2026
+; CursorPosition = 4990
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgD5
 ; EnableXP
