@@ -1858,6 +1858,11 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure Handler_MenuButton()
+		Protected Button = EventGadget()
+		ShowFlatMenu(GetGadgetData(Button), GadgetX(Button, #PB_Gadget_ScreenCoordinate), GadgetY(Button, #PB_Gadget_ScreenCoordinate) + GadgetHeight(Button))
+	EndProcedure
+	
 	Procedure AddWindowMenu(Window, Menu, Title.s)
 		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
@@ -1888,7 +1893,9 @@ Module UITK
 			\MenuOffset + GadgetWidth(\MenuList())
 			
 			BindGadgetEvent(*MenuData\Canvas, @Handler_Menu(), #PB_EventType_CloseItem)
+			BindGadgetEvent(\MenuList(), @Handler_MenuButton(), #PB_EventType_Change)
 			SetGadgetData(*MenuData\Canvas, \MenuList())
+			SetGadgetData(\MenuList(), Menu)
 			
 			If WindowGadgetList
 				UseGadgetList(WindowGadgetList)
@@ -4987,7 +4994,7 @@ Module UITK
 		With *MenuData
 			StartVectorDrawing(CanvasVectorOutput(\Canvas))
 			AddPathBox(0, 0, \Width, \Height)
-			VectorSourceColor(\Theme\BackColor[#Warm])
+			VectorSourceColor(\Theme\ShadeColor[#Cold])
 			FillPath()
 			VectorSourceColor(\Theme\TextColor[#Warm])
 			
@@ -5003,7 +5010,7 @@ Module UITK
 				Else
 					If ListIndex(\Item()) = \State
 						AddPathBox(0, Y, \Width, \ItemHeight)
-						VectorSourceColor(\Theme\BackColor[#Hot])
+						VectorSourceColor(\Theme\ShadeColor[#Warm])
 						FillPath()
 						VectorSourceColor(\Theme\TextColor[#Hot])
 						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y + 2)
@@ -5243,7 +5250,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 2012
-; FirstLine = 391
-; Folding = NAQIAAAAgCAAMAAAAAAAAAAAAAAAAAAAAwh9
+; CursorPosition = 139
+; Folding = JAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAgD6
 ; EnableXP
