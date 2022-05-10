@@ -154,6 +154,7 @@
 	Declare SetWindowIcon(Window, Image)
 	Declare GetWindowIcon(Window)
 	Declare WindowGetColor(Window, ColorType)
+	Declare AddWindowMenu(Window, Menu, Title.s)
 	
 	; Menu
 	Declare FlatMenu(Flags = #Default)
@@ -470,6 +471,7 @@ Module UITK
 		WindowColor.l
 		Highlight.l
 		CornerRadius.b
+		WindowTitle.l
 	EndStructure
 	
 	Prototype Redraw(*GadgetData)
@@ -512,7 +514,33 @@ Module UITK
 		*DefaultEventHandler
 	EndStructure
 	
+	Enumeration ;Menu types
+		#Item
+		#Separator
+	EndEnumeration
 	
+	Structure MenuItem
+		Type.b
+		Text.s
+		Icon.i
+		ID.i
+	EndStructure
+	
+	Structure FlatMenu
+		Window.i
+		Canvas.i
+		Height.i
+		Width.i
+		State.i
+		ItemHeight.i
+		Vector.b
+		FontID.i
+		Theme.Theme
+		*HotItem
+		List Item.MenuItem()
+	EndStructure
+	
+	Global MenuWindow
 	Global AccessibilityMode = #False
 	Global DefaultTheme.Theme, DarkTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
@@ -561,6 +589,7 @@ Module UITK
 		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
+		\WindowTitle			= SetAlpha(FixColor($FFFFFF), 255)
 		
 		\CornerRadius			= 4
 	EndWith
@@ -604,6 +633,7 @@ Module UITK
 		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
+		\WindowTitle			= SetAlpha(FixColor($202225), 255)
 		
 		\CornerRadius			= 4
 	EndWith
@@ -1117,6 +1147,9 @@ Module UITK
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
 			
+			*GadgetData\TextBock\Width = \Width 
+			*GadgetData\TextBock\Height = \Height 
+			
 			PrepareVectorTextBlock(@*GadgetData\TextBock)
 			RedrawObject()
 		EndWith
@@ -1401,6 +1434,9 @@ Module UITK
 		Label.i
 		LabelWidth.l
 		LabelAlign.b
+		
+		MenuOffset.l
+		List MenuList.i()
 		
 		Theme.Theme
 	EndStructure
@@ -1707,13 +1743,12 @@ Module UITK
 			WindowID = WindowID(Window)
 			
 			If Flags & #DarkMode
-				Image = CreateImage(#PB_Any, 8, 8, 32, FixColor($202225))
 				CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
 			Else
-				Image = CreateImage(#PB_Any, 8, 8, 32, FixColor($FFFFFF))
 				CopyStructure(@DefaultTheme, *WindowData\Theme, Theme)
 			EndIf
 			
+			Image = CreateImage(#PB_Any, 8, 8, 32, FixColor(*WindowData\Theme\WindowTitle))
 			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
 			*WindowData\Width = WindowWidth(Window)
 			*WindowData\Height = WindowHeight(Window)
@@ -1816,8 +1851,50 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
+	Procedure Handler_Menu()
+		Debug "Got it!!"
+	EndProcedure
+	
 	Procedure AddWindowMenu(Window, Menu, Title.s)
+		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+		Protected WindowGadgetList
 		
+		With *WindowData
+			If ListSize(\MenuList()) = 0
+				SetGadgetText(\Label, "")
+				\LabelWidth = GadgetWidth(\Label, #PB_Gadget_RequiredSize)
+				\LabelAlign = #HAlignLeft
+				ResizeGadget(\Label, #SizableBorder, #PB_Ignore, \LabelWidth, #PB_Ignore)
+				\MenuOffset = \LabelWidth + #SizableBorder
+			EndIf
+			
+			AddElement(\MenuList())
+			If UseGadgetList(0) = WindowID(Window)
+				CloseGadgetList()
+			Else
+				WindowGadgetList = UseGadgetList(WindowID(Window))
+			EndIf
+			
+			UseGadgetList(WindowID(Window))
+			
+			\MenuList() = Button(#PB_Any, \MenuOffset, 0, 100, #WindowBarHeight, Title, #Button_Toggle)
+			SetGadgetAttribute(\MenuList(), #Attribute_CornerRadius, 0)
+			SetGadgetColor(\MenuList(), #Color_Back_Cold, \Theme\WindowTitle)
+			ResizeGadget(\MenuList(), #PB_Ignore, #PB_Ignore, GadgetWidth(\MenuList(), #PB_Gadget_RequiredSize) + 2 * #SizableBorder, #PB_Ignore)
+			\MenuOffset + GadgetWidth(\MenuList())
+			
+			BindGadgetEvent(*MenuData\Canvas, @Handler_Menu(), #PB_EventType_CloseItem)
+			
+			If WindowGadgetList
+				UseGadgetList(WindowGadgetList)
+				*WindowData.ThemedWindow = GetProp_(WindowID(WindowGadgetList), "UITK_WindowData")
+				OpenGadgetList(\Container)
+			Else
+				OpenGadgetList(\Container)
+			EndIf
+			
+		EndWith
 	EndProcedure
 	
 	Procedure OpenWindowGadgetList(Window)
@@ -1934,34 +2011,6 @@ Module UITK
 	#MenuSeparatorHeight = 9
 	#MenuMargin = 3
 	#MenuItemLeftMargin = 20 + #menuMargin
-	
-	Global MenuWindow
-	
-	Enumeration ;Menu types
-		#Item
-		#Separator
-	EndEnumeration
-	
-	Structure MenuItem
-		Type.b
-		Text.s
-		Icon.i
-		ID.i
-	EndStructure
-	
-	Structure FlatMenu
-		Window.i
-		Canvas.i
-		Height.i
-		Width.i
-		State.i
-		ItemHeight.i
-		Vector.b
-		FontID.i
-		Theme.Theme
-		*HotItem
-		List Item.MenuItem()
-	EndStructure
 	
 	Procedure FlatMenu_Redraw(*MenuData.FlatMenu)
 		Protected Y = #MenuMargin, VerticalOffset
@@ -2083,6 +2132,8 @@ Module UITK
 					FlatMenu_Redraw(*MenuData)
 				EndIf
 			EndIf
+			
+			PostEvent(#PB_Event_Gadget, \Window, \Canvas, #PB_EventType_CloseItem)
 		EndWith
 	EndProcedure
 	
@@ -4308,7 +4359,7 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(0, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(\IndentList()\Text, \Width - X, TextHeight, #PB_VectorParagraph_Right)
+						DrawVectorParagraph(Str(\State), \Width - X, TextHeight, #PB_VectorParagraph_Right)
 					EndIf
 					
 					X + #TracKbar_CursorHeight * 0.5
@@ -4320,7 +4371,7 @@ Module UITK
 						MovePathCursor(X + 2, Y + 1)
 						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
 						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, Y - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(Str(\State), \Width, TextHeight, #PB_VectorParagraph_Left)
+						DrawVectorParagraph(\IndentList()\Text, \Width, TextHeight, #PB_VectorParagraph_Left)
 					Next
 					
 					
@@ -4345,6 +4396,7 @@ Module UITK
 				AddPathBox(X - #Trackbar_Thickness * 0.5, Y + #Trackbar_Thickness * 0.5, #Trackbar_Thickness, Progress)
 				FillPath(#PB_Path_Winding)
 				
+				AddPathRoundedBox(X - #TracKbar_CursorHeight * 0.5, Y + Progress, #TracKbar_CursorHeight, #TracKbar_CursorWidth, 3)
 			Else
 				Width = \Width - 2 * #Trackbar_Margin
 				Ratio = (Width - #TracKbar_CursorWidth) / (\Maximum - \Minimum)
@@ -5242,6 +5294,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 2244
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 2011
+; Folding = PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP

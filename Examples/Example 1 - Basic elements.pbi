@@ -85,6 +85,15 @@ SetGadgetState(Gadget, 2)
 Gadget = UITK::Container(#PB_Any, 500, 350, 200, 230)
 CloseGadgetList()
 
+Menu = UITK::FlatMenu(UITK::#DarkMode)
+UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
+UITK::AddFlatMenuItem(Menu, 0, -1, "Item 3")
+UITK::AddFlatMenuItem(Menu, 0, 0, "Item 1")
+UITK::AddFlatMenuSeparator(Menu, -1)
+UITK::AddFlatMenuItem(Menu, 0, -1, "Variable Viewer")
+UITK::AddFlatMenuItem(Menu, 0, -1, "Compare Files/Folder")
+UITK::AddFlatMenuItem(Menu, 0, -1, "Procedure Browser")
+
 Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
 UITK::SetWindowIcon(Window1, ImageID(Image))
 
@@ -171,6 +180,8 @@ UITK::AddFlatMenuItem(Menu, 0, -1, "Procedure Browser")
 
 BindEvent(#PB_Event_RightClick, @ButtonEvent())
 
+UITK::AddWindowMenu(Window1, Menu, "File")
+UITK::AddWindowMenu(Window1, Menu, "Edit")
 
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
@@ -183,7 +194,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 142
-; FirstLine = 78
+; CursorPosition = 183
+; FirstLine = 110
 ; Folding = +
 ; EnableXP
