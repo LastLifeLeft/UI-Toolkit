@@ -1851,7 +1851,13 @@ Module UITK
 	EndProcedure
 	
 	Procedure Handler_Menu()
-		Debug "Got it!!"
+		Protected MenuButton = GetGadgetData(EventGadget())
+		Debug MenuButton
+		
+		If GetGadgetState(MenuButton)
+			Debug "oh"
+			SetGadgetState(MenuButton, #False)
+		EndIf
 	EndProcedure
 	
 	Procedure AddWindowMenu(Window, Menu, Title.s)
@@ -1882,8 +1888,10 @@ Module UITK
 			SetGadgetColor(\MenuList(), #Color_Back_Cold, \Theme\WindowTitle)
 			ResizeGadget(\MenuList(), #PB_Ignore, #PB_Ignore, GadgetWidth(\MenuList(), #PB_Gadget_RequiredSize) + 2 * #SizableBorder, #PB_Ignore)
 			\MenuOffset + GadgetWidth(\MenuList())
+			Debug \MenuList()
 			
 			BindGadgetEvent(*MenuData\Canvas, @Handler_Menu(), #PB_EventType_CloseItem)
+			SetGadgetData(*MenuData\Canvas, \MenuList())
 			
 			If WindowGadgetList
 				UseGadgetList(WindowGadgetList)
@@ -2144,6 +2152,9 @@ Module UITK
 			\TextBock\Height = Height - \VMargin * 2
 			
 			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			
+			\VT\GetGadgetState = @Default_GetState()
+			\VT\GetSadgetState = @Default_SetState()
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftClick] = #True
@@ -5240,7 +5251,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 1937
-; FirstLine = 240
-; Folding = NAQAAAAAACAAAAAAAAAAAAAAAAAAAAAAAwh9
+; CursorPosition = 2156
+; FirstLine = 276
+; Folding = NAQIAAAAAAAAMIBAAAAAAAAAAAAAAAAAAwh9
 ; EnableXP

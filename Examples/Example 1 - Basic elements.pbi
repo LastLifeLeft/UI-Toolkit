@@ -181,7 +181,7 @@ UITK::AddFlatMenuItem(Menu, 0, -1, "Procedure Browser")
 BindEvent(#PB_Event_RightClick, @ButtonEvent())
 
 UITK::AddWindowMenu(Window1, Menu, "File")
-UITK::AddWindowMenu(Window1, Menu, "Edit")
+; UITK::AddWindowMenu(Window1, Menu, "Edit")
 
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
