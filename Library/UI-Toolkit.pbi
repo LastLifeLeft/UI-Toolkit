@@ -5154,6 +5154,7 @@ Module UITK
 			\Item()\Text\Height = \ItemHeight
 			\Item()\Text\Width = 500
 			\Item()\Text\FontID = \FontID
+			\Item()\Text\Image = ImageID
 			\Item()\ID = MenuItem
 			\Height + \ItemHeight
 			PrepareVectorTextBlock(@\Item()\Text)
@@ -5250,6 +5251,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 139
+; CursorPosition = 4983
 ; Folding = JAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAgD6
 ; EnableXP

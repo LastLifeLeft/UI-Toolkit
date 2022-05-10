@@ -173,7 +173,7 @@ Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Prululu", "Exemple group", UIT
 
 Menu = UITK::FlatMenu(UITK::#DarkMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
-UITK::AddFlatMenuItem(Menu, 0, -1, "Item 3")
+UITK::AddFlatMenuItem(Menu, 0, -1, "Item 3", ImageID(Image))
 UITK::AddFlatMenuItem(Menu, 0, 0, "Item 1")
 UITK::AddFlatMenuSeparator(Menu, -1)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Variable Viewer")
@@ -196,7 +196,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 89
-; FirstLine = 77
+; CursorPosition = 175
+; FirstLine = 114
 ; Folding = +
 ; EnableXP
