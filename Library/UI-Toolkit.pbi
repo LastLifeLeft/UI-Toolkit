@@ -534,6 +534,7 @@ Module UITK
 		State.i
 		ItemHeight.i
 		FontID.i
+		Border.i
 		Theme.Theme
 		*HotItem
 		List Item.MenuItem()
@@ -1860,7 +1861,7 @@ Module UITK
 	
 	Procedure Handler_MenuButton()
 		Protected Button = EventGadget()
-		ShowFlatMenu(GetGadgetData(Button), GadgetX(Button, #PB_Gadget_ScreenCoordinate), GadgetY(Button, #PB_Gadget_ScreenCoordinate) + GadgetHeight(Button))
+		ShowFlatMenu(GetGadgetData(Button), GadgetX(Button, #PB_Gadget_ScreenCoordinate) - 1, GadgetY(Button, #PB_Gadget_ScreenCoordinate) + GadgetHeight(Button))
 	EndProcedure
 	
 	Procedure AddWindowMenu(Window, Menu, Title.s)
@@ -1889,6 +1890,8 @@ Module UITK
 			\MenuList() = Button(#PB_Any, \MenuOffset, 0, 100, #WindowBarHeight, Title, #Button_Toggle)
 			SetGadgetAttribute(\MenuList(), #Attribute_CornerRadius, 0)
 			SetGadgetColor(\MenuList(), #Color_Back_Cold, \Theme\WindowTitle)
+			SetGadgetColor(\MenuList(), #Color_Back_Warm, \Theme\ShadeColor[#Warm])
+			SetGadgetColor(\MenuList(), #Color_Back_Hot, \Theme\ShadeColor[#Cold])
 			ResizeGadget(\MenuList(), #PB_Ignore, #PB_Ignore, GadgetWidth(\MenuList(), #PB_Gadget_RequiredSize) + 2 * #SizableBorder, #PB_Ignore)
 			\MenuOffset + GadgetWidth(\MenuList())
 			
@@ -1896,6 +1899,10 @@ Module UITK
 			BindGadgetEvent(\MenuList(), @Handler_MenuButton(), #PB_EventType_Change)
 			SetGadgetData(*MenuData\Canvas, \MenuList())
 			SetGadgetData(\MenuList(), Menu)
+			*MenuData\Border = 1
+			ResizeGadget(*MenuData\Canvas, #PB_Ignore, 0, #PB_Ignore, #PB_Ignore)
+			ResizeWindow(*MenuData\Window, #PB_Ignore, #PB_Ignore, *MenuData\Width + 2, *MenuData\Height + *MenuData\Border)
+			
 			
 			If WindowGadgetList
 				UseGadgetList(WindowGadgetList)
@@ -4996,8 +5003,8 @@ Module UITK
 			AddPathBox(0, 0, \Width, \Height)
 			VectorSourceColor(\Theme\ShadeColor[#Cold])
 			FillPath()
+			VectorFont(\FontID)
 			VectorSourceColor(\Theme\TextColor[#Warm])
-			
 			
 			ForEach \Item()
 				If \Item()\Type = #Separator
@@ -5096,18 +5103,21 @@ Module UITK
 		
 		With *MenuData
 			\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, MenuWindow)
-			\Canvas = CanvasGadget(#PB_Any, 0, 0, #MenuMinimumWidth, 0, #PB_Canvas_Keyboard)
+			\Canvas = CanvasGadget(#PB_Any, 1, 1, #MenuMinimumWidth, 0, #PB_Canvas_Keyboard)
 			\FontID = DefaultFont
 			\Width = #MenuMinimumWidth
 			\Height = 0
 			\State = -1
 			\ItemHeight = 30
+			\Border = 2
 			
 			If Flags & #DarkMode
 				CopyStructure(DarkTheme, \Theme, Theme)
 			Else
 				CopyStructure(DefaultTheme, \Theme, Theme)
 			EndIf
+			
+			SetWindowColor(\Window, \Theme\WindowTitle)
 			
 			SetProp_(WindowID(\Window), "UITK_MenuData", *MenuData)
 			SetProp_(GadgetID(\Canvas), "UITK_MenuData", *MenuData)
@@ -5163,8 +5173,8 @@ Module UITK
 				\Width  = \Item()\Text\RequieredWidth + #MenuMargin + #MenuItemLeftMargin
 			EndIf
 			
-			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width, \Height)
-			ResizeGadget(\Canvas, 0, 0, \Width, \Height)
+			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
+			ResizeGadget(\Canvas, #PB_Ignore, #PB_Ignore, \Width, \Height)
 			
 			FlatMenu_Redraw(*MenuData)
 		EndWith
@@ -5184,8 +5194,8 @@ Module UITK
 			
 			\Item()\Type = #Separator
 			
-			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width, \Height)
-			ResizeGadget(\Canvas, 0, 0, \Width, \Height)
+			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
+			ResizeGadget(\Canvas, #PB_Ignore, #PB_Ignore, \Width, \Height)
 			
 			\Height + #MenuSeparatorHeight
 			
@@ -5251,6 +5261,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 4983
-; Folding = JAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAgD6
+; CursorPosition = 2026
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgD5
 ; EnableXP
