@@ -184,7 +184,7 @@
 	Declare DrawVectorTextBlock(*TextData.Text, X, Y)
 	Declare Disable(Gadget, State)
 	Declare Freeze(Gadget, State)
-	
+	Declare AddPathRoundedBox(Border_X, Border_Y, Border_Width, Border_Height, Radius, Type = #Corner_All)
 	
 	;}
 EndDeclareModule
@@ -5261,7 +5261,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 4574
-; FirstLine = 15
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAgD5
+; CursorPosition = 186
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAgD5
 ; EnableXP
