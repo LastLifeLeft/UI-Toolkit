@@ -4990,7 +4990,7 @@ Module UITK
 	
 	
 	;{ Menu
-	#MenuMinimumWidth = 160
+	#MenuMinimumWidth = 140
 	#MenuSeparatorHeight = 5
 	#MenuMargin = 5
 	#MenuItemLeftMargin = 20 + #menuMargin
