@@ -1852,10 +1852,8 @@ Module UITK
 	
 	Procedure Handler_Menu()
 		Protected MenuButton = GetGadgetData(EventGadget())
-		Debug MenuButton
 		
 		If GetGadgetState(MenuButton)
-			Debug "oh"
 			SetGadgetState(MenuButton, #False)
 		EndIf
 	EndProcedure
@@ -1888,7 +1886,6 @@ Module UITK
 			SetGadgetColor(\MenuList(), #Color_Back_Cold, \Theme\WindowTitle)
 			ResizeGadget(\MenuList(), #PB_Ignore, #PB_Ignore, GadgetWidth(\MenuList(), #PB_Gadget_RequiredSize) + 2 * #SizableBorder, #PB_Ignore)
 			\MenuOffset + GadgetWidth(\MenuList())
-			Debug \MenuList()
 			
 			BindGadgetEvent(*MenuData\Canvas, @Handler_Menu(), #PB_EventType_CloseItem)
 			SetGadgetData(*MenuData\Canvas, \MenuList())
@@ -2025,9 +2022,12 @@ Module UITK
 		Protected State
 		
 		With *GadgetData
-			
 			If \Enabled
-				State = \MouseState
+				If \State And \MouseState = #cold
+					State = #Hot
+				Else
+					State = \MouseState
+				EndIf
 			Else
 				State = #Disabled
 			EndIf
@@ -2077,11 +2077,7 @@ Module UITK
 					Redraw = #True
 					
 				Case #MouseLeave
-					If \State = #False
-						\MouseState = #Cold
-					Else
-						\MouseState = #Hot
-					EndIf
+					\MouseState = #Cold
 					Redraw = #True
 					
 				Case #KeyDown
@@ -2097,11 +2093,7 @@ Module UITK
 					EndIf
 				Case #KeyUp
 					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
-						If \State = #False
-							\MouseState = #Cold
-						Else
-							\MouseState = #Hot
-						EndIf
+						\MouseState = #Cold
 						Redraw = #True
 					EndIf
 				Case #LeftButtonDown
@@ -2154,7 +2146,7 @@ Module UITK
 			PrepareVectorTextBlock(@*GadgetData\TextBock)
 			
 			\VT\GetGadgetState = @Default_GetState()
-			\VT\GetSadgetState = @Default_SetState()
+			\VT\SetGadgetState = @Default_SetState()
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftClick] = #True
@@ -5251,7 +5243,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 2156
-; FirstLine = 276
-; Folding = NAQIAAAAAAAAMIBAAAAAAAAAAAAAAAAAAwh9
+; CursorPosition = 2012
+; FirstLine = 391
+; Folding = NAQIAAAAgCAAMAAAAAAAAAAAAAAAAAAAAwh9
 ; EnableXP
