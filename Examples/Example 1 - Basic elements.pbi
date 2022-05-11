@@ -169,6 +169,7 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 SetGadgetState(Gadget, 2)
 
+Gadget = UITK::Library(#PB_Any, 500, 250, 440, 340, UITK::#Border)
 
 Menu = UITK::FlatMenu(UITK::#DarkMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
@@ -195,7 +196,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 159
-; FirstLine = 111
+; CursorPosition = 172
+; FirstLine = 114
 ; Folding = +
 ; EnableXP
