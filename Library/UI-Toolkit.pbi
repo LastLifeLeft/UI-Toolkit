@@ -150,11 +150,12 @@
 	; Window
 	Declare Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
 	Declare OpenWindowGadgetList(Window)
+	Declare AddWindowMenu(Window, Menu, Title.s)
 	Declare SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 	Declare SetWindowIcon(Window, Image)
+	Declare WindowSetColor(Window, ColorType, Color)
 	Declare GetWindowIcon(Window)
 	Declare WindowGetColor(Window, ColorType)
-	Declare AddWindowMenu(Window, Menu, Title.s)
 	
 	; Menu
 	Declare FlatMenu(Flags = #Default)
@@ -409,15 +410,9 @@ Module UITK
 			EndStructure ;}
 		CompilerCase #PB_OS_MacOS   ;{
 			Structure PB_Gadget
-				*Gadget
-				*Container
-				*Functions	; ??
-				UserData.i
-				WindowID.i
-				Type.l
-				Flags.l
+				
 			EndStructure
-			CompilerError "MacOS isn't supported, sorry."
+			CompilerError "PLEASE SEND HELP ! AU SECOUR! TASEKETE KUDASAI!"
 			;}
 	CompilerEndSelect
 	
@@ -504,7 +499,6 @@ Module UITK
 		
 		Redraw.Redraw
 		EventHandler.EventHandler
-		Theme.Theme
 		TextBock.Text
 		ParentWindow.i
 		
@@ -633,7 +627,7 @@ Module UITK
 		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
-		\WindowTitle			= SetAlpha(FixColor($202225), 255)
+		\WindowTitle			= SetAlpha(FixColor($252220), 255)
 		
 		\CornerRadius			= 4
 	EndWith
@@ -1748,7 +1742,7 @@ Module UITK
 				CopyStructure(@DefaultTheme, *WindowData\Theme, Theme)
 			EndIf
 			
-			Image = CreateImage(#PB_Any, 8, 8, 32, FixColor(*WindowData\Theme\WindowTitle))
+			Image = CreateImage(#PB_Any, 8, 8, 32, SetAlpha(*WindowData\Theme\WindowTitle, 255)) ; Removing SetAlpha makes LightTheme goes derp. Can anybody explain?
 			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
 			*WindowData\Width = WindowWidth(Window)
 			*WindowData\Height = WindowHeight(Window)
@@ -1769,11 +1763,7 @@ Module UITK
 				
 				SetGadgetFont(*WindowData\ButtonClose, UITKFont)
 				
-				If Flags & #DarkMode
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
-				Else
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, SetAlpha(FixColor($FFFFFF), 255))
-				EndIf
+				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 				
 				BindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
 				
@@ -1792,11 +1782,7 @@ Module UITK
 				
 				SetGadgetFont(*WindowData\ButtonMaximize, UITKFont)
 				
-				If Flags & #DarkMode
-					SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
-				Else
-					SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, SetAlpha(FixColor($FFFFFF), 255))
-				EndIf
+				SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 			EndIf
 			
 			If Flags & #Window_MinimizeButton
@@ -1807,19 +1793,11 @@ Module UITK
 				
 				SetGadgetFont(*WindowData\ButtonMinimize, UITKFont)
 				
-				If Flags & #DarkMode
-					SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, SetAlpha(FixColor($202225), 255))
-				Else
-					SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, SetAlpha(FixColor($FFFFFF), 255))
-				EndIf
+				SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 			EndIf
 			
 			*WindowData\Label = Label(#PB_Any, #SizableBorder, 0, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
-			If Flags & #DarkMode
-				SetGadgetColor(*WindowData\Label, #Color_Parent, SetAlpha(FixColor($202225), 255))
-			Else
-				SetGadgetColor(*WindowData\Label, #Color_Parent, SetAlpha(FixColor($FFFFFF), 255))
-			EndIf
+			SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
 			*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
 			ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
 			
@@ -1921,6 +1899,8 @@ Module UITK
 		OpenGadgetList(*WindowData\Container)
 	EndProcedure
 	
+	; Setters
+	
 	Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 		Protected *WindowData.ThemedWindow
 		
@@ -1947,6 +1927,76 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure WindowSetColor(Window, ColorType, Color)
+		Protected *WindowData.ThemedWindow
+		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+		
+		Select ColorType
+			Case #Color_Back_Cold
+				*WindowData\Theme\BackColor[#Cold] = Color
+			Case #Color_Back_Warm
+				*WindowData\Theme\BackColor[#Warm] = Color
+			Case #Color_Back_Hot
+				*WindowData\Theme\BackColor[#Hot] = Color
+			Case #Color_Back_Disabled
+				*WindowData\Theme\BackColor[#Disabled] = Color
+			Case #Color_Text_Cold
+				*WindowData\Theme\TextColor[#Cold] = Color
+			Case #Color_Text_Warm
+				*WindowData\Theme\TextColor[#Warm] = Color
+			Case #Color_Text_Hot
+				*WindowData\Theme\TextColor[#Hot] = Color
+			Case #Color_Text_Disabled
+				*WindowData\Theme\TextColor[#Disabled] = Color
+			Case #Color_Parent
+				*WindowData\Theme\WindowColor = Color
+				SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(Color),Green(Color),Blue(Color)))
+			Case #Color_Shade_Cold
+				*WindowData\Theme\ShadeColor[#Cold] = Color
+			Case #Color_Shade_Warm                      
+				*WindowData\Theme\ShadeColor[#Warm] = Color
+			Case #Color_Shade_Hot                       
+				*WindowData\Theme\ShadeColor[#Hot] = Color
+			Case #Color_Shade_Disabled
+				*WindowData\Theme\ShadeColor[#Disabled] = Color
+			Case #Color_Line_Cold
+				*WindowData\Theme\LineColor[#Cold] = Color
+			Case #Color_Line_Warm                   
+				*WindowData\Theme\LineColor[#Warm] = Color
+			Case #Color_Line_Hot                    
+				*WindowData\Theme\LineColor[#Hot] = Color
+			Case #Color_Line_Disabled              
+				*WindowData\Theme\LineColor[#Disabled] = Color
+			Case #Color_Special1_Cold
+				*WindowData\Theme\Special1[#Cold] = Color
+			Case #Color_Special1_Warm
+				*WindowData\Theme\Special1[#Warm] = Color
+			Case #Color_Special1_Hot
+				*WindowData\Theme\Special1[#Hot] = Color
+			Case #Color_Special1_Disabled
+				*WindowData\Theme\Special1[#Disabled] = Color
+			Case #Color_Special2_Cold
+				*WindowData\Theme\Special2[#Cold] = Color
+			Case #Color_Special2_Warm
+				*WindowData\Theme\Special2[#Warm] = Color
+			Case #Color_Special2_Hot
+				*WindowData\Theme\Special2[#Hot] = Color
+			Case #Color_Special2_Disabled
+				*WindowData\Theme\Special2[#Disabled] = Color
+			Case #Color_Special3_Cold
+				*WindowData\Theme\Special3[#Cold] = Color
+			Case #Color_Special3_Warm
+				*WindowData\Theme\Special3[#Warm] = Color
+			Case #Color_Special3_Hot
+				*WindowData\Theme\Special3[#Hot] = Color
+			Case #Color_Special3_Disabled
+				*WindowData\Theme\Special3[#Disabled] = Color
+		EndSelect
+		
+		
+	EndProcedure
+	
+	; Getters
 	Procedure GetWindowIcon(Window)
 		Protected *WindowData.ThemedWindow
 		
@@ -4090,8 +4140,6 @@ Module UITK
 						MovePathCursor(0, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
 						DrawVectorParagraph(Str(\State), \Width - X, TextHeight, #PB_VectorParagraph_Right)
 					EndIf
-					
-					X + #TracKbar_CursorHeight * 0.5
 				Else
 					X = \OriginX + #Trackbar_Margin
 					
@@ -4103,15 +4151,13 @@ Module UITK
 						DrawVectorParagraph(\IndentList()\Text, \Width, TextHeight, #PB_VectorParagraph_Left)
 					Next
 					
-					
 					If \DisplayState
 						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
 						DrawVectorParagraph(Str(\State), \Width, TextHeight, #PB_VectorParagraph_Left)
 					EndIf
-					
-					X + #TracKbar_CursorHeight * 0.5
 				EndIf
 				
+					X + #TracKbar_CursorHeight * 0.5
 				Y = \OriginY + #Trackbar_Margin
 				
 				VectorSourceColor(\ThemeData\ShadeColor[#Warm])
@@ -5261,6 +5307,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 186
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAgD5
+; CursorPosition = 158
+; Folding = NAAIAAAAACAAAAAAAAAAAAAAAAAAAAQAAAHw
 ; EnableXP
