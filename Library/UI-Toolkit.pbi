@@ -3411,7 +3411,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_Redraw(*GadgetData.VerticalListData)
-		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem, DragPosition
+		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem, Drawn
 		
 		With *GadgetData
 			
@@ -3438,8 +3438,6 @@ Module UITK
 				
 				SelectElement(\ItemList(), Position)
 				
-				DragPosition = \DragPosition
-				
 				If (\DragPosition > - 1) And Position > \ItemState
 					NextElement(\ItemList())
 				EndIf
@@ -3453,10 +3451,11 @@ Module UITK
 				Repeat
 					CurrentItem = ListIndex(\ItemList())
 					
-					If CurrentItem = DragPosition
+					If CurrentItem = \DragPosition
 						AddPathBox(\Border, Y - 1, 80, 3)
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
 						FillPath()
+						Drawn = #True
 					EndIf
 					
 					If CurrentItem = \State
@@ -3481,9 +3480,9 @@ Module UITK
 					\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State)
 					Y + \ItemHeight
 					ItemCount + 1
-				Until (Not NextElement(\ItemList())) Or ItemCount = \MaxDisplayedItem
+				Until ItemCount = \MaxDisplayedItem Or (Not NextElement(\ItemList()))
 				
-				If CurrentItem + 1 = \DragPosition
+				If CurrentItem + 1 = \DragPosition Or (\DragPosition = \State + 1 And Drawn = #False)
 					AddPathBox(\Border, Y - 2, 80, 3)
 					VectorSourceColor(\ThemeData\TextColor[#Cold])
 					FillPath()
@@ -5034,7 +5033,6 @@ Module UITK
 	EndProcedure
 	;}
 	
-	
 	;{ Menu
 	#MenuMinimumWidth = 140
 	#MenuSeparatorHeight = 5
@@ -5306,7 +5304,7 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 158
-; Folding = NAAIAAAAACAAAAAAAAAAAAAAAAAAAAQAAAHw
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 5034
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAHw
 ; EnableXP

@@ -116,28 +116,28 @@ UITK::CheckBox(#PB_Any, 20, 310, 200, 28, "Checkbox")
 Gadget = UITK::CheckBox(#PB_Any, 20, 350, 200, 28, "Checkbox aligned right", UITK::#HAlignRight)
 SetGadgetState(Gadget, #PB_Checkbox_Inbetween)
 
-UITK::ScrollBar(#PB_Any, 213, 420, 7, 148, 0, 100, 25, UITK::#Gadget_Vertical)
-UITK::ScrollBar(#PB_Any, 20, 568, 193, 7, 0, 100, 25)
+Gadget = UITK::Container(#PB_Any, 20, 395, 200, 195)
+CloseGadgetList()
 
 Gadget = UITK::Label(#PB_Any, 260, 20, 200, 20, "Label", UITK::#HAlignLeft)
 UITK::Label(#PB_Any, 260, 50, 200, 20, "Label to the right", UITK::#HAlignRight)
 UITK::Label(#PB_Any, 260, 80, 200, 20, "Label centered", UITK::#HAlignCenter)
 
-UITK::ScrollArea(#PB_Any, 260, 120, 200, 180, 300, 300, 10)
+UITK::ScrollArea(#PB_Any, 260, 120, 200, 210, 300, 300, 10)
 UITK::Label(#PB_Any, 50, 145, 200, 20, "Inside the scroll area",  UITK::#HAlignCenter)
 CloseGadgetList()
 
-Gadget = UITK::TrackBar(#PB_Any, 260, 330, 200, 40, 0, 100,  UITK::#VAlignTop | UITK::#Trackbar_ShowState)
+Gadget = UITK::TrackBar(#PB_Any, 260, 353, 200, 40, 0, 100,  UITK::#VAlignTop | UITK::#Trackbar_ShowState)
 AddGadgetItem(Gadget, 0, "x.5")
 AddGadgetItem(Gadget, 13, "x1")
 AddGadgetItem(Gadget, 100, "x4")
 SetGadgetState(Gadget, 31)
 
-Gadget = UITK::TrackBar(#PB_Any, 260, 390, 60, 180, 0, 4,  UITK::#Gadget_Vertical)
+Gadget = UITK::TrackBar(#PB_Any, 260, 413, 60, 180, 0, 4,  UITK::#Gadget_Vertical)
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
-Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 250, UITK::#Border | UITK::#ReOrder)
+Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 200, UITK::#Border | UITK::#ReOrder)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1", ImageID(Image))
 AddGadgetItem(Gadget, -1, "Item 2")
@@ -152,7 +152,12 @@ AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
 RemoveGadgetItem(Gadget, 3)
 
-Gadget = UITK::Combo(#PB_Any, 500, 290, 200, 40, UITK::#Border)
+Gadget = UITK::Radio(#PB_Any, 740, 20, 200, 28, "Radio 1", "Exemple group", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Radio 2", "Exemple group", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Radio 3", "Exemple group", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 140, 200, 28, "Radio 4", "Exemple group", UITK::#HAlignRight)
+
+Gadget = UITK::Combo(#PB_Any, 740, 180, 200, 40, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 2")
 AddGadgetItem(Gadget, -1, "Item 3", ImageID(Image))
@@ -164,12 +169,6 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 SetGadgetState(Gadget, 2)
 
-Gadget = UITK::Container(#PB_Any, 500, 350, 200, 230)
-CloseGadgetList()
-
-Gadget = UITK::Radio(#PB_Any, 740, 20, 200, 28, "Prululu", "Exemple group", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Prululu", "Exemple group", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Prululu", "Exemple group", UITK::#HAlignRight)
 
 Menu = UITK::FlatMenu(UITK::#DarkMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
@@ -183,7 +182,7 @@ UITK::AddFlatMenuItem(Menu, 0, -1, "Procedure Browser")
 BindEvent(#PB_Event_RightClick, @ButtonEvent())
 
 UITK::AddWindowMenu(Window1, Menu, "File")
-; UITK::AddWindowMenu(Window1, Menu, "Edit")
+UITK::AddWindowMenu(Window1, Menu, "Edit")
 
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
@@ -195,8 +194,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 46
-; FirstLine = 29
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 159
+; FirstLine = 111
 ; Folding = +
 ; EnableXP
