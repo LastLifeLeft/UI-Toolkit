@@ -18,7 +18,6 @@
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
 		#Gadget_Vertical								; scrollbar/trackbar/... is vertical (instead of horizontal, which is the default).
 		#Trackbar_ShowState								; Display the numerical state on the trackbar
-		#VList_Toolbar									; Add a 32 pixel heigh toolbar at the top.
 		
 		; Window
 		#Window_CloseButton
@@ -37,7 +36,6 @@
 		#ScrollArea_Y				= #PB_ScrollArea_Y          
 		#ScrollArea_ScrollStep		= #PB_ScrollArea_ScrollStep 
 		
-		#Attribute_ToolBarHeight
 		#Attribute_ItemHeight
 		#Attribute_CornerRadius
 		#Attribute_Border
@@ -3354,7 +3352,6 @@ Module UITK
 	;{ VerticalList
 	#VerticalList_Margin = 3
 	#VerticalList_IconWidth = 30
-	#VerticalList_IconBarSize = 40
 	#VerticalList_ItemHeight = 40
 	#VerticalList_ToolbarThickness = 7
 	
@@ -3362,7 +3359,6 @@ Module UITK
 		ItemHeight.l
 		MaxDisplayedItem.i
 		VisibleScrollbar.b
-		ToolBarHeight.w
 		SortItem.i
 		ItemState.i
 		Reorder.i
@@ -3412,7 +3408,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_Redraw(*GadgetData.VerticalListData)
-		Protected Y = *GadgetData\OriginY + *GadgetData\ToolBarHeight, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem, Drawn
+		Protected Y = *GadgetData\OriginY, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem, Drawn
 		
 		With *GadgetData
 			
@@ -3492,13 +3488,6 @@ Module UITK
 				If \VisibleScrollbar
 					\ScrollBar\Redraw(\ScrollBar)
 				EndIf
-				
-				If \ToolBarHeight
-					AddPathBox(0,0, \Width, #VerticalList_IconBarSize)
-					VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-					ClipPath(#PB_Path_Preserve)
-					FillPath()
-				EndIf
 			EndIf
 		EndWith
 	EndProcedure
@@ -3511,11 +3500,6 @@ Module UITK
 				If Ceil(\ScrollBar\State / \ItemHeight) > \State
 					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemHeight)
 					Result = #True
-				Else
-					If (\State + 1) * \ItemHeight - \ScrollBar\State > (\Height - \ToolBarHeight)
-						ScrollBar_SetState_Meta(\ScrollBar, (\State + 1) * \ItemHeight - (\Height - \ToolBarHeight))
-						Result = #True
-					EndIf
 				EndIf
 			EndIf
 		EndWith
@@ -3565,10 +3549,10 @@ Module UITK
 						If Abs(\ReorderOriginX - *Event\MouseX) > 7 Or Abs(\ReorderOriginY - *Event\MouseY) > 7
 							\ReorderState = #Drag_Active
 							\ReorderOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginX
-							\ReorderOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginY + \ItemState * \ItemHeight - \ScrollBar\State + \ToolBarHeight
-							\ReorderPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+							\ReorderOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginY + \ItemState * \ItemHeight - \ScrollBar\State
+							\ReorderPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
 							
-							If (ListSize(\ItemList()) - 1) * \ItemHeight > \Height - \ToolBarHeight
+							If (ListSize(\ItemList()) - 1) * \ItemHeight > \Height 
 								\VisibleScrollbar = #True
 								ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max - \ItemHeight)
 							Else
@@ -3602,14 +3586,14 @@ Module UITK
 						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \ReorderOriginX, *Event\MouseY + \ReorderOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
 						
 						If \VisibleScrollbar
-							If (*Event\MouseY - \ToolBarHeight < 0)
+							If (*Event\MouseY < 0)
 								If Not \ReorderTimer
 									\ReorderTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_ReorderTimer())
 									\ReorderDirection = - 1
 									ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight)
 									Redraw = #True
 								EndIf
-								*Event\MouseY = \ToolBarHeight
+								*Event\MouseY = 0
 							ElseIf (*Event\MouseY > \Height)
 								If Not \ReorderTimer
 									\ReorderTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_ReorderTimer())
@@ -3626,7 +3610,7 @@ Module UITK
 							EndIf
 						EndIf
 						
-						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
 						Item + Bool(Item >= \State)
 						
 						If \ReorderPosition <> Item
@@ -3644,9 +3628,9 @@ Module UITK
 						EndIf
 						
 						If Not \ScrollBar\MouseState
-							Item = Floor((*Event\MouseY - \ToolBarHeight + \ScrollBar\State) / \ItemHeight)
+							Item = Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight)
 							
-							If item >= ListSize(\ItemList()) Or *Event\MouseY < \ToolBarHeight
+							If item >= ListSize(\ItemList())
 								Item = -1
 							EndIf
 							
@@ -3703,7 +3687,7 @@ Module UITK
 						
 						VerticalList_StateFocus(*GadgetData)
 						
-						If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
+						If ListSize(\ItemList()) * \ItemHeight > \Height
 							\VisibleScrollbar = #True
 							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
 						Else
@@ -3790,7 +3774,7 @@ Module UITK
 			
 			PrepareVectorTextBlock(@\ItemList()\Text)
 			
-			If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
+			If ListSize(\ItemList()) * \ItemHeight > \Height
 				\VisibleScrollbar = #True
 				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
 			Else
@@ -3822,7 +3806,7 @@ Module UITK
 				SelectElement(\ItemList(), Position)
 				DeleteElement(\ItemList())
 				
-				If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
+				If ListSize(\ItemList()) * \ItemHeight > \Height
 					\VisibleScrollbar = #True
 					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
 				Else
@@ -3862,10 +3846,10 @@ Module UITK
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 			
 			
-			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight - \Border * 2 - 2)
-			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
+			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
+			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
 			
-			If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
+			If ListSize(\ItemList()) * \ItemHeight > \Height
 				\VisibleScrollbar = #True
 			Else
 				\VisibleScrollbar = #False
@@ -3928,7 +3912,7 @@ Module UITK
 					\ItemHeight = Value
 					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 					
-					If ListSize(\ItemList()) * \ItemHeight > \Height - \ToolBarHeight
+					If ListSize(\ItemList()) * \ItemHeight > \Height
 						\VisibleScrollbar = #True
 						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
 					Else
@@ -3945,12 +3929,6 @@ Module UITK
 						ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
 					EndIf
 					
-					;}
-				Case #Attribute_ToolBarHeight ;{
-					\ToolBarHeight = Value
-					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
-					Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, \Height - \ToolBarHeight - \Border * 2 - 2)
-					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - \ToolBarHeight)
 					;}
 				Case #Attribute_SortItems ;{
 					\SortItem = Value
@@ -3994,9 +3972,6 @@ Module UITK
 				\ItemRedraw = @VerticalList_ItemRedraw() 
 			EndIf
 			
-			\ToolBarHeight = Bool(Flags & #VList_Toolbar) * #VerticalList_IconBarSize
-			Height - \ToolBarHeight
-			
 			\ItemHeight = #VerticalList_ItemHeight
 			\State = -1
 			\ItemState = -1
@@ -4016,7 +3991,7 @@ Module UITK
 				UseGadgetList(GadgetList)
 			EndIf
 			
-			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \ToolBarHeight + \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #Gadget_Vertical)
+			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #Gadget_Vertical)
 			
 			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
 			\VT\CountGadgetItems = @VerticalList_CountItem()
@@ -4046,7 +4021,7 @@ Module UITK
 		If AccessibilityMode
 			
 		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #VList_Toolbar) * #PB_Canvas_Container))
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
 				If Gadget = #PB_Any
@@ -5171,7 +5146,7 @@ Module UITK
 			
 			If \Selected
 				AddPathBox(X - 0.5, Y - 0.5, #Library_ItemWidth + 1, TextHeight + 1)
-				VectorSourceColor(*Theme\Special1[#Cold])
+				VectorSourceColor(*Theme\Special3[#Cold])
 				StrokePath(3)
 				VectorSourceColor(*Theme\TextColor[#Cold])
 			EndIf
@@ -5371,11 +5346,8 @@ Module UITK
 					If \VisibleScrollbar
 						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\MouseWHeel * \ItemHeight * 0.5)
 						*Event\EventType = #MouseMove
-						; 						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
-						Redraw = #True
+						Redraw = Bool(Not Library_EventHandler(*GadgetData, *Event))
 					EndIf
-					;}
-				Case #KeyDown	;{
 					;}
 			EndSelect
 			
@@ -5383,6 +5355,8 @@ Module UITK
 				RedrawObject()
 			EndIf
 		EndWith
+		
+		ProcedureReturn Redraw
 	EndProcedure
 	
 	Procedure Library_Meta(*GadgetData.LibraryData, *ThemeData, Gadget, x, y, Width, Height, Flags)
@@ -5732,6 +5706,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 192
-; Folding = JAAAAAAAAAAAAAAAAAAAAAEgAAYAAAQAAAAAwB9
+; CursorPosition = 190
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAcA-
 ; EnableXP

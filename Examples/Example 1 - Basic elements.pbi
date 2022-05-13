@@ -100,7 +100,7 @@ AddGadgetItem(Gadget, 2, "Item 2", LibraryImageID)
 AddGadgetItem(Gadget, 2, "Item 3", LibraryImageID)
 AddGadgetItem(Gadget, 2, "Item 4", LibraryImageID)
 
-Menu = UITK::FlatMenu(UITK::#DarkMode)
+Menu = UITK::FlatMenu(UITK::#LightMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 3", ImageID(Image))
 UITK::AddFlatMenuItem(Menu, 0, 0, "Item 1")
@@ -224,7 +224,7 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 213
-; FirstLine = 145
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 102
+; FirstLine = 81
 ; EnableXP
