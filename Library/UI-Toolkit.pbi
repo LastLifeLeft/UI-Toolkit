@@ -133,6 +133,24 @@
 		*Data
 	EndStructure
 	
+	Structure Library_Item
+		ImageID.i
+		ImageX.i
+		ImageY.i
+		HoverState.b
+		Selected.b
+		*Section.Library_Section
+		*Data
+		Text.Text
+	EndStructure
+	
+	Structure Library_Section
+		Height.l
+		Text.Text
+		*Data
+		List *Items.Library_Item()
+	EndStructure
+	
 	Global UITKFont
 	;}
 	
@@ -3374,7 +3392,7 @@ Module UITK
 		*ItemRedraw.ItemRedraw
 		*ScrollBar.ScrollBarData
 		
-		List ItemList.VerticalListItem()
+		List Items.VerticalListItem()
 	EndStructure
 	
 	Declare VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
@@ -3427,16 +3445,16 @@ Module UITK
 			ClipPath(#PB_Path_Preserve)
 			FillPath()
 			
-			If ListSize(\ItemList())
+			If ListSize(\Items())
 				If \VisibleScrollbar
 					Position = Floor(\ScrollBar\State / \ItemHeight)
 					Y - (\ScrollBar\State % \ItemHeight)
 				EndIf
 				
-				SelectElement(\ItemList(), Position)
+				SelectElement(\Items(), Position)
 				
 				If (\ReorderPosition > - 1) And Position > \ItemState
-					NextElement(\ItemList())
+					NextElement(\Items())
 				EndIf
 				
 				If \TextBock\FontScale
@@ -3446,7 +3464,7 @@ Module UITK
 				EndIf
 				
 				Repeat
-					CurrentItem = ListIndex(\ItemList())
+					CurrentItem = ListIndex(\Items())
 					
 					If CurrentItem = \ReorderPosition
 						AddPathBox(\Border, Y - 1, 80, 3)
@@ -3474,10 +3492,10 @@ Module UITK
 					
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
-					\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State, \ThemeData)
+					\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State, \ThemeData)
 					Y + \ItemHeight
 					ItemCount + 1
-				Until ItemCount = \MaxDisplayedItem Or (Not NextElement(\ItemList()))
+				Until ItemCount = \MaxDisplayedItem Or (Not NextElement(\Items()))
 				
 				If CurrentItem + 1 = \ReorderPosition Or (\ReorderPosition = \State + 1 And Drawn = #False)
 					AddPathBox(\Border, Y - 2, 80, 3)
@@ -3550,9 +3568,9 @@ Module UITK
 							\ReorderState = #Drag_Active
 							\ReorderOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginX
 							\ReorderOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginY + \ItemState * \ItemHeight - \ScrollBar\State
-							\ReorderPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+							\ReorderPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\Items()) - 1)
 							
-							If (ListSize(\ItemList()) - 1) * \ItemHeight > \Height 
+							If (ListSize(\Items()) - 1) * \ItemHeight > \Height 
 								\VisibleScrollbar = #True
 								ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max - \ItemHeight)
 							Else
@@ -3570,9 +3588,9 @@ Module UITK
 							EndIf
 							FillPath()
 							
-							SelectElement(\ItemList(), \State)
+							SelectElement(\Items(), \State)
 							VectorSourceColor(\ThemeData\TextColor[#Hot])
-							\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot, \ThemeData)
+							\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot, \ThemeData)
 							
 							StopVectorDrawing()
 							
@@ -3610,7 +3628,7 @@ Module UITK
 							EndIf
 						EndIf
 						
-						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\Items()) - 1)
 						Item + Bool(Item >= \State)
 						
 						If \ReorderPosition <> Item
@@ -3630,7 +3648,7 @@ Module UITK
 						If Not \ScrollBar\MouseState
 							Item = Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight)
 							
-							If item >= ListSize(\ItemList())
+							If item >= ListSize(\Items())
 								Item = -1
 							EndIf
 							
@@ -3668,16 +3686,16 @@ Module UITK
 					EndIf
 					
 					If \ReorderState = #Drag_Active
-						If \ReorderPosition = ListSize(\ItemList())
-							Item = SelectElement(\ItemList(), \State)
-							MoveElement(\ItemList(), #PB_List_Last)
+						If \ReorderPosition = ListSize(\Items())
+							Item = SelectElement(\Items(), \State)
+							MoveElement(\Items(), #PB_List_Last)
 						Else
-							*Element = SelectElement(\ItemList(), \ReorderPosition)
-							Item = SelectElement(\ItemList(), \State)
-							MoveElement(\ItemList(), #PB_List_Before, *Element)
+							*Element = SelectElement(\Items(), \ReorderPosition)
+							Item = SelectElement(\Items(), \State)
+							MoveElement(\Items(), #PB_List_Before, *Element)
 						EndIf
-						ChangeCurrentElement(\ItemList(), Item)
-						\State = ListIndex(\ItemList())
+						ChangeCurrentElement(\Items(), Item)
+						\State = ListIndex(\Items())
 						HideWindow(\ReorderWindow, #True)
 						
 						If \ReorderTimer
@@ -3687,9 +3705,9 @@ Module UITK
 						
 						VerticalList_StateFocus(*GadgetData)
 						
-						If ListSize(\ItemList()) * \ItemHeight > \Height
+						If ListSize(\Items()) * \ItemHeight > \Height
 							\VisibleScrollbar = #True
-							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
+							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
 						Else
 							\VisibleScrollbar = #False
 						EndIf
@@ -3721,7 +3739,7 @@ Module UITK
 					If \ReorderState = #Drag_None
 						Select \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key)
 							Case #PB_Shortcut_Down
-								If \State < ListSize(\ItemList()) - 1
+								If \State < ListSize(\Items()) - 1
 									\State + 1
 									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
@@ -3755,38 +3773,38 @@ Module UITK
 		
 		With *GadgetData
 			
-			If Position > -1 And Position < ListSize(\ItemList())
-				SelectElement(\ItemList(), Position)
-				*NewItem = InsertElement(\ItemList())
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*NewItem = InsertElement(\Items())
 			Else
-				LastElement(\ItemList())
-				*NewItem = AddElement(\ItemList())
+				LastElement(\Items())
+				*NewItem = AddElement(\Items())
 			EndIf
 			
-			\ItemList()\Text\OriginalText = PeekS(*Text)
-			\ItemList()\Text\Image = ImageID
-			\ItemList()\Text\LineLimit = 1
-			\ItemList()\Text\FontID = \TextBock\FontID
+			\Items()\Text\OriginalText = PeekS(*Text)
+			\Items()\Text\Image = ImageID
+			\Items()\Text\LineLimit = 1
+			\Items()\Text\FontID = \TextBock\FontID
 			
-			\ItemList()\Text\Width = \TextBock\Width - #VerticalList_Margin * 2
-			\ItemList()\Text\Height = \ItemHeight
-			\ItemList()\Text\VAlign = #VAlignCenter
+			\Items()\Text\Width = \TextBock\Width - #VerticalList_Margin * 2
+			\Items()\Text\Height = \ItemHeight
+			\Items()\Text\VAlign = #VAlignCenter
 			
-			PrepareVectorTextBlock(@\ItemList()\Text)
+			PrepareVectorTextBlock(@\Items()\Text)
 			
-			If ListSize(\ItemList()) * \ItemHeight > \Height
+			If ListSize(\Items()) * \ItemHeight > \Height
 				\VisibleScrollbar = #True
-				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
 			Else
 				\VisibleScrollbar = #False
 			EndIf
 			
 			If \SortItem
-				SortStructuredList(\ItemList(), #PB_Sort_Ascending, OffsetOf(VerticalListItem\Text), #PB_String)
+				SortStructuredList(\Items(), #PB_Sort_Ascending, OffsetOf(VerticalListItem\Text), #PB_String)
 			EndIf
 			
-			ChangeCurrentElement(\ItemList(), *NewItem)
-			Position = ListIndex(\ItemList())
+			ChangeCurrentElement(\Items(), *NewItem)
+			Position = ListIndex(\Items())
 			
 			If Position <= \State
 				\State + 1
@@ -3802,13 +3820,13 @@ Module UITK
 		Protected *GadgetData.VerticalListData = *this\vt, *Result
 		
 		With *GadgetData
-			If Position > -1 And Position < ListSize(\ItemList())
-				SelectElement(\ItemList(), Position)
-				DeleteElement(\ItemList())
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				DeleteElement(\Items())
 				
-				If ListSize(\ItemList()) * \ItemHeight > \Height
+				If ListSize(\Items()) * \ItemHeight > \Height
 					\VisibleScrollbar = #True
-					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
 				Else
 					\VisibleScrollbar = #False
 				EndIf
@@ -3816,7 +3834,7 @@ Module UITK
 				If \State > Position
 					\State - 1
 				ElseIf \State = Position
-					If \State = ListSize(\ItemList())
+					If \State = ListSize(\Items())
 						\State - 1
 					EndIf
 					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
@@ -3838,9 +3856,9 @@ Module UITK
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
 			
-			ForEach \ItemList()
-				\ItemList()\Text\Width = \Width - #VerticalList_Margin * 2
-				PrepareVectorTextBlock(@\ItemList()\Text)
+			ForEach \Items()
+				\Items()\Text\Width = \Width - #VerticalList_Margin * 2
+				PrepareVectorTextBlock(@\Items()\Text)
 			Next
 			
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
@@ -3849,7 +3867,7 @@ Module UITK
 			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
 			
-			If ListSize(\ItemList()) * \ItemHeight > \Height
+			If ListSize(\Items()) * \ItemHeight > \Height
 				\VisibleScrollbar = #True
 			Else
 				\VisibleScrollbar = #False
@@ -3876,15 +3894,15 @@ Module UITK
 	; Getters
 	Procedure VerticalList_CountItem(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
-		ProcedureReturn ListSize(*GadgetData\ItemList())
+		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
 	
 	Procedure VerticalList_GetItemData(*this.PB_Gadget, Position)
 		Protected *GadgetData.VerticalListData = *this\vt, *Result
 		
-		If Position > -1 And Position < ListSize(*GadgetData\ItemList())
-			SelectElement(*GadgetData\ItemList(), Position)
-			*Result = *GadgetData\ItemList()\Data
+		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			SelectElement(*GadgetData\Items(), Position)
+			*Result = *GadgetData\Items()\Data
 		EndIf
 		
 		ProcedureReturn *Result
@@ -3893,9 +3911,9 @@ Module UITK
 	Procedure.s VerticalList_GetItemText(*this.PB_Gadget, Position)
 		Protected *GadgetData.VerticalListData = *this\vt, Result.s
 		
-		If Position > -1 And Position < ListSize(*GadgetData\ItemList())
-			SelectElement(*GadgetData\ItemList(), Position)
-			Result = *GadgetData\ItemList()\Text\OriginalText
+		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			SelectElement(*GadgetData\Items(), Position)
+			Result = *GadgetData\Items()\Text\OriginalText
 		EndIf
 		
 		ProcedureReturn Result
@@ -3912,16 +3930,16 @@ Module UITK
 					\ItemHeight = Value
 					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 					
-					If ListSize(\ItemList()) * \ItemHeight > \Height
+					If ListSize(\Items()) * \ItemHeight > \Height
 						\VisibleScrollbar = #True
-						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\ItemList()) * \ItemHeight)
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
 					Else
 						\VisibleScrollbar = #False
 					EndIf
 					
-					ForEach \ItemList()
-						\ItemList()\Text\Height = \ItemHeight
-						PrepareVectorTextBlock(@\ItemList()\Text)
+					ForEach \Items()
+						\Items()\Text\Height = \ItemHeight
+						PrepareVectorTextBlock(@\Items()\Text)
 					Next
 					
 					If \Reorder
@@ -3944,9 +3962,9 @@ Module UITK
 	Procedure VerticalList_SetItemData(*this.PB_Gadget, Position, *Data)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
-		If Position > -1 And Position < ListSize(*GadgetData\ItemList())
-			SelectElement(*GadgetData\ItemList(), Position)
-			*GadgetData\ItemList()\Data = *Data
+		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			SelectElement(*GadgetData\Items(), Position)
+			*GadgetData\Items()\Data = *Data
 			
 			RedrawObject()
 		EndIf
@@ -4546,9 +4564,9 @@ Module UITK
 		Protected *SubGadget.PB_Gadget = IsGadget(*GadgetData\MenuCanvas), *VListData.VerticalListData = *SubGadget\vt
 		
 		*GadgetData\State = *VListData\State
-		SelectElement(*VListData\ItemList(), *VListData\State)
-		*GadgetData\TextBock\OriginalText = *VListData\ItemList()\Text\OriginalText
-		*GadgetData\TextBock\Image = *VListData\ItemList()\Text\Image
+		SelectElement(*VListData\Items(), *VListData\State)
+		*GadgetData\TextBock\OriginalText = *VListData\Items()\Text\OriginalText
+		*GadgetData\TextBock\Image = *VListData\Items()\Text\Image
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		*GadgetData\Unfolded = #False
 		RedrawObject()
@@ -4596,9 +4614,9 @@ Module UITK
 		
 		SetGadgetState(*GadgetData\MenuCanvas, State)
 		*VListData\State = State
-		SelectElement(*VListData\ItemList(), *VListData\State)
-		*GadgetData\TextBock\OriginalText = *VListData\ItemList()\Text\OriginalText
-		*GadgetData\TextBock\Image = *VListData\ItemList()\Text\Image
+		SelectElement(*VListData\Items(), *VListData\State)
+		*GadgetData\TextBock\OriginalText = *VListData\Items()\Text\OriginalText
+		*GadgetData\TextBock\Image = *VListData\Items()\Text\Image
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		*GadgetData\Unfolded = #False
 		RedrawObject()
@@ -5017,23 +5035,6 @@ Module UITK
 	#Library_ItemMinimumHMargin = 10
 	#Library_ItemVMargin = 10
 	
-	Structure Library_Item
-		ImageID.i
-		ImageX.i
-		ImageY.i
-		HoverState.b
-		Selected.b
-		*Section.Library_Section
-		Text.Text
-	EndStructure
-	
-	Structure Library_Section
-		Height.l
-		Text.Text
-		*Data
-		List *Items.Library_Item()
-	EndStructure
-	
 	Structure LibraryData Extends GadgetData
 		InternalHeight.l
 		VisibleScrollbar.b
@@ -5359,6 +5360,32 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
+	;Setters
+	Procedure Library_SetItemData(*this.PB_Gadget, Position, *Data)
+		Protected *GadgetData.LibraryData = *this\vt
+		
+		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			SelectElement(*GadgetData\Items(), Position)
+			*GadgetData\Items()\Data = *Data
+			
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
+	
+	;Getters
+	Procedure Library_GetItemData(*this.PB_Gadget, Position)
+		Protected *GadgetData.LibraryData = *this\vt, *Result
+		
+		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			SelectElement(*GadgetData\Items(), Position)
+			*Result = *GadgetData\Items()\Data
+		EndIf
+		
+		ProcedureReturn *Result
+	EndProcedure
+	
+	
 	Procedure Library_Meta(*GadgetData.LibraryData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Library)
@@ -5382,6 +5409,10 @@ Module UITK
 			
 			\VT\AddGadgetColumn = @Library_AddColumn()
 			\VT\AddGadgetItem2 = @Library_AddItem()
+			
+			\VT\SetGadgetItemData = @Library_SetItemData()
+			\VT\GetGadgetItemData = @Library_GetItemData()
+			
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -5705,7 +5736,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 190
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAcA-
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 3394
+; FirstLine = 29
+; Folding = JAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAA9
 ; EnableXP
