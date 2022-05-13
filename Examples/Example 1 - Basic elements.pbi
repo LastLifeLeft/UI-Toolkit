@@ -137,7 +137,7 @@ Gadget = UITK::TrackBar(#PB_Any, 260, 413, 60, 180, 0, 4,  UITK::#Gadget_Vertica
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
-Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 200, UITK::#Border | UITK::#ReOrder)
+Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 203, UITK::#Border | UITK::#ReOrder)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1", ImageID(Image))
 AddGadgetItem(Gadget, -1, "Item 2")
@@ -170,6 +170,12 @@ AddGadgetItem(Gadget, -1, "Item 9")
 SetGadgetState(Gadget, 2)
 
 Gadget = UITK::Library(#PB_Any, 500, 250, 440, 340, UITK::#Border)
+AddGadgetColumn(Gadget, 0, "Section something something", 0)
+AddGadgetItem(Gadget, -1, "Item 1", ImageID(Image))
+AddGadgetItem(Gadget, -1, "Item 2", ImageID(Image))
+AddGadgetItem(Gadget, -1, "Item 3", ImageID(Image))
+AddGadgetColumn(Gadget, 1, "Another section", 0)
+AddGadgetItem(Gadget, -1, "Item 1", ImageID(Image))
 
 Menu = UITK::FlatMenu(UITK::#DarkMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
@@ -196,7 +202,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 172
-; FirstLine = 114
+; CursorPosition = 177
+; FirstLine = 120
 ; Folding = +
 ; EnableXP

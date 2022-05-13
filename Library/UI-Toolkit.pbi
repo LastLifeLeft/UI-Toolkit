@@ -804,7 +804,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure PrepareVectorTextBlock(*TextData.Text)
-		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, bmp.BITMAP
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.BITMAP
 		
 		*TextData\RequieredHeight = 0
 		*TextData\RequieredWidth = 0
@@ -837,12 +837,12 @@ Module UITK
 		Next
 		
 		If *TextData\Image
-			GetObject_(*TextData\Image, SizeOf(BITMAP), @bmp.BITMAP)
-			bmp\bmWidth + #TextBlock_ImageMargin
-			*TextData\RequieredWidth + bmp\bmWidth
+			GetObject_(*TextData\Image, SizeOf(BITMAP), @HBitmap.BITMAP)
+			HBitmap\bmWidth + #TextBlock_ImageMargin
+			*TextData\RequieredWidth + HBitmap\bmWidth
 		EndIf
 		
-		Width = *TextData\Width - bmp\bmWidth
+		Width = *TextData\Width - HBitmap\bmWidth
 		
 		If *TextData\LineLimit > 0
 			MaxLine = Min(MaxLine, *TextData\LineLimit)
@@ -903,11 +903,11 @@ Module UITK
 		Next
 		
 		If *TextData\VAlign = #VAlignCenter
-			*TextData\ImageY = (*TextData\Height - bmp\bmHeight) * 0.5
+			*TextData\ImageY = (*TextData\Height - HBitmap\bmHeight) * 0.5
 			*TextData\TextY = (*TextData\Height - LineCount * TextHeight) * 0.5
 		ElseIf *TextData\VAlign = #VAlignBottom
 			*TextData\TextY = *TextData\Height - LineCount * TextHeight
-			*TextData\ImageY = *TextData\Height - bmp\bmHeight
+			*TextData\ImageY = *TextData\Height - HBitmap\bmHeight
 		Else 
 			*TextData\TextY = 0
 			*TextData\ImageY = 0
@@ -915,15 +915,15 @@ Module UITK
 		
 		If *TextData\HAlign = #HAlignCenter
 			*TextData\ImageX = (Width - FinalWidth) * 0.5
-			*TextData\TextX = bmp\bmWidth * 0.5
+			*TextData\TextX = HBitmap\bmWidth * 0.5
 			*TextData\VectorAlign = #PB_VectorParagraph_Center
 		ElseIf *TextData\HAlign = #HAlignRight
 			*TextData\ImageX = Width + #TextBlock_ImageMargin
-			*TextData\TextX = - bmp\bmWidth
+			*TextData\TextX = - HBitmap\bmWidth
 			*TextData\VectorAlign =  #PB_VectorParagraph_Right
 		Else
 			*TextData\ImageX = 0
-			*TextData\TextX = bmp\bmWidth
+			*TextData\TextX = HBitmap\bmWidth
 			*TextData\VectorAlign =  #PB_VectorParagraph_Left
 		EndIf
 		
@@ -5035,26 +5035,50 @@ Module UITK
 	;}
 	
 	;{ Library
-	Structure Item
-		
+	#Library_SectionHeight = 50
+	#Library_ItemWidth = 160
+	#Library_ItemHeight = 110
+	#Library_ItemMinimumHMargin = 10
+	#Library_ItemVMargin = 10
+	#Library_ItemTextHeight = 15
+	
+	Structure Library_Item
+		ImageID.i
+		ImageX.i
+		ImageY.i
+		Text.Text
 	EndStructure
 	
-	Structure Column
-		
-		List Items.Item()
+	Structure Library_Section
+		Height.l
+		Text.Text
+		*Data
+		List *Items.Library_Item()
 	EndStructure
 	
 	Structure LibraryData Extends GadgetData
-		
 		InternalHeight.l
+		VisibleScrollbar.b
 		
-		*ItemRedraw.ItemRedraw
+		*RedrawSection.ItemRedraw
+		*RedrawItem.ItemRedraw
 		*ScrollBar.ScrollBarData
 		
-		List Columns.Column()
+		SectionHeight.l
+		ItemHeight.l
+		ItemWidth.l
+		ItemPerLine.l
+		ItemMinimumHMargin.l
+		ItemHMargin.l
+		ItemVMargin.l
+		
+		List Sections.Library_Section()
+		List Items.Library_Item()
 	EndStructure
 	
 	Procedure Library_Redraw(*GadgetData.LibraryData)
+		Protected Y, ItemX, ItemY, ItemCount
+		
 		With *GadgetData
 			
 			If \Border
@@ -5065,30 +5089,226 @@ Module UITK
 				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 			EndIf
 			
-			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-			FillPath()
+			If ListSize(\Sections())
+				VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+				FillPath()
+				
+				VectorSourceColor(\ThemeData\TextColor[#Cold])
+				
+				ForEach \Sections()
+					If \ScrollBar\State > Y + \Sections()\Height
+						Y + \Sections()\Height
+					Else
+						Break
+					EndIf
+				Next
+				
+				Y = - \ScrollBar\State
+				
+				
+				Repeat 
+					; Check scrollbar position
+					\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0)
+					ItemY = Y + \SectionHeight
+					ItemX = \ItemHMargin
+					ItemCount = 0
+					
+					ForEach \Sections()\Items()
+						\RedrawItem(\Sections()\Items(), ItemX, ItemY, \ItemWidth, \ItemHeight, 0)
+						ItemX + (\ItemHMargin + \ItemWidth)
+						ItemCount + 1
+						If ItemCount = \ItemPerLine
+							ItemY + (\ItemHeight + \ItemVMargin)
+							ItemCount = 0
+							ItemX = \ItemHMargin
+						EndIf
+					Next
+					
+					Y + \Sections()\Height
+				Until Not NextElement(\Sections()) Or Y >= \Height
+				
+				If \VisibleScrollbar
+					\ScrollBar\Redraw(\ScrollBar)
+				EndIf
+			EndIf
 		EndWith
 	EndProcedure
 	
-	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
+	Procedure Library_RedrawSection(*Section.Library_Section, X, Y, Width, Height, State)
+		If *Section\Text\FontScale
+			VectorFont(*Section\Text\FontID, *Section\Text\FontScale)
+		Else
+			VectorFont(*Section\Text\FontID)
+		EndIf
+		
+		DrawVectorTextBlock(@*Section\Text, X + 20, Y)
+	EndProcedure
+	
+	Procedure Library_RedrawItem(*Item.Library_Item, X, Y, Width, Height, State)
+		If *Item\Text\FontScale
+			VectorFont(*Item\Text\FontID, *Item\Text\FontScale)
+		Else
+			VectorFont(*Item\Text\FontID)
+		EndIf
+		
+		; 		AddPathBox(X, Y, Width, Height - *Item\Text\Height)
+		MovePathCursor(X + *Item\ImageX, Y + *Item\ImageY)
+		DrawVectorImage(*Item\ImageID)
+		FillPath()
+		DrawVectorTextBlock(@*Item\Text, X, Y + Height - *Item\Text\Height)
+	EndProcedure
+	
+	Procedure Library_AddColumn(*This.PB_Gadget, Position, *Text, Width)
+		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Section
 		
 		With *GadgetData
+			If Position > -1 And Position < ListSize(\Sections())
+				Debug ListSize(\Sections())
+				SelectElement(\Sections(), Position)
+				*NewItem = InsertElement(\Sections())
+			Else
+				LastElement(\Sections())
+				*NewItem = AddElement(\Sections())
+			EndIf
+			
+			*NewItem\Height = \SectionHeight
+			\InternalHeight + \SectionHeight
+			
+			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\LineLimit = 1
+			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\FontScale = 20
+			*NewItem\Text\VAlign = #VAlignCenter
+			
+			*NewItem\Text\Width = \Width - #VerticalList_Margin * 2
+			*NewItem\Text\Height = \SectionHeight
+			*NewItem\Text\VAlign = #VAlignCenter
+			
+			PrepareVectorTextBlock(@*NewItem\Text)
+			
+			If \InternalHeight > \Height
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
+			
+			RedrawObject()
+			
+			ChangeCurrentElement(\Sections(), *NewItem)
+			Position = ListIndex(\Sections())
+		EndWith
+		
+		ProcedureReturn Position
+	EndProcedure
+	
+	Procedure Library_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags)
+		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.BITMAP
+		
+		With *GadgetData
+			; Ahem... Flag is always 0. Soooo... We'll use Position to define which section to use. This ain't really PB API friendly and should be fixed at some point...
+			LastElement(\Items())
+			*NewItem = AddElement(\Items())
+			
+			*NewItem\ImageID = ImageID
+			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\LineLimit = 1
+			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\Width = \ItemWidth
+			*NewItem\Text\Height = #Library_ItemTextHeight
+			*NewItem\Text\VAlign = #VAlignTop
+			*NewItem\Text\HAlign = #HAlignCenter
+			
+			PrepareVectorTextBlock(@*NewItem\Text)
+			
+			GetObject_(*NewItem\ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+			
+			*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
+			*NewItem\ImageY = (\ItemHeight - *NewItem\Text\Height - HBitmap\bmHeight) * 0.5
+			
+			If Position > -1 And Position < ListSize(\Sections())
+				SelectElement(\Sections(), Position)
+			Else
+				LastElement(\Sections())
+			EndIf
+			
+			AddElement(\Sections()\Items())
+			\Sections()\Items() = *NewItem
+			
+			If ListSize(\Sections()\Items()) % \ItemPerLine = 1
+				\Sections()\Height + (\ItemVMargin + \ItemHeight)
+				\InternalHeight + (\ItemVMargin + \ItemHeight)
+				
+				If \InternalHeight > \Height
+					\VisibleScrollbar = #True
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+				Else
+					\VisibleScrollbar = #False
+				EndIf
+				
+			EndIf
+			
+			Position = ListIndex(\Items())
+			
+		EndWith
+		
+		RedrawObject()
+		
+		ProcedureReturn Position
+	EndProcedure
+	
+
+	
+	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
+		Protected Redraw
+		With *GadgetData
 			Select *Event\EventType
-				Case#MouseWheel ;{
+				Case#MouseMove ;{
+					If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \ScrollBar\MouseState
+						\ScrollBar\MouseState = #False
+						Redraw = #True
+					EndIf
 					;}
 				Case#MouseLeave ;{
-					;}
-				Case#MouseMove ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					EndIf
+					
+; 					If \ItemState > -1
+; 						\ItemState = -1
+; 						Redraw = #True
+; 					EndIf
 					;}
 				Case#LeftButtonDown ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					EndIf
 					;}
 				Case#LeftButtonUp ;{
+					If \ScrollBar\Drag 
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					EndIf
 					;}
 				Case#LeftDoubleClick ;{
 					;}
-				Case#KeyDown ;{
+				Case#MouseWheel ;{
+					If \VisibleScrollbar
+						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\MouseWHeel * \ItemHeight * 0.5)
+						*Event\EventType = #MouseMove
+						; 						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
+						Redraw = #True
+					EndIf
+					;}
+				Case#KeyDown	;{
 					;}
 			EndSelect
+			
+			
+			If Redraw
+				RedrawObject()
+			EndIf
 		EndWith
 	EndProcedure
 	
@@ -5100,7 +5320,19 @@ Module UITK
 			
 			\ScrollBar = AllocateStructure(ScrollBarData)
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
+			\RedrawSection = @Library_RedrawSection()
+			\RedrawItem = @Library_RedrawItem()
+			\SectionHeight = #Library_SectionHeight
+			\ItemWidth = #Library_ItemWidth
+			\ItemHeight = #Library_ItemHeight
+			\ItemMinimumHMargin = #Library_ItemMinimumHMargin
+			\ItemVMargin = #Library_ItemVMargin
 			
+			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
+			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
+			
+			\VT\AddGadgetColumn = @Library_AddColumn()
+			\VT\AddGadgetItem2 = @Library_AddItem()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -5425,7 +5657,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 5116
-; FirstLine = 108
-; Folding = NAAAAAAAAAAAAAAAAAAAAAAAAAYAAAQAAEADHw
+; CursorPosition = 5154
+; FirstLine = 456
+; Folding = PAAIACAAAAAAAAAAAAAAAAAIAAYAAAQAAk+FwB9
 ; EnableXP
