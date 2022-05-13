@@ -25,16 +25,16 @@
 		#Window_MinimizeButton
 	EndEnumeration
 	
-	Enumeration ; Gadget attribues
-		#ScrollBar_Minimum			= #PB_ScrollBar_Minimum
-		#ScrollBar_Maximum			= #PB_ScrollBar_Maximum
-		#ScrollBar_PageLength		= #PB_ScrollBar_PageLength
-		
-		#ScrollArea_InnerWidth		= #PB_ScrollArea_InnerWidth 
-		#ScrollArea_InnerHeight		= #PB_ScrollArea_InnerHeight
-		#ScrollArea_X				= #PB_ScrollArea_X          
-		#ScrollArea_Y				= #PB_ScrollArea_Y          
-		#ScrollArea_ScrollStep		= #PB_ScrollArea_ScrollStep 
+	Enumeration 5000 ; Gadget attribues
+		#ScrollBar_Minimum	
+		#ScrollBar_Maximum	
+		#ScrollBar_PageLength
+	
+		#ScrollArea_InnerWidth
+		#ScrollArea_InnerHeight
+		#ScrollArea_X		
+		#ScrollArea_Y		
+		#ScrollArea_ScrollStep
 		
 		#Attribute_ItemHeight
 		#Attribute_CornerRadius
@@ -4097,7 +4097,7 @@ Module UITK
 		DragOffset.i
 		Hover.b
 		DisplayState.b
-		List IndentList.TrackBarIndent()
+		List Items.TrackBarIndent()
 	EndStructure
 	
 	Procedure TrackBar_Redraw(*GadgetData.TrackBarData)
@@ -4121,12 +4121,12 @@ Module UITK
 				If \TextBock\HAlign = #HAlignRight
 					X = \OriginX + \Width - #TracKbar_CursorHeight - #Trackbar_Margin
 					
-					ForEach \IndentList()
-						Y = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
+					ForEach \Items()
+						Y = Round((\Items()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
 						MovePathCursor(X + 2, Y + 1)
 						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
 						MovePathCursor(0, Y - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(\IndentList()\Text, \Width - X, TextHeight, #PB_VectorParagraph_Right)
+						DrawVectorParagraph(\Items()\Text, \Width - X, TextHeight, #PB_VectorParagraph_Right)
 					Next
 					
 					If \DisplayState
@@ -4136,12 +4136,12 @@ Module UITK
 				Else
 					X = \OriginX + #Trackbar_Margin
 					
-					ForEach \IndentList()
-						Y = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
+					ForEach \Items()
+						Y = Round((\Items()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
 						MovePathCursor(X + 2, Y + 1)
 						AddPathLine(#Trackbar_IndentWidth, 0, #PB_Path_Relative)
 						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, Y - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(\IndentList()\Text, \Width, TextHeight, #PB_VectorParagraph_Left)
+						DrawVectorParagraph(\Items()\Text, \Width, TextHeight, #PB_VectorParagraph_Left)
 					Next
 					
 					If \DisplayState
@@ -4173,13 +4173,13 @@ Module UITK
 				If \TextBock\VAlign = #VAlignTop
 					Y = \OriginY + #Trackbar_Margin
 					
-					ForEach \IndentList()
-						X = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
+					ForEach \Items()
+						X = Round((\Items()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
 						
 						MovePathCursor(X + 1, Y + 2)
 						AddPathLine(0, #Trackbar_IndentWidth, #PB_Path_Relative)
 						MovePathCursor(X - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
-						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
+						DrawVectorParagraph(\Items()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
 					Next
 					
 					If \DisplayState
@@ -4191,13 +4191,13 @@ Module UITK
 				Else
 					Y = \OriginY + \Height - #TracKbar_CursorHeight - #Trackbar_Margin
 					
-					ForEach \IndentList()
-						X = Round((\IndentList()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
+					ForEach \Items()
+						X = Round((\Items()\Position - \Minimum) * Ratio + #Trackbar_Thickness * 0.5 + #Trackbar_Margin, #PB_Round_Nearest)
 						
 						MovePathCursor(X + 1, Y + 2)
 						AddPathLine(0, #Trackbar_IndentWidth, #PB_Path_Relative)
 						MovePathCursor(X - 24, Y - TextHeight - #Trackbar_Margin)
-						DrawVectorParagraph(\IndentList()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
+						DrawVectorParagraph(\Items()\Text, 50, TextHeight, #PB_VectorParagraph_Center)
 					Next
 					
 					If \DisplayState
@@ -4345,26 +4345,26 @@ Module UITK
 		Protected *GadgetData.TrackBarData = *this\vt, ListSize
 		
 		With *GadgetData
-			ListSize = ListSize(\IndentList())
+			ListSize = ListSize(\Items())
 			
 			If ListSize
 				ListSize - 1
-				ForEach \IndentList()
-					If \IndentList()\Position = Position
+				ForEach \Items()
+					If \Items()\Position = Position
 						Break
-					ElseIf \IndentList()\Position > Position
-						InsertElement(\IndentList())
+					ElseIf \Items()\Position > Position
+						InsertElement(\Items())
 						Break
-					ElseIf ListIndex(\IndentList()) = ListSize
-						AddElement(\IndentList())
+					ElseIf ListIndex(\Items()) = ListSize
+						AddElement(\Items())
 					EndIf
 				Next
 			Else
-				AddElement(\IndentList())
+				AddElement(\Items())
 			EndIf
 			
-			\IndentList()\Text = PeekS(*Text)
-			\IndentList()\Position = Position
+			\Items()\Text = PeekS(*Text)
+			\Items()\Position = Position
 			
 			RedrawObject()
 		EndWith
@@ -5737,7 +5737,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 3394
-; FirstLine = 29
-; Folding = JAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAA9
+; CursorPosition = 2093
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
