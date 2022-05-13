@@ -3366,12 +3366,12 @@ Module UITK
 		SortItem.i
 		ItemState.i
 		Reorder.i
-		DragOriginX.i
-		DragOriginY.i
-		DragState.i
-		DragPosition.i
-		DragTimer.i
-		DragDirection.b
+		ReorderOriginX.i
+		ReorderOriginY.i
+		ReorderState.i
+		ReorderPosition.i
+		ReorderTimer.i
+		ReorderDirection.b
 		ReorderWindow.i
 		ReorderCanvas.i
 		
@@ -3387,8 +3387,8 @@ Module UITK
 		Protected Gadget = EventGadget(), *GadgetData.VerticalListData = GetProp_(GadgetID(Gadget), "UITK_VerticalData"), Event.Event
 		
 		Event\EventType = #MouseWheel
-		Event\MouseX =  WindowX(*GadgetData\ReorderWindow) - *GadgetData\DragOriginX
-		Event\MouseY =  WindowY(*GadgetData\ReorderWindow) - *GadgetData\DragOriginY
+		Event\MouseX =  WindowX(*GadgetData\ReorderWindow) - *GadgetData\ReorderOriginX
+		Event\MouseY =  WindowY(*GadgetData\ReorderWindow) - *GadgetData\ReorderOriginY
 		Event\MouseWHeel = GetGadgetAttribute(*GadgetData\ReorderCanvas, #PB_Canvas_WheelDelta)
 		
 		VerticalList_EventHandler(*GadgetData, @Event)
@@ -3439,7 +3439,7 @@ Module UITK
 				
 				SelectElement(\ItemList(), Position)
 				
-				If (\DragPosition > - 1) And Position > \ItemState
+				If (\ReorderPosition > - 1) And Position > \ItemState
 					NextElement(\ItemList())
 				EndIf
 				
@@ -3452,7 +3452,7 @@ Module UITK
 				Repeat
 					CurrentItem = ListIndex(\ItemList())
 					
-					If CurrentItem = \DragPosition
+					If CurrentItem = \ReorderPosition
 						AddPathBox(\Border, Y - 1, 80, 3)
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
 						FillPath()
@@ -3460,7 +3460,7 @@ Module UITK
 					EndIf
 					
 					If CurrentItem = \State
-						If \DragState = #Drag_Active
+						If \ReorderState = #Drag_Active
 							Continue
 						EndIf
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
@@ -3483,7 +3483,7 @@ Module UITK
 					ItemCount + 1
 				Until ItemCount = \MaxDisplayedItem Or (Not NextElement(\ItemList()))
 				
-				If CurrentItem + 1 = \DragPosition Or (\DragPosition = \State + 1 And Drawn = #False)
+				If CurrentItem + 1 = \ReorderPosition Or (\ReorderPosition = \State + 1 And Drawn = #False)
 					AddPathBox(\Border, Y - 2, 80, 3)
 					VectorSourceColor(\ThemeData\TextColor[#Cold])
 					FillPath()
@@ -3531,23 +3531,23 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure VerticalList_DragTimer(*GadgetData.VerticalListData, Timer)
+	Procedure VerticalList_ReorderTimer(*GadgetData.VerticalListData, Timer)
 		Protected Event.Event
 		
 		With *GadgetData
-			If \DragDirection = -1
+			If \ReorderDirection = -1
 				If \ScrollBar\State > 0
 					Event\EventType = #MouseMove
-					Event\MouseX = WindowX(\ReorderWindow) - \DragOriginX
-					Event\MouseY = WindowY(\ReorderWindow) - \DragOriginY
+					Event\MouseX = WindowX(\ReorderWindow) - \ReorderOriginX
+					Event\MouseY = WindowY(\ReorderWindow) - \ReorderOriginY
 					ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight) - 1) * \ItemHeight)
 					VerticalList_EventHandler(*GadgetData, @Event)
 				EndIf
 			Else
 				If \ScrollBar\State < \ScrollBar\Max - \ScrollBar\PageLenght
 					Event\EventType = #MouseMove
-					Event\MouseX = WindowX(\ReorderWindow) - \DragOriginX
-					Event\MouseY = WindowY(\ReorderWindow) - \DragOriginY
+					Event\MouseX = WindowX(\ReorderWindow) - \ReorderOriginX
+					Event\MouseY = WindowY(\ReorderWindow) - \ReorderOriginY
 					ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State + \ItemHeight)
 					VerticalList_EventHandler(*GadgetData, @Event)
 				EndIf
@@ -3561,12 +3561,12 @@ Module UITK
 			
 			Select *Event\EventType
 				Case #MouseMove ;{
-					If \DragState = #Drag_Init ;{
-						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
-							\DragState = #Drag_Active
-							\DragOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginX
-							\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + \ItemState * \ItemHeight - \ScrollBar\State + \ToolBarHeight
-							\DragPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
+					If \ReorderState = #Drag_Init ;{
+						If Abs(\ReorderOriginX - *Event\MouseX) > 7 Or Abs(\ReorderOriginY - *Event\MouseY) > 7
+							\ReorderState = #Drag_Active
+							\ReorderOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginX
+							\ReorderOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginY + \ItemState * \ItemHeight - \ScrollBar\State + \ToolBarHeight
+							\ReorderPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
 							
 							If (ListSize(\ItemList()) - 1) * \ItemHeight > \Height - \ToolBarHeight
 								\VisibleScrollbar = #True
@@ -3592,36 +3592,36 @@ Module UITK
 							
 							StopVectorDrawing()
 							
-							ResizeWindow(\ReorderWindow, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, #PB_Ignore, #PB_Ignore)
+							ResizeWindow(\ReorderWindow, *Event\MouseX + \ReorderOriginX, *Event\MouseY + \ReorderOriginY, #PB_Ignore, #PB_Ignore)
 							HideWindow(\ReorderWindow, #False, #PB_Window_NoActivate)
 							SetActiveGadget(\Gadget)
 							Redraw = #True
 						EndIf
 						;}
-					ElseIf \DragState = #Drag_Active ;{
-						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+					ElseIf \ReorderState = #Drag_Active ;{
+						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \ReorderOriginX, *Event\MouseY + \ReorderOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
 						
 						If \VisibleScrollbar
 							If (*Event\MouseY - \ToolBarHeight < 0)
-								If Not \DragTimer
-									\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
-									\DragDirection = - 1
+								If Not \ReorderTimer
+									\ReorderTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_ReorderTimer())
+									\ReorderDirection = - 1
 									ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight)
 									Redraw = #True
 								EndIf
 								*Event\MouseY = \ToolBarHeight
 							ElseIf (*Event\MouseY > \Height)
-								If Not \DragTimer
-									\DragTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_DragTimer())
-									\DragDirection = 1
+								If Not \ReorderTimer
+									\ReorderTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_ReorderTimer())
+									\ReorderDirection = 1
 									ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight + (\ItemHeight - \ScrollBar\PageLenght % \ItemHeight))
 									Redraw = #True
 								EndIf
 								*Event\MouseY = \Height
 							Else
-								If \DragTimer
-									RemoveGadgetTimer(\DragTimer)
-									\DragTimer = 0
+								If \ReorderTimer
+									RemoveGadgetTimer(\ReorderTimer)
+									\ReorderTimer = 0
 								EndIf
 							EndIf
 						EndIf
@@ -3629,8 +3629,8 @@ Module UITK
 						Item = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5 - \ToolBarHeight) / \ItemHeight), 0, ListSize(\ItemList()) - 1)
 						Item + Bool(Item >= \State)
 						
-						If \DragPosition <> Item
-							\DragPosition = Item
+						If \ReorderPosition <> Item
+							\ReorderPosition = Item
 							Redraw = #True
 						EndIf
 						;}
@@ -3671,9 +3671,9 @@ Module UITK
 								Redraw = #True
 							EndIf
 							If \Reorder
-								\DragState = #Drag_Init
-								\DragOriginX = *Event\MouseX
-								\DragOriginY = *Event\MouseY
+								\ReorderState = #Drag_Init
+								\ReorderOriginX = *Event\MouseX
+								\ReorderOriginY = *Event\MouseY
 							EndIf
 						EndIf
 					EndIf
@@ -3683,12 +3683,12 @@ Module UITK
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					
-					If \DragState = #Drag_Active
-						If \DragPosition = ListSize(\ItemList())
+					If \ReorderState = #Drag_Active
+						If \ReorderPosition = ListSize(\ItemList())
 							Item = SelectElement(\ItemList(), \State)
 							MoveElement(\ItemList(), #PB_List_Last)
 						Else
-							*Element = SelectElement(\ItemList(), \DragPosition)
+							*Element = SelectElement(\ItemList(), \ReorderPosition)
 							Item = SelectElement(\ItemList(), \State)
 							MoveElement(\ItemList(), #PB_List_Before, *Element)
 						EndIf
@@ -3696,9 +3696,9 @@ Module UITK
 						\State = ListIndex(\ItemList())
 						HideWindow(\ReorderWindow, #True)
 						
-						If \DragTimer
-							RemoveGadgetTimer(\DragTimer)
-							\DragTimer = 0
+						If \ReorderTimer
+							RemoveGadgetTimer(\ReorderTimer)
+							\ReorderTimer = 0
 						EndIf
 						
 						VerticalList_StateFocus(*GadgetData)
@@ -3711,10 +3711,10 @@ Module UITK
 						EndIf
 						
 						Redraw = #True
-						\DragPosition = -1
+						\ReorderPosition = -1
 					EndIf
 					
-					\DragState = #Drag_None
+					\ReorderState = #Drag_None
 					;}
 				Case #MouseLeave ;{
 					If \ScrollBar\MouseState
@@ -3734,7 +3734,7 @@ Module UITK
 					EndIf
 					;}
 				Case #KeyDown ;{
-					If \DragState = #Drag_None
+					If \ReorderState = #Drag_None
 						Select \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key)
 							Case #PB_Shortcut_Down
 								If \State < ListSize(\ItemList()) - 1
@@ -4002,7 +4002,7 @@ Module UITK
 			\ItemState = -1
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 			\ScrollBar = AllocateStructure(ScrollBarData)
-			\DragPosition = -1
+			\ReorderPosition = -1
 			
 			If Flags & #ReOrder
 				GadgetList = UseGadgetList(0)
@@ -5732,7 +5732,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 5172
-; FirstLine = 398
-; Folding = PAQAAAAAAAAAAAAAAAAAAAAYAAYAAAQAAkEQwB9
+; CursorPosition = 192
+; Folding = JAAAAAAAAAAAAAAAAAAAAAEgAAYAAAQAAAAAwB9
 ; EnableXP

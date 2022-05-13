@@ -8,10 +8,6 @@ Define Height = DesktopHeight(0)
 
 Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), LibraryImageID = ImageID(LoadImage(#PB_Any, "Tiled.png"))
 
-Procedure ButtonEvent()
-	UITK::ShowFlatMenu(Menu)
-EndProcedure
-
 Window0 = UITK::Window(#PB_Any, (Width - 1024) * 0.5 - 200, (Height - 600) * 0.5 - 100, 945, 600, "UI Toolkit : component showcase", UITK::#Window_CloseButton | #PB_Window_SizeGadget)
 UITK::SetWindowIcon(Window0, ImageID(Image))
 
@@ -112,8 +108,6 @@ UITK::AddFlatMenuSeparator(Menu, -1)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Variable Viewer")
 UITK::AddFlatMenuItem(Menu, 0, -1, "Compare Files/Folder")
 UITK::AddFlatMenuItem(Menu, 0, -1, "Procedure Browser")
-
-BindEvent(#PB_Event_RightClick, @ButtonEvent())
 
 UITK::AddWindowMenu(Window0, Menu, "File")
 
@@ -218,8 +212,6 @@ UITK::AddFlatMenuItem(Menu, 0, -1, "Variable Viewer")
 UITK::AddFlatMenuItem(Menu, 0, -1, "Compare Files/Folder")
 UITK::AddFlatMenuItem(Menu, 0, -1, "Procedure Browser")
 
-BindEvent(#PB_Event_RightClick, @ButtonEvent())
-
 UITK::AddWindowMenu(Window1, Menu, "File")
 
 Repeat
@@ -232,7 +224,7 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 21
-; Folding = +
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 213
+; FirstLine = 145
 ; EnableXP
