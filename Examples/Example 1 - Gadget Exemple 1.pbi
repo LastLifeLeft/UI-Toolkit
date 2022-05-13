@@ -8,7 +8,7 @@ Define Height = DesktopHeight(0)
 
 Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), LibraryImageID = ImageID(LoadImage(#PB_Any, "Tiled.png"))
 
-Window0 = UITK::Window(#PB_Any, (Width - 1024) * 0.5 - 200, (Height - 600) * 0.5 - 100, 945, 600, "UI Toolkit : component showcase", UITK::#Window_CloseButton | #PB_Window_SizeGadget)
+Window0 = UITK::Window(#PB_Any, (Width - 1024) * 0.5 - 200, (Height - 600) * 0.5 - 100, 945, 600, "UI Toolkit : Gadget showcase 1", UITK::#Window_CloseButton | #PB_Window_SizeGadget)
 UITK::SetWindowIcon(Window0, ImageID(Image))
 
 Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center", UITK::#Border)
@@ -64,10 +64,10 @@ AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
 RemoveGadgetItem(Gadget, 3)
 
-Gadget = UITK::Radio(#PB_Any, 740, 20, 200, 28, "Radio 1", "Exemple group", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Radio 2", "Exemple group", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Radio 3", "Exemple group", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 140, 200, 28, "Radio 4", "Exemple group", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 20, 200, 28, "Radio 1", "Exemple group 1", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Radio 2", "Exemple group 1", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Radio 3", "Exemple group 1", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 140, 200, 28, "Radio 4", "Exemple group 1", UITK::#HAlignRight)
 
 Gadget = UITK::Combo(#PB_Any, 740, 180, 200, 40, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Item 0")
@@ -167,10 +167,10 @@ AddGadgetItem(Gadget, -1, "Item 10")
 AddGadgetItem(Gadget, -1, "Item 11")
 RemoveGadgetItem(Gadget, 3)
 
-Gadget = UITK::Radio(#PB_Any, 740, 20, 200, 28, "Radio 1", "Exemple group", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Radio 2", "Exemple group", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Radio 3", "Exemple group", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 140, 200, 28, "Radio 4", "Exemple group", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 20, 200, 28, "Radio 1", "Exemple group 2", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Radio 2", "Exemple group 2", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Radio 3", "Exemple group 2", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 140, 200, 28, "Radio 4", "Exemple group 2", UITK::#HAlignRight)
 
 Gadget = UITK::Combo(#PB_Any, 740, 180, 200, 40, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Item 0")
@@ -225,6 +225,6 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 102
-; FirstLine = 81
+; CursorPosition = 172
+; FirstLine = 120
 ; EnableXP

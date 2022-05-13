@@ -5465,6 +5465,94 @@ Module UITK
 	EndProcedure
 	;}
 	
+	;{ Property box
+	Structure PropertiesBoxData Extends GadgetData
+		*ScrollBar.ScrollBarData
+	EndStructure
+	
+	Procedure PropertiesBox_Redraw(*GadgetData.PropertiesBoxData)
+		With *GadgetData
+			
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
+				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
+			EndIf
+			
+			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+			FillPath()
+		EndWith
+	EndProcedure
+	
+	Procedure PropertiesBox_EventHandler(*GadgetData.PropertiesBoxData, *Event.Event)
+	EndProcedure
+	
+	Procedure PropertiesBox_AddColumn(*This.PB_Gadget, Position, *Text, Width)
+		Protected *GadgetData.PropertiesBoxData = *this\vt
+		
+	EndProcedure
+	
+	Procedure Library_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags)
+		Protected *GadgetData.PropertiesBoxData = *this\vt
+		
+	EndProcedure
+	
+	Procedure PropertiesBox_Meta(*GadgetData.PropertiesBoxData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(PropertiesBox)
+		
+		With *GadgetData
+			\ScrollBar = AllocateStructure(ScrollBarData)
+			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
+			
+			
+			
+		EndWith
+	EndProcedure
+	
+	Procedure PropertiesBox(Gadget, x, y, Width, Height, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.PropertiesBoxData
+		
+		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container)
+		
+		If Result
+			If Gadget = #PB_Any
+				Gadget = Result
+			EndIf
+			
+			*this = IsGadget(Gadget)
+			*GadgetData = AllocateStructure(PropertiesBoxData)
+			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+			*GadgetData\OriginalVT = *this\VT
+			*this\VT = *GadgetData
+			
+			Protected *ThemeData = AllocateStructure(Theme)
+			
+			If Flags & #DarkMode
+				CopyStructure(@DarkTheme, *ThemeData, Theme)
+			ElseIf Flags & #LightMode
+				CopyStructure(@DefaultTheme, *ThemeData, Theme)
+			Else
+				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+				If *WindowData
+					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+				Else
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				EndIf
+			EndIf
+			
+			PropertiesBox_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+			
+			RedrawObject()
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	;}
+	
 	;{ Menu
 	#MenuMinimumWidth = 140
 	#MenuSeparatorHeight = 5
@@ -5736,7 +5824,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 2093
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 5791
+; FirstLine = 52
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAA5
 ; EnableXP
