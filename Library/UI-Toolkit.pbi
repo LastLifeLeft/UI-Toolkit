@@ -542,7 +542,7 @@ Module UITK
 	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
 	UITKFont = FontID(LoadFont(#PB_Any, "UITK Icon Font", 12, #PB_Font_HighQuality))
 	
-	Prototype ItemRedraw(*Item, X, Y, Width, Height, State)
+	Prototype ItemRedraw(*Item, X, Y, Width, Height, State, *Theme.Theme)
 	
 	;{ Set default themes
 	With DefaultTheme 
@@ -3394,7 +3394,7 @@ Module UITK
 		VerticalList_EventHandler(*GadgetData, @Event)
 	EndProcedure
 	
-	Procedure VerticalList_ItemRedraw(*Item.VerticalListItem, X, Y, Width, Height, State)
+	Procedure VerticalList_ItemRedraw(*Item.VerticalListItem, X, Y, Width, Height, State, *Theme.Theme)
 		DrawVectorTextBlock(@*Item\Text, X, Y)
 		
 		If State = #Hot
@@ -3478,7 +3478,7 @@ Module UITK
 					
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
-					\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State)
+					\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State, \ThemeData)
 					Y + \ItemHeight
 					ItemCount + 1
 				Until ItemCount = \MaxDisplayedItem Or (Not NextElement(\ItemList()))
@@ -3588,7 +3588,7 @@ Module UITK
 							
 							SelectElement(\ItemList(), \State)
 							VectorSourceColor(\ThemeData\TextColor[#Hot])
-							\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot)
+							\ItemRedraw(@\ItemList(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot, \ThemeData)
 							
 							StopVectorDrawing()
 							
@@ -5037,15 +5037,18 @@ Module UITK
 	;{ Library
 	#Library_SectionHeight = 50
 	#Library_ItemWidth = 160
+	#Library_ItemTextHeight = 20
 	#Library_ItemHeight = 110
 	#Library_ItemMinimumHMargin = 10
 	#Library_ItemVMargin = 10
-	#Library_ItemTextHeight = 15
 	
 	Structure Library_Item
 		ImageID.i
 		ImageX.i
 		ImageY.i
+		HoverState.b
+		Selected.b
+		*Section.Library_Section
 		Text.Text
 	EndStructure
 	
@@ -5064,6 +5067,7 @@ Module UITK
 		*RedrawItem.ItemRedraw
 		*ScrollBar.ScrollBarData
 		
+		ItemState.i
 		SectionHeight.l
 		ItemHeight.l
 		ItemWidth.l
@@ -5089,12 +5093,13 @@ Module UITK
 				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 			EndIf
 			
+			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+			ClipPath(#PB_Path_Preserve)
+			FillPath()
+			
+			VectorSourceColor(\ThemeData\TextColor[#Cold])
+			
 			If ListSize(\Sections())
-				VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-				FillPath()
-				
-				VectorSourceColor(\ThemeData\TextColor[#Cold])
-				
 				ForEach \Sections()
 					If \ScrollBar\State > Y + \Sections()\Height
 						Y + \Sections()\Height
@@ -5103,18 +5108,17 @@ Module UITK
 					EndIf
 				Next
 				
-				Y = - \ScrollBar\State
-				
+				Y - \ScrollBar\State
 				
 				Repeat 
 					; Check scrollbar position
-					\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0)
+					\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0, \ThemeData)
 					ItemY = Y + \SectionHeight
 					ItemX = \ItemHMargin
 					ItemCount = 0
 					
 					ForEach \Sections()\Items()
-						\RedrawItem(\Sections()\Items(), ItemX, ItemY, \ItemWidth, \ItemHeight, 0)
+						\RedrawItem(\Sections()\Items(), ItemX, ItemY, \ItemWidth, \ItemHeight, 0, \ThemeData)
 						ItemX + (\ItemHMargin + \ItemWidth)
 						ItemCount + 1
 						If ItemCount = \ItemPerLine
@@ -5134,7 +5138,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Library_RedrawSection(*Section.Library_Section, X, Y, Width, Height, State)
+	Procedure Library_RedrawSection(*Section.Library_Section, X, Y, Width, Height, State, *Theme.Theme)
 		If *Section\Text\FontScale
 			VectorFont(*Section\Text\FontID, *Section\Text\FontScale)
 		Else
@@ -5144,18 +5148,36 @@ Module UITK
 		DrawVectorTextBlock(@*Section\Text, X + 20, Y)
 	EndProcedure
 	
-	Procedure Library_RedrawItem(*Item.Library_Item, X, Y, Width, Height, State)
-		If *Item\Text\FontScale
-			VectorFont(*Item\Text\FontID, *Item\Text\FontScale)
-		Else
-			VectorFont(*Item\Text\FontID)
-		EndIf
-		
-		; 		AddPathBox(X, Y, Width, Height - *Item\Text\Height)
-		MovePathCursor(X + *Item\ImageX, Y + *Item\ImageY)
-		DrawVectorImage(*Item\ImageID)
-		FillPath()
-		DrawVectorTextBlock(@*Item\Text, X, Y + Height - *Item\Text\Height)
+	Procedure Library_RedrawItem(*Item.Library_Item, X, Y, Width, Height, State, *Theme.Theme)
+		Protected TextHeight = Height - *Item\Text\Height
+		With *Item
+			If \Text\FontScale
+				VectorFont(\Text\FontID, \Text\FontScale)
+			Else
+				VectorFont(\Text\FontID)
+			EndIf
+			
+			MovePathCursor(X + \ImageX, Y + \ImageY)
+			DrawVectorImage(\ImageID)
+						
+			DrawVectorTextBlock(@\Text, X, Y + TextHeight + 2)
+			
+			If \HoverState
+				AddPathBox(X, Y, #Library_ItemWidth, TextHeight)
+				VectorSourceColor(SetAlpha($FFFFFF, 35))
+				FillPath()
+				VectorSourceColor(*Theme\TextColor[#Cold])
+			EndIf
+			
+			If \Selected
+				AddPathBox(X - 0.5, Y - 0.5, #Library_ItemWidth + 1, TextHeight + 1)
+				VectorSourceColor(*Theme\Special1[#Cold])
+				StrokePath(3)
+				VectorSourceColor(*Theme\TextColor[#Cold])
+			EndIf
+			
+			
+		EndWith
 	EndProcedure
 	
 	Procedure Library_AddColumn(*This.PB_Gadget, Position, *Text, Width)
@@ -5217,7 +5239,7 @@ Module UITK
 			*NewItem\Text\Width = \ItemWidth
 			*NewItem\Text\Height = #Library_ItemTextHeight
 			*NewItem\Text\VAlign = #VAlignTop
-			*NewItem\Text\HAlign = #HAlignCenter
+			*NewItem\Text\HAlign = #HAlignLeft
 			
 			PrepareVectorTextBlock(@*NewItem\Text)
 			
@@ -5231,6 +5253,8 @@ Module UITK
 			Else
 				LastElement(\Sections())
 			EndIf
+			
+			*NewItem\Section = @\Sections()
 			
 			AddElement(\Sections()\Items())
 			\Sections()\Items() = *NewItem
@@ -5257,43 +5281,93 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-
-	
 	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
-		Protected Redraw
+		Protected Redraw, Y, NewItem = -1, ItemRow
+		
 		With *GadgetData
 			Select *Event\EventType
-				Case#MouseMove ;{
+				Case #MouseMove ;{
 					If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					ElseIf \ScrollBar\MouseState
 						\ScrollBar\MouseState = #False
 						Redraw = #True
 					EndIf
+					
+					If Not \ScrollBar\MouseState
+						If ListSize(\Sections())
+							ForEach \Sections()
+								If \ScrollBar\State + *Event\MouseY> Y + \Sections()\Height
+									Y + \Sections()\Height
+								Else
+									Break
+								EndIf
+							Next
+							
+							*Event\MouseY - Y + \ScrollBar\State
+							
+							If *Event\MouseY > \SectionHeight
+								*Event\MouseY - \SectionHeight
+								If *Event\MouseY % (\ItemHeight + \ItemVMargin ) < \ItemHeight - #Library_ItemTextHeight
+									If (*Event\MouseX % (\ItemHMargin + \ItemWidth)) > \ItemHMargin
+										If SelectElement(\Sections()\Items(), Floor(*Event\MouseY / (\ItemHeight + \ItemVMargin )) * \ItemPerLine + Floor(*Event\MouseX / (\ItemHMargin + \ItemWidth)))
+											ChangeCurrentElement(\Items(), \Sections()\Items())
+											NewItem = ListIndex(\Items())
+										EndIf
+									EndIf
+								EndIf
+							EndIf
+							
+						EndIf
+					EndIf
+					
+					If \ItemState <> NewItem
+						If NewItem > -1
+							\Items()\HoverState = #True
+						EndIf
+						If \ItemState > -1
+							SelectElement(\Items(), \ItemState)
+							\Items()\HoverState = #False
+						EndIf
+						\ItemState = NewItem
+						Redraw = #True
+					EndIf
 					;}
-				Case#MouseLeave ;{
+				Case #MouseLeave ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					
-; 					If \ItemState > -1
-; 						\ItemState = -1
-; 						Redraw = #True
-; 					EndIf
-					;}
-				Case#LeftButtonDown ;{
-					If \ScrollBar\MouseState
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					If \ItemState > -1
+						SelectElement(\Items(), \ItemState)
+						\Items()\HoverState = #False
+						\ItemState = -1
+						Redraw = #True
 					EndIf
 					;}
-				Case#LeftButtonUp ;{
+				Case #LeftButtonDown ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \ItemState > -1
+						If \State > -1
+							SelectElement(\Items(), \State)
+							\Items()\Selected = #False
+						EndIf
+						\State = \ItemState
+						
+						SelectElement(\Items(), \State)
+						\Items()\Selected = #True
+						Redraw = #True
+					EndIf
+					;}
+				Case #LeftButtonUp ;{
 					If \ScrollBar\Drag 
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					;}
-				Case#LeftDoubleClick ;{
+				Case #LeftDoubleClick ;{
 					;}
-				Case#MouseWheel ;{
+				Case #MouseWheel ;{
 					If \VisibleScrollbar
 						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\MouseWHeel * \ItemHeight * 0.5)
 						*Event\EventType = #MouseMove
@@ -5301,10 +5375,9 @@ Module UITK
 						Redraw = #True
 					EndIf
 					;}
-				Case#KeyDown	;{
+				Case #KeyDown	;{
 					;}
 			EndSelect
-			
 			
 			If Redraw
 				RedrawObject()
@@ -5327,6 +5400,8 @@ Module UITK
 			\ItemHeight = #Library_ItemHeight
 			\ItemMinimumHMargin = #Library_ItemMinimumHMargin
 			\ItemVMargin = #Library_ItemVMargin
+			\ItemState = -1
+			\State = -1
 			
 			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
 			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
@@ -5657,7 +5732,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 5154
-; FirstLine = 456
-; Folding = PAAIACAAAAAAAAAAAAAAAAAIAAYAAAQAAk+FwB9
+; CursorPosition = 5172
+; FirstLine = 398
+; Folding = PAQAAAAAAAAAAAAAAAAAAAAYAAYAAAQAAkEQwB9
 ; EnableXP
