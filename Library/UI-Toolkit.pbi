@@ -196,6 +196,7 @@
 	Declare Container(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare Radio(Gadget, x, y, Width, Height, Text.s, RadioGroup.s = "", Flags = #Default)
 	Declare Library(Gadget, x, y, Width, Height, Flags = #Default)
+	Declare PropertiesBox(Gadget, x, y, Width, Height, Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -3768,7 +3769,7 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure VerticalList_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Flag)
+	Procedure VerticalList_AddItem(*this.PB_Gadget, Position, *Text, ImageID)
 		Protected *GadgetData.VerticalListData = *this\vt, *NewItem
 		
 		With *GadgetData
@@ -4341,7 +4342,7 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure Trackbar_AddGadgetItem(*this.PB_Gadget, Position, *Text, ImageID, Flag)
+	Procedure Trackbar_AddGadgetItem(*this.PB_Gadget, Position, *Text, ImageID)
 		Protected *GadgetData.TrackBarData = *this\vt, ListSize
 		
 		With *GadgetData
@@ -5200,13 +5201,17 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure Library_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags)
+	Procedure Library_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
 		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.BITMAP
 		
 		With *GadgetData
-			; Ahem... Flag is always 0. Soooo... We'll use Position to define which section to use. This ain't really PB API friendly and should be fixed at some point...
-			LastElement(\Items())
-			*NewItem = AddElement(\Items())
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*NewItem = InsertElement(\Items())
+			Else
+				LastElement(\Items())
+				*NewItem = AddElement(\Items())
+			EndIf
 			
 			*NewItem\ImageID = ImageID
 			*NewItem\Text\OriginalText = PeekS(*Text)
@@ -5224,8 +5229,8 @@ Module UITK
 			*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
 			*NewItem\ImageY = (\ItemHeight - *NewItem\Text\Height - HBitmap\bmHeight) * 0.5
 			
-			If Position > -1 And Position < ListSize(\Sections())
-				SelectElement(\Sections(), Position)
+			If Flags > -1 And Flags < ListSize(\Sections())
+				SelectElement(\Sections(), Flags)
 			Else
 				LastElement(\Sections())
 			EndIf
@@ -5256,6 +5261,7 @@ Module UITK
 		
 		ProcedureReturn Position
 	EndProcedure
+	
 	
 	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
 		Protected Redraw, Y, NewItem = -1, ItemRow
@@ -5408,7 +5414,7 @@ Module UITK
 			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
 			
 			\VT\AddGadgetColumn = @Library_AddColumn()
-			\VT\AddGadgetItem2 = @Library_AddItem()
+			\VT\AddGadgetItem3 = @Library_AddItem()
 			
 			\VT\SetGadgetItemData = @Library_SetItemData()
 			\VT\GetGadgetItemData = @Library_GetItemData()
@@ -5467,6 +5473,7 @@ Module UITK
 	
 	;{ Property box
 	Structure PropertiesBoxData Extends GadgetData
+		InternalHeight.l
 		*ScrollBar.ScrollBarData
 	EndStructure
 	
@@ -5489,14 +5496,12 @@ Module UITK
 	Procedure PropertiesBox_EventHandler(*GadgetData.PropertiesBoxData, *Event.Event)
 	EndProcedure
 	
-	Procedure PropertiesBox_AddColumn(*This.PB_Gadget, Position, *Text, Width)
+	Procedure PropertiesBox_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.c)
 		Protected *GadgetData.PropertiesBoxData = *this\vt
 		
-	EndProcedure
-	
-	Procedure Library_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags)
-		Protected *GadgetData.PropertiesBoxData = *this\vt
-		
+		Debug Flags
+		; 		Debug PeekA(*Flags)
+; 		Debug PeekA(*Flags)AddGadgetItem2
 	EndProcedure
 	
 	Procedure PropertiesBox_Meta(*GadgetData.PropertiesBoxData, *ThemeData, Gadget, x, y, Width, Height, Flags)
@@ -5507,7 +5512,15 @@ Module UITK
 			\ScrollBar = AllocateStructure(ScrollBarData)
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			
+			\VT\AddGadgetItem3 = @PropertiesBox_AddItem()
 			
+			; Enable only the needed events
+			\SupportedEvent[#MouseWheel] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#LeftDoubleClick] = #True
 			
 		EndWith
 	EndProcedure
@@ -5824,8 +5837,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 5791
-; FirstLine = 52
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAA5
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 2094
+; FirstLine = 50
+; Folding = NAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQAAA9
 ; EnableXP

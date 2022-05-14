@@ -186,22 +186,27 @@ SetGadgetState(Gadget, 2)
 
 Gadget = UITK::Library(#PB_Any, 500, 250, 440, 340, UITK::#Border)
 AddGadgetColumn(Gadget, 0, "Section something something", 0)
-AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 1", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 2", LibraryImageID)
 AddGadgetColumn(Gadget, 1, "Another section", 0)
+AddGadgetColumn(Gadget, 2, "A third one to scroll down enough", 0)
+
 AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID)
 AddGadgetItem(Gadget, -1, "Item 1", LibraryImageID)
 AddGadgetItem(Gadget, -1, "Item 2", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 3", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 4", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 5", LibraryImageID)
-AddGadgetColumn(Gadget, 2, "A third one to scroll down enough", 0)
-AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID)
-AddGadgetItem(Gadget, 2, "Item 1", LibraryImageID)
-AddGadgetItem(Gadget, 2, "Item 2", LibraryImageID)
-AddGadgetItem(Gadget, 2, "Item 3", LibraryImageID)
-AddGadgetItem(Gadget, 2, "Item 4", LibraryImageID)
+
+
+AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 1", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 2", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 3", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 4", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 5", LibraryImageID, 1)
+
+
+AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID, 2)
+AddGadgetItem(Gadget, 2, "Item 1", LibraryImageID, 2)
+AddGadgetItem(Gadget, 2, "Item 2", LibraryImageID, 2)
+AddGadgetItem(Gadget, 2, "Item 3", LibraryImageID, 2)
+AddGadgetItem(Gadget, 2, "Item 4", LibraryImageID, 2)
 
 Menu = UITK::FlatMenu(UITK::#DarkMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
@@ -224,7 +229,7 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 172
-; FirstLine = 120
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 208
+; FirstLine = 144
 ; EnableXP
