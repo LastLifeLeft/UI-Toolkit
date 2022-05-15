@@ -36,6 +36,11 @@
 		#ScrollArea_Y		
 		#ScrollArea_ScrollStep
 		
+		#PropertiesBox_Title
+		#PropertiesBox_Text
+		#PropertiesBox_Combo
+		#PropertiesBox_Color
+		
 		#Attribute_ItemHeight
 		#Attribute_CornerRadius
 		#Attribute_Border
@@ -645,7 +650,7 @@ Module UITK
 		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
 		
 		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
-		\WindowTitle			= SetAlpha(FixColor($252220), 255)
+		\WindowTitle			= SetAlpha(FixColor($202225), 255)
 		
 		\CornerRadius			= 4
 	EndWith
@@ -5472,12 +5477,30 @@ Module UITK
 	;}
 	
 	;{ Property box
+	#PropertiesBox_MarginWidth = 28
+	#PropertiesBox_ColumnWidth = 125
+	#PropertiesBox_ItemHeight = 19
+	
+	Structure PropertiesBox_Item
+		Text.Text
+		Type.l
+		
+	EndStructure
+	
 	Structure PropertiesBoxData Extends GadgetData
 		InternalHeight.l
+		ItemHeight.l
+		MarginWidth.l
+		ColumnWidth.l
+		ContentWidth.l
 		*ScrollBar.ScrollBarData
+		List Items.PropertiesBox_Item()
+		List *DisplayedItem.PropertiesBox_Item()
 	EndStructure
 	
 	Procedure PropertiesBox_Redraw(*GadgetData.PropertiesBoxData)
+		Protected Y, X
+		
 		With *GadgetData
 			
 			If \Border
@@ -5488,20 +5511,83 @@ Module UITK
 				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 			EndIf
 			
+			X = \OriginX + \Border + \MarginWidth + 3
+			Y = *GadgetData\OriginY + \Border
+			
 			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+			ClipPath(#PB_Path_Preserve)
 			FillPath()
+			
+			VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+			AddPathBox(\OriginX, \OriginY, \MarginWidth, \Height)
+			FillPath()
+			
+			VectorFont(\TextBock\FontID)
+			
+			ForEach \Items()
+				If \Items()\Type = #PropertiesBox_Title
+					VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+					AddPathBox(\OriginX, Y, \Width, \ItemHeight)
+					FillPath()
+					
+					VectorSourceColor(\ThemeData\TextColor[#Cold])
+					VectorFont(\Items()\Text\FontID, \Items()\Text\FontScale)
+					DrawVectorTextBlock(@\Items()\Text, X, Y - 1)
+					VectorFont(\TextBock\FontID)
+					
+					Y + \ItemHeight
+				Else
+					VectorSourceColor(\ThemeData\TextColor[#Cold])
+					DrawVectorTextBlock(@\Items()\Text, X, Y - 2)
+					
+					VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+					MovePathCursor(\OriginX + \ColumnWidth + \MarginWidth + 0.5, Y)
+					AddPathLine(0, \ItemHeight, #PB_Path_Relative)
+					Y + \ItemHeight
+					MovePathCursor(\OriginX, Y - 0.5)
+					AddPathLine(\Width, Y - 0.5)
+					StrokePath(1)
+				EndIf
+				
+			Next
+			
 		EndWith
 	EndProcedure
 	
 	Procedure PropertiesBox_EventHandler(*GadgetData.PropertiesBoxData, *Event.Event)
 	EndProcedure
 	
-	Procedure PropertiesBox_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.c)
-		Protected *GadgetData.PropertiesBoxData = *this\vt
-		
-		Debug Flags
-		; 		Debug PeekA(*Flags)
-; 		Debug PeekA(*Flags)AddGadgetItem2
+	Procedure PropertiesBox_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+		Protected *GadgetData.PropertiesBoxData = *this\vt, *NewItem.PropertiesBox_Item
+		With *GadgetData
+			
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*NewItem = InsertElement(\Items())
+			Else
+				LastElement(\Items())
+				*NewItem = AddElement(\Items())
+			EndIf
+			
+			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\Image = ImageID
+			*NewItem\Text\LineLimit = 1
+			*NewItem\Type = Flags
+			If *NewItem\Type = #PropertiesBox_Title
+				*NewItem\Text\FontID = BoldFont
+				*NewItem\Text\FontScale = 11
+			Else
+				*NewItem\Text\FontID = \TextBock\FontID
+			EndIf
+			*NewItem\Text\Width = \ColumnWidth
+			*NewItem\Text\Height = \ItemHeight
+			*NewItem\Text\VAlign = #VAlignCenter
+			
+			PrepareVectorTextBlock(@*NewItem\Text)
+			
+			
+			RedrawObject()
+		EndWith
 	EndProcedure
 	
 	Procedure PropertiesBox_Meta(*GadgetData.PropertiesBoxData, *ThemeData, Gadget, x, y, Width, Height, Flags)
@@ -5510,6 +5596,10 @@ Module UITK
 		
 		With *GadgetData
 			\ScrollBar = AllocateStructure(ScrollBarData)
+			\ItemHeight = #PropertiesBox_ItemHeight
+			\ColumnWidth = #PropertiesBox_ColumnWidth
+			\MarginWidth = #PropertiesBox_MarginWidth
+			
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			
 			\VT\AddGadgetItem3 = @PropertiesBox_AddItem()
@@ -5838,7 +5928,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 2094
-; FirstLine = 50
-; Folding = NAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQAAA9
+; CursorPosition = 5550
+; FirstLine = 212
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQjAA9
 ; EnableXP

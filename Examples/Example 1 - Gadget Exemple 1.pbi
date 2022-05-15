@@ -201,7 +201,6 @@ AddGadgetItem(Gadget, -1, "Item 3", LibraryImageID, 1)
 AddGadgetItem(Gadget, -1, "Item 4", LibraryImageID, 1)
 AddGadgetItem(Gadget, -1, "Item 5", LibraryImageID, 1)
 
-
 AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID, 2)
 AddGadgetItem(Gadget, 2, "Item 1", LibraryImageID, 2)
 AddGadgetItem(Gadget, 2, "Item 2", LibraryImageID, 2)
@@ -230,6 +229,6 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 208
+; CursorPosition = 168
 ; FirstLine = 144
 ; EnableXP
