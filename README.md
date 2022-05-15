@@ -4,3 +4,5 @@
 
 *UI Toolkit* is **NOT** usable in production : I'm still figuring out what I want to do with it.
 Its API will change with no warning; it has memory leaks and bugs that won't be addressed until its scope is better defined.
+
+[Visit the project's Trello to learn more about its development.](https://trello.com/b/NcW86uvi/uitk)
