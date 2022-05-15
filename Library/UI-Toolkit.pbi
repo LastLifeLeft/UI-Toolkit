@@ -5501,7 +5501,6 @@ Module UITK
 		Protected Y, X, FirstElement
 		
 		With *GadgetData
-			
 			If \Border
 				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
 				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
@@ -5974,8 +5973,7 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 5509
-; FirstLine = 365
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+A-BAA-
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 215
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5BAA-
 ; EnableXP
