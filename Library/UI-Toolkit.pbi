@@ -5093,7 +5093,6 @@ Module UITK
 				Y - \ScrollBar\State
 				
 				Repeat 
-					; Check scrollbar position
 					\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0, \ThemeData)
 					ItemY = Y + \SectionHeight
 					ItemX = \ItemHMargin
@@ -5493,13 +5492,13 @@ Module UITK
 		MarginWidth.l
 		ColumnWidth.l
 		ContentWidth.l
+		VisibleScrollbar.b
 		*ScrollBar.ScrollBarData
 		List Items.PropertiesBox_Item()
-		List *DisplayedItem.PropertiesBox_Item()
 	EndStructure
 	
 	Procedure PropertiesBox_Redraw(*GadgetData.PropertiesBoxData)
-		Protected Y, X
+		Protected Y, X, FirstElement
 		
 		With *GadgetData
 			
@@ -5511,50 +5510,87 @@ Module UITK
 				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 			EndIf
 			
-			X = \OriginX + \Border + \MarginWidth + 3
-			Y = *GadgetData\OriginY + \Border
-			
-			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-			ClipPath(#PB_Path_Preserve)
-			FillPath()
-			
-			VectorSourceColor(\ThemeData\ShadeColor[#Warm])
-			AddPathBox(\OriginX, \OriginY, \MarginWidth, \Height)
-			FillPath()
-			
-			VectorFont(\TextBock\FontID)
-			
-			ForEach \Items()
-				If \Items()\Type = #PropertiesBox_Title
-					VectorSourceColor(\ThemeData\ShadeColor[#Warm])
-					AddPathBox(\OriginX, Y, \Width, \ItemHeight)
-					FillPath()
-					
-					VectorSourceColor(\ThemeData\TextColor[#Cold])
-					VectorFont(\Items()\Text\FontID, \Items()\Text\FontScale)
-					DrawVectorTextBlock(@\Items()\Text, X, Y - 1)
-					VectorFont(\TextBock\FontID)
-					
-					Y + \ItemHeight
+			If ListSize(\Items())
+				X = \OriginX + \Border + \MarginWidth + 3
+				Y = *GadgetData\OriginY + \Border
+				
+				If \VisibleScrollbar
+					SelectElement(\Items(), Floor(\ScrollBar\State / \ItemHeight))
+					Y - (\ScrollBar\State % \ItemHeight)
 				Else
-					VectorSourceColor(\ThemeData\TextColor[#Cold])
-					DrawVectorTextBlock(@\Items()\Text, X, Y - 2)
-					
-					VectorSourceColor(\ThemeData\ShadeColor[#Warm])
-					MovePathCursor(\OriginX + \ColumnWidth + \MarginWidth + 0.5, Y)
-					AddPathLine(0, \ItemHeight, #PB_Path_Relative)
-					Y + \ItemHeight
-					MovePathCursor(\OriginX, Y - 0.5)
-					AddPathLine(\Width, Y - 0.5)
-					StrokePath(1)
+					FirstElement(\Items())
 				EndIf
 				
-			Next
+				VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+				ClipPath(#PB_Path_Preserve)
+				FillPath()
+				
+				VectorFont(\TextBock\FontID)
+				VectorSourceColor(\ThemeData\TextColor[#Cold])
+				
+				Repeat
+					If \Items()\Type = #PropertiesBox_Title
+						VectorFont(\Items()\Text\FontID, \Items()\Text\FontScale)
+						DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 1)
+						VectorFont(\TextBock\FontID)
+					Else
+						VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+						AddPathBox(X, Y, \Width, \ItemHeight - 1)
+						FillPath()
+						
+						VectorSourceColor(\ThemeData\TextColor[#Cold])
+						DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 2)
+					EndIf
+					
+					Y + \ItemHeight
+				Until Not NextElement(\Items()) Or Y > \Height
+				
+				VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+				MovePathCursor(\OriginX + \ColumnWidth + \MarginWidth + 0.5, \Border)
+				AddPathLine(0, \Height, #PB_Path_Relative)
+				StrokePath(1)
+				
+				If \VisibleScrollbar
+					\ScrollBar\Redraw(\ScrollBar)
+				EndIf
+			EndIf
 			
 		EndWith
 	EndProcedure
 	
 	Procedure PropertiesBox_EventHandler(*GadgetData.PropertiesBoxData, *Event.Event)
+		Protected Redraw, Y, NewItem = -1, ItemRow
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #MouseMove ;{
+					If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \ScrollBar\MouseState
+						\ScrollBar\MouseState = #False
+						Redraw = #True
+					EndIf
+					;}
+				Case #MouseLeave ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					EndIf
+					;}
+				Case #LeftButtonDown ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					EndIf
+					;}
+				Case #LeftButtonUp ;{
+					If \ScrollBar\Drag 
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					EndIf
+					;}
+			EndSelect
+			If Redraw
+				RedrawObject()
+			EndIf
+		EndWith
 	EndProcedure
 	
 	Procedure PropertiesBox_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
@@ -5584,10 +5620,21 @@ Module UITK
 			*NewItem\Text\VAlign = #VAlignCenter
 			
 			PrepareVectorTextBlock(@*NewItem\Text)
+			\InternalHeight + \ItemHeight
 			
+			If \InternalHeight > \Height
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
 			
+			ChangeCurrentElement(\Items(), *NewItem)
+			Position = ListIndex(\Items())
 			RedrawObject()
 		EndWith
+		
+		ProcedureReturn Position
 	EndProcedure
 	
 	Procedure PropertiesBox_Meta(*GadgetData.PropertiesBoxData, *ThemeData, Gadget, x, y, Width, Height, Flags)
@@ -5927,8 +5974,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 5550
-; FirstLine = 212
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQjAA9
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 5509
+; FirstLine = 365
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+A-BAA-
 ; EnableXP

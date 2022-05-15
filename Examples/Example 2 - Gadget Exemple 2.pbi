@@ -10,7 +10,7 @@ Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), LibraryImageID = Ima
 
 Window = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
 UITK::SetWindowIcon(Window, ImageID(Image))
-Gadget = UITK::PropertiesBox(#PB_Any, 20, 20, 320, 400, UITK::#Border)
+Gadget = UITK::PropertiesBox(#PB_Any, 20, 20, 320, 300, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Title", 0, UITK::#PropertiesBox_Title)
 AddGadgetItem(Gadget, -1, "Text", 0, UITK::#PropertiesBox_Text)
 AddGadgetItem(Gadget, -1, "Color", 0, UITK::#PropertiesBox_Text)
@@ -20,6 +20,16 @@ AddGadgetItem(Gadget, -1, "Moar entries", 0, UITK::#PropertiesBox_Text)
 AddGadgetItem(Gadget, -1, "Moar entries", 0, UITK::#PropertiesBox_Text)
 AddGadgetItem(Gadget, -1, "Moar entries", 0, UITK::#PropertiesBox_Text)
 AddGadgetItem(Gadget, -1, "Moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
+AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertiesBox_Text)
 
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
@@ -30,6 +40,6 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 20
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 12
 ; EnableXP
