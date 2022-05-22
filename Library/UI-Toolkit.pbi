@@ -5964,6 +5964,33 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
+	Procedure Tree_RemoveItem(*This.PB_Gadget, Position)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				If Position <= \State
+					\State - 1
+				EndIf
+				
+				DeleteElement(\Items())
+				
+				\InternalHeight - \ItemHeight
+				
+				If \InternalHeight > \Height
+					\VisibleScrollbar = #True
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+				Else
+					\VisibleScrollbar = #False
+				EndIf
+				
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
 	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tree)
@@ -5988,7 +6015,6 @@ Module UITK
 			\SupportedEvent[#LeftButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
 			\SupportedEvent[#LeftDoubleClick] = #True
-			
 		EndWith
 	EndProcedure
 	
@@ -6034,11 +6060,26 @@ Module UITK
 	;}
 	
 	;{ HorizontalList
+	#HList_ItemHeight = 100
+	
+	Structure HorizontalList_Item
+		ImageX.l
+		ImageY.l
+		imageID.i
+		Text.Text
+	EndStructure
+	
 	Structure HorizontalListData Extends GadgetData
+		ItemWidth.l
+		VisibleScrollbar.b
+		*ScrollBar.ScrollBarData
+		InternalWidth.i
+		List Items.HorizontalList_Item()
 	EndStructure
 	
 	Procedure HorizontalList_Redraw(*GadgetData.HorizontalListData)
 		With *GadgetData
+			Protected X = \OriginX + \Border
 			
 			If \Border
 				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
@@ -6049,19 +6090,227 @@ Module UITK
 			EndIf
 			
 			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+			ClipPath(#PB_Path_Preserve)
 			FillPath()
+			
+			If ListSize(\Items())
+				
+				VectorFont(\TextBock\FontID)
+				VectorSourceColor(\ThemeData\TextColor[#Cold])
+				
+				If \ScrollBar\State
+					SelectElement(\Items(), Floor(\ScrollBar\State / \ItemWidth))
+					X - (\ScrollBar\State % \ItemWidth)
+				Else
+					FirstElement(\Items())
+				EndIf
+				
+				Repeat
+					If ListIndex(\Items()) = \State
+						AddPathBox(X, 0, \ItemWidth, \Height)
+						VectorSourceColor(\ThemeData\ShadeColor[#Hot])
+						FillPath()
+						VectorSourceColor(\ThemeData\TextColor[#Cold])
+					ElseIf ListIndex(\Items()) = \MouseState
+						AddPathBox(X, 0, \ItemWidth, \Height)
+						VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+						FillPath()
+						VectorSourceColor(\ThemeData\TextColor[#Cold])
+					EndIf
+					
+					If \Items()\imageID
+						MovePathCursor(X + \Items()\ImageX, \OriginY + \Items()\ImageY)
+						DrawVectorImage(\Items()\imageID)
+					EndIf
+					
+					DrawVectorTextBlock(@\Items()\Text, X, \OriginY)
+					X + \ItemWidth
+				Until X > \Width Or Not NextElement(\Items())
+			EndIf
+			
+			If \VisibleScrollbar
+				\ScrollBar\Redraw(\ScrollBar)
+			EndIf
 		EndWith
 	EndProcedure
 	
-	Procedure HorizontalList_EventHandler(*GadgetData.HorizontalListData, *Event.Event)
+	Procedure HorizontalList_StateFocus(*GadgetData.HorizontalListData)
+		Protected Result
+		
+		With *GadgetData
+			If \VisibleScrollbar
+				If Ceil(\ScrollBar\State / \ItemWidth) > \State
+					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemWidth)
+					Result = #True
+				ElseIf Floor((\ScrollBar\State + \Width - \ItemWidth) / \ItemWidth) < \State
+					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemWidth - \Width + \ItemWidth)
+					Result = #True
+				EndIf
+			EndIf
+		EndWith
+		
+		ProcedureReturn Result
 	EndProcedure
 	
+	Procedure HorizontalList_FocusTimer(*GadgetData.HorizontalListData, Timer)
+		RemoveGadgetTimer(Timer)
+		
+		If HorizontalList_StateFocus(*GadgetData)
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
+	Procedure HorizontalList_EventHandler(*GadgetData.HorizontalListData, *Event.Event)
+		Protected Redraw, HoverItem, Keyboard
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #MouseMove ;{
+					If \VisibleScrollbar And (*Event\MouseY >= \ScrollBar\OriginY Or \ScrollBar\Drag = #True)
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \ScrollBar\MouseState
+						\ScrollBar\MouseState = #False
+						Redraw = #True
+					EndIf
+					
+					If Not \ScrollBar\MouseState
+						HoverItem = Floor((*Event\MouseX + \ScrollBar\State) / \ItemWidth)
+						If HoverItem <> \MouseState
+							\MouseState = HoverItem
+							Redraw = #True
+						EndIf
+					ElseIf \MouseState > -1
+						\MouseState = -1
+						Redraw = #True
+					EndIf
+					;}
+				Case #MouseLeave ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \MouseState > -1
+						\MouseState = -1
+						Redraw = #True
+					EndIf
+					
+					;}
+				Case #LeftButtonDown ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					Else
+						If \MouseState > -1 And \State <> \MouseState
+							\State = \MouseState
+							Redraw = #True
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
+						EndIf
+					EndIf
+					;}
+				Case #LeftButtonUp ;{
+					If \ScrollBar\Drag 
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					EndIf
+					;}
+				Case #LeftDoubleClick ;{
+					If \MouseState > -1
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
+					EndIf
+					;}
+				Case #KeyDown ;{
+					Debug "?"
+					Keyboard = GetGadgetAttribute(\Gadget, #PB_Canvas_Key)
+					If Keyboard = #PB_Shortcut_Left
+						If \State > 0
+							\State - 1
+							HorizontalList_StateFocus(*GadgetData)
+							Redraw = #True
+						EndIf
+					ElseIf Keyboard = #PB_Shortcut_Right
+						If \State < ListSize(\Items()) - 1
+							\State + 1
+							HorizontalList_StateFocus(*GadgetData)
+							Redraw = #True
+						EndIf
+					EndIf
+					;}
+			EndSelect
+			If Redraw
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.BITMAP
+		With *GadgetData
+			
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*NewItem = InsertElement(\Items())
+			Else
+				LastElement(\Items())
+				*NewItem = AddElement(\Items())
+			EndIf
+			
+			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\LineLimit = 1
+			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\Width = \ItemWidth
+			*NewItem\Text\Height = \Height - 15
+			*NewItem\Text\VAlign = #VAlignBottom
+			*NewItem\Text\HAlign = #HAlignCenter
+			
+			PrepareVectorTextBlock(@*NewItem\Text)
+			
+			*NewItem\imageID = ImageID
+			
+			If *NewItem\imageID
+				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
+				*NewItem\ImageY = (\Height - 20 - HBitmap\bmHeight) * 0.5
+			EndIf
+			
+			\InternalWidth = ListSize(\Items()) * \ItemWidth
+			
+			If \InternalWidth > \Width
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
+			
+			ChangeCurrentElement(\Items(), *NewItem)
+			Position = ListIndex(\Items())
+			RedrawObject()
+		EndWith
+		
+		ProcedureReturn Position
+	EndProcedure
+		
 	Procedure HorizontalList_Meta(*GadgetData.HorizontalListData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(HorizontalList)
 		
-		UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
-		*GadgetData\DefaultEventHandler = 0
+		With *GadgetData
+			\ScrollBar = AllocateStructure(ScrollBarData)
+			\VisibleScrollbar = #False
+			\ItemWidth = Height
+			\State = -1
+			\MouseState = -1
+			
+			Scrollbar_Meta(\ScrollBar, *ThemeData, -1, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness, 0, 0, \Width, #Null)
+			
+			\VT\AddGadgetItem2 = @HorizontalList_AddItem()
+			
+			
+			; Enable only the needed events
+			\SupportedEvent[#MouseWheel] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#LeftDoubleClick] = #True
+			\SupportedEvent[#KeyDown] = #True
+		EndWith
 	EndProcedure
 	
 	Procedure HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
@@ -6070,7 +6319,7 @@ Module UITK
 		If AccessibilityMode
 			
 		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height)
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
 				If Gadget = #PB_Any
@@ -6380,7 +6629,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 5907
-; FirstLine = 148
-; Folding = JAAAAAAAAAAAAgAAAAAAAACECAAAAAAAAAACAiEEAAA+
+; CursorPosition = 6222
+; FirstLine = 63
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAACACAAigCAg
 ; EnableXP
