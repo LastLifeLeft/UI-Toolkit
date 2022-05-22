@@ -3532,6 +3532,9 @@ Module UITK
 				If Ceil(\ScrollBar\State / \ItemHeight) > \State
 					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemHeight)
 					Result = #True
+				ElseIf Floor((\ScrollBar\State + \Height - \ItemHeight) / \ItemHeight) < \State
+					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemHeight - \Height + \ItemHeight)
+					Result = #True
 				EndIf
 			EndIf
 		EndWith
@@ -6216,7 +6219,6 @@ Module UITK
 					EndIf
 					;}
 				Case #KeyDown ;{
-					Debug "?"
 					Keyboard = GetGadgetAttribute(\Gadget, #PB_Canvas_Key)
 					If Keyboard = #PB_Shortcut_Left
 						If \State > 0
@@ -6623,13 +6625,8 @@ EndModule
 
 
 
-
-
-
-
-
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 6222
-; FirstLine = 63
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAACACAAigCAg
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 3537
+; FirstLine = 55
+; Folding = JAAAAAAAAAAAAAAAAAAAAAiACAAAAAAAAAACACAACAAAg
 ; EnableXP

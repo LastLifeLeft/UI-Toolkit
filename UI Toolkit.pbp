@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.00 Beta 7 (Windows - x64)">
+<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.00 Beta 7 (Windows - x86)">
   <section name="config">
     <options closefiles="1" openmode="0" name="UI Toolkit"/>
     <comment>My set of tools to create descent looking PB gadgets quickly.</comment>
@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2022-05-22 20:04" user="♥x1" host="MONSTRO"/>
+    <lastopen date="2022-05-22 20:15" user="♥x1" host="MONSTRO"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -33,7 +33,7 @@
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="72fdeddb89a0a524a8eebc885bc68279"/>
+      <fingerprint md5="ad93ddfa373a92540629b6780881711c"/>
     </file>
   </section>
   <section name="targets">
@@ -46,7 +46,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 1" enabled="1" default="0">
+    <target name="Example 1" enabled="1" default="1">
       <inputfile value="Examples\Example 1 - Gadget Exemple 1.pbi"/>
       <outputfile value="Examples\Example 1.exe"/>
       <compiler version="PureBasic 6.00 Beta 7 - C Backend (Windows - x64)"/>
@@ -55,7 +55,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 2" enabled="1" default="1">
+    <target name="Example 2" enabled="1" default="0">
       <inputfile value="Examples\Example 2 - Gadget Exemple 2.pbi"/>
       <outputfile value="Examples\Example 2.exe"/>
       <compiler version="PureBasic 6.00 Beta 7 - C Backend (Windows - x64)"/>
