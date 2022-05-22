@@ -661,6 +661,7 @@ Module UITK
 	;}
 	;}
 	
+	
 	;General:
 	;{ Shared
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
@@ -6137,6 +6138,35 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure HorizontalList_Resize(*This.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		With *GadgetData
+			\Width = GadgetWidth(\Gadget)
+			\Height = GadgetHeight(\Gadget)
+			
+			\TextBock\Width = \Width 
+			\TextBock\Height = \Height 
+			
+			Scrollbar_ResizeMeta(\ScrollBar, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness)
+			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Width)
+			
+			If \InternalWidth > \Width
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
+			
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
 	Procedure HorizontalList_StateFocus(*GadgetData.HorizontalListData)
 		Protected Result
 		
@@ -6302,7 +6332,7 @@ Module UITK
 			Scrollbar_Meta(\ScrollBar, *ThemeData, -1, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness, 0, 0, \Width, #Null)
 			
 			\VT\AddGadgetItem2 = @HorizontalList_AddItem()
-			
+			\VT\ResizeGadget = @HorizontalList_Resize()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -6626,7 +6656,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 3537
-; FirstLine = 55
-; Folding = JAAAAAAAAAAAAAAAAAAAAAiACAAAAAAAAAACACAACAAAg
+; CursorPosition = 2108
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAACACAAAAAAA-
 ; EnableXP

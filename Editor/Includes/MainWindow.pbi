@@ -332,42 +332,6 @@
 		SetGadgetAttribute(TreeGadget, UITK::#Attribute_CornerRadius, 5)
 		SetGadgetColor(TreeGadget, UITK::#Color_Parent, SetAlpha(UITK::WindowGetColor(Window, UITK::#Color_WindowBorder), 255))
 		
-		Protected ID, a
-		
-			For a = 0 To 10
-				AddGadgetItem (TreeGadget, -1, "Normal Item "+Str(a), 0, 0)
-				AddGadgetItem (TreeGadget, -1, "Node "+Str(a), 0, 0)		
-				AddGadgetItem(TreeGadget, -1, "Sub-Item 1", 0, 1)			
-				AddGadgetItem(TreeGadget, -1, "Sub-Item 2", 0, 1)
-				AddGadgetItem(TreeGadget, -1, "Sub-Sub-Item 1", 0, 2)
-				AddGadgetItem(TreeGadget, -1, "Sub-Sub-Item 2", 0, 2)
-				AddGadgetItem(TreeGadget, -1, "Sub-Sub-Item 3", 0, 2)
-				AddGadgetItem(TreeGadget, -1, "Sub-Item 3", 0, 1)
-				AddGadgetItem(TreeGadget, -1, "Sub-Item 4", 0, 1)
-				AddGadgetItem (TreeGadget, -1, "File "+Str(a), 0, 0) ; sublevel 0 again
-			Next
-			a = 11
-			AddGadgetItem (TreeGadget, -1, "Normal Item "+Str(a), 0, 0)
-			AddGadgetItem (TreeGadget, -1, "Node "+Str(a), 0, 0)		
-			AddGadgetItem(TreeGadget, -1, "Sub-Item 1", 0, 1)			
-			AddGadgetItem(TreeGadget, -1, "Sub-Item 2", 0, 1)
-			AddGadgetItem(TreeGadget, -1, "Sub-Sub-Item 1", 0, 2)
-			AddGadgetItem(TreeGadget, -1, "Sub-Sub-Item 2", 0, 2)
-			AddGadgetItem(TreeGadget, -1, "Sub-Sub-Item 3", 0, 2)
-		
-; 		AddGadgetItem(TreeGadget, -1, "Item 0")
-; 		AddGadgetItem(TreeGadget, -1, "Item 1")
-; 		AddGadgetItem(TreeGadget, -1, "Sub-Item 1", 0, 2)
-; 		AddGadgetItem(TreeGadget, -1, "Sub-Sub-Item 1", 0, 2)
-; 		AddGadgetItem(TreeGadget, -1, "Sub-Item 2", 0, 1)
-; 		AddGadgetItem(TreeGadget, -1, "Sub-Item 3", 0, 1)
-; 		AddGadgetItem(TreeGadget, -1, "Sub-Item 4", 0, 1)
-; 		AddGadgetItem(TreeGadget, -1, "Item 2")
-; 		AddGadgetItem(TreeGadget, -1, "Item 3")
-; 		
-		
-		
-		
 		PropertyBox = UITK::PropertyBox(#PB_Any, #Margin, (Height - #Margin) * 0.5 + #WindowBarHeight + #Margin, #RightPanel_Width, (Height - #Margin) * 0.5 - #Margin)
 		SetGadgetAttribute(PropertyBox, UITK::#Attribute_CornerRadius, 5)
 		SetGadgetColor(PropertyBox, UITK::#Color_Parent, SetAlpha(UITK::WindowGetColor(Window, UITK::#Color_WindowBorder), 255))
@@ -434,8 +398,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 348
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
+; CursorPosition = 332
 ; FirstLine = 78
 ; Folding = HCgt-
 ; EnableXP
