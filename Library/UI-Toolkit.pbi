@@ -38,10 +38,12 @@
 		
 		#PropertyBox_Title
 		#PropertyBox_Text
+		#PropertyBox_TextNumerical
 		#PropertyBox_Combo
 		#PropertyBox_Color
 		
 		#Attribute_ItemHeight
+		#Attribute_ItemWidth
 		#Attribute_CornerRadius
 		#Attribute_Border
 		#Attribute_TextScale
@@ -1823,7 +1825,7 @@ Module UITK
 				
 				SetGadgetFont(*WindowData\ButtonMinimize, UITKFont)
 				
-				SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+				SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 			EndIf
 			
 			*WindowData\Label = Label(#PB_Any, #SizableBorder, 0, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
@@ -5509,6 +5511,35 @@ Module UITK
 		List Items.PropertyBox_Item()
 	EndStructure
 	
+	Procedure PropertyBox_Resize(*This.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.PropertyBoxData = *this\vt
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		With *GadgetData
+			\Width = GadgetWidth(\Gadget)
+			\Height = GadgetHeight(\Gadget)
+			
+			\TextBock\Width = \Width 
+			\TextBock\Height = \Height 
+			
+			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
+			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
+			
+			If \InternalHeight > \Height
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
+			
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
 	Procedure PropertyBox_Redraw(*GadgetData.PropertyBoxData)
 		Protected Y, X, FirstElement
 		
@@ -5668,6 +5699,7 @@ Module UITK
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			
 			\VT\AddGadgetItem3 = @PropertyBox_AddItem()
+			\VT\ResizeGadget = @PropertyBox_Resize()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -5762,7 +5794,7 @@ Module UITK
 			FillPath()
 			
 			If ListSize(\Items())
-				X = \OriginX + \Border + \BranchWidth
+				X = \OriginX + \Border + \BranchWidth + 1
 				Y = *GadgetData\OriginY + \Border - (\ScrollBar\State % \ItemHeight)
 				
 				If \VisibleScrollbar And Floor(\ScrollBar\State / \ItemHeight)
@@ -5995,6 +6027,12 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Tree_CountItem(*This.PB_Gadget)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+	
 	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tree)
@@ -6010,7 +6048,8 @@ Module UITK
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			
 			\VT\AddGadgetItem3 = @Tree_AddItem()
-			\vt\ResizeGadget = @Tree_Resize()
+			\VT\ResizeGadget = @Tree_Resize()
+			\VT\CountGadgetItems = @Tree_CountItem()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -6098,7 +6137,6 @@ Module UITK
 			FillPath()
 			
 			If ListSize(\Items())
-				
 				VectorFont(\TextBock\FontID)
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				
@@ -6139,18 +6177,16 @@ Module UITK
 	EndProcedure
 	
 	Procedure HorizontalList_Resize(*This.PB_Gadget, x, y, Width, Height)
-		Protected *GadgetData.HorizontalListData = *this\vt
+		Protected *GadgetData.HorizontalListData = *this\vt, PreviousHeight
 		
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
 		*this\VT = *GadgetData
 		
 		With *GadgetData
+			PreviousHeight = \Height
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
-			
-			\TextBock\Width = \Width 
-			\TextBock\Height = \Height 
 			
 			Scrollbar_ResizeMeta(\ScrollBar, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Width)
@@ -6162,7 +6198,13 @@ Module UITK
 				\VisibleScrollbar = #False
 			EndIf
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			If PreviousHeight <> \Height
+				ForEach \Items()
+					\Items()\Text\Height = \Height
+					PrepareVectorTextBlock(@\Items()\Text)
+				Next
+			EndIf
+			
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -6287,7 +6329,7 @@ Module UITK
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Text\FontID = \TextBock\FontID
 			*NewItem\Text\Width = \ItemWidth
-			*NewItem\Text\Height = \Height - 15
+			*NewItem\Text\Height = Floor(\Height * 0.9)
 			*NewItem\Text\VAlign = #VAlignBottom
 			*NewItem\Text\HAlign = #HAlignCenter
 			
@@ -6317,7 +6359,47 @@ Module UITK
 		
 		ProcedureReturn Position
 	EndProcedure
+	
+	Procedure HorizontalList_CountItem(*This.PB_Gadget)
+		Protected *GadgetData.HorizontalListData = *this\vt
 		
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+	
+	; Getters
+	
+	
+	; Setters
+	Procedure HorizontalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		With *GadgetData
+			Select Attribute
+				Case #Attribute_ItemWidth ;{
+					\ItemWidth = Value
+					\InternalWidth = ListSize(\Items()) * \ItemWidth
+					
+					If \InternalWidth > \Width
+						\VisibleScrollbar = #True
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+					Else
+						\VisibleScrollbar = #False
+					EndIf
+					
+					ForEach \Items()
+						\Items()\Text\Width = \ItemWidth
+						PrepareVectorTextBlock(@\Items()\Text)
+					Next
+					;}
+				Default ;{	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+					;}
+			EndSelect
+		EndWith
+		RedrawObject()
+	EndProcedure
+	
+	
 	Procedure HorizontalList_Meta(*GadgetData.HorizontalListData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(HorizontalList)
@@ -6333,6 +6415,8 @@ Module UITK
 			
 			\VT\AddGadgetItem2 = @HorizontalList_AddItem()
 			\VT\ResizeGadget = @HorizontalList_Resize()
+			\VT\SetGadgetAttribute = @HorizontalList_SetAttribute()
+			\VT\CountGadgetItems = @HorizontalList_CountItem()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -6655,7 +6739,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 2108
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAACACAAAAAAA-
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 5702
+; FirstLine = 39
+; Folding = JAAEAAAAAAAAAAAAAAAAAAAACAAAAAAAAAACBUEAAAAAAA-
 ; EnableXP

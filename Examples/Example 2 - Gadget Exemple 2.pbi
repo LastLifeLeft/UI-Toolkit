@@ -55,7 +55,8 @@ AddGadgetItem(Gadget, -1, "Sub-Sub-Item 1", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 2", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 3", 0, 2)
 
-Gadget = UITK::HorizontalList(#PB_Any, 320, 20, 621, 100, UITK::#Border)
+Gadget = UITK::HorizontalList(#PB_Any, 320, 20, 621, 80, UITK::#Border)
+
 For a = 0 To 20
 	AddGadgetItem(Gadget, -1, "Item " + a, SquaredImage, 2)
 Next
@@ -72,5 +73,5 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 10
+; CursorPosition = 58
 ; EnableXP
