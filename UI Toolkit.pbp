@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.00 Beta 7 (Windows - x64)">
+<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.00 Beta 8 (Windows - x64)">
   <section name="config">
     <options closefiles="1" openmode="0" name="UI Toolkit"/>
     <comment>My set of tools to create descent looking PB gadgets quickly.</comment>
@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2022-05-26 03:36" user="♥x1" host="MONSTRO"/>
+    <lastopen date="2022-05-30 02:53" user="♥x1" host="MONSTRO"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -17,7 +17,7 @@
     </file>
     <file name="Editor\Includes\MainWindow.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+++"/>
-      <fingerprint md5="c802b978dafa6abb3b3904992d6189b3"/>
+      <fingerprint md5="59cd47c56c41a8cd86e5468cfa462f6a"/>
     </file>
     <file name="Editor\Includes\Project.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+++"/>
@@ -28,20 +28,20 @@
       <fingerprint md5="bfa70189e3c20d895fd1e4d6f5ba0529"/>
     </file>
     <file name="Examples\Example 1 - Gadget Exemple 1.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="dbe425f9ac1da73e2442286f4f276980"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
+      <fingerprint md5="ae00253ee8c19e0f1417f22f73a1fc18"/>
     </file>
     <file name="Examples\Example 2 - Gadget Exemple 2.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="dac9bdd22240c1477bfc61809e09879a"/>
+      <fingerprint md5="8254ad4663fbf7e2b15b9c5e0b54eea8"/>
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="5b600d055b0f3376e126eb51cfd29b2e"/>
+      <fingerprint md5="c6eb84d1de82d0d47ce653ba67529cb8"/>
     </file>
   </section>
   <section name="targets">
-    <target name="UITK Edit" enabled="1" default="1">
+    <target name="UITK Edit" enabled="1" default="0">
       <inputfile value="Editor\UITK Edit.pb"/>
       <outputfile value="UITK Edit.exe"/>
       <compiler version="PureBasic 6.00 Beta 7 - C Backend (Windows - x64)"/>
@@ -50,7 +50,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 1" enabled="1" default="0">
+    <target name="Example 1" enabled="1" default="1">
       <inputfile value="Examples\Example 1 - Gadget Exemple 1.pbi"/>
       <outputfile value="Examples\Example 1.exe"/>
       <compiler version="PureBasic 6.00 Beta 7 - C Backend (Windows - x64)"/>

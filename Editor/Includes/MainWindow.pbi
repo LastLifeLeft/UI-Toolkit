@@ -396,8 +396,6 @@
 	Procedure AddComponant(Type, Name.s, Position, Level)
 		AddGadgetItem(TreeGadget, Position, Name, ImageID(ImageArray(#Tree, Type)), Level)
 		
-		Debug CountGadgetItems(TreeGadget)
-		
 		If CountGadgetItems(TreeGadget) = 1
 			SetGadgetState(TreeGadget, 0)
 			PopulateProperties(Project::#Componant_Window, 0)
@@ -482,9 +480,17 @@
 			Case Project::#Componant_Window
 				AddGadgetItem(PropertyBox, -1, "Window", 0, UITK::#PropertyBox_Title)
 				AddGadgetItem(PropertyBox, -1, "Name", 0, UITK::#PropertyBox_Text)
-				AddGadgetItem(PropertyBox, -1, "Name", 0, UITK::#PropertyBox_TextNumerical)
+				AddGadgetItem(PropertyBox, -1, "Height", 0, UITK::#PropertyBox_TextNumerical)
+				AddGadgetItem(PropertyBox, -1, "Width", 0, UITK::#PropertyBox_TextNumerical)
+				AddGadgetItem(PropertyBox, -1, "Theme", 0, UITK::#PropertyBox_Combo)
 				
 				AddGadgetItem(PropertyBox, -1, "Settings", 0, UITK::#PropertyBox_Title)
+				AddGadgetItem(PropertyBox, -1, "Screen Centered", 0, UITK::#PropertyBox_Checkbox)
+				AddGadgetItem(PropertyBox, -1, "Maximize Gadget", 0, UITK::#PropertyBox_Checkbox)
+				AddGadgetItem(PropertyBox, -1, "Minimize Gadget", 0, UITK::#PropertyBox_Checkbox)
+				AddGadgetItem(PropertyBox, -1, "Close Gadget", 0, UITK::#PropertyBox_Checkbox)
+				AddGadgetItem(PropertyBox, -1, "Size Gadget", 0, UITK::#PropertyBox_Checkbox)
+				
 				
 		EndSelect
 	EndProcedure
@@ -572,8 +578,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 486
-; FirstLine = 51
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
+; CursorPosition = 397
+; FirstLine = 75
 ; Folding = REYP0
 ; EnableXP
+; DPIAware

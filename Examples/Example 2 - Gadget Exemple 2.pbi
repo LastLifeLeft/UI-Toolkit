@@ -55,23 +55,42 @@ AddGadgetItem(Gadget, -1, "Sub-Sub-Item 1", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 2", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 3", 0, 2)
 
-Gadget = UITK::HorizontalList(#PB_Any, 320, 20, 621, 80, UITK::#Border)
+VList1 = UITK::HorizontalList(#PB_Any, 320, 20, 621, 80, UITK::#Border | UITK::#Drag)
+EnableGadgetDrop(VList1, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_GadgetItem)
 
-For a = 0 To 20
-	AddGadgetItem(Gadget, -1, "Item " + a, SquaredImage, 2)
+For a = 0 To 10
+	AddGadgetItem(VList1, -1, "Item " + a, SquaredImage, 2)
 Next
+
+VList2 = UITK::HorizontalList(#PB_Any, 320, 120, 621, 80, UITK::#Border | UITK::#Drag)
+EnableGadgetDrop(VList2, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_GadgetItem)
 
 HideWindow(Window, #False)
 
 Repeat
-	If WaitWindowEvent() = #PB_Event_CloseWindow
-		Result = 0
-		phandle = OpenProcess_(#PROCESS_TERMINATE, #False, GetCurrentProcessId_()) ;< I clearly have issues with my windows, but killing the process is a valid workaround for my own ineptitude.
-		TerminateProcess_(phandle, @Result)
-		End
-	EndIf
+	Select WaitWindowEvent()
+		Case #PB_Event_CloseWindow
+			Result = 0
+			phandle = OpenProcess_(#PROCESS_TERMINATE, #False, GetCurrentProcessId_()) ;< I clearly have issues with my windows, but killing the process is a valid workaround for my own ineptitude.
+			TerminateProcess_(phandle, @Result)
+			End
+		Case #PB_Event_GadgetDrop
+			; this is a bad example : you can drag from a gadget to itself, resulting in an empty item. Can't figure how to get the ID of the source of the drag through PB api.
+			Select EventGadget()
+				Case VList1
+					state = GetGadgetState(VList2)
+					AddGadgetItem(VList1, -1, GetGadgetItemText(VList2, state), UITK::GetGadgetItemImage(VList2, state))
+					RemoveGadgetItem(VList2, state)
+				Case VList2
+					state = GetGadgetState(VList1)
+					AddGadgetItem(VList2, -1, GetGadgetItemText(VList1, state), UITK::GetGadgetItemImage(VList1, state))
+					RemoveGadgetItem(VList1, state)
+			EndSelect
+	EndSelect
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 58
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
+; CursorPosition = 77
+; FirstLine = 52
 ; EnableXP
+; DPIAware
