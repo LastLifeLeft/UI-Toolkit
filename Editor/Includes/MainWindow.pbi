@@ -354,7 +354,7 @@
 		SetGadgetAttribute(PropertyBox, UITK::#Attribute_CornerRadius, 5)
 		SetGadgetColor(PropertyBox, UITK::#Color_Parent, SetAlpha(UITK::WindowGetColor(Window, UITK::#Color_WindowBorder), 255))
 		
-		ComponantList = UITK::HorizontalList(#PB_Any, #RightPanel_Width + #Margin * 2, #WindowBarHeight, #RightPanel_Width, #TopPanel_Height)
+		ComponantList = UITK::HorizontalList(#PB_Any, #RightPanel_Width + #Margin * 2, #WindowBarHeight, #RightPanel_Width, #TopPanel_Height, UITK::#Drag)
 		SetGadgetAttribute(ComponantList, UITK::#Attribute_CornerRadius, 5)
 		SetGadgetColor(ComponantList, UITK::#Color_Parent, SetAlpha(UITK::WindowGetColor(Window, UITK::#Color_WindowBorder), 255))
 		AddGadgetItem(ComponantList, -1, "Button", ImageID(ImageArray(#HList,Project::#Componant_Button)))
@@ -363,6 +363,7 @@
 		AddGadgetItem(ComponantList, -1, "Toggle", ImageID(ImageArray(#HList,Project::#Componant_Toggle)))
 		
 		Canvas = CanvasGadget(#PB_Any, #RightPanel_Width + #Margin * 2, #WindowBarHeight + #TopPanel_Height + #Margin, 20, 20, #PB_Canvas_Keyboard | #PB_Canvas_Container )
+		EnableGadgetDrop(Canvas, #PB_Drop_Private, #PB_Drag_Copy, UITK::#Drag_HListItem)
 		
 		SetWindowLongPtr_(WindowID(Window), #GWL_WNDPROC, @Window_Handler())
 		
@@ -579,8 +580,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
-; CursorPosition = 397
-; FirstLine = 75
-; Folding = REYP0
+; CursorPosition = 396
+; Folding = REYD9
 ; EnableXP
 ; DPIAware

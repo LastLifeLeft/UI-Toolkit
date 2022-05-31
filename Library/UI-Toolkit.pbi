@@ -2220,6 +2220,7 @@ Module UITK
 	EndProcedure
 	;}
 	
+	
 	;Gadgets:
 	;{ Button
 	#Button_Margin = 3
@@ -4073,6 +4074,17 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
+	Procedure VerticalList_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.VerticalListData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\Text\Image
+			EndIf
+		EndWith
+	EndProcedure
+	
 	
 	; Setters
 	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
@@ -4176,6 +4188,7 @@ Module UITK
 			\VT\ResizeGadget = @VerticalList_Resize()
 			\VT\GetGadgetItemText = @VerticalList_GetItemText()
 			\VT\FreeGadget = @VerticalList_FreeGadget()
+			\VT\GetGadgetItemImage = @VerticalList_GetItemImage()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -5312,7 +5325,6 @@ Module UITK
 				VectorSourceColor(*Theme\TextColor[#Cold])
 			EndIf
 			
-			
 		EndWith
 	EndProcedure
 	
@@ -5422,7 +5434,6 @@ Module UITK
 		
 		ProcedureReturn Position
 	EndProcedure
-	
 	
 	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
 		Protected Redraw, Y, NewItem = -1, ItemRow, Image
@@ -5567,6 +5578,17 @@ Module UITK
 		ProcedureReturn *Result
 	EndProcedure
 	
+	Procedure Library_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.LibraryData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\Text\Image
+			EndIf
+		EndWith
+	EndProcedure
+	
 	
 	Procedure Library_Meta(*GadgetData.LibraryData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
@@ -5596,7 +5618,7 @@ Module UITK
 			
 			\VT\SetGadgetItemData = @Library_SetItemData()
 			\VT\GetGadgetItemData = @Library_GetItemData()
-			
+			\VT\GetGadgetItemImage = @Library_GetItemImage()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -6199,6 +6221,22 @@ Module UITK
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
 	
+	; Getters
+	Procedure Tree_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.TreeData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\Text\Image
+			EndIf
+		EndWith
+	EndProcedure
+	
+	
+	; Setters
+	
+	
 	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tree)
@@ -6216,6 +6254,7 @@ Module UITK
 			\VT\AddGadgetItem3 = @Tree_AddItem()
 			\VT\ResizeGadget = @Tree_Resize()
 			\VT\CountGadgetItems = @Tree_CountItem()
+			\VT\GetGadgetItemImage = @Tree_GetItemImage()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -6999,8 +7038,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
-; CursorPosition = 3519
-; FirstLine = 21
-; Folding = JAAEAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAQAAAgBAAAA-
+; CursorPosition = 5672
+; FirstLine = 23
+; Folding = JAAEAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAABAAAIAAAA5
 ; EnableXP
 ; DPIAware
