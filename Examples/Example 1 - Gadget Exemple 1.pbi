@@ -49,7 +49,7 @@ Gadget = UITK::TrackBar(#PB_Any, 260, 413, 60, 180, 0, 4,  UITK::#Gadget_Vertica
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
-Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 203, UITK::#Border | UITK::#ReOrder)
+Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 203, UITK::#Border | UITK::#drag)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1", ImageID(Image))
 AddGadgetItem(Gadget, -1, "Item 2")
@@ -83,22 +83,25 @@ SetGadgetState(Gadget, 2)
 
 Gadget = UITK::Library(#PB_Any, 500, 250, 440, 340, UITK::#Border)
 AddGadgetColumn(Gadget, 0, "Section something something", 0)
-AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 1", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 2", LibraryImageID)
 AddGadgetColumn(Gadget, 1, "Another section", 0)
+AddGadgetColumn(Gadget, 2, "A third one to scroll down enough", 0)
+
 AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID)
 AddGadgetItem(Gadget, -1, "Item 1", LibraryImageID)
 AddGadgetItem(Gadget, -1, "Item 2", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 3", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 4", LibraryImageID)
-AddGadgetItem(Gadget, -1, "Item 5", LibraryImageID)
-AddGadgetColumn(Gadget, 2, "A third one to scroll down enough", 0)
-AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID)
-AddGadgetItem(Gadget, 2, "Item 1", LibraryImageID)
-AddGadgetItem(Gadget, 2, "Item 2", LibraryImageID)
-AddGadgetItem(Gadget, 2, "Item 3", LibraryImageID)
-AddGadgetItem(Gadget, 2, "Item 4", LibraryImageID)
+
+AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 1", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 2", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 3", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 4", LibraryImageID, 1)
+AddGadgetItem(Gadget, -1, "Item 5", LibraryImageID, 1)
+
+AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID, 2)
+AddGadgetItem(Gadget, 2, "Item 1", LibraryImageID, 2)
+AddGadgetItem(Gadget, 2, "Item 2", LibraryImageID, 2)
+AddGadgetItem(Gadget, 2, "Item 3", LibraryImageID, 2)
+AddGadgetItem(Gadget, 2, "Item 4", LibraryImageID, 2)
 
 Menu = UITK::FlatMenu(UITK::#LightMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
@@ -184,7 +187,7 @@ AddGadgetItem(Gadget, -1, "Item 8")
 AddGadgetItem(Gadget, -1, "Item 9")
 SetGadgetState(Gadget, 2)
 
-Gadget = UITK::Library(#PB_Any, 500, 250, 440, 340, UITK::#Border)
+Gadget = UITK::Library(#PB_Any, 500, 250, 440, 340, UITK::#Border | UITK::#Drag)
 AddGadgetColumn(Gadget, 0, "Section something something", 0)
 AddGadgetColumn(Gadget, 1, "Another section", 0)
 AddGadgetColumn(Gadget, 2, "A third one to scroll down enough", 0)
@@ -192,7 +195,6 @@ AddGadgetColumn(Gadget, 2, "A third one to scroll down enough", 0)
 AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID)
 AddGadgetItem(Gadget, -1, "Item 1", LibraryImageID)
 AddGadgetItem(Gadget, -1, "Item 2", LibraryImageID)
-
 
 AddGadgetItem(Gadget, 2, "Item 0", LibraryImageID, 1)
 AddGadgetItem(Gadget, -1, "Item 1", LibraryImageID, 1)
@@ -228,7 +230,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 168
-; FirstLine = 144
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
+; CursorPosition = 103
+; FirstLine = 70
 ; EnableXP
+; DPIAware

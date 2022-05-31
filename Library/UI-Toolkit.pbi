@@ -12,7 +12,8 @@
 		#Border											; Draw a border arround the gadget
 		#DarkMode										; Use the dark color scheme
 		#LightMode										; Use the light color scheme
-		#ReOrder										; Allow user to reorder items by draging them arround the gadget.
+		#ReOrder										; Allow user to reorder items by draging them arround the gadget. Mutually exclusive with #Drag.
+		#Drag											; Enable drag from this gadget. Mutually exclusive with #Reorder.
 		
 		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
@@ -29,7 +30,7 @@
 		#ScrollBar_Minimum	
 		#ScrollBar_Maximum	
 		#ScrollBar_PageLength
-	
+		
 		#ScrollArea_InnerWidth
 		#ScrollArea_InnerHeight
 		#ScrollArea_X		
@@ -38,10 +39,13 @@
 		
 		#PropertyBox_Title
 		#PropertyBox_Text
+		#PropertyBox_TextNumerical
 		#PropertyBox_Combo
 		#PropertyBox_Color
+		#PropertyBox_Checkbox
 		
 		#Attribute_ItemHeight
+		#Attribute_ItemWidth
 		#Attribute_CornerRadius
 		#Attribute_Border
 		#Attribute_TextScale
@@ -110,6 +114,12 @@
 		#Disabled
 	EndEnumeration
 	
+	Enumeration 1 ;Drag private
+		#Drag_HListItem
+		#Drag_VListItem
+		#Drag_LibraryItem
+	EndEnumeration
+	
 	Enumeration #PB_EventType_FirstCustomValue; EventType
 		#Eventtype_ForcefulChange
 	EndEnumeration	
@@ -144,6 +154,8 @@
 		ImageID.i
 		ImageX.i
 		ImageY.i
+		ImageWidth.i
+		ImageHeight.i
 		HoverState.b
 		Selected.b
 		*Section.Library_Section
@@ -190,6 +202,7 @@
 	; Gadgets
 	Declare GetGadgetImage(Gadget)
 	Declare SetGadgetImage(Gadget, Image)
+	Declare GetGadgetItemImage(Gadget, Position)
 	
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -214,6 +227,11 @@
 	Declare Freeze(Gadget, State)
 	Declare AddPathRoundedBox(Border_X, Border_Y, Border_Width, Border_Height, Radius, Type = #Corner_All)
 	
+	; Drag & drop
+	Declare AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy)
+	Declare AdvancedDragFiles(File.s, ImageID, Action = #PB_Drag_Copy)
+	Declare AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)
+	Declare AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)
 	;}
 EndDeclareModule
 
@@ -379,6 +397,9 @@ Module UITK
 				*GetGadgetFont
 				*SetGadgetFont
 				*SetGadgetItemImage
+				
+				; From here on, custom procedures
+				*GetGadgetItemImage
 			EndStructure
 			
 			Structure PB_Gadget
@@ -721,40 +742,6 @@ Module UITK
 		EndIf
 		
 		ProcedureReturn Window
-	EndProcedure
-	
-	; Timer
-	Prototype TimerCallback(*Gadget.GadgetData, Timer)
-	Structure TimerData
-		*Callback.TimerCallback
-		*Gadget.GadgetData
-	EndStructure
-	
-	Global NewMap Timers.TimerData(), TimerWindow =  OpenWindow(#PB_Any, 0, 0, 100, 100, "", #PB_Window_Invisible)
-	
-	Procedure Timer_Handler()
-		Protected Timer = EventTimer()
-		FindMapElement(Timers(), Hex(Timer))
-		Timers()\Callback(Timers()\Gadget, Timer)
-	EndProcedure
-	
-	BindEvent(#PB_Event_Timer, @Timer_Handler(), TimerWindow)
-	
-	Procedure AddGadgetTimer(*Gadget.GadgetData, TimeOut, *Callback)
-		Protected Timer
-		
-		Timer = AddWindowTimer(TimerWindow, Random(1048575, 1), TimeOut) ; can't use PB_Any with a timer...
-		
-		AddMapElement(Timers(), Hex(Timer))
-		Timers()\Callback = *Callback
-		Timers()\Gadget = *Gadget
-		
-		ProcedureReturn Timer
-	EndProcedure
-	
-	Procedure RemoveGadgetTimer(Timer)
-		RemoveWindowTimer(TimerWindow, Timer)
-		DeleteMapElement(Timers(), Hex(Timer))
 	EndProcedure
 	
 	; Drawing functions
@@ -1294,6 +1281,14 @@ Module UITK
 		
 	EndProcedure
 	
+	Procedure GetGadgetItemImage(Gadget, Position)
+		Protected *this.PB_Gadget = IsGadget(Gadget)
+		
+		If *this\vt\GetGadgetItemImage
+			ProcedureReturn CallFunctionFast(*this\vt\GetGadgetItemImage, *this, Position)
+		EndIf
+	EndProcedure
+	
 	; Setters
 	Procedure SetAccessibilityMode(MouseState)
 		AccessibilityMode = MouseState
@@ -1426,6 +1421,41 @@ Module UITK
 		*GadgetData\TextBock\OriginalText = Text
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		RedrawObject()
+	EndProcedure
+	;}
+	
+	;{ Timer 
+	Prototype TimerCallback(*Gadget.GadgetData, Timer)
+	Structure TimerData
+		*Callback.TimerCallback
+		*Gadget.GadgetData
+	EndStructure
+	
+	Global NewMap Timers.TimerData(), TimerWindow = OpenWindow(#PB_Any, 0, 0, 100, 100, "", #PB_Window_Invisible)
+	
+	Procedure Timer_Handler()
+		Protected Timer = EventTimer()
+		FindMapElement(Timers(), Hex(Timer))
+		Timers()\Callback(Timers()\Gadget, Timer)
+	EndProcedure
+	
+	BindEvent(#PB_Event_Timer, @Timer_Handler(), TimerWindow)
+	
+	Procedure AddGadgetTimer(*Gadget.GadgetData, TimeOut, *Callback)
+		Protected Timer
+		
+		Timer = AddWindowTimer(TimerWindow, Random(1048575, 1), TimeOut) ; can't use PB_Any with a timer...
+		
+		AddMapElement(Timers(), Hex(Timer))
+		Timers()\Callback = *Callback
+		Timers()\Gadget = *Gadget
+		
+		ProcedureReturn Timer
+	EndProcedure
+	
+	Procedure RemoveGadgetTimer(Timer)
+		RemoveWindowTimer(TimerWindow, Timer)
+		DeleteMapElement(Timers(), Hex(Timer))
 	EndProcedure
 	;}
 	
@@ -1823,7 +1853,7 @@ Module UITK
 				
 				SetGadgetFont(*WindowData\ButtonMinimize, UITKFont)
 				
-				SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+				SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 			EndIf
 			
 			*WindowData\Label = Label(#PB_Any, #SizableBorder, 0, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
@@ -2103,6 +2133,90 @@ Module UITK
 		EndSelect
 		
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
+	EndProcedure
+	;}
+	
+	;{ Advanced drag & drop
+	Global ADNDWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(TimerWindow)) ; Timer window? Shouldn't there be an universal hidden window for UITK rather than piggy backing this one?
+	SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
+	SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
+	Global ADNDGadget = ImageGadget(#PB_Any, 0, 0, 1, 1, 0)
+	Global ADNDHook
+	
+	#ADND_OffsetX = 8
+	#ADND_OffsetY = 8
+	
+	Procedure ADND_Hook(nCode, wParam, *p.MOUSEHOOKSTRUCT)
+		SetWindowPos_(WindowID(ADNDWindow), 0, *p\pt\x + #ADND_OffsetX, *p\pt\y + #ADND_OffsetY, 0, 0, #SWP_NOSIZE|#SWP_NOREDRAW)
+		ProcedureReturn CallNextHookEx_(#NUL, nCode, wParam, *p)
+	EndProcedure
+	
+	Procedure AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy)
+		Protected HBitmap.BITMAP
+		
+		ExamineDesktops()
+		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+		ResizeWindow(ADNDWindow, DesktopMouseX() + #ADND_OffsetX, DesktopMouseY() + #ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
+		SetGadgetState(ADNDGadget, ImageID)
+		HideWindow(ADNDWindow, #False)
+		
+		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
+		
+		DragPrivate(Type, Action)
+		
+		HideWindow(ADNDWindow, #True)
+		UnhookWindowsHookEx_(ADNDHook)
+	EndProcedure
+	
+	Procedure AdvancedDragFiles(File.s, ImageID, Action = #PB_Drag_Copy)
+		Protected HBitmap.BITMAP
+		
+		ExamineDesktops()
+		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+		ResizeWindow(ADNDWindow, DesktopMouseX() + #ADND_OffsetX, DesktopMouseY() + #ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
+		SetGadgetState(ADNDGadget, ImageID)
+		HideWindow(ADNDWindow, #False)
+		
+		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
+		
+		DragFiles(File, Action)
+		
+		HideWindow(ADNDWindow, #True)
+		UnhookWindowsHookEx_(ADNDHook)
+	EndProcedure
+	
+	Procedure AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)
+		Protected HBitmap.BITMAP
+		
+		ExamineDesktops()
+		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+		ResizeWindow(ADNDWindow, DesktopMouseX() + #ADND_OffsetX, DesktopMouseY() + #ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
+		SetGadgetState(ADNDGadget, ImageID)
+		HideWindow(ADNDWindow, #False)
+		
+		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
+		
+		DragText(Text, Action)
+		
+		HideWindow(ADNDWindow, #True)
+		UnhookWindowsHookEx_(ADNDHook)
+	EndProcedure
+	
+	Procedure AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)
+		Protected HBitmap.BITMAP
+		
+		ExamineDesktops()
+		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+		ResizeWindow(ADNDWindow, DesktopMouseX() + #ADND_OffsetX, DesktopMouseY() + #ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
+		SetGadgetState(ADNDGadget, ImageID)
+		HideWindow(ADNDWindow, #False)
+		
+		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
+		
+		DragImage(ImageID, Action)
+		
+		HideWindow(ADNDWindow, #True)
+		UnhookWindowsHookEx_(ADNDHook)
 	EndProcedure
 	;}
 	
@@ -3394,14 +3508,17 @@ Module UITK
 		VisibleScrollbar.b
 		SortItem.i
 		ItemState.i
+		
+		Drag.i
+		DragState.i
+		DragOriginX.i
+		DragOriginY.i
+		
 		Reorder.i
-		ReorderOriginX.i
-		ReorderOriginY.i
-		ReorderState.i
 		ReorderPosition.i
 		ReorderTimer.i
 		ReorderDirection.b
-		ReorderWindow.i
+		ReorderWindow.i	; We should share with the drag window? Might add some issues since it's subclassed?
 		ReorderCanvas.i
 		
 		*ItemRedraw.ItemRedraw
@@ -3416,8 +3533,8 @@ Module UITK
 		Protected Gadget = EventGadget(), *GadgetData.VerticalListData = GetProp_(GadgetID(Gadget), "UITK_VerticalData"), Event.Event
 		
 		Event\EventType = #MouseWheel
-		Event\MouseX =  WindowX(*GadgetData\ReorderWindow) - *GadgetData\ReorderOriginX
-		Event\MouseY =  WindowY(*GadgetData\ReorderWindow) - *GadgetData\ReorderOriginY
+		Event\MouseX =  WindowX(*GadgetData\ReorderWindow) - *GadgetData\DragOriginX
+		Event\MouseY =  WindowY(*GadgetData\ReorderWindow) - *GadgetData\DragOriginY
 		Event\MouseWHeel = GetGadgetAttribute(*GadgetData\ReorderCanvas, #PB_Canvas_WheelDelta)
 		
 		VerticalList_EventHandler(*GadgetData, @Event)
@@ -3489,7 +3606,7 @@ Module UITK
 					EndIf
 					
 					If CurrentItem = \State
-						If \ReorderState = #Drag_Active
+						If \DragState = #Drag_Active
 							Continue
 						EndIf
 						AddPathBox(\Border, Y, \Width, \ItemHeight)
@@ -3558,16 +3675,16 @@ Module UITK
 			If \ReorderDirection = -1
 				If \ScrollBar\State > 0
 					Event\EventType = #MouseMove
-					Event\MouseX = WindowX(\ReorderWindow) - \ReorderOriginX
-					Event\MouseY = WindowY(\ReorderWindow) - \ReorderOriginY
+					Event\MouseX = WindowX(\ReorderWindow) - \DragOriginX
+					Event\MouseY = WindowY(\ReorderWindow) - \DragOriginY
 					ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight) - 1) * \ItemHeight)
 					VerticalList_EventHandler(*GadgetData, @Event)
 				EndIf
 			Else
 				If \ScrollBar\State < \ScrollBar\Max - \ScrollBar\PageLenght
 					Event\EventType = #MouseMove
-					Event\MouseX = WindowX(\ReorderWindow) - \ReorderOriginX
-					Event\MouseY = WindowY(\ReorderWindow) - \ReorderOriginY
+					Event\MouseX = WindowX(\ReorderWindow) - \DragOriginX
+					Event\MouseY = WindowY(\ReorderWindow) - \DragOriginY
 					ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State + \ItemHeight)
 					VerticalList_EventHandler(*GadgetData, @Event)
 				EndIf
@@ -3576,50 +3693,66 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
-		Protected Redraw, Item, *Element
+		Protected Redraw, Item, *Element, Image
 		With *GadgetData
 			
 			Select *Event\EventType
 				Case #MouseMove ;{
-					If \ReorderState = #Drag_Init ;{
-						If Abs(\ReorderOriginX - *Event\MouseX) > 7 Or Abs(\ReorderOriginY - *Event\MouseY) > 7
-							\ReorderState = #Drag_Active
-							\ReorderOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginX
-							\ReorderOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \ReorderOriginY + \ItemState * \ItemHeight - \ScrollBar\State
-							\ReorderPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\Items()) - 1)
-							
-							If (ListSize(\Items()) - 1) * \ItemHeight > \Height 
-								\VisibleScrollbar = #True
-								ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max - \ItemHeight)
-							Else
-								\VisibleScrollbar = #False
-							EndIf
-							
-							StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
-							VectorSourceColor(\ThemeData\ShadeColor[#Hot])
-							AddPathBox(0, 0, \Width, \ItemHeight)
-							
-							If \TextBock\FontScale
-								VectorFont(\TextBock\FontID, \TextBock\FontScale)
-							Else
+					If \DragState = #Drag_Init ;{
+						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
+							If \Drag 
+								Image = CreateImage(#PB_Any, \Width, \ItemHeight, 32, \ThemeData\ShadeColor[#Hot])
+								SelectElement(\Items(),\State)
+								
+								StartVectorDrawing(ImageVectorOutput(Image))
 								VectorFont(\TextBock\FontID)
+								VectorSourceColor(\ThemeData\TextColor[#Hot])
+								\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot, \ThemeData)
+								StopVectorDrawing()
+								
+								AdvancedDragPrivate(#Drag_VListItem, ImageID(Image))
+								\DragState = #Drag_None
+								FreeImage(Image)
+								\DragState = #Drag_None
+							Else
+								\DragState = #Drag_Active
+								\DragOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginX
+								\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + \ItemState * \ItemHeight - \ScrollBar\State
+								\ReorderPosition = Clamp(Floor((*Event\MouseY + \ScrollBar\State + \ItemHeight * 0.5) / \ItemHeight), 0, ListSize(\Items()) - 1)
+								
+								If (ListSize(\Items()) - 1) * \ItemHeight > \Height 
+									\VisibleScrollbar = #True
+									ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \ScrollBar\Max - \ItemHeight)
+								Else
+									\VisibleScrollbar = #False
+								EndIf
+								
+								StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
+								VectorSourceColor(\ThemeData\ShadeColor[#Hot])
+								AddPathBox(0, 0, \Width, \ItemHeight)
+								
+								If \TextBock\FontScale
+									VectorFont(\TextBock\FontID, \TextBock\FontScale)
+								Else
+									VectorFont(\TextBock\FontID)
+								EndIf
+								FillPath()
+								
+								SelectElement(\Items(), \State)
+								VectorSourceColor(\ThemeData\TextColor[#Hot])
+								\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot, \ThemeData)
+								
+								StopVectorDrawing()
+								
+								ResizeWindow(\ReorderWindow, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, #PB_Ignore, #PB_Ignore)
+								HideWindow(\ReorderWindow, #False, #PB_Window_NoActivate)
+								SetActiveGadget(\Gadget)
+								Redraw = #True
 							EndIf
-							FillPath()
-							
-							SelectElement(\Items(), \State)
-							VectorSourceColor(\ThemeData\TextColor[#Hot])
-							\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot, \ThemeData)
-							
-							StopVectorDrawing()
-							
-							ResizeWindow(\ReorderWindow, *Event\MouseX + \ReorderOriginX, *Event\MouseY + \ReorderOriginY, #PB_Ignore, #PB_Ignore)
-							HideWindow(\ReorderWindow, #False, #PB_Window_NoActivate)
-							SetActiveGadget(\Gadget)
-							Redraw = #True
 						EndIf
 						;}
-					ElseIf \ReorderState = #Drag_Active ;{
-						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \ReorderOriginX, *Event\MouseY + \ReorderOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+					ElseIf \DragState = #Drag_Active ;{
+						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
 						
 						If \VisibleScrollbar
 							If (*Event\MouseY < 0)
@@ -3691,9 +3824,13 @@ Module UITK
 								Redraw = #True
 							EndIf
 							If \Reorder
-								\ReorderState = #Drag_Init
-								\ReorderOriginX = *Event\MouseX
-								\ReorderOriginY = *Event\MouseY
+								\DragState = #Drag_Init
+								\DragOriginX = *Event\MouseX
+								\DragOriginY = *Event\MouseY
+							ElseIf \Drag
+								\DragState = #Drag_Init
+								\DragOriginX = *Event\MouseX
+								\DragOriginY = *Event\MouseY
 							EndIf
 						EndIf
 					EndIf
@@ -3703,7 +3840,7 @@ Module UITK
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					
-					If \ReorderState = #Drag_Active
+					If \DragState = #Drag_Active
 						If \ReorderPosition = ListSize(\Items())
 							Item = SelectElement(\Items(), \State)
 							MoveElement(\Items(), #PB_List_Last)
@@ -3734,7 +3871,7 @@ Module UITK
 						\ReorderPosition = -1
 					EndIf
 					
-					\ReorderState = #Drag_None
+					\DragState = #Drag_None
 					;}
 				Case #MouseLeave ;{
 					If \ScrollBar\MouseState
@@ -3754,7 +3891,7 @@ Module UITK
 					EndIf
 					;}
 				Case #KeyDown ;{
-					If \ReorderState = #Drag_None
+					If \DragState = #Drag_None
 						Select \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key)
 							Case #PB_Shortcut_Down
 								If \State < ListSize(\Items()) - 1
@@ -3937,6 +4074,17 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
+	Procedure VerticalList_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.VerticalListData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\Text\Image
+			EndIf
+		EndWith
+	EndProcedure
+	
 	
 	; Setters
 	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
@@ -4025,6 +4173,8 @@ Module UITK
 				SetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
 				SetLayeredWindowAttributes_(WindowID(\ReorderWindow), 0, 128, #LWA_ALPHA)
 				UseGadgetList(GadgetList)
+			Else
+				\Drag = Flags & #Drag
 			EndIf
 			
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #Gadget_Vertical)
@@ -4038,6 +4188,7 @@ Module UITK
 			\VT\ResizeGadget = @VerticalList_Resize()
 			\VT\GetGadgetItemText = @VerticalList_GetItemText()
 			\VT\FreeGadget = @VerticalList_FreeGadget()
+			\VT\GetGadgetItemImage = @VerticalList_GetItemImage()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -5070,6 +5221,11 @@ Module UITK
 		ItemHMargin.l
 		ItemVMargin.l
 		
+		DragOriginX.l
+		DragOriginY.l
+		Drag.b
+		DragState.b
+		
 		List Sections.Library_Section()
 		List Items.Library_Item()
 	EndStructure
@@ -5169,7 +5325,6 @@ Module UITK
 				VectorSourceColor(*Theme\TextColor[#Cold])
 			EndIf
 			
-			
 		EndWith
 	EndProcedure
 	
@@ -5242,6 +5397,8 @@ Module UITK
 			
 			GetObject_(*NewItem\ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
 			
+			*NewItem\ImageWidth = HBitmap\bmWidth
+			*NewItem\ImageHeight = HBitmap\bmHeight
 			*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
 			*NewItem\ImageY = (\ItemHeight - *NewItem\Text\Height - HBitmap\bmHeight) * 0.5
 			
@@ -5278,57 +5435,64 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	
 	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
-		Protected Redraw, Y, NewItem = -1, ItemRow
+		Protected Redraw, Y, NewItem = -1, ItemRow, Image
 		
 		With *GadgetData
 			Select *Event\EventType
 				Case #MouseMove ;{
-					If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf \ScrollBar\MouseState
-						\ScrollBar\MouseState = #False
-						Redraw = #True
-					EndIf
-					
-					If Not \ScrollBar\MouseState
-						If ListSize(\Sections())
-							ForEach \Sections()
-								If \ScrollBar\State + *Event\MouseY> Y + \Sections()\Height
-									Y + \Sections()\Height
-								Else
-									Break
-								EndIf
-							Next
-							
-							*Event\MouseY - Y + \ScrollBar\State
-							
-							If *Event\MouseY > \SectionHeight
-								*Event\MouseY - \SectionHeight
-								If *Event\MouseY % (\ItemHeight + \ItemVMargin ) < \ItemHeight - #Library_ItemTextHeight
-									If (*Event\MouseX % (\ItemHMargin + \ItemWidth)) > \ItemHMargin
-										If SelectElement(\Sections()\Items(), Floor(*Event\MouseY / (\ItemHeight + \ItemVMargin )) * \ItemPerLine + Floor(*Event\MouseX / (\ItemHMargin + \ItemWidth)))
-											ChangeCurrentElement(\Items(), \Sections()\Items())
-											NewItem = ListIndex(\Items())
+					If \DragState = #Drag_None
+						If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
+							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						ElseIf \ScrollBar\MouseState
+							\ScrollBar\MouseState = #False
+							Redraw = #True
+						EndIf
+						
+						If Not \ScrollBar\MouseState
+							If ListSize(\Sections())
+								ForEach \Sections()
+									If \ScrollBar\State + *Event\MouseY> Y + \Sections()\Height
+										Y + \Sections()\Height
+									Else
+										Break
+									EndIf
+								Next
+								
+								*Event\MouseY - Y + \ScrollBar\State
+								
+								If *Event\MouseY > \SectionHeight
+									*Event\MouseY - \SectionHeight
+									If *Event\MouseY % (\ItemHeight + \ItemVMargin ) < \ItemHeight - #Library_ItemTextHeight
+										If (*Event\MouseX % (\ItemHMargin + \ItemWidth)) > \ItemHMargin
+											If SelectElement(\Sections()\Items(), Floor(*Event\MouseY / (\ItemHeight + \ItemVMargin )) * \ItemPerLine + Floor(*Event\MouseX / (\ItemHMargin + \ItemWidth)))
+												ChangeCurrentElement(\Items(), \Sections()\Items())
+												NewItem = ListIndex(\Items())
+											EndIf
 										EndIf
 									EndIf
 								EndIf
+								
 							EndIf
-							
 						EndIf
-					EndIf
-					
-					If \ItemState <> NewItem
-						If NewItem > -1
-							\Items()\HoverState = #True
+						
+						If \ItemState <> NewItem
+							If NewItem > -1
+								\Items()\HoverState = #True
+							EndIf
+							If \ItemState > -1
+								SelectElement(\Items(), \ItemState)
+								\Items()\HoverState = #False
+							EndIf
+							\ItemState = NewItem
+							Redraw = #True
 						EndIf
-						If \ItemState > -1
-							SelectElement(\Items(), \ItemState)
-							\Items()\HoverState = #False
+					ElseIf \DragState = #Drag_Init
+						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
+							SelectElement(\Items(), \State)
+							AdvancedDragPrivate(#Drag_LibraryItem, \Items()\ImageID)
+							\DragState = #Drag_None
 						EndIf
-						\ItemState = NewItem
-						Redraw = #True
 					EndIf
 					;}
 				Case #MouseLeave ;{
@@ -5356,12 +5520,19 @@ Module UITK
 						SelectElement(\Items(), \State)
 						\Items()\Selected = #True
 						Redraw = #True
+						
+						If \Drag
+							\DragState = #Drag_Init
+							\DragOriginX = *Event\MouseX
+							\DragOriginY = *Event\MouseY
+						EndIf
 					EndIf
 					;}
 				Case #LeftButtonUp ;{
 					If \ScrollBar\Drag 
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
+					\DragState = #Drag_None
 					;}
 				Case #LeftDoubleClick ;{
 					;}
@@ -5407,6 +5578,17 @@ Module UITK
 		ProcedureReturn *Result
 	EndProcedure
 	
+	Procedure Library_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.LibraryData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\Text\Image
+			EndIf
+		EndWith
+	EndProcedure
+	
 	
 	Procedure Library_Meta(*GadgetData.LibraryData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
@@ -5426,6 +5608,8 @@ Module UITK
 			\ItemState = -1
 			\State = -1
 			
+			\Drag = Bool(Flags & #Drag)
+			
 			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
 			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
 			
@@ -5434,7 +5618,7 @@ Module UITK
 			
 			\VT\SetGadgetItemData = @Library_SetItemData()
 			\VT\GetGadgetItemData = @Library_GetItemData()
-			
+			\VT\GetGadgetItemImage = @Library_GetItemImage()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -5509,6 +5693,35 @@ Module UITK
 		List Items.PropertyBox_Item()
 	EndStructure
 	
+	Procedure PropertyBox_Resize(*This.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.PropertyBoxData = *this\vt
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		With *GadgetData
+			\Width = GadgetWidth(\Gadget)
+			\Height = GadgetHeight(\Gadget)
+			
+			\TextBock\Width = \Width 
+			\TextBock\Height = \Height 
+			
+			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
+			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
+			
+			If \InternalHeight > \Height
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
+			
+			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
 	Procedure PropertyBox_Redraw(*GadgetData.PropertyBoxData)
 		Protected Y, X, FirstElement
 		
@@ -5560,6 +5773,12 @@ Module UITK
 				MovePathCursor(\OriginX + \ColumnWidth + \MarginWidth + 0.5, \Border)
 				AddPathLine(0, \Height, #PB_Path_Relative)
 				StrokePath(1)
+				
+				If Y < \Height
+					VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+					AddPathBox(X, Y, \Width, \Height - Y)
+					FillPath()
+				EndIf
 				
 				If \VisibleScrollbar
 					\ScrollBar\Redraw(\ScrollBar)
@@ -5668,6 +5887,7 @@ Module UITK
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			
 			\VT\AddGadgetItem3 = @PropertyBox_AddItem()
+			\VT\ResizeGadget = @PropertyBox_Resize()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -5762,7 +5982,7 @@ Module UITK
 			FillPath()
 			
 			If ListSize(\Items())
-				X = \OriginX + \Border + \BranchWidth
+				X = \OriginX + \Border + \BranchWidth + 1
 				Y = *GadgetData\OriginY + \Border - (\ScrollBar\State % \ItemHeight)
 				
 				If \VisibleScrollbar And Floor(\ScrollBar\State / \ItemHeight)
@@ -5995,6 +6215,28 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Tree_CountItem(*This.PB_Gadget)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+	
+	; Getters
+	Procedure Tree_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.TreeData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\Text\Image
+			EndIf
+		EndWith
+	EndProcedure
+	
+	
+	; Setters
+	
+	
 	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tree)
@@ -6010,7 +6252,9 @@ Module UITK
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			
 			\VT\AddGadgetItem3 = @Tree_AddItem()
-			\vt\ResizeGadget = @Tree_Resize()
+			\VT\ResizeGadget = @Tree_Resize()
+			\VT\CountGadgetItems = @Tree_CountItem()
+			\VT\GetGadgetItemImage = @Tree_GetItemImage()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -6078,8 +6322,33 @@ Module UITK
 		VisibleScrollbar.b
 		*ScrollBar.ScrollBarData
 		InternalWidth.i
+		DragOriginX.l
+		DragOriginY.l
+		Drag.b
+		DragState.b
 		List Items.HorizontalList_Item()
 	EndStructure
+	
+	Procedure HorizontalList_ItemRedraw(*Item.HorizontalList_Item, X, Y, Width, Height, State, *Theme.Theme)
+		If State = #Hot
+			AddPathBox(X, Y, Width, Height)
+			VectorSourceColor(*Theme\ShadeColor[#Hot])
+			FillPath()
+			VectorSourceColor(*Theme\TextColor[#Cold])
+		ElseIf State = #Warm
+			AddPathBox(X, Y, Width, Height)
+			VectorSourceColor(*Theme\ShadeColor[#Warm])
+			FillPath()
+			VectorSourceColor(*Theme\TextColor[#Cold])
+		EndIf
+		
+		If *Item\imageID
+			MovePathCursor(X + *Item\ImageX, Y + *Item\ImageY)
+			DrawVectorImage(*Item\imageID)
+		EndIf
+		
+		DrawVectorTextBlock(@*Item\Text, X, Y)
+	EndProcedure
 	
 	Procedure HorizontalList_Redraw(*GadgetData.HorizontalListData)
 		With *GadgetData
@@ -6098,7 +6367,6 @@ Module UITK
 			FillPath()
 			
 			If ListSize(\Items())
-				
 				VectorFont(\TextBock\FontID)
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				
@@ -6108,26 +6376,16 @@ Module UITK
 				Else
 					FirstElement(\Items())
 				EndIf
-				
+					
 				Repeat
 					If ListIndex(\Items()) = \State
-						AddPathBox(X, 0, \ItemWidth, \Height)
-						VectorSourceColor(\ThemeData\ShadeColor[#Hot])
-						FillPath()
-						VectorSourceColor(\ThemeData\TextColor[#Cold])
+						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Hot, \ThemeData)
 					ElseIf ListIndex(\Items()) = \MouseState
-						AddPathBox(X, 0, \ItemWidth, \Height)
-						VectorSourceColor(\ThemeData\ShadeColor[#Warm])
-						FillPath()
-						VectorSourceColor(\ThemeData\TextColor[#Cold])
+						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Warm, \ThemeData)
+					Else
+						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Cold, \ThemeData)
 					EndIf
 					
-					If \Items()\imageID
-						MovePathCursor(X + \Items()\ImageX, \OriginY + \Items()\ImageY)
-						DrawVectorImage(\Items()\imageID)
-					EndIf
-					
-					DrawVectorTextBlock(@\Items()\Text, X, \OriginY)
 					X + \ItemWidth
 				Until X > \Width Or Not NextElement(\Items())
 			EndIf
@@ -6139,18 +6397,16 @@ Module UITK
 	EndProcedure
 	
 	Procedure HorizontalList_Resize(*This.PB_Gadget, x, y, Width, Height)
-		Protected *GadgetData.HorizontalListData = *this\vt
+		Protected *GadgetData.HorizontalListData = *this\vt, PreviousHeight
 		
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
 		*this\VT = *GadgetData
 		
 		With *GadgetData
+			PreviousHeight = \Height
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
-			
-			\TextBock\Width = \Width 
-			\TextBock\Height = \Height 
 			
 			Scrollbar_ResizeMeta(\ScrollBar, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Width)
@@ -6162,7 +6418,13 @@ Module UITK
 				\VisibleScrollbar = #False
 			EndIf
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			If PreviousHeight <> \Height
+				ForEach \Items()
+					\Items()\Text\Height = \Height
+					PrepareVectorTextBlock(@\Items()\Text)
+				Next
+			EndIf
+			
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -6194,27 +6456,42 @@ Module UITK
 	EndProcedure
 	
 	Procedure HorizontalList_EventHandler(*GadgetData.HorizontalListData, *Event.Event)
-		Protected Redraw, HoverItem, Keyboard
+		Protected Redraw, HoverItem, Keyboard, Image
 		
 		With *GadgetData
 			Select *Event\EventType
 				Case #MouseMove ;{
-					If \VisibleScrollbar And (*Event\MouseY >= \ScrollBar\OriginY Or \ScrollBar\Drag = #True)
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf \ScrollBar\MouseState
-						\ScrollBar\MouseState = #False
-						Redraw = #True
-					EndIf
-					
-					If Not \ScrollBar\MouseState
-						HoverItem = Floor((*Event\MouseX + \ScrollBar\State) / \ItemWidth)
-						If HoverItem <> \MouseState
-							\MouseState = HoverItem
+					If \DragState = #Drag_None
+						If \VisibleScrollbar And (*Event\MouseY >= \ScrollBar\OriginY Or \ScrollBar\Drag = #True)
+							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						ElseIf \ScrollBar\MouseState
+							\ScrollBar\MouseState = #False
 							Redraw = #True
 						EndIf
-					ElseIf \MouseState > -1
-						\MouseState = -1
-						Redraw = #True
+						
+						If Not \ScrollBar\MouseState
+							HoverItem = Floor((*Event\MouseX + \ScrollBar\State) / \ItemWidth)
+							If HoverItem <> \MouseState
+								\MouseState = HoverItem
+								Redraw = #True
+							EndIf
+						ElseIf \MouseState > -1
+							\MouseState = -1
+							Redraw = #True
+						EndIf
+					ElseIf \DragState = #Drag_Init
+						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
+							Image = CreateImage(#PB_Any, \ItemWidth, \Height, 32, \ThemeData\ShadeColor[#Cold])
+							StartVectorDrawing(ImageVectorOutput(Image))
+							VectorFont(\TextBock\FontID)
+							VectorSourceColor(\ThemeData\TextColor[#Cold])
+							SelectElement(\Items(),\State)
+							HorizontalList_ItemRedraw(@\Items(), 0, 0, \ItemWidth, \Height, #Hot, \ThemeData)
+							StopVectorDrawing()
+							AdvancedDragPrivate(#Drag_HListItem, ImageID(Image))
+							\DragState = #Drag_None
+							FreeImage(Image)
+						EndIf
 					EndIf
 					;}
 				Case #MouseLeave ;{
@@ -6230,11 +6507,19 @@ Module UITK
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					Else
-						If \MouseState > -1 And \State <> \MouseState
-							\State = \MouseState
-							Redraw = #True
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-							AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
+						If \MouseState > -1 
+							If \State <> \MouseState
+								\State = \MouseState
+								Redraw = #True
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
+							EndIf
+							
+							If \Drag
+								\DragState = #Drag_Init
+								\DragOriginX = *Event\MouseX
+								\DragOriginY = *Event\MouseY
+							EndIf
 						EndIf
 					EndIf
 					;}
@@ -6242,6 +6527,7 @@ Module UITK
 					If \ScrollBar\Drag 
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
+					\DragState = #Drag_None
 					;}
 				Case #LeftDoubleClick ;{
 					If \MouseState > -1
@@ -6287,7 +6573,7 @@ Module UITK
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Text\FontID = \TextBock\FontID
 			*NewItem\Text\Width = \ItemWidth
-			*NewItem\Text\Height = \Height - 15
+			*NewItem\Text\Height = Floor(\Height * 0.9)
 			*NewItem\Text\VAlign = #VAlignBottom
 			*NewItem\Text\HAlign = #HAlignCenter
 			
@@ -6317,7 +6603,97 @@ Module UITK
 		
 		ProcedureReturn Position
 	EndProcedure
+	
+	Procedure HorizontalList_RemoveItem(*This.PB_Gadget, Position)
+		Protected *GadgetData.HorizontalListData = *this\vt
 		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				DeleteElement(\Items())
+				\InternalWidth = ListSize(\Items()) * \ItemWidth
+				
+				If \InternalWidth > \Width
+					\VisibleScrollbar = #True
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+				Else
+					\VisibleScrollbar = #False
+				EndIf
+				
+				If \State > Position
+					\State - 1
+				ElseIf \State = Position
+					If \State = ListSize(\Items())
+						\State - 1
+					EndIf
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+				EndIf
+				
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList_CountItem(*This.PB_Gadget)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+	
+	; Getters
+	Procedure.s HorizontalList_GetItemText(*this.PB_Gadget, Position)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				ProcedureReturn \Items()\Text\OriginalText
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\imageID
+			EndIf
+		EndWith
+	EndProcedure
+	
+	
+	; Setters
+	Procedure HorizontalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		With *GadgetData
+			Select Attribute
+				Case #Attribute_ItemWidth ;{
+					\ItemWidth = Value
+					\InternalWidth = ListSize(\Items()) * \ItemWidth
+					
+					If \InternalWidth > \Width
+						\VisibleScrollbar = #True
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+					Else
+						\VisibleScrollbar = #False
+					EndIf
+					
+					ForEach \Items()
+						\Items()\Text\Width = \ItemWidth
+						PrepareVectorTextBlock(@\Items()\Text)
+					Next
+					;}
+				Default ;{	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+					;}
+			EndSelect
+		EndWith
+		RedrawObject()
+	EndProcedure
+	
+	
 	Procedure HorizontalList_Meta(*GadgetData.HorizontalListData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(HorizontalList)
@@ -6328,11 +6704,17 @@ Module UITK
 			\ItemWidth = Height
 			\State = -1
 			\MouseState = -1
+			\Drag = Bool(Flags & #Drag)
 			
 			Scrollbar_Meta(\ScrollBar, *ThemeData, -1, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness, 0, 0, \Width, #Null)
 			
 			\VT\AddGadgetItem2 = @HorizontalList_AddItem()
+			\VT\RemoveGadgetItem = @HorizontalList_RemoveItem()
 			\VT\ResizeGadget = @HorizontalList_Resize()
+			\VT\SetGadgetAttribute = @HorizontalList_SetAttribute()
+			\VT\CountGadgetItems = @HorizontalList_CountItem()
+			\VT\GetGadgetItemImage = @HorizontalList_GetItemImage()
+			\VT\GetGadgetItemText = @HorizontalList_GetItemText()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -6655,7 +7037,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x86)
-; CursorPosition = 2108
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAACACAAAAAAA-
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
+; CursorPosition = 5672
+; FirstLine = 23
+; Folding = JAAEAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAABAAAIAAAA5
 ; EnableXP
+; DPIAware
