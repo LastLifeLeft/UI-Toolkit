@@ -3867,6 +3867,8 @@ Module UITK
 							\VisibleScrollbar = #False
 						EndIf
 						
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						
 						Redraw = #True
 						\ReorderPosition = -1
 					EndIf
@@ -7037,9 +7039,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
-; CursorPosition = 5672
-; FirstLine = 23
-; Folding = JAAEAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAABAAAIAAAA5
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
+; CursorPosition = 3869
+; FirstLine = 70
+; Folding = JAAEAAAAAAAAAAAAAAAAAAAIQQAABAAAAAAAAAABAAAIAAAA5
 ; EnableXP
 ; DPIAware

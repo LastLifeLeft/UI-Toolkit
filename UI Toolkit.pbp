@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.00 Beta 8 (Windows - x64)">
+<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.00 Beta 8 (Windows - x86)">
   <section name="config">
     <options closefiles="1" openmode="0" name="UI Toolkit"/>
     <comment>My set of tools to create descent looking PB gadgets quickly.</comment>
@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2022-05-31 23:44" user="♥x1" host="MONSTRO"/>
+    <lastopen date="2022-06-14 19:33" user="❤x1" host="MONSTRO"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -37,7 +37,7 @@
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="3b7f6c462900773ad0d8aeacb66e3b3f"/>
+      <fingerprint md5="a830693b75bc412a21dc28c5dd58562c"/>
     </file>
   </section>
   <section name="targets">
