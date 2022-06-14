@@ -2260,7 +2260,7 @@ Module UITK
 				VectorFont(\TextBock\FontID)
 			EndIf
 			
-			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin, 160 + Bool(State <> #Disabled) * 95)
+			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin, 145 + Bool(State <> #Disabled) * 110)
 			
 		EndWith
 	EndProcedure
