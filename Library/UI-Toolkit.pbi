@@ -220,7 +220,7 @@
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
-	Declare DrawVectorTextBlock(*TextData.Text, X, Y)
+	Declare DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
 	Declare Disable(Gadget, State)
 	Declare Freeze(Gadget, State)
 	Declare AddPathRoundedBox(Border_X, Border_Y, Border_Width, Border_Height, Radius, Type = #Corner_All)
@@ -945,13 +945,13 @@ Module UITK
 		FreeImage(Image)
 	EndProcedure
 	
-	Procedure DrawVectorTextBlock(*TextData.Text, X, Y)
+	Procedure DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
 		MovePathCursor(X + *TextData\TextX, Y + *TextData\TextY, #PB_Path_Default)
 		DrawVectorParagraph(*TextData\Text, *TextData\Width, *TextData\Height, *TextData\VectorAlign)
 		
 		If *TextData\Image
 			MovePathCursor(X + *TextData\ImageX, Y + *TextData\ImageY, #PB_Path_Default)
-			DrawVectorImage(*TextData\Image)
+			DrawVectorImage(*TextData\Image, Alpha)
 		EndIf
 		
 	EndProcedure
@@ -2260,7 +2260,7 @@ Module UITK
 				VectorFont(\TextBock\FontID)
 			EndIf
 			
-			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin)
+			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin, 160 + Bool(State <> #Disabled) * 95)
 			
 		EndWith
 	EndProcedure
@@ -7032,9 +7032,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 9 (Windows - x64)
-; CursorPosition = 3710
-; FirstLine = 104
-; Folding = JAAAAAAAAAAAAACAAAAAAAAIwBAABAAAAAAAAAABAAAIAAAA5
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
+; CursorPosition = 2262
+; FirstLine = 40
+; Folding = JAAAAAAAAAAAAAAGAAAAAAAAgAAABAAAAAAAAAABAAAIAAAA5
 ; EnableXP
 ; DPIAware
