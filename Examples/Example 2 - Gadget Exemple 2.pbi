@@ -56,14 +56,14 @@ AddGadgetItem(Gadget, -1, "Sub-Sub-Item 2", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 3", 0, 2)
 
 VList1 = UITK::HorizontalList(#PB_Any, 320, 20, 621, 80, UITK::#Border | UITK::#Drag)
-EnableGadgetDrop(VList1, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_GadgetItem)
+EnableGadgetDrop(VList1, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
 For a = 0 To 10
 	AddGadgetItem(VList1, -1, "Item " + a, SquaredImage, 2)
 Next
 
 VList2 = UITK::HorizontalList(#PB_Any, 320, 120, 621, 80, UITK::#Border | UITK::#Drag)
-EnableGadgetDrop(VList2, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_GadgetItem)
+EnableGadgetDrop(VList2, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
 HideWindow(Window, #False)
 
@@ -89,8 +89,8 @@ Repeat
 	EndSelect
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
-; CursorPosition = 77
-; FirstLine = 52
+; IDE Options = PureBasic 6.00 Beta 9 (Windows - x64)
+; CursorPosition = 65
+; FirstLine = 9
 ; EnableXP
 ; DPIAware

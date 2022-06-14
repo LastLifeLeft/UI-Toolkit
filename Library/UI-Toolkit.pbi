@@ -169,8 +169,6 @@
 		*Data
 		List *Items.Library_Item()
 	EndStructure
-	
-	Global UITKFont
 	;}
 	
 	;{ Public procedures declaration
@@ -587,7 +585,7 @@ Module UITK
 	Global DefaultTheme.Theme, DarkTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
-	UITKFont = FontID(LoadFont(#PB_Any, "UITK Icon Font", 12, #PB_Font_HighQuality))
+	Global IconFont = FontID(LoadFont(#PB_Any, "Segoe MDL2 Assets", 10, #PB_Font_HighQuality))
 	
 	Prototype ItemRedraw(*Item, X, Y, Width, Height, State, *Theme.Theme)
 	
@@ -1817,11 +1815,11 @@ Module UITK
 			
 			If Flags & #Window_CloseButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "A", Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "", Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonClose, #Attribute_CornerRadius, 0)
 				
-				SetGadgetFont(*WindowData\ButtonClose, UITKFont)
+				SetGadgetFont(*WindowData\ButtonClose, IconFont)
 				
 				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 				
@@ -1836,22 +1834,22 @@ Module UITK
 			
 			If Flags & #Window_MaximizeButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "B", Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "", Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonMaximize, #Attribute_CornerRadius, 0)
 				
-				SetGadgetFont(*WindowData\ButtonMaximize, UITKFont)
+				SetGadgetFont(*WindowData\ButtonMaximize, IconFont)
 				
 				SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 			EndIf
 			
 			If Flags & #Window_MinimizeButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "C",Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "",Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonMinimize, #Attribute_CornerRadius, 0)
 				
-				SetGadgetFont(*WindowData\ButtonMinimize, UITKFont)
+				SetGadgetFont(*WindowData\ButtonMinimize, IconFont)
 				
 				SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 			EndIf
@@ -3545,8 +3543,8 @@ Module UITK
 		
 		If State = #Hot
 			MovePathCursor(X + *Item\Text\Width - #VerticalList_IconWidth, Y + (*Item\Text\Height - 14) * 0.5)
-			VectorFont(UITKFont, 16)
-			DrawVectorText("F")
+			VectorFont(IconFont, 16)
+			DrawVectorText("")
 			
 			If *Item\Text\FontScale
 				VectorFont(*Item\Text\FontID, *Item\Text\FontScale)
@@ -4664,14 +4662,14 @@ Module UITK
 			EndIf
 			
 			DrawVectorTextBlock(@\TextBock, \OriginX + #Combo_ItemMargin, \OriginY + \VMargin)
-			VectorFont(UITKFont, 20)
+			VectorFont(IconFont)
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
-			MovePathCursor(\Width - #Combo_IconWidth, (\Height - #Combo_IconHeight) * 0.5)
+			MovePathCursor(\Width - #Combo_IconWidth, (\Height - #Combo_IconHeight) * 0.6)
 			
 			If \Unfolded
-				DrawVectorText("E")
+				DrawVectorText("")
 			Else
-				DrawVectorText("D")
+				DrawVectorText("")
 			EndIf
 			
 		EndWith
@@ -7034,14 +7032,9 @@ EndModule
 
 
 
-
-
-
-
-
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 3869
-; FirstLine = 70
-; Folding = JAAEAAAAAAAAAAAAAAAAAAAIQQAABAAAAAAAAAABAAAIAAAA5
+; IDE Options = PureBasic 6.00 Beta 9 (Windows - x64)
+; CursorPosition = 3710
+; FirstLine = 104
+; Folding = JAAAAAAAAAAAAACAAAAAAAAIwBAABAAAAAAAAAABAAAIAAAA5
 ; EnableXP
 ; DPIAware
