@@ -4266,6 +4266,7 @@ Module UITK
 		DragOffset.i
 		Hover.b
 		DisplayState.b
+		Unit.s
 		List Items.TrackBarIndent()
 	EndStructure
 	
@@ -4300,7 +4301,7 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(0, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(Str(\State), \Width - X, TextHeight, #PB_VectorParagraph_Right)
+						DrawVectorParagraph(Str(\State) + \Unit, \Width - X, TextHeight, #PB_VectorParagraph_Right)
 					EndIf
 				Else
 					X = \OriginX + #Trackbar_Margin
@@ -4315,7 +4316,7 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(Str(\State), \Width, TextHeight, #PB_VectorParagraph_Left)
+						DrawVectorParagraph(Str(\State) + \Unit, \Width, TextHeight, #PB_VectorParagraph_Left)
 					EndIf
 				EndIf
 				
@@ -4353,7 +4354,7 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
-						DrawVectorParagraph(Str(\State), 50, TextHeight, #PB_VectorParagraph_Center)
+						DrawVectorParagraph(Str(\State) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
 					EndIf
 					
 					Y + #TracKbar_CursorHeight * 0.5
@@ -4371,7 +4372,7 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
-						DrawVectorParagraph(Str(\State), 50, TextHeight, #PB_VectorParagraph_Center)
+						DrawVectorParagraph(Str(\State) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
 					EndIf
 					
 					Y + #TracKbar_CursorHeight * 0.5
@@ -4539,6 +4540,12 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Trackbar_SetText(*this.PB_Gadget, Text.s)
+		Protected *GadgetData.TrackBarData = *this\vt
+		*GadgetData\unit = Text
+		RedrawObject()
+	EndProcedure
+	
 	Procedure TrackBar_Meta(*GadgetData.TrackBarData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(TrackBar)
@@ -4563,6 +4570,7 @@ Module UITK
 			\TextBock\FontID = BoldFont
 			
 			\VT\AddGadgetItem2 = @Trackbar_AddGadgetItem()
+			\VT\SetGadgetText = @Trackbar_SetText()
 			
 			\SupportedEvent[#LeftClick] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
@@ -7033,7 +7041,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 2220
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAgAAABAAAAAAAAAABAAAIAAAA5
+; CursorPosition = 681
+; FirstLine = 158
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAAgAAABAAAAAAAAAACAAAQAAAAw
 ; EnableXP
 ; DPIAware
