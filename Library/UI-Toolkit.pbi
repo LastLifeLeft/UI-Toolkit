@@ -3625,7 +3625,7 @@ Module UITK
 					\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State, \ThemeData)
 					Y + \ItemHeight
 					ItemCount + 1
-				Until ItemCount = \MaxDisplayedItem Or (Not NextElement(\Items()))
+				Until ItemCount > \MaxDisplayedItem Or (Not NextElement(\Items()))
 				
 				If CurrentItem + 1 = \ReorderPosition Or (\ReorderPosition = \State + 1 And Drawn = #False)
 					AddPathBox(\Border, Y - 2, 80, 3)
@@ -7033,8 +7033,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 2262
-; FirstLine = 40
-; Folding = JAAAAAAAAAAAAAAGAAAAAAAAgAAABAAAAAAAAAABAAAIAAAA5
+; CursorPosition = 2220
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAgAAABAAAAAAAAAABAAAIAAAA5
 ; EnableXP
 ; DPIAware
