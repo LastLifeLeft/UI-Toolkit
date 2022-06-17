@@ -146,6 +146,7 @@ UITK::Label(#PB_Any, 50, 145, 200, 20, "Inside the scroll area",  UITK::#HAlignC
 CloseGadgetList()
 
 Gadget = UITK::TrackBar(#PB_Any, 260, 353, 200, 40, 0, 100,  UITK::#VAlignTop | UITK::#Trackbar_ShowState)
+SetGadgetText(Gadget, "%")
 AddGadgetItem(Gadget, 0, "x.5")
 AddGadgetItem(Gadget, 13, "x1")
 AddGadgetItem(Gadget, 100, "x4")
@@ -230,8 +231,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
-; CursorPosition = 103
-; FirstLine = 70
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
+; CursorPosition = 148
+; FirstLine = 127
 ; EnableXP
 ; DPIAware
