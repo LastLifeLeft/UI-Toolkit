@@ -499,7 +499,7 @@ Module UITK
 		EventType.l
 		MouseX.l
 		MouseY.l
-		MouseWHeel.b
+		Param.l
 	EndStructure
 	
 	Structure Theme
@@ -1007,7 +1007,7 @@ Module UITK
 					If *GadgetData\SupportedEvent[#MouseWheel]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\MouseWHeel = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_WheelDelta)
+						Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_WheelDelta)
 						Event\EventType = #MouseWheel
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
@@ -1048,6 +1048,7 @@ Module UITK
 					If *GadgetData\SupportedEvent[#RightButtonDown]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+						Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_Key)
 						Event\EventType = #RightButtonDown
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
@@ -2291,7 +2292,7 @@ Module UITK
 					Redraw = #True
 					
 				Case #KeyDown
-					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *Event\Param = #PB_Shortcut_Space
 						If \Toggle
 							\State = Bool(Not \State) * #hot
 						EndIf
@@ -2500,7 +2501,7 @@ Module UITK
 					Redraw = #True
 					
 				Case #KeyDown
-					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *Event\Param = #PB_Shortcut_Space
 						\State = Bool(Not \State)
 						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 						Redraw = #True
@@ -2666,7 +2667,7 @@ Module UITK
 					Redraw = #True
 					
 				Case #KeyDown
-					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *Event\Param = #PB_Shortcut_Space
 						If \State = #PB_Checkbox_Inbetween
 							\State = #True
 						Else
@@ -3535,7 +3536,7 @@ Module UITK
 		Event\EventType = #MouseWheel
 		Event\MouseX =  WindowX(*GadgetData\ReorderWindow) - *GadgetData\DragOriginX
 		Event\MouseY =  WindowY(*GadgetData\ReorderWindow) - *GadgetData\DragOriginY
-		Event\MouseWHeel = GetGadgetAttribute(*GadgetData\ReorderCanvas, #PB_Canvas_WheelDelta)
+		Event\Param = GetGadgetAttribute(*GadgetData\ReorderCanvas, #PB_Canvas_WheelDelta)
 		
 		VerticalList_EventHandler(*GadgetData, @Event)
 	EndProcedure
@@ -3887,14 +3888,14 @@ Module UITK
 					;}
 				Case #MouseWheel ;{
 					If \VisibleScrollbar
-						ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\MouseWHeel * \ItemHeight * 0.5)
+						ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
 						*Event\EventType = #MouseMove
 						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
 					EndIf
 					;}
 				Case #KeyDown ;{
 					If \DragState = #Drag_None
-						Select \OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key)
+						Select *Event\Param
 							Case #PB_Shortcut_Down
 								If \State < ListSize(\Items()) - 1
 									\State + 1
@@ -5100,7 +5101,7 @@ Module UITK
 					EndIf
 					
 				Case #KeyDown
-					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *Event\Param = #PB_Shortcut_Space
 						*Event\EventType = #LeftClick
 						Radio_EventHandler(*GadgetData, *Event)
 					EndIf
@@ -5583,7 +5584,7 @@ Module UITK
 					;}
 				Case #MouseWheel ;{
 					If \VisibleScrollbar
-						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\MouseWHeel * \ItemHeight * 0.5)
+						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
 						*Event\EventType = #MouseMove
 						Redraw = Bool(Not Library_EventHandler(*GadgetData, *Event))
 					EndIf
@@ -5863,7 +5864,7 @@ Module UITK
 					;}
 				Case #MouseWheel ;{
 					If \VisibleScrollbar
-						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\MouseWHeel * \ItemHeight * 1.5)
+						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 1.5)
 						*Event\EventType = #MouseMove
 						Redraw = Bool(Not PropertyBox_EventHandler(*GadgetData, *Event))
 					EndIf
@@ -6163,7 +6164,7 @@ Module UITK
 					;}
 				Case #MouseWheel ;{
 					If \VisibleScrollbar
-						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\MouseWHeel * \ItemHeight * 1.5)
+						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 1.5)
 						*Event\EventType = #MouseMove
 						Redraw = Bool(Not Tree_EventHandler(*GadgetData, *Event))
 					EndIf
@@ -6580,14 +6581,13 @@ Module UITK
 					EndIf
 					;}
 				Case #KeyDown ;{
-					Keyboard = GetGadgetAttribute(\Gadget, #PB_Canvas_Key)
-					If Keyboard = #PB_Shortcut_Left
+					If *Event\Param = #PB_Shortcut_Left
 						If \State > 0
 							\State - 1
 							HorizontalList_StateFocus(*GadgetData)
 							Redraw = #True
 						EndIf
-					ElseIf Keyboard = #PB_Shortcut_Right
+					ElseIf *Event\Param = #PB_Shortcut_Right
 						If \State < ListSize(\Items()) - 1
 							\State + 1
 							HorizontalList_StateFocus(*GadgetData)
@@ -7078,7 +7078,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 238
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAgAAABAgAAAAAAAAQAAAACAAAA+
+; CursorPosition = 4275
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
