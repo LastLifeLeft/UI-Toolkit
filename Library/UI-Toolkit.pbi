@@ -1,5 +1,5 @@
 ﻿DeclareModule UITK
-	;{ Private variables, structures and constants
+	;{ Public variables, structures and constants
 	EnumerationBinary ; Gadget flags
 		; General
 		#Default
@@ -125,6 +125,10 @@
 	Enumeration #PB_EventType_FirstCustomValue; EventType
 		#Eventtype_ForcefulChange
 	EndEnumeration	
+	
+	Enumeration #PB_Event_FirstCustomValue
+		#Event_CloseMenu
+	EndEnumeration
 	
 	Structure Text
 		OriginalText.s
@@ -6866,6 +6870,7 @@ Module UITK
 		
 		With *MenuData
 			HideWindow(\Window, #True)
+			PostEvent(#Event_CloseMenu, \Window, 0, 0, \Window)
 		EndWith
 	EndProcedure
 	
@@ -7078,7 +7083,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 4275
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 3270
+; Folding = IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
