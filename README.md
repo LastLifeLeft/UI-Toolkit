@@ -10,4 +10,4 @@ Its API will change with no warning; it has memory leaks and bugs that won't be 
 ## Showcase
 Here are some projects using UITK :
 - ![Icon](https://raw.githubusercontent.com/LastLifeLeft/Batchable/main/Media/Icon/Icon18.png) [Batchable](https://github.com/LastLifeLeft/Batchable), the free and open source multithreaded batch image processor.
-- ![Icon](https://raw.githubusercontent.com/LastLifeLeft/Inputify/main/Media/Icon/48.png) [Inputify](https://github.com/LastLifeLeft/Batchable), a tool to display your inputs on screen.
+- ![Icon](https://raw.githubusercontent.com/LastLifeLeft/Inputify/main/Media/Icon/18.png) [Inputify](https://github.com/LastLifeLeft/Batchable), a tool to display your inputs on screen.
