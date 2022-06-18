@@ -4607,6 +4607,7 @@ Module UITK
 			
 			\VT\AddGadgetItem2 = @Trackbar_AddGadgetItem()
 			\VT\SetGadgetText = @Trackbar_SetText()
+			\vt\SetGadgetAttribute = @Trackbar_SetAttribute()
 			
 			\SupportedEvent[#LeftClick] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
@@ -7077,8 +7078,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 4366
-; FirstLine = 357
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAIgAAABGgAAAAAAAAQAAAACAAAA+
+; CursorPosition = 238
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAgAAABAgAAAAAAAAQAAAACAAAA+
 ; EnableXP
 ; DPIAware

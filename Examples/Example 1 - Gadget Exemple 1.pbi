@@ -147,6 +147,7 @@ CloseGadgetList()
 
 Gadget = UITK::TrackBar(#PB_Any, 260, 353, 200, 40, 0, 100,  UITK::#VAlignTop | UITK::#Trackbar_ShowState)
 SetGadgetText(Gadget, "%")
+SetGadgetAttribute(Gadget, UITK::#Trackbar_Scale, 10)
 AddGadgetItem(Gadget, 0, "x.5")
 AddGadgetItem(Gadget, 13, "x1")
 AddGadgetItem(Gadget, 100, "x4")
@@ -232,7 +233,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 148
-; FirstLine = 127
+; CursorPosition = 149
+; FirstLine = 130
 ; EnableXP
 ; DPIAware
