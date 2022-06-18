@@ -124,10 +124,14 @@
 	
 	Enumeration #PB_EventType_FirstCustomValue; EventType
 		#Eventtype_ForcefulChange
+		
+		#EventType_FirstAvailableCustomValue
 	EndEnumeration	
 	
 	Enumeration #PB_Event_FirstCustomValue
 		#Event_CloseMenu
+		
+		#Event_FirstAvailableCustomValue
 	EndEnumeration
 	
 	Structure Text
@@ -2307,7 +2311,7 @@ Module UITK
 						Redraw = #True
 					EndIf
 				Case #KeyUp
-					If *GadgetData\OriginalVT\GetGadgetAttribute(\Gadget, #PB_Canvas_Key) = #PB_Shortcut_Space
+					If *Event\Param = #PB_Shortcut_Space
 						\MouseState = #Cold
 						Redraw = #True
 					EndIf
@@ -7083,7 +7087,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 3270
-; Folding = IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 127
+; Folding = BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
