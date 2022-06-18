@@ -51,6 +51,8 @@
 		#Attribute_TextScale
 		#Attribute_SortItems
 		#Attribute_CornerType
+		
+		#Trackbar_Scale
 	EndEnumeration
 	
 	Enumeration ; Corners
@@ -4267,6 +4269,7 @@ Module UITK
 		Hover.b
 		DisplayState.b
 		Unit.s
+		Scale.d
 		List Items.TrackBarIndent()
 	EndStructure
 	
@@ -4301,7 +4304,11 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(0, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(Str(\State) + \Unit, \Width - X, TextHeight, #PB_VectorParagraph_Right)
+						If \Scale = 1
+							DrawVectorParagraph(Str(\State) + \Unit, \Width - X, TextHeight, #PB_VectorParagraph_Right)
+						Else
+							DrawVectorParagraph(StrD(\State * \Scale, 1) + \Unit, \Width - X, TextHeight, #PB_VectorParagraph_Right)
+						EndIf
 					EndIf
 				Else
 					X = \OriginX + #Trackbar_Margin
@@ -4316,7 +4323,11 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(X + #TracKbar_CursorHeight + #Trackbar_Margin, \OriginY  + #Trackbar_Thickness + Progress - Floor(TextHeight * 0.5 ))
-						DrawVectorParagraph(Str(\State) + \Unit, \Width, TextHeight, #PB_VectorParagraph_Left)
+						If \Scale = 1
+							DrawVectorParagraph(Str(\State) + \Unit, \Width, TextHeight, #PB_VectorParagraph_Left)
+						Else
+							DrawVectorParagraph(StrD(\State * \Scale, 1) + \Unit, \Width, TextHeight, #PB_VectorParagraph_Left)
+						EndIf
 					EndIf
 				EndIf
 				
@@ -4354,7 +4365,11 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
-						DrawVectorParagraph(Str(\State) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+						If \Scale = 1
+							DrawVectorParagraph(Str(\State) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+						Else
+							DrawVectorParagraph(StrD(\State * \Scale, 1) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+						EndIf
 					EndIf
 					
 					Y + #TracKbar_CursorHeight * 0.5
@@ -4372,7 +4387,11 @@ Module UITK
 					
 					If \DisplayState
 						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
-						DrawVectorParagraph(Str(\State) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+						If \Scale = 1
+							DrawVectorParagraph(Str(\State) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+						Else
+							DrawVectorParagraph(StrD(\State * \Scale, 1) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+						EndIf
 					EndIf
 					
 					Y + #TracKbar_CursorHeight * 0.5
@@ -4546,6 +4565,22 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
+	Procedure Trackbar_SetAttribute(*this.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.TrackBarData = *this\vt
+		
+		With *GadgetData
+			Select Attribute
+				Case #Trackbar_Scale ;{
+					\Scale = 1 / Value
+					;}
+				Default ;{	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+					;}
+			EndSelect
+		EndWith
+		RedrawObject()
+	EndProcedure
+	
 	Procedure TrackBar_Meta(*GadgetData.TrackBarData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(TrackBar)
@@ -4556,6 +4591,7 @@ Module UITK
 			\Maximum = Maximum
 			\Minimum = Minimum
 			\DisplayState = Bool(Flags & #Trackbar_ShowState)
+			\Scale = 1
 			
 			If \Vertical
 				\HMargin = 30
@@ -7041,8 +7077,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 681
-; FirstLine = 158
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAAgAAABAAAAAAAAAACAAAQAAAAw
+; CursorPosition = 4366
+; FirstLine = 357
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAIgAAABGgAAAAAAAAQAAAACAAAA+
 ; EnableXP
 ; DPIAware
