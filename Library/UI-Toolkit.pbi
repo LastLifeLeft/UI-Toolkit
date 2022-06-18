@@ -4283,7 +4283,7 @@ Module UITK
 	EndStructure
 	
 	Procedure TrackBar_Redraw(*GadgetData.TrackBarData)
-		Protected Progress, X, Y, Ratio.d, TextHeight, Height, Width
+		Protected Progress, X, Y, Ratio.d, TextHeight, Height, Width, Text.s, TextWidth
 		
 		With *GadgetData
 			If \TextBock\FontScale
@@ -4373,12 +4373,15 @@ Module UITK
 					Next
 					
 					If \DisplayState
-						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
 						If \Scale = 1
-							DrawVectorParagraph(Str(\State) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+							Text = Str(\State) + \Unit
 						Else
-							DrawVectorParagraph(StrD(\State * \Scale, 1) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+							Text = StrD(\State * \Scale, 1) + \Unit
 						EndIf
+						
+						TextWidth = VectorTextWidth(Text)
+						MovePathCursor(\OriginX + Min(Max(#Trackbar_Thickness + Progress - TextWidth * 0.4, 0), \Width - TextWidth), Y + #Trackbar_Margin + #TracKbar_CursorHeight)
+						DrawVectorParagraph(Text, 50, TextHeight, #PB_VectorParagraph_Left)
 					EndIf
 					
 					Y + #TracKbar_CursorHeight * 0.5
@@ -4395,12 +4398,15 @@ Module UITK
 					Next
 					
 					If \DisplayState
-						MovePathCursor(\OriginX + #Trackbar_Thickness + Progress - 24, Y + #Trackbar_Margin + #TracKbar_CursorHeight)
 						If \Scale = 1
-							DrawVectorParagraph(Str(\State) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+							Text = Str(\State) + \Unit
 						Else
-							DrawVectorParagraph(StrD(\State * \Scale, 1) + \Unit, 50, TextHeight, #PB_VectorParagraph_Center)
+							Text = StrD(\State * \Scale, 1) + \Unit
 						EndIf
+						
+						TextWidth = VectorTextWidth(Text)
+						MovePathCursor(\OriginX + Min(Max(#Trackbar_Thickness + Progress - TextWidth * 0.4, 0), \Width - TextWidth), Y + #Trackbar_Margin + #TracKbar_CursorHeight)
+						DrawVectorParagraph(Text, 50, TextHeight, #PB_VectorParagraph_Left)
 					EndIf
 					
 					Y + #TracKbar_CursorHeight * 0.5
@@ -7087,7 +7093,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 127
-; Folding = BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 692
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
