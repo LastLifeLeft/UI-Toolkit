@@ -173,8 +173,8 @@ AddGadgetItem(Gadget, -1, "Item 11")
 RemoveGadgetItem(Gadget, 3)
 
 Gadget = UITK::Radio(#PB_Any, 740, 20, 200, 28, "Radio 1", "Exemple group 2", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Radio 2", "Exemple group 2", UITK::#HAlignRight)
-Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Radio 3", "Exemple group 2", UITK::#HAlignRight)
+Gadget = UITK::Radio(#PB_Any, 740, 60, 200, 28, "Radio 2", "Exemple group 2", UITK::#HAlignLeft)
+Gadget = UITK::Radio(#PB_Any, 740, 100, 200, 28, "Radio 3", "Exemple group 2", UITK::#HAlignCenter)
 Gadget = UITK::Radio(#PB_Any, 740, 140, 200, 28, "Radio 4", "Exemple group 2", UITK::#HAlignRight)
 
 Gadget = UITK::Combo(#PB_Any, 740, 180, 200, 40, UITK::#Border)
@@ -233,7 +233,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 151
-; FirstLine = 119
+; CursorPosition = 175
+; FirstLine = 131
 ; EnableXP
 ; DPIAware

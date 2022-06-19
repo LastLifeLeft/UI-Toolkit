@@ -5050,7 +5050,8 @@ Module UITK
 	Global NewMap RadioGroups.RadioGroup()
 	
 	Structure RadioData Extends GadgetData
-		RadioGroup.s	
+		RadioGroup.s
+		HAlign.l
 	EndStructure
 	
 	Procedure Radio_Redraw(*GadgetData.RadioData)
@@ -5065,12 +5066,15 @@ Module UITK
 			
 			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
-			If \TextBock\HAlign = #HAlignRight
+			If \HAlign = #HAlignLeft
+				DrawVectorTextBlock(@\TextBock, X, Y)
+				X = \OriginX + \Width - #RadioSize - BorderMargin
+			ElseIf \HAlign = #HAlignRight
 				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
 				X = \OriginX + BorderMargin
 			Else
-				DrawVectorTextBlock(@\TextBock, X, Y)
-				X = \OriginX + \Width - #RadioSize - BorderMargin
+				X = \OriginX + BorderMargin
+				DrawVectorTextBlock(@\TextBock, X + \HMargin + #RadioSize, Y)
 			EndIf
 			
 			Y = Floor(\OriginY + (\Height - #RadioSize) * 0.5)
@@ -5179,6 +5183,7 @@ Module UITK
 			\TextBock\OriginalText = Text
 			\HMargin = #RadioSize * 0.5 + BorderMargin
 			\VMargin = BorderMargin
+			\HAlign = \TextBock\HAlign
 			
 			If Flags & #HAlignCenter
 				\TextBock\HAlign = #HAlignLeft
@@ -7094,7 +7099,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 1469
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 5076
+; FirstLine = 42
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGDAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
