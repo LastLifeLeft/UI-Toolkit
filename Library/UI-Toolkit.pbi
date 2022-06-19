@@ -5055,7 +5055,7 @@ Module UITK
 	EndStructure
 	
 	Procedure Radio_Redraw(*GadgetData.RadioData)
-		Protected X, Y
+		Protected X, Y, State
 		
 		With *GadgetData
 			If \TextBock\FontScale
@@ -5064,17 +5064,35 @@ Module UITK
 				VectorFont(\TextBock\FontID)
 			EndIf
 			
+			If \State
+				State = #Hot
+			Else
+				State = \MouseState
+			EndIf
+			
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+				VectorSourceColor(\ThemeData\LineColor[\MouseState])
+				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
+			EndIf
+			
+			VectorSourceColor(\ThemeData\BackColor[State])
+			ClipPath(#PB_Path_Preserve)
+			FillPath()
+			
 			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
 			If \HAlign = #HAlignLeft
-				DrawVectorTextBlock(@\TextBock, X, Y)
-				X = \OriginX + \Width - #RadioSize - BorderMargin
+				DrawVectorTextBlock(@\TextBock, X + \HMargin, 0)
+				X = \OriginX + \Width - #RadioSize - BorderMargin - \HMargin
 			ElseIf \HAlign = #HAlignRight
-				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
-				X = \OriginX + BorderMargin
+				DrawVectorTextBlock(@\TextBock, X + \HMargin, 0)
+				X = \OriginX + BorderMargin + \HMargin
 			Else
-				X = \OriginX + BorderMargin
-				DrawVectorTextBlock(@\TextBock, X + \HMargin + #RadioSize, Y)
+				X = \OriginX + BorderMargin + \HMargin
+				DrawVectorTextBlock(@\TextBock, X + \HMargin + #RadioSize, 0)
 			EndIf
 			
 			Y = Floor(\OriginY + (\Height - #RadioSize) * 0.5)
@@ -7099,8 +7117,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 5076
-; FirstLine = 42
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGDAAAAAAAAAAAAA+
+; CursorPosition = 5080
+; FirstLine = 47
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
