@@ -233,7 +233,7 @@
 	Declare DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
 	Declare Disable(Gadget, State)
 	Declare Freeze(Gadget, State)
-	Declare AddPathRoundedBox(Border_X, Border_Y, Border_Width, Border_Height, Radius, Type = #Corner_All)
+	Declare AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
 	
 	; Drag & drop
 	Declare AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy)
@@ -3550,6 +3550,14 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_ItemRedraw(*Item.VerticalListItem, X, Y, Width, Height, State, *Theme.Theme)
+		If State > #Cold
+			AddPathBox(X, Y, Width, Height)
+			VectorSourceColor(*Theme\ShadeColor[State])
+			FillPath()
+			
+			VectorSourceColor(*Theme\TextColor[State])
+		EndIf
+		
 		DrawVectorTextBlock(@*Item\Text, X, Y)
 		
 		If State = #Hot
@@ -3563,7 +3571,6 @@ Module UITK
 				VectorFont(*Item\Text\FontID)
 			EndIf
 		EndIf
-		
 	EndProcedure
 	
 	Procedure VerticalList_Redraw(*GadgetData.VerticalListData)
@@ -3618,14 +3625,8 @@ Module UITK
 						If \DragState = #Drag_Active
 							Continue
 						EndIf
-						AddPathBox(\Border, Y, \Width, \ItemHeight)
-						VectorSourceColor(\ThemeData\ShadeColor[#Hot])
-						FillPath()
 						State = #Hot
 					ElseIf CurrentItem = \ItemState
-						AddPathBox(\Border, Y, \Width, \ItemHeight)
-						VectorSourceColor(\ThemeData\ShadeColor[#Warm])
-						FillPath()
 						State = #Warm
 					Else
 						State = #Cold
@@ -7093,7 +7094,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 692
+; CursorPosition = 1469
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
