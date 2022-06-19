@@ -5082,7 +5082,7 @@ Module UITK
 			ClipPath(#PB_Path_Preserve)
 			FillPath()
 			
-			VectorSourceColor(\ThemeData\TextColor[\MouseState])
+			VectorSourceColor(\ThemeData\TextColor[State])
 			
 			If \HAlign = #HAlignLeft
 				DrawVectorTextBlock(@\TextBock, X + \HMargin, 0)
@@ -7117,7 +7117,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 5080
+; CursorPosition = 5084
 ; FirstLine = 47
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAA+
 ; EnableXP
