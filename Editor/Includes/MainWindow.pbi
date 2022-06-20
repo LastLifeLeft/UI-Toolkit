@@ -579,8 +579,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
-; CursorPosition = 396
-; Folding = REYD9
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
+; CursorPosition = 502
+; FirstLine = 57
+; Folding = REYH+
 ; EnableXP
 ; DPIAware

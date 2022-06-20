@@ -5135,6 +5135,8 @@ Module UITK
 						
 						\State = #True
 						Redraw = #True
+						
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 					EndIf
 					
 				Case #KeyDown
@@ -7117,8 +7119,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 5084
-; FirstLine = 47
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAA+
+; CursorPosition = 5138
+; FirstLine = 60
+; Folding = JAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAKAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
