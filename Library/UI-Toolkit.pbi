@@ -1627,7 +1627,7 @@ Module UITK
 				EndIf
 				;}
 			Case #WM_LBUTTONDBLCLK ;{
-				If cursor\y <= #WindowBarHeight And *WindowData\sizeCursor = 0
+				If cursor\y <= #WindowBarHeight And *WindowData\sizeCursor = 0 And *WindowData\Sizable
 					If IsZoomed_(hWnd)
 						ShowWindow_(hWnd, #SW_RESTORE)
 					Else
@@ -1743,10 +1743,13 @@ Module UITK
 	Procedure WindowBar_Handler(hWnd, Msg, wParam, lParam)
 		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UITK_WindowBarData"), *WindowData.ThemedWindow, posX, posY
 		If msg = #WM_LBUTTONDBLCLK
-			If IsZoomed_(*WindowBarData\Parent)
-				ShowWindow_(*WindowBarData\Parent, #SW_RESTORE)
-			Else
-				ShowWindow_(*WindowBarData\Parent, #SW_MAXIMIZE)
+			*WindowData.ThemedWindow = GetProp_(*WindowBarData\Parent, "UITK_WindowData")
+			If *WindowData\Sizable
+				If IsZoomed_(*WindowBarData\Parent)
+					ShowWindow_(*WindowBarData\Parent, #SW_RESTORE)
+				Else
+					ShowWindow_(*WindowBarData\Parent, #SW_MAXIMIZE)
+				EndIf
 			EndIf
 		ElseIf msg = #WM_LBUTTONDOWN
 			If *WindowBarData\sizeCursor = 0
@@ -7119,8 +7122,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 5138
-; FirstLine = 60
-; Folding = JAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAKAAAAAAAAAAAAAA+
+; CursorPosition = 1752
+; FirstLine = 63
+; Folding = JAAAAAAAAIAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
