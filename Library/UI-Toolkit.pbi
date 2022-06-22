@@ -356,6 +356,39 @@ Module UITK
 	Macro BorderMargin
 		7 * \Border
 	EndMacro
+	
+	CompilerIf #PB_Compiler_Debugger
+		
+		Structure SAllocation
+			Size.i
+			File.s
+			Line.i
+			Pointer.i
+		EndStructure
+		
+		Global NewList Memories.SAllocation()
+		
+		Macro AllocateStructureX(Variable, StructureName)
+			AddElement(Memories())
+			Memories()\Size = SizeOf(StructureName)
+			Memories()\File = #PB_Compiler_File
+			Memories()\Line = #PB_Compiler_Line
+			Memories()\Pointer = AllocateStructure(StructureName)
+			Variable = Memories()\Pointer
+		EndMacro
+		
+		Macro FreeStructureX(Memory)
+			ForEach Memories()
+				If Memories()\Pointer = Memory
+					DeleteElement(Memories())
+					Break
+				EndIf
+			Next
+			FreeStructure(Memory)
+		EndMacro
+		
+	CompilerEndIf
+	
 	;}
 	
 	;{ Private variables, structures and constants
@@ -1792,7 +1825,7 @@ Module UITK
 			                                                                  (Bool(Flags & #PB_Window_Invisible) * #PB_Window_Invisible) |
 			                                                                  (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 		Else
-			*WindowData = AllocateStructure(ThemedWindow)
+			AllocateStructureX(*WindowData, ThemedWindow)
 			*WindowData\Sizable = Bool(Flags & #PB_Window_SizeGadget)
 			
 			If *WindowData\Sizable
@@ -1881,13 +1914,13 @@ Module UITK
 				*WindowData\LabelAlign = #HAlignLeft
 			EndIf
 			
-			*WindowBarData = AllocateStructure(WindowBar)
+			AllocateStructureX(*WindowBarData, WindowBar)
 			*WindowBarData\Parent = WindowID
 			SetProp_(GadgetID(*WindowData\Label), "UITK_WindowBarData", *WindowBarData)
 			*WindowBarData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Label), #GWL_WNDPROC, @WindowBar_Handler())
 			
 			*WindowData\Container = ContainerGadget(#PB_Any, 0, #WindowBarHeight, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #PB_Container_BorderLess)
-			*ContainerData.WindowContainer = AllocateStructure(WindowContainer)
+			AllocateStructureX(*ContainerData, WindowContainer)
 			*ContainerData\Parent = WindowID
 			SetProp_(GadgetID(*WindowData\Container), "UITK_ContainerData", *WindowBarData)
 			*ContainerData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Container), #GWL_WNDPROC, @WindowContainer_Handler())
@@ -2381,7 +2414,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.ButtonData
+		Protected Result, *this.PB_Gadget, *GadgetData.ButtonData, *ThemeData
 		
 		If AccessibilityMode
 			Result = ButtonGadget(Gadget, x, y, Width, Height, Text.s, (Bool(Flags & #HAlignLeft) * #PB_Button_Left) | 
@@ -2396,12 +2429,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(ButtonData)
+				AllocateStructureX(*GadgetData, ButtonData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -2558,7 +2591,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.ToggleData
+		Protected Result, *this.PB_Gadget, *GadgetData.ToggleData, *ThemeData
 		
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 		
@@ -2568,12 +2601,12 @@ Module UITK
 			EndIf
 			
 			*this = IsGadget(Gadget)
-			*GadgetData = AllocateStructure(ToggleData)
+			AllocateStructureX(*GadgetData, ToggleData)
 			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 			*GadgetData\OriginalVT = *this\VT
 			*this\VT = *GadgetData
 			
-			Protected *ThemeData = AllocateStructure(Theme)
+			AllocateStructureX(*ThemeData, Theme)
 			
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -2728,7 +2761,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.CheckBoxData
+		Protected Result, *this.PB_Gadget, *GadgetData.CheckBoxData, *ThemeData 
 		
 		If AccessibilityMode
 			Result = CheckBoxGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_CheckBox_Right) |
@@ -2743,12 +2776,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(CheckBoxData)
+				AllocateStructureX(*GadgetData, CheckBoxData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -3151,7 +3184,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags = #Default)
-		Protected Result, *GadgetData.ScrollBarData, *this.PB_Gadget
+		Protected Result, *GadgetData.ScrollBarData, *this.PB_Gadget, *ThemeData
 		
 		If AccessibilityMode
 			Result = ScrollBarGadget(Gadget, x, y, Width, Height, Min, Max, PageLenght, Bool(Flags & #Gadget_Vertical) * #PB_ScrollBar_Vertical)
@@ -3164,13 +3197,13 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(ScrollBarData)
+				AllocateStructureX(*GadgetData, ScrollBarData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				*GadgetData\Background = #True
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -3231,7 +3264,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.LabelData
+		Protected Result, *this.PB_Gadget, *GadgetData.LabelData, *ThemeData
 		
 		If AccessibilityMode
 			Result = TextGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Text_Right) |
@@ -3246,12 +3279,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(LabelData)
+				AllocateStructureX(*GadgetData, LabelData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -3448,7 +3481,7 @@ Module UITK
 				FreeGadget(ScrollBar)
 			EndIf
 			
-			*GadgetData = AllocateStructure(ScrollAreaData)
+			AllocateStructureX(*GadgetData, ScrollAreaData)
 			
 			With *GadgetData
 				\Gadget = Gadget
@@ -3457,7 +3490,7 @@ Module UITK
 				\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				*GadgetData\ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*GadgetData\ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *GadgetData\ThemeData, Theme)
@@ -4175,7 +4208,7 @@ Module UITK
 			\State = -1
 			\ItemState = -1
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
-			\ScrollBar = AllocateStructure(ScrollBarData)
+			AllocateStructureX(*GadgetData\ScrollBar, ScrollBarData)
 			\ReorderPosition = -1
 			
 			If Flags & #ReOrder
@@ -4218,7 +4251,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
-		Protected Result, *this.PB_Gadget, *GadgetData.VerticalListData
+		Protected Result, *this.PB_Gadget, *GadgetData.VerticalListData, *ThemeData
 		
 		If AccessibilityMode
 			
@@ -4231,12 +4264,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(VerticalListData)
+				AllocateStructureX(*GadgetData, VerticalListData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -4639,7 +4672,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.TrackBarData
+		Protected Result, *this.PB_Gadget, *GadgetData.TrackBarData, *ThemeData
 		
 		If AccessibilityMode
 			Result = TrackBarGadget(Gadget, x, y, Width, Height, Minimum, Maximum, Bool(Flags & #Gadget_Vertical) * #PB_TrackBar_Vertical)
@@ -4652,12 +4685,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(TrackBarData)
+				AllocateStructureX(*GadgetData, TrackBarData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -4922,7 +4955,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Combo(Gadget, x, y, Width, Height, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.ComboData, GadgetList = UseGadgetList(0)
+		Protected Result, *this.PB_Gadget, *GadgetData.ComboData, GadgetList = UseGadgetList(0), *ThemeData
 		
 		If AccessibilityMode
 			Result = ComboBoxGadget(Gadget, x, y, Width, Height)
@@ -4935,12 +4968,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(ComboData)
+				AllocateStructureX(*GadgetData, ComboData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -5000,7 +5033,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Container(Gadget, x, y, Width, Height, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.ContainerData
+		Protected Result, *this.PB_Gadget, *GadgetData.ContainerData, *ThemeData
 		
 		If AccessibilityMode
 			Result = ContainerGadget(#PB_Any, x, y, Width, Height)
@@ -5013,12 +5046,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(ContainerData)
+				AllocateStructureX(*GadgetData, ContainerData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -5240,7 +5273,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Radio(Gadget, x, y, Width, Height, Text.s, RadioGroup.s = "", Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.RadioData
+		Protected Result, *this.PB_Gadget, *GadgetData.RadioData, *ThemeData
 		
 		If AccessibilityMode
 			; 			Result = RadioGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Radio_Right) |
@@ -5255,12 +5288,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(RadioData)
+				AllocateStructureX(*GadgetData, RadioData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -5685,7 +5718,7 @@ Module UITK
 		
 		With *GadgetData
 			
-			\ScrollBar = AllocateStructure(ScrollBarData)
+			AllocateStructureX(\ScrollBar, ScrollBarData)
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			\RedrawSection = @Library_RedrawSection()
 			\RedrawItem = @Library_RedrawItem()
@@ -5721,7 +5754,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Library(Gadget, x, y, Width, Height, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.LibraryData
+		Protected Result, *this.PB_Gadget, *GadgetData.LibraryData, *ThemeData
 		
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 		
@@ -5731,12 +5764,12 @@ Module UITK
 			EndIf
 			
 			*this = IsGadget(Gadget)
-			*GadgetData = AllocateStructure(LibraryData)
+			AllocateStructureX(*GadgetData, LibraryData)
 			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 			*GadgetData\OriginalVT = *this\VT
 			*this\VT = *GadgetData
 			
-			Protected *ThemeData = AllocateStructure(Theme)
+			AllocateStructureX(*ThemeData, Theme)
 			
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -5968,7 +6001,7 @@ Module UITK
 		InitializeObject(PropertyBox)
 		
 		With *GadgetData
-			\ScrollBar = AllocateStructure(ScrollBarData)
+			AllocateStructureX(\ScrollBar, ScrollBarData)
 			\ItemHeight = #PropertyBox_ItemHeight
 			\ColumnWidth = #PropertyBox_ColumnWidth
 			\MarginWidth = #PropertyBox_MarginWidth
@@ -5990,7 +6023,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure PropertyBox(Gadget, x, y, Width, Height, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.PropertyBoxData
+		Protected Result, *this.PB_Gadget, *GadgetData.PropertyBoxData, *ThemeData
 		
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container)
 		
@@ -6000,12 +6033,12 @@ Module UITK
 			EndIf
 			
 			*this = IsGadget(Gadget)
-			*GadgetData = AllocateStructure(PropertyBoxData)
+			AllocateStructureX(*GadgetData, PropertyBoxData)
 			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 			*GadgetData\OriginalVT = *this\VT
 			*this\VT = *GadgetData
 			
-			Protected *ThemeData = AllocateStructure(Theme)
+			AllocateStructureX(*ThemeData, Theme)
 			
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -6331,7 +6364,7 @@ Module UITK
 		InitializeObject(Tree)
 		
 		With *GadgetData
-			\ScrollBar = AllocateStructure(ScrollBarData)
+			AllocateStructureX(\ScrollBar, ScrollBarData)
 			\ItemHeight = #Tree_ItemHeight
 			\BranchWidth= #Tree_BranchWidth
 			\MaxLevel = 1
@@ -6356,7 +6389,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree(Gadget, x, y, Width, Height, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.TreeData
+		Protected Result, *this.PB_Gadget, *GadgetData.TreeData, *ThemeData
 		
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container)
 		
@@ -6366,12 +6399,12 @@ Module UITK
 			EndIf
 			
 			*this = IsGadget(Gadget)
-			*GadgetData = AllocateStructure(TreeData)
+			AllocateStructureX(*GadgetData, TreeData)
 			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 			*GadgetData\OriginalVT = *this\VT
 			*this\VT = *GadgetData
 			
-			Protected *ThemeData = AllocateStructure(Theme)
+			AllocateStructureX(*ThemeData, Theme)
 			
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -6728,6 +6761,15 @@ Module UITK
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
 	
+	Procedure HorizontalList_FreeGadget(*this.PB_Gadget)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		FreeStructure(*GadgetData\ScrollBar)
+		
+		Default_FreeGadget(*this.PB_Gadget)
+	EndProcedure
+	
+	
 	; Getters
 	Procedure.s HorizontalList_GetItemText(*this.PB_Gadget, Position)
 		Protected *GadgetData.HorizontalListData = *this\vt
@@ -6787,7 +6829,7 @@ Module UITK
 		InitializeObject(HorizontalList)
 		
 		With *GadgetData
-			\ScrollBar = AllocateStructure(ScrollBarData)
+			AllocateStructureX(\ScrollBar, ScrollBarData)
 			\VisibleScrollbar = #False
 			\ItemWidth = Height
 			\State = -1
@@ -6816,7 +6858,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.HorizontalListData
+		Protected Result, *this.PB_Gadget, *GadgetData.HorizontalListData, *ThemeData
 		
 		If AccessibilityMode
 			
@@ -6829,12 +6871,12 @@ Module UITK
 				EndIf
 				
 				*this = IsGadget(Gadget)
-				*GadgetData = AllocateStructure(HorizontalListData)
+				AllocateStructureX(*GadgetData, HorizontalListData)
 				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 				*GadgetData\OriginalVT = *this\VT
 				*this\VT = *GadgetData
 				
-				Protected *ThemeData = AllocateStructure(Theme)
+				AllocateStructureX(*ThemeData, Theme)
 				
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
@@ -6970,7 +7012,7 @@ Module UITK
 			MenuWindow = WindowID(OpenWindow(#PB_Any, 0, 0, 100, 100, "Menu Parent", #PB_Window_Invisible | #PB_Window_SystemMenu))
 		EndIf
 		
-		*MenuData = AllocateStructure(FlatMenu)
+		AllocateStructureX(*MenuData, FlatMenu)
 		
 		With *MenuData
 			\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, MenuWindow)
@@ -7121,9 +7163,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 1752
-; FirstLine = 63
-; Folding = JAAAAAAAAIAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; IDE Options = PureBasic 6.00 Beta 10 (Windows - x64)
+; CursorPosition = 7014
+; FirstLine = 1542
+; Folding = JAAAAAAAAABAABAQMGDAAYMgBAAAAcAwAwYgAA5A5AAOAAAOQ9
 ; EnableXP
 ; DPIAware
