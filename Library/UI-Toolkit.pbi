@@ -386,7 +386,14 @@ Module UITK
 			Next
 			FreeStructure(Memory)
 		EndMacro
+	CompilerElse
+		Macro AllocateStructureX(Variable, StructureName)
+			Variable = Memories()\Pointer
+		EndMacro
 		
+		Macro FreeStructureX(Memory)
+			FreeStructure(Memory)
+		EndMacro
 	CompilerEndIf
 	
 	;}
@@ -2033,7 +2040,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure WindowSetColor(Window, ColorType, Color)
-		Protected *WindowData.ThemedWindow
+		Protected *WindowData.ThemedWindow, Image, *OldBrush
 		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
 		
 		Select ColorType
@@ -2096,6 +2103,26 @@ Module UITK
 				*WindowData\Theme\Special3[#Hot] = Color
 			Case #Color_Special3_Disabled
 				*WindowData\Theme\Special3[#Disabled] = Color
+			Case #Color_WindowBorder
+				*WindowData\Theme\WindowTitle = Color
+				*OldBrush = *WindowData\Brush
+				Image = CreateImage(#PB_Any, 8, 8, 32, SetAlpha(*WindowData\Theme\WindowTitle, 255)) ; Removing SetAlpha makes LightTheme goes derp. Can anybody explain?
+				*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
+				FreeImage(Image)
+				SetClassLongPtr_(WindowID(Window), #GCL_HBRBACKGROUND, *WindowData\Brush)
+				DeleteObject_(*OldBrush)
+				SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
+				
+				If *WindowData\ButtonMinimize
+					SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+				EndIf
+				If *WindowData\ButtonMaximize
+					SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+				EndIf
+				If *WindowData\ButtonClose
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+				EndIf
+				
 		EndSelect
 		
 		
@@ -7163,9 +7190,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 10 (Windows - x64)
-; CursorPosition = 7014
-; FirstLine = 1542
-; Folding = JAAAAAAAAABAABAQMGDAAYMgBAAAAcAwAwYgAA5A5AAOAAAOQ9
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 400
+; Folding = JAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware

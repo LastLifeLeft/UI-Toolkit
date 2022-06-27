@@ -115,6 +115,7 @@ UITK::AddFlatMenuItem(Menu, 0, -1, "Procedure Browser")
 UITK::AddWindowMenu(Window0, Menu, "File")
 
 Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
+UITK::WindowSetColor(Window1, UITK::#Color_WindowBorder, $FFFF00FF)
 UITK::SetWindowIcon(Window1, ImageID(Image))
 
 Gadget = UITK::Button(#PB_Any, 20, 20, 200, 40, "Button center", UITK::#Border)
@@ -232,8 +233,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 175
-; FirstLine = 131
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 119
+; FirstLine = 91
 ; EnableXP
 ; DPIAware
