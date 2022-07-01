@@ -391,7 +391,7 @@ Module UITK
 		EndMacro
 	CompilerElse
 		Macro AllocateStructureX(Variable, StructureName)
-			Variable = Memories()\Pointer
+			Variable = AllocateStructure(StructureName)
 		EndMacro
 		
 		Macro FreeStructureX(Memory)
@@ -7600,8 +7600,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 2297
+; CursorPosition = 393
 ; FirstLine = 6
-; Folding = JAAACAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; Folding = ZAQCCAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
