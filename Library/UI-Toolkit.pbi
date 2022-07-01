@@ -5705,6 +5705,51 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
+	Procedure Library_RemoveItem(*This.PB_Gadget, Position)
+		Protected *GadgetData.LibraryData = *this\vt
+		
+			With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				
+				If \State = Position
+					\State = -1
+				ElseIf \State > Position
+					\State -1
+				EndIf
+				
+				ChangeCurrentElement(\Sections(), \Items()\Section)
+				DeleteElement(\Sections())
+				DeleteElement(\Items())
+				
+				If ListSize(\Sections()\Items()) % \ItemPerLine = 1
+					\Sections()\Height + (\ItemVMargin + \ItemHeight)
+					\InternalHeight + (\ItemVMargin + \ItemHeight)
+					
+					If \InternalHeight > \Height
+						\VisibleScrollbar = #True
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+					Else
+						\VisibleScrollbar = #False
+					EndIf
+					
+				EndIf
+				
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure Library_ClearItems(*This.PB_Gadget)
+		Protected *GadgetData.LibraryData = *this\vt
+		
+		With *GadgetData
+			ClearList(\Items())
+			ClearList(\Sections())
+			RedrawObject()
+		EndWith
+		
+	EndProcedure
+	
 	;Setters
 	Procedure Library_SetItemData(*this.PB_Gadget, Position, *Data)
 		Protected *GadgetData.LibraryData = *this\vt
@@ -5767,6 +5812,8 @@ Module UITK
 			
 			\VT\AddGadgetColumn = @Library_AddColumn()
 			\VT\AddGadgetItem3 = @Library_AddItem()
+			\VT\RemoveGadgetItem = @Library_RemoveItem()
+			\vt\ClearGadgetItemList = @Library_ClearItems()
 			
 			\VT\SetGadgetItemData = @Library_SetItemData()
 			\VT\GetGadgetItemData = @Library_GetItemData()
@@ -7389,6 +7436,10 @@ Module UITK
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
 	
+	Procedure Tab_ClearItems(*This.PB_Gadget)
+		
+	EndProcedure
+	
 	; Getters
 	Procedure.s Tab_GetItemText(*this.PB_Gadget, Position)
 		Protected *GadgetData.TabData = *this\vt
@@ -7549,8 +7600,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 2296
-; FirstLine = 248
-; Folding = PAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 2297
+; FirstLine = 5
+; Folding = JAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoA9
 ; EnableXP
 ; DPIAware
