@@ -234,7 +234,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 119
-; FirstLine = 91
+; CursorPosition = 196
+; FirstLine = 159
 ; EnableXP
 ; DPIAware

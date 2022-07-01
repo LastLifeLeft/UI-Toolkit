@@ -5746,6 +5746,7 @@ Module UITK
 			ClearList(\Items())
 			ClearList(\Sections())
 			RedrawObject()
+			\InternalHeight = 0
 		EndWith
 		
 	EndProcedure
@@ -7600,8 +7601,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 2297
-; FirstLine = 5
+; CursorPosition = 2296
+; FirstLine = 6
 ; Folding = JAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoA9
 ; EnableXP
 ; DPIAware
