@@ -7336,9 +7336,14 @@ Module UITK
 			Select *Event\EventType
 				Case #MouseMove ;{
 					HoverItem = Floor(*Event\MouseX / \ItemWidth)
-					If HoverItem <> \MouseState
-						\MouseState = HoverItem
-						Redraw = #True
+					If HoverItem <> \MouseState 
+						If HoverItem < ListSize(\Items())
+							\MouseState = HoverItem
+							Redraw = #True
+						Else
+							\MouseState = -1
+							Redraw = #True
+						EndIf
 					EndIf
 					;}
 				Case #MouseLeave ;{
@@ -7601,8 +7606,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 2296
+; CursorPosition = 7582
 ; FirstLine = 6
-; Folding = JAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoA9
+; Folding = JAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
