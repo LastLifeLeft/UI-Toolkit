@@ -52,6 +52,8 @@
 		#Attribute_SortItems
 		#Attribute_CornerType
 		
+		#Tab_Color
+		
 		#Trackbar_Scale
 	EndEnumeration
 	
@@ -227,6 +229,7 @@
 	Declare PropertyBox(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare Tree(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
+	Declare Tab(Gadget, x, y, Width, Height, Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -7166,6 +7169,361 @@ Module UITK
 	
 	;}
 	
+	;{ Tab
+	#HList_ItemHeight = 100
+	
+	Structure Tab_Item
+		ImageX.l
+		ImageY.l
+		imageID.i
+		Color.i
+		Text.Text
+	EndStructure
+	
+	Structure TabData Extends GadgetData
+		ItemWidth.l
+		InternalWidth.i
+		DragOriginX.l
+		DragOriginY.l
+		Drag.b
+		DragState.b
+		List Items.Tab_Item()
+	EndStructure
+	
+	Procedure Tab_ItemRedraw(*Item.Tab_Item, X, Y, Width, Height, State, *Theme.Theme)
+		If State = #Hot
+			AddPathRoundedBox(X,Y, Width, 10, 4, #Corner_Top)
+			VectorSourceColor(*Item\Color)
+			FillPath()
+			AddPathBox(X, Y + 5, Width, Height - 5)
+			VectorSourceColor(*Theme\ShadeColor[#Hot])
+			FillPath()
+			VectorSourceColor(*Theme\TextColor[#Cold])
+			
+			Y - 4
+		ElseIf State = #Warm
+			AddPathRoundedBox(X, Y + 4, Width, Height - 4, 4, #Corner_Top)
+			VectorSourceColor(*Theme\ShadeColor[#Warm])
+			FillPath()
+			VectorSourceColor(*Theme\TextColor[#Cold])
+		EndIf
+		
+		If *Item\imageID
+			MovePathCursor(X + *Item\ImageX, Y + *Item\ImageY)
+			DrawVectorImage(*Item\imageID)
+		EndIf
+		
+		DrawVectorTextBlock(@*Item\Text, X, Y)
+	EndProcedure
+	
+	Procedure Tab_Redraw(*GadgetData.TabData)
+		With *GadgetData
+			Protected X = \OriginX + \Border
+			
+			If ListSize(\Items())
+				VectorFont(\TextBock\FontID)
+				VectorSourceColor(\ThemeData\TextColor[#Cold])
+				
+				FirstElement(\Items())
+					
+				Repeat
+					If ListIndex(\Items()) = \State
+						Tab_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Hot, \ThemeData)
+					ElseIf ListIndex(\Items()) = \MouseState
+						Tab_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Warm, \ThemeData)
+					Else
+						Tab_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Cold, \ThemeData)
+					EndIf
+					
+					X + \ItemWidth
+				Until X > \Width Or Not NextElement(\Items())
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure Tab_Resize(*This.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.TabData = *this\vt, PreviousHeight
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		With *GadgetData
+			PreviousHeight = \Height
+			\Width = GadgetWidth(\Gadget)
+			\Height = GadgetHeight(\Gadget)
+			
+			If \InternalWidth > \Width
+				
+			Else
+				
+			EndIf
+			
+			If PreviousHeight <> \Height
+				ForEach \Items()
+					\Items()\Text\Height = \Height
+					PrepareVectorTextBlock(@\Items()\Text)
+				Next
+			EndIf
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
+	Procedure Tab_StateFocus(*GadgetData.TabData)
+		Protected Result
+		
+		With *GadgetData
+			
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure Tab_EventHandler(*GadgetData.TabData, *Event.Event)
+		Protected Redraw, HoverItem
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #MouseMove ;{
+					HoverItem = Floor(*Event\MouseX / \ItemWidth)
+					If HoverItem <> \MouseState
+						\MouseState = HoverItem
+						Redraw = #True
+					EndIf
+					;}
+				Case #MouseLeave ;{
+					If \MouseState <> -1
+						\MouseState = -1
+						Redraw = #True
+					EndIf
+					;}
+				Case #LeftButtonDown ;{
+					If \MouseState > - 1 And \MouseState <> \State
+						\State = \MouseState
+						Redraw = #True
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+					EndIf
+					;}
+				Case #LeftDoubleClick ;{
+					
+					;}
+				Case #KeyDown ;{
+					
+					;}
+			EndSelect
+			If Redraw
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure Tab_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+		Protected *GadgetData.TabData = *this\vt, *NewItem.Tab_Item, HBitmap.BITMAP
+		With *GadgetData
+			
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*NewItem = InsertElement(\Items())
+			Else
+				LastElement(\Items())
+				*NewItem = AddElement(\Items())
+			EndIf
+			
+			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\LineLimit = 1
+			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\Width = \ItemWidth
+			*NewItem\Text\Height = Floor(\Height * 0.9)
+			*NewItem\Text\VAlign = #VAlignBottom
+			*NewItem\Text\HAlign = #HAlignCenter
+			
+			PrepareVectorTextBlock(@*NewItem\Text)
+			
+			*NewItem\imageID = ImageID
+			*NewItem\Color = \ThemeData\Special3[#Warm]
+			
+			If *NewItem\imageID
+				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
+				*NewItem\ImageY = (\Height - 20 - HBitmap\bmHeight) * 0.5
+			EndIf
+			
+			\InternalWidth = ListSize(\Items()) * \ItemWidth
+			
+			ChangeCurrentElement(\Items(), *NewItem)
+			Position = ListIndex(\Items())
+			RedrawObject()
+		EndWith
+		
+		ProcedureReturn Position
+	EndProcedure
+	
+	Procedure Tab_RemoveItem(*This.PB_Gadget, Position)
+		Protected *GadgetData.TabData = *this\vt
+		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				DeleteElement(\Items())
+				\InternalWidth = ListSize(\Items()) * \ItemWidth
+				
+				If \State > Position
+					\State - 1
+				ElseIf \State = Position
+					If \State = ListSize(\Items())
+						\State - 1
+					EndIf
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+				EndIf
+				
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure Tab_CountItem(*This.PB_Gadget)
+		Protected *GadgetData.TabData = *this\vt
+		
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+	
+	; Getters
+	Procedure.s Tab_GetItemText(*this.PB_Gadget, Position)
+		Protected *GadgetData.TabData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				ProcedureReturn \Items()\Text\OriginalText
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure Tab_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.TabData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\imageID
+			EndIf
+		EndWith
+	EndProcedure
+	
+	
+	; Setters
+	Procedure Tab_SetAttribute(*this.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.TabData = *this\vt
+		
+		With *GadgetData
+			Select Attribute
+				Case #Attribute_ItemWidth ;{
+					\ItemWidth = Value
+					\InternalWidth = ListSize(\Items()) * \ItemWidth
+					
+					ForEach \Items()
+						\Items()\Text\Width = \ItemWidth
+						PrepareVectorTextBlock(@\Items()\Text)
+					Next
+					;}
+				Default ;{	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+					;}
+			EndSelect
+		EndWith
+		RedrawObject()
+	EndProcedure
+	
+	Procedure Tab_SetItemAttribute(*this.PB_Gadget, Position, Attribute, Value)
+		Protected *GadgetData.TabData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				Select Attribute
+					Case #Tab_Color
+						\Items()\Color = Value
+						RedrawObject()
+				EndSelect
+			EndIf
+		EndWith
+	EndProcedure
+	
+	
+	Procedure Tab_Meta(*GadgetData.TabData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(Tab)
+		
+		With *GadgetData
+			\ItemWidth = Height
+			\State = -1
+			\MouseState = -1
+			\Drag = Bool(Flags & #Drag)
+			
+			\VT\AddGadgetItem2 = @Tab_AddItem()
+			\VT\RemoveGadgetItem = @Tab_RemoveItem()
+			\VT\ResizeGadget = @Tab_Resize()
+			\VT\SetGadgetAttribute = @Tab_SetAttribute()
+			\VT\CountGadgetItems = @Tab_CountItem()
+			\VT\GetGadgetItemImage = @Tab_GetItemImage()
+			\VT\GetGadgetItemText = @Tab_GetItemText()
+			\VT\SetGadgetItemAttribute2 = @Tab_SetItemAttribute()
+			
+			; Enable only the needed events
+			\SupportedEvent[#MouseWheel] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#LeftDoubleClick] = #True
+			\SupportedEvent[#KeyDown] = #True
+		EndWith
+	EndProcedure
+	
+	Procedure Tab(Gadget, x, y, Width, Height, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.TabData, *ThemeData
+		
+		If AccessibilityMode
+			
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				AllocateStructureX(*GadgetData, TabData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				AllocateStructureX(*ThemeData, Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				Tab_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	;}
+	
 EndModule
 
 
@@ -7191,7 +7549,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 400
-; Folding = JAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 7206
+; FirstLine = 341
+; Folding = PAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAGAAo
 ; EnableXP
 ; DPIAware

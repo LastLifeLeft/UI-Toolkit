@@ -65,6 +65,12 @@ Next
 VList2 = UITK::HorizontalList(#PB_Any, 320, 120, 621, 80, UITK::#Border | UITK::#Drag)
 EnableGadgetDrop(VList2, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
+Tab = UITK::Tab(#PB_Any, 320, 220, 621, 70)
+AddGadgetItem(Tab, -1, "Prululu 1", ImageID(Image))
+AddGadgetItem(Tab, -1, "Prululu 2", ImageID(Image))
+AddGadgetItem(Tab, -1, "Prululu 3", ImageID(Image))
+SetGadgetItemAttribute(Tab, 2, UITK::#Tab_Color, $FFFF00FF)
+
 HideWindow(Window, #False)
 
 Repeat
@@ -89,8 +95,8 @@ Repeat
 	EndSelect
 ForEver
 
-; IDE Options = PureBasic 6.00 Beta 9 (Windows - x64)
-; CursorPosition = 65
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 71
 ; FirstLine = 9
 ; EnableXP
 ; DPIAware
