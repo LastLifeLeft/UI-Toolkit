@@ -181,6 +181,21 @@
 		*Data
 		List *Items.Library_Item()
 	EndStructure
+	
+	Structure Theme
+		BackColor.l[4]
+		FrontColor.l[4]
+		ShadeColor.l[4]
+		TextColor.l[4]
+		LineColor.l[4]
+		Special1.l[4]
+		Special2.l[4]
+		Special3.l[4]
+		WindowColor.l
+		Highlight.l
+		CornerRadius.b
+		WindowTitle.l
+	EndStructure
 	;}
 	
 	;{ Public procedures declaration
@@ -551,21 +566,6 @@ Module UITK
 		MouseX.l
 		MouseY.l
 		Param.l
-	EndStructure
-	
-	Structure Theme
-		BackColor.l[4]
-		FrontColor.l[4]
-		ShadeColor.l[4]
-		TextColor.l[4]
-		LineColor.l[4]
-		Special1.l[4]
-		Special2.l[4]
-		Special3.l[4]
-		WindowColor.l
-		Highlight.l
-		CornerRadius.b
-		WindowTitle.l
 	EndStructure
 	
 	Prototype Redraw(*GadgetData)
@@ -7600,8 +7600,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 393
-; FirstLine = 6
-; Folding = ZAQCCAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 262
+; Folding = JAACCAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
