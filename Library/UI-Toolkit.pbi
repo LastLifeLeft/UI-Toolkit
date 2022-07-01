@@ -7335,7 +7335,7 @@ Module UITK
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Text\FontID = \TextBock\FontID
 			*NewItem\Text\Width = \ItemWidth
-			*NewItem\Text\Height = Floor(\Height * 0.9)
+			*NewItem\Text\Height = Floor(\Height * 0.95)
 			*NewItem\Text\VAlign = #VAlignBottom
 			*NewItem\Text\HAlign = #HAlignCenter
 			
@@ -7347,7 +7347,7 @@ Module UITK
 			If *NewItem\imageID
 				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
 				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
-				*NewItem\ImageY = (\Height - 20 - HBitmap\bmHeight) * 0.5
+				*NewItem\ImageY = (\Height - 10 - HBitmap\bmHeight) * 0.5
 			EndIf
 			
 			\InternalWidth = ListSize(\Items()) * \ItemWidth
@@ -7549,8 +7549,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 7206
-; FirstLine = 341
-; Folding = PAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAGAAo
+; CursorPosition = 2296
+; FirstLine = 248
+; Folding = PAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
