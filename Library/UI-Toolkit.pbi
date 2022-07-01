@@ -240,7 +240,7 @@
 	Declare VerticalList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 	Declare Container(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare Radio(Gadget, x, y, Width, Height, Text.s, RadioGroup.s = "", Flags = #Default)
-	Declare Library(Gadget, x, y, Width, Height, Flags = #Default)
+	Declare Library(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 	Declare PropertyBox(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare Tree(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
@@ -5787,7 +5787,7 @@ Module UITK
 	EndProcedure
 	
 	
-	Procedure Library_Meta(*GadgetData.LibraryData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+	Procedure Library_Meta(*GadgetData.LibraryData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Library)
 		
@@ -5796,7 +5796,11 @@ Module UITK
 			AllocateStructureX(\ScrollBar, ScrollBarData)
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			\RedrawSection = @Library_RedrawSection()
-			\RedrawItem = @Library_RedrawItem()
+			If *CustomItem
+				\RedrawItem = *CustomItem 
+			Else
+				\RedrawItem = @Library_RedrawItem() 
+			EndIf
 			\SectionHeight = #Library_SectionHeight
 			\ItemWidth = #Library_ItemWidth
 			\ItemHeight = #Library_ItemHeight
@@ -5830,7 +5834,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Library(Gadget, x, y, Width, Height, Flags = #Default)
+	Procedure Library(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 		Protected Result, *this.PB_Gadget, *GadgetData.LibraryData, *ThemeData
 		
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
@@ -5861,7 +5865,7 @@ Module UITK
 				EndIf
 			EndIf
 			
-			Library_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+			Library_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 			
 			RedrawObject()
 		EndIf
