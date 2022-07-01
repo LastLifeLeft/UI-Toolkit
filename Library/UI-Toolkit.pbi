@@ -5485,7 +5485,6 @@ Module UITK
 		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Sections())
-				Debug ListSize(\Sections())
 				SelectElement(\Sections(), Position)
 				*NewItem = InsertElement(\Sections())
 			Else
@@ -7359,9 +7358,6 @@ Module UITK
 						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 					EndIf
 					;}
-				Case #LeftDoubleClick ;{
-					
-					;}
 				Case #KeyDown ;{
 					
 					;}
@@ -7531,8 +7527,6 @@ Module UITK
 			\SupportedEvent[#MouseLeave] = #True
 			\SupportedEvent[#MouseMove] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
-			\SupportedEvent[#LeftButtonUp] = #True
-			\SupportedEvent[#LeftDoubleClick] = #True
 			\SupportedEvent[#KeyDown] = #True
 		EndWith
 	EndProcedure
@@ -7606,8 +7600,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 7582
+; CursorPosition = 2297
 ; FirstLine = 6
-; Folding = JAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; Folding = JAAACAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
