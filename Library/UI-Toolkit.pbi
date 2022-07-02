@@ -1410,91 +1410,132 @@ Module UITK
 	EndProcedure
 	
 	Procedure SubClassFunction(Gadget, Function, *Adress) ; Advanced functionnality! Probably too much of a niche usage, move it to the private branche of UITK?
-		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt, *Result
 		
 		Select Function
 			Case #SubClass_EventHandler
+				*Result = *GadgetData\EventHandler
 				*GadgetData\EventHandler = *Adress
 			Case #SubClass_GadgetCallback
+				*Result = *this\vt\GadgetCallback
 				*this\vt\GadgetCallback = *Adress
 			Case #SubClass_FreeGadget
+				*Result = *this\vt\FreeGadget
 				*this\vt\FreeGadget = *Adress
 			Case #SubClass_GetGadgetState
+				*Result = *this\vt\GetGadgetState
 				*this\vt\GetGadgetState = *Adress
 			Case #SubClass_SetGadgetState
+				*Result = *this\vt\SetGadgetState
 				*this\vt\SetGadgetState = *Adress
 			Case #SubClass_GetGadgetText
+				*Result = *this\vt\GetGadgetText
 				*this\vt\GetGadgetText = *Adress
 			Case #SubClass_SetGadgetText
+				*Result = *this\vt\SetGadgetText
 				*this\vt\SetGadgetText = *Adress
 			Case #SubClass_AddGadgetItem2
+				*Result = *this\vt\AddGadgetItem2
 				*this\vt\AddGadgetItem2 = *Adress
 			Case #SubClass_AddGadgetItem3
+				*Result = *this\vt\AddGadgetItem3
 				*this\vt\AddGadgetItem3 = *Adress
 			Case #SubClass_RemoveGadgetItem
+				*Result = *this\vt\RemoveGadgetItem
 				*this\vt\RemoveGadgetItem = *Adress
 			Case #SubClass_ClearGadgetItemList
+				*Result = *this\vt\ClearGadgetItemList
 				*this\vt\ClearGadgetItemList = *Adress
 			Case #SubClass_ResizeGadget
+				*Result = *this\vt\ResizeGadget
 				*this\vt\ResizeGadget = *Adress
 			Case #SubClass_CountGadgetItems
+				*Result = *this\vt\CountGadgetItems
 				*this\vt\CountGadgetItems = *Adress
 			Case #SubClass_GetGadgetItemState
+				*Result = *this\vt\GetGadgetItemState
 				*this\vt\GetGadgetItemState = *Adress
 			Case #SubClass_SetGadgetItemState
+				*Result = *this\vt\SetGadgetItemState
 				*this\vt\SetGadgetItemState = *Adress
 			Case #SubClass_GetGadgetItemText
+				*Result = *this\vt\GetGadgetItemText
 				*this\vt\GetGadgetItemText = *Adress
 			Case #SubClass_SetGadgetItemText
+				*Result = *this\vt\SetGadgetItemText
 				*this\vt\SetGadgetItemText = *Adress
 			Case #SubClass_OpenGadgetList2
+				*Result = *this\vt\OpenGadgetList2
 				*this\vt\OpenGadgetList2 = *Adress
 			Case #SubClass_GadgetX
+				*Result = *this\vt\GadgetX
 				*this\vt\GadgetX = *Adress
 			Case #SubClass_GadgetY
+				*Result = *this\vt\GadgetY
 				*this\vt\GadgetY = *Adress
 			Case #SubClass_GadgetWidth
+				*Result = *this\vt\GadgetWidth
 				*this\vt\GadgetWidth = *Adress
 			Case #SubClass_GadgetHeight
+				*Result = *this\vt\GadgetHeight
 				*this\vt\GadgetHeight = *Adress
 			Case #SubClass_HideGadget
+				*Result = *this\vt\HideGadget
 				*this\vt\HideGadget = *Adress
 			Case #SubClass_AddGadgetColumn
+				*Result = *this\vt\AddGadgetColumn
 				*this\vt\AddGadgetColumn = *Adress
 			Case #SubClass_RemoveGadgetColumn
+				*Result = *this\vt\RemoveGadgetColumn
 				*this\vt\RemoveGadgetColumn = *Adress
 			Case #SubClass_GetGadgetAttribute
+				*Result = *this\vt\GetGadgetAttribute
 				*this\vt\GetGadgetAttribute = *Adress
 			Case #SubClass_SetGadgetAttribute
+				*Result = *this\vt\SetGadgetAttribute
 				*this\vt\SetGadgetAttribute = *Adress
 			Case #SubClass_GetGadgetItemAttribute2
+				*Result = *this\vt\GetGadgetItemAttribute2
 				*this\vt\GetGadgetItemAttribute2 = *Adress
 			Case #SubClass_SetGadgetItemAttribute2
+				*Result = *this\vt\SetGadgetItemAttribute2
 				*this\vt\SetGadgetItemAttribute2 = *Adress
 			Case #SubClass_SetGadgetColor
+				*Result = *this\vt\SetGadgetColor
 				*this\vt\SetGadgetColor = *Adress
 			Case #SubClass_GetGadgetColor
+				*Result = *this\vt\GetGadgetColor
 				*this\vt\GetGadgetColor = *Adress
 			Case #SubClass_SetGadgetItemColor2
+				*Result = *this\vt\SetGadgetItemColor2
 				*this\vt\SetGadgetItemColor2 = *Adress
 			Case #SubClass_GetGadgetItemColor2
+				*Result = *this\vt\GetGadgetItemColor2
 				*this\vt\GetGadgetItemColor2 = *Adress
 			Case #SubClass_SetGadgetItemData
+				*Result = *this\vt\SetGadgetItemData
 				*this\vt\SetGadgetItemData = *Adress
 			Case #SubClass_GetGadgetItemData
+				*Result = *this\vt\GetGadgetItemData
 				*this\vt\GetGadgetItemData = *Adress
 			Case #SubClass_GetRequiredSize
+				*Result = *this\vt\GetRequiredSize
 				*this\vt\GetRequiredSize = *Adress
 			Case #SubClass_SetActiveGadget
+				*Result = *this\vt\SetActiveGadget
 				*this\vt\SetActiveGadget = *Adress
 			Case #SubClass_GetGadgetFont
+				*Result = *this\vt\GetGadgetFont
 				*this\vt\GetGadgetFont = *Adress
 			Case #SubClass_SetGadgetFont
+				*Result = *this\vt\SetGadgetFont
 				*this\vt\SetGadgetFont = *Adress
 			Case #SubClass_SetGadgetItemImage
+				*Result = *this\vt\SetGadgetItemImage
 				*this\vt\SetGadgetItemImage = *Adress
 		EndSelect
 		
+		ProcedureReturn *Result
 	EndProcedure
 	
 	Procedure Default_SetAttribute(*This.PB_Gadget, Attribute, Value)
@@ -7736,7 +7777,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 7736
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 1533
+; FirstLine = 180
+; Folding = JAAAEAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
