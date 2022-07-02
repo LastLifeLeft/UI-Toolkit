@@ -167,6 +167,31 @@
 		#Drag_LibraryItem
 	EndEnumeration
 	
+	Enumeration ;Ordered Canvas event, starting from 0
+		#LeftClick       	
+		#RightClick      	
+		#LeftDoubleClick 	
+		#RightDoubleClick	
+		#Focus           	
+		#LostFocus       	
+		#Resize 		 	
+		#MouseEnter      	
+		#MouseLeave      	
+		#MouseMove       	
+		#LeftButtonDown  	
+		#LeftButtonUp    	
+		#RightButtonDown 	
+		#RightButtonUp   	
+		#MiddleButtonDown	
+		#MiddleButtonUp	
+		#MouseWheel      	
+		#KeyDown         	
+		#KeyUp           	
+		#Input           	
+		
+		#__EVENTSIZE
+	EndEnumeration
+	
 	Enumeration #PB_EventType_FirstCustomValue; EventType
 		#Eventtype_ForcefulChange
 		
@@ -573,32 +598,7 @@ Module UITK
 			CompilerError "PLEASE SEND HELP ! AU SECOUR! TASEKETE KUDASAI!"
 			;}
 	CompilerEndSelect
-	
-	Enumeration ;Ordered Canvas event, starting from 0
-		#LeftClick       	
-		#RightClick      	
-		#LeftDoubleClick 	
-		#RightDoubleClick	
-		#Focus           	
-		#LostFocus       	
-		#Resize 		 	
-		#MouseEnter      	
-		#MouseLeave      	
-		#MouseMove       	
-		#LeftButtonDown  	
-		#LeftButtonUp    	
-		#RightButtonDown 	
-		#RightButtonUp   	
-		#MiddleButtonDown	
-		#MiddleButtonUp	
-		#MouseWheel      	
-		#KeyDown         	
-		#KeyUp           	
-		#Input           	
 		
-		#__EVENTSIZE
-	EndEnumeration
-	
 	Enumeration ;DragState
 		#Drag_None
 		#Drag_Init
@@ -7736,7 +7736,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 247
-; Folding = JAACCAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 7736
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
