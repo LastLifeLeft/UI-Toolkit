@@ -111,6 +111,49 @@
 		#Color_WindowBorder
 	EndEnumeration
 	
+	Enumeration; Subclass
+		#SubClass_EventHandler
+		#SubClass_GadgetCallback
+		#SubClass_FreeGadget
+		#SubClass_GetGadgetState
+		#SubClass_SetGadgetState
+		#SubClass_GetGadgetText
+		#SubClass_SetGadgetText
+		#SubClass_AddGadgetItem2
+		#SubClass_AddGadgetItem3
+		#SubClass_RemoveGadgetItem
+		#SubClass_ClearGadgetItemList
+		#SubClass_ResizeGadget
+		#SubClass_CountGadgetItems
+		#SubClass_GetGadgetItemState
+		#SubClass_SetGadgetItemState
+		#SubClass_GetGadgetItemText
+		#SubClass_SetGadgetItemText
+		#SubClass_OpenGadgetList2
+		#SubClass_GadgetX
+		#SubClass_GadgetY
+		#SubClass_GadgetWidth
+		#SubClass_GadgetHeight
+		#SubClass_HideGadget
+		#SubClass_AddGadgetColumn
+		#SubClass_RemoveGadgetColumn
+		#SubClass_GetGadgetAttribute
+		#SubClass_SetGadgetAttribute
+		#SubClass_GetGadgetItemAttribute2
+		#SubClass_SetGadgetItemAttribute2
+		#SubClass_SetGadgetColor
+		#SubClass_GetGadgetColor
+		#SubClass_SetGadgetItemColor2
+		#SubClass_GetGadgetItemColor2
+		#SubClass_SetGadgetItemData
+		#SubClass_GetGadgetItemData
+		#SubClass_GetRequiredSize
+		#SubClass_SetActiveGadget
+		#SubClass_GetGadgetFont
+		#SubClass_SetGadgetFont
+		#SubClass_SetGadgetItemImage
+	EndEnumeration
+	
 	Enumeration ;State
 		#Cold
 		#Warm
@@ -202,6 +245,7 @@
 	; Setters
 	Declare SetAccessibilityMode(State) 					; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
 	Declare SetGadgetColorScheme(Gadget, ThemeJson.s)		; Apply a complete color scheme at once
+	Declare SubClassFunction(Gadget, Function, *Adress)		; Subclass any gadget function (Works with native pb gadgets too)
 	
 	; Getters
 	Declare GetAccessibilityMode()							; Returns the current accessibility state.
@@ -1341,16 +1385,16 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure GetAccessibilityMode()
+		ProcedureReturn AccessibilityMode
+	EndProcedure
+	
 	; Setters
 	Procedure SetAccessibilityMode(MouseState)
 		AccessibilityMode = MouseState
 	EndProcedure
 	
 	Procedure SetGadgetColorScheme(Gadget, ThemeJson.s)
-	EndProcedure
-	
-	Procedure GetAccessibilityMode()
-		ProcedureReturn AccessibilityMode
 	EndProcedure
 	
 	Procedure.s GetGadgetColorScheme(Gadget)	
@@ -1363,6 +1407,94 @@ Module UITK
 		
 		PrepareVectorTextBlock(@*GadgetData\TextBock)
 		RedrawObject()
+	EndProcedure
+	
+	Procedure SubClassFunction(Gadget, Function, *Adress) ; Advanced functionnality! Probably too much of a niche usage, move it to the private branche of UITK?
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		
+		Select Function
+			Case #SubClass_EventHandler
+				*GadgetData\EventHandler = *Adress
+			Case #SubClass_GadgetCallback
+				*this\vt\GadgetCallback = *Adress
+			Case #SubClass_FreeGadget
+				*this\vt\FreeGadget = *Adress
+			Case #SubClass_GetGadgetState
+				*this\vt\GetGadgetState = *Adress
+			Case #SubClass_SetGadgetState
+				*this\vt\SetGadgetState = *Adress
+			Case #SubClass_GetGadgetText
+				*this\vt\GetGadgetText = *Adress
+			Case #SubClass_SetGadgetText
+				*this\vt\SetGadgetText = *Adress
+			Case #SubClass_AddGadgetItem2
+				*this\vt\AddGadgetItem2 = *Adress
+			Case #SubClass_AddGadgetItem3
+				*this\vt\AddGadgetItem3 = *Adress
+			Case #SubClass_RemoveGadgetItem
+				*this\vt\RemoveGadgetItem = *Adress
+			Case #SubClass_ClearGadgetItemList
+				*this\vt\ClearGadgetItemList = *Adress
+			Case #SubClass_ResizeGadget
+				*this\vt\ResizeGadget = *Adress
+			Case #SubClass_CountGadgetItems
+				*this\vt\CountGadgetItems = *Adress
+			Case #SubClass_GetGadgetItemState
+				*this\vt\GetGadgetItemState = *Adress
+			Case #SubClass_SetGadgetItemState
+				*this\vt\SetGadgetItemState = *Adress
+			Case #SubClass_GetGadgetItemText
+				*this\vt\GetGadgetItemText = *Adress
+			Case #SubClass_SetGadgetItemText
+				*this\vt\SetGadgetItemText = *Adress
+			Case #SubClass_OpenGadgetList2
+				*this\vt\OpenGadgetList2 = *Adress
+			Case #SubClass_GadgetX
+				*this\vt\GadgetX = *Adress
+			Case #SubClass_GadgetY
+				*this\vt\GadgetY = *Adress
+			Case #SubClass_GadgetWidth
+				*this\vt\GadgetWidth = *Adress
+			Case #SubClass_GadgetHeight
+				*this\vt\GadgetHeight = *Adress
+			Case #SubClass_HideGadget
+				*this\vt\HideGadget = *Adress
+			Case #SubClass_AddGadgetColumn
+				*this\vt\AddGadgetColumn = *Adress
+			Case #SubClass_RemoveGadgetColumn
+				*this\vt\RemoveGadgetColumn = *Adress
+			Case #SubClass_GetGadgetAttribute
+				*this\vt\GetGadgetAttribute = *Adress
+			Case #SubClass_SetGadgetAttribute
+				*this\vt\SetGadgetAttribute = *Adress
+			Case #SubClass_GetGadgetItemAttribute2
+				*this\vt\GetGadgetItemAttribute2 = *Adress
+			Case #SubClass_SetGadgetItemAttribute2
+				*this\vt\SetGadgetItemAttribute2 = *Adress
+			Case #SubClass_SetGadgetColor
+				*this\vt\SetGadgetColor = *Adress
+			Case #SubClass_GetGadgetColor
+				*this\vt\GetGadgetColor = *Adress
+			Case #SubClass_SetGadgetItemColor2
+				*this\vt\SetGadgetItemColor2 = *Adress
+			Case #SubClass_GetGadgetItemColor2
+				*this\vt\GetGadgetItemColor2 = *Adress
+			Case #SubClass_SetGadgetItemData
+				*this\vt\SetGadgetItemData = *Adress
+			Case #SubClass_GetGadgetItemData
+				*this\vt\GetGadgetItemData = *Adress
+			Case #SubClass_GetRequiredSize
+				*this\vt\GetRequiredSize = *Adress
+			Case #SubClass_SetActiveGadget
+				*this\vt\SetActiveGadget = *Adress
+			Case #SubClass_GetGadgetFont
+				*this\vt\GetGadgetFont = *Adress
+			Case #SubClass_SetGadgetFont
+				*this\vt\SetGadgetFont = *Adress
+			Case #SubClass_SetGadgetItemImage
+				*this\vt\SetGadgetItemImage = *Adress
+		EndSelect
+		
 	EndProcedure
 	
 	Procedure Default_SetAttribute(*This.PB_Gadget, Attribute, Value)
@@ -7604,7 +7736,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 262
-; Folding = JAACCAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 247
+; Folding = JAACCAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
