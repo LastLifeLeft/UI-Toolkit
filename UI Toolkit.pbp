@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2022-07-02 10:27" user="LastLife" host="MONSTRO"/>
+    <lastopen date="2022-07-03 18:38" user="LastLife" host="MONSTRO"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -37,7 +37,7 @@
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="41fa5b61ca2a20f3af165e57ca791a77"/>
+      <fingerprint md5="ec24c9e71fa80a340766edc3cab2aac1"/>
     </file>
   </section>
   <section name="targets">

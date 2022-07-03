@@ -5923,6 +5923,28 @@ Module UITK
 		
 	EndProcedure
 	
+	Procedure Library_Resize(*this.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.LibraryData = *this\vt
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		With *GadgetData
+			\Width = GadgetWidth(\Gadget)
+			\Height = GadgetHeight(\Gadget)
+			
+			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
+			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
+			
+			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
+			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
+			
+		EndWith
+		
+		RedrawObject()
+	EndProcedure
+	
 	;Setters
 	Procedure Library_SetItemData(*this.PB_Gadget, Position, *Data)
 		Protected *GadgetData.LibraryData = *this\vt
@@ -5990,7 +6012,8 @@ Module UITK
 			\VT\AddGadgetColumn = @Library_AddColumn()
 			\VT\AddGadgetItem3 = @Library_AddItem()
 			\VT\RemoveGadgetItem = @Library_RemoveItem()
-			\vt\ClearGadgetItemList = @Library_ClearItems()
+			\VT\ClearGadgetItemList = @Library_ClearItems()
+			\VT\ResizeGadget = @Library_Resize()
 			
 			\VT\SetGadgetItemData = @Library_SetItemData()
 			\VT\GetGadgetItemData = @Library_GetItemData()
@@ -7777,8 +7800,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 1533
-; FirstLine = 180
-; Folding = JAAAEAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 486
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
