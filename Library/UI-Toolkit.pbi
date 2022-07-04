@@ -5527,7 +5527,7 @@ Module UITK
 	#Library_ItemTextHeight = 20
 	#Library_ItemHeight = 110
 	#Library_ItemMinimumHMargin = 10
-	#Library_ItemVMargin = 10
+	#Library_ItemVMargin = 15
 	
 	Structure LibraryData Extends GadgetData
 		InternalHeight.l
@@ -5939,6 +5939,21 @@ Module UITK
 			
 			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
+			
+			\InternalHeight = 0
+			
+			ForEach \Sections()
+				\Sections()\Height = \SectionHeight
+				\Sections()\Height = Round(ListSize(\Sections()\Items()) / \ItemPerLine, #PB_Round_Up) * (\ItemVMargin + \ItemHeight)
+				\InternalHeight + \Sections()\Height
+			Next
+			
+			If \InternalHeight > \Height
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
 			
 		EndWith
 		
@@ -7800,7 +7815,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 486
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
+; CursorPosition = 5945
+; FirstLine = 170
+; Folding = JAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAEDgIAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
