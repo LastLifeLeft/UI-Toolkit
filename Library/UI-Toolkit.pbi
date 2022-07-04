@@ -5944,7 +5944,7 @@ Module UITK
 			
 			ForEach \Sections()
 				\Sections()\Height = \SectionHeight
-				\Sections()\Height = Round(ListSize(\Sections()\Items()) / \ItemPerLine, #PB_Round_Up) * (\ItemVMargin + \ItemHeight)
+				\Sections()\Height + Round(ListSize(\Sections()\Items()) / \ItemPerLine, #PB_Round_Up) * (\ItemVMargin + \ItemHeight)
 				\InternalHeight + \Sections()\Height
 			Next
 			
@@ -7815,7 +7815,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 5945
+; CursorPosition = 5946
 ; FirstLine = 170
 ; Folding = JAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAEDgIAAAAAAAAAAAAAA5
 ; EnableXP
