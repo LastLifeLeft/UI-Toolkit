@@ -5586,23 +5586,26 @@ Module UITK
 				Y - \ScrollBar\State
 				
 				Repeat 
-					\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0, \ThemeData)
-					ItemY = Y + \SectionHeight
-					ItemX = \ItemHMargin
-					ItemCount = 0
-					
-					ForEach \Sections()\Items()
-						\RedrawItem(\Sections()\Items(), ItemX, ItemY, \ItemWidth, \ItemHeight, 0, \ThemeData)
-						ItemX + (\ItemHMargin + \ItemWidth)
-						ItemCount + 1
-						If ItemCount = \ItemPerLine
-							ItemY + (\ItemHeight + \ItemVMargin)
-							ItemCount = 0
-							ItemX = \ItemHMargin
-						EndIf
-					Next
-					
-					Y + \Sections()\Height
+					If \Sections()\Height
+						Debug \Sections()\Height
+						\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0, \ThemeData)
+						ItemY = Y + \SectionHeight
+						ItemX = \ItemHMargin
+						ItemCount = 0
+						
+						ForEach \Sections()\Items()
+							\RedrawItem(\Sections()\Items(), ItemX, ItemY, \ItemWidth, \ItemHeight, 0, \ThemeData)
+							ItemX + (\ItemHMargin + \ItemWidth)
+							ItemCount + 1
+							If ItemCount = \ItemPerLine
+								ItemY + (\ItemHeight + \ItemVMargin)
+								ItemCount = 0
+								ItemX = \ItemHMargin
+							EndIf
+						Next
+						
+						Y + \Sections()\Height
+					EndIf
 				Until Not NextElement(\Sections()) Or Y >= \Height
 				
 				If \VisibleScrollbar
@@ -5654,42 +5657,30 @@ Module UITK
 	EndProcedure
 	
 	Procedure Library_AddColumn(*This.PB_Gadget, Position, *Text, Width)
-		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Section
+		Protected *GadgetData.LibraryData = *this\vt, *NewSection.Library_Section
 		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Sections())
 				SelectElement(\Sections(), Position)
-				*NewItem = InsertElement(\Sections())
+				*NewSection = InsertElement(\Sections())
 			Else
 				LastElement(\Sections())
-				*NewItem = AddElement(\Sections())
+				*NewSection = AddElement(\Sections())
 			EndIf
 			
-			*NewItem\Height = \SectionHeight
-			\InternalHeight + \SectionHeight
+			*NewSection\Text\OriginalText = PeekS(*Text)
+			*NewSection\Text\LineLimit = 1
+			*NewSection\Text\FontID = \TextBock\FontID
+			*NewSection\Text\FontScale = 20
+			*NewSection\Text\VAlign = #VAlignCenter
 			
-			*NewItem\Text\OriginalText = PeekS(*Text)
-			*NewItem\Text\LineLimit = 1
-			*NewItem\Text\FontID = \TextBock\FontID
-			*NewItem\Text\FontScale = 20
-			*NewItem\Text\VAlign = #VAlignCenter
+			*NewSection\Text\Width = \Width - #VerticalList_Margin * 2
+			*NewSection\Text\Height = \SectionHeight
+			*NewSection\Text\VAlign = #VAlignCenter
 			
-			*NewItem\Text\Width = \Width - #VerticalList_Margin * 2
-			*NewItem\Text\Height = \SectionHeight
-			*NewItem\Text\VAlign = #VAlignCenter
+			PrepareVectorTextBlock(@*NewSection\Text)
 			
-			PrepareVectorTextBlock(@*NewItem\Text)
-			
-			If \InternalHeight > \Height
-				\VisibleScrollbar = #True
-				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
-			Else
-				\VisibleScrollbar = #False
-			EndIf
-			
-			RedrawObject()
-			
-			ChangeCurrentElement(\Sections(), *NewItem)
+			ChangeCurrentElement(\Sections(), *NewSection)
 			Position = ListIndex(\Sections())
 		EndWith
 		
@@ -5738,6 +5729,10 @@ Module UITK
 			\Sections()\Items() = *NewItem
 			
 			If ListSize(\Sections()\Items()) % \ItemPerLine = 1
+				If ListSize(\Sections()\Items()) = 1
+					\Sections()\Height + \SectionHeight
+					\InternalHeight + \SectionHeight
+				EndIf
 				\Sections()\Height + (\ItemVMargin + \ItemHeight)
 				\InternalHeight + (\ItemVMargin + \ItemHeight)
 				
@@ -5893,9 +5888,14 @@ Module UITK
 				DeleteElement(\Sections())
 				DeleteElement(\Items())
 				
-				If ListSize(\Sections()\Items()) % \ItemPerLine = 1
-					\Sections()\Height + (\ItemVMargin + \ItemHeight)
-					\InternalHeight + (\ItemVMargin + \ItemHeight)
+				If ListSize(\Sections()\Items()) % \ItemPerLine = 0
+					If ListSize(\Sections()\Items()) = 0
+						\InternalHeight - \Sections()\Height
+						\Sections()\Height = 0
+					Else
+						\Sections()\Height - (\ItemVMargin + \ItemHeight)
+						\InternalHeight - (\ItemVMargin + \ItemHeight)
+					EndIf
 					
 					If \InternalHeight > \Height
 						\VisibleScrollbar = #True
@@ -5943,9 +5943,11 @@ Module UITK
 			\InternalHeight = 0
 			
 			ForEach \Sections()
-				\Sections()\Height = \SectionHeight
-				\Sections()\Height + Round(ListSize(\Sections()\Items()) / \ItemPerLine, #PB_Round_Up) * (\ItemVMargin + \ItemHeight)
-				\InternalHeight + \Sections()\Height
+				If \Sections()\Height
+					\Sections()\Height = \SectionHeight
+					\Sections()\Height + Round(ListSize(\Sections()\Items()) / \ItemPerLine, #PB_Round_Up) * (\ItemVMargin + \ItemHeight)
+					\InternalHeight + \Sections()\Height
+				EndIf
 			Next
 			
 			If \InternalHeight > \Height
@@ -7815,8 +7817,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 5946
-; FirstLine = 170
-; Folding = JAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAEDgIAAAAAAAAAAAAAA5
+; CursorPosition = 778
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
