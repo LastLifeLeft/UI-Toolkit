@@ -5587,7 +5587,6 @@ Module UITK
 				
 				Repeat 
 					If \Sections()\Height
-						Debug \Sections()\Height
 						\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0, \ThemeData)
 						ItemY = Y + \SectionHeight
 						ItemX = \ItemHMargin
@@ -7817,7 +7816,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 778
+; CursorPosition = 330
 ; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
