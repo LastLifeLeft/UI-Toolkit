@@ -5754,7 +5754,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
-		Protected Redraw, Y, NewItem = -1, ItemRow, Image
+		Protected Redraw, NewItem = -1, ItemRow, Image
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -5769,12 +5769,11 @@ Module UITK
 						
 						If Not \ScrollBar\MouseState
 							If ListSize(\Sections())
+								*Event\MouseY + \ScrollBar\State
 								ForEach \Sections()
-									If \ScrollBar\State + *Event\MouseY> Y + \Sections()\Height
-										Y + \Sections()\Height
+									If *Event\MouseY > \Sections()\Height
+										*Event\MouseY - \Sections()\Height
 									Else
-										*Event\MouseY - Y + \ScrollBar\State
-										
 										If *Event\MouseY > \SectionHeight
 											*Event\MouseY - \SectionHeight
 											If (*Event\MouseY % (\ItemHeight + \ItemVMargin ) < \ItemHeight - #Library_ItemTextHeight) And(*Event\MouseX % (\ItemHMargin + \ItemWidth) > \ItemHMargin)
@@ -5784,6 +5783,7 @@ Module UITK
 												EndIf
 											EndIf
 										EndIf
+										Break
 									EndIf
 								Next
 							EndIf
@@ -5869,7 +5869,7 @@ Module UITK
 	Procedure Library_RemoveItem(*This.PB_Gadget, Position)
 		Protected *GadgetData.LibraryData = *this\vt
 		
-			With *GadgetData
+		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				
 				If \State = Position
@@ -5884,6 +5884,7 @@ Module UITK
 					\ItemState = -1
 				EndIf
 				
+				SelectElement(\Items(), Position)
 				ChangeCurrentElement(\Sections(), \Items()\Section)
 				
 				ForEach \Sections()\Items()
@@ -5892,6 +5893,7 @@ Module UITK
 						Break
 					EndIf
 				Next
+				
 				DeleteElement(\Items())
 				
 				If ListSize(\Sections()\Items()) % \ItemPerLine = 0
@@ -5996,8 +5998,7 @@ Module UITK
 	Procedure Library_GetItemData(*this.PB_Gadget, Position)
 		Protected *GadgetData.LibraryData = *this\vt, *Result
 		
-		If Position > -1 And Position < ListSize(*GadgetData\Items())
-			SelectElement(*GadgetData\Items(), Position)
+		If Position > -1 And SelectElement(*GadgetData\Items(), Position)
 			*Result = *GadgetData\Items()\Data
 		EndIf
 		
@@ -7835,7 +7836,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 7835
+; CursorPosition = 7821
 ; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
