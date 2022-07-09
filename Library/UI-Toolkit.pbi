@@ -5773,24 +5773,19 @@ Module UITK
 									If \ScrollBar\State + *Event\MouseY> Y + \Sections()\Height
 										Y + \Sections()\Height
 									Else
-										Break
-									EndIf
-								Next
-								
-								*Event\MouseY - Y + \ScrollBar\State
-								
-								If *Event\MouseY > \SectionHeight
-									*Event\MouseY - \SectionHeight
-									If *Event\MouseY % (\ItemHeight + \ItemVMargin ) < \ItemHeight - #Library_ItemTextHeight
-										If (*Event\MouseX % (\ItemHMargin + \ItemWidth)) > \ItemHMargin
-											If SelectElement(\Sections()\Items(), Floor(*Event\MouseY / (\ItemHeight + \ItemVMargin )) * \ItemPerLine + Floor(*Event\MouseX / (\ItemHMargin + \ItemWidth)))
-												ChangeCurrentElement(\Items(), \Sections()\Items())
-												NewItem = ListIndex(\Items())
+										*Event\MouseY - Y + \ScrollBar\State
+										
+										If *Event\MouseY > \SectionHeight
+											*Event\MouseY - \SectionHeight
+											If (*Event\MouseY % (\ItemHeight + \ItemVMargin ) < \ItemHeight - #Library_ItemTextHeight) And(*Event\MouseX % (\ItemHMargin + \ItemWidth) > \ItemHMargin)
+												If SelectElement(\Sections()\Items(), Floor(*Event\MouseY / (\ItemHeight + \ItemVMargin )) * \ItemPerLine + Floor(*Event\MouseX / (\ItemHMargin + \ItemWidth)))
+													ChangeCurrentElement(\Items(), \Sections()\Items())
+													NewItem = ListIndex(\Items())
+												EndIf
 											EndIf
 										EndIf
 									EndIf
-								EndIf
-								
+								Next
 							EndIf
 						EndIf
 						
@@ -5883,8 +5878,20 @@ Module UITK
 					\State -1
 				EndIf
 				
+				If \ItemState > -1
+					SelectElement(\Items(), \ItemState)
+					\Items()\HoverState = #False
+					\ItemState = -1
+				EndIf
+				
 				ChangeCurrentElement(\Sections(), \Items()\Section)
-				DeleteElement(\Sections())
+				
+				ForEach \Sections()\Items()
+					If \Sections()\Items() = @\Items()
+						DeleteElement(\Sections()\Items())
+						Break
+					EndIf
+				Next
 				DeleteElement(\Items())
 				
 				If ListSize(\Sections()\Items()) % \ItemPerLine = 0
@@ -5901,6 +5908,7 @@ Module UITK
 						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
 					Else
 						\VisibleScrollbar = #False
+						\ScrollBar\State = 0
 					EndIf
 					
 				EndIf
@@ -5916,8 +5924,12 @@ Module UITK
 		With *GadgetData
 			ClearList(\Items())
 			ClearList(\Sections())
-			RedrawObject()
+			
 			\InternalHeight = 0
+			\VisibleScrollbar = #False
+			\ScrollBar\State = 0
+			
+			RedrawObject()
 		EndWith
 		
 	EndProcedure
@@ -7823,8 +7835,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 5966
-; FirstLine = 84
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAARAAAAAAAAAAAAAAw
+; CursorPosition = 7835
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
