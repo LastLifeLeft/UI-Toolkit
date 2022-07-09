@@ -5961,6 +5961,12 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
+	Procedure Library_CountItem(*This.PB_Gadget)
+		Protected *GadgetData.LibraryData = *this\vt
+		
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+	
 	;Setters
 	Procedure Library_SetItemData(*this.PB_Gadget, Position, *Data)
 		Protected *GadgetData.LibraryData = *this\vt
@@ -6034,6 +6040,7 @@ Module UITK
 			\VT\SetGadgetItemData = @Library_SetItemData()
 			\VT\GetGadgetItemData = @Library_GetItemData()
 			\VT\GetGadgetItemImage = @Library_GetItemImage()
+			\VT\CountGadgetItems = @Library_CountItem()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -7816,7 +7823,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 330
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
+; CursorPosition = 5966
+; FirstLine = 84
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAARAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
