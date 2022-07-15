@@ -6702,6 +6702,7 @@ Module UITK
 			\VT\ResizeGadget = @Tree_Resize()
 			\VT\CountGadgetItems = @Tree_CountItem()
 			\VT\GetGadgetItemImage = @Tree_GetItemImage()
+			\VT\ClearGadgetItemList = @Tree_ClearItems()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -7848,7 +7849,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6626
+; CursorPosition = 7830
+; FirstLine = 2
 ; Folding = IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
