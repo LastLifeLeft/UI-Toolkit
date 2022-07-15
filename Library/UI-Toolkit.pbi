@@ -6656,6 +6656,18 @@ Module UITK
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
 	
+	Procedure Tree_ClearItems(*This.PB_Gadget)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		With *GadgetData
+			ClearList(\Items())
+			\State = - 1
+			\InternalHeight = 0
+			\ScrollBar\State = 0
+			\VisibleScrollbar = #False
+		EndWith
+	EndProcedure
+	
 	; Getters
 	Procedure Tree_GetItemImage(*this.PB_Gadget, Position)
 		Protected *GadgetData.TreeData = *this\vt
@@ -7836,7 +7848,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 7821
-; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 6626
+; Folding = IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
