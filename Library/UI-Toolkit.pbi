@@ -60,6 +60,8 @@
 		
 		#Trackbar_Scale
 		
+		#Attribute_Library_SectionHeight
+		
 	EndEnumeration
 	
 	Enumeration ; Corners
@@ -5998,6 +6000,27 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure Library_SetAttribute(*This.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.LibraryData = *this\vt
+		
+		With *GadgetData
+			Select Attribute
+				Case #Attribute_Library_SectionHeight
+					ForEach \Sections()
+						If \Sections()\Height
+							\Sections()\Height - \SectionHeight + Value
+						EndIf
+					Next
+					
+					\SectionHeight = Value
+					
+				Default	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+			EndSelect
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
 	
 	;Getters
 	Procedure Library_GetItemData(*this.PB_Gadget, Position)
@@ -6056,6 +6079,8 @@ Module UITK
 			\VT\ResizeGadget = @Library_Resize()
 			
 			\VT\SetGadgetItemData = @Library_SetItemData()
+			\VT\SetGadgetAttribute = @Library_SetAttribute()
+			
 			\VT\GetGadgetItemData = @Library_GetItemData()
 			\VT\GetGadgetItemImage = @Library_GetItemImage()
 			\VT\CountGadgetItems = @Library_CountItem()
@@ -7880,8 +7905,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6707
-; FirstLine = 310
-; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAg
+; CursorPosition = 338
+; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
