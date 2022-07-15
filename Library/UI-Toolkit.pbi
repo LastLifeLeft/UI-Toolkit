@@ -19,12 +19,16 @@
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
 		#Gadget_Vertical								; scrollbar/trackbar/... is vertical (instead of horizontal, which is the default).
 		#Trackbar_ShowState								; Display the numerical state on the trackbar
+		#Tree_NoLine
+		#Tree_StraightLine
 		
 		; Window
 		#Window_CloseButton
 		#Window_MaximizeButton
 		#Window_MinimizeButton
 	EndEnumeration
+	
+	#Tree_DotLine = 0
 	
 	Enumeration 5000 ; Gadget attribues
 		#ScrollBar_Minimum	
@@ -55,6 +59,7 @@
 		#Tab_Color
 		
 		#Trackbar_Scale
+		
 	EndEnumeration
 	
 	Enumeration ; Corners
@@ -6382,6 +6387,8 @@ Module UITK
 	#Tree_ColumnWidth = 125
 	#Tree_ItemHeight = 19
 	#Tree_BranchHeight = 9.5
+	#Tree_Dot = 2
+	#Tree_Straight = 1
 	
 	Structure Tree_Item
 		Text.Text
@@ -6394,6 +6401,7 @@ Module UITK
 		BranchWidth.l
 		VisibleScrollbar.b
 		MaxLevel.b
+		DrawLine.l
 		*ScrollBar.ScrollBarData
 		List Items.Tree_Item()
 	EndStructure
@@ -6450,7 +6458,13 @@ Module UITK
 					AddPathLine(X + \Items()\Level * \BranchWidth, Y + #Tree_BranchHeight)
 					
 					If \State = ListIndex(\Items())
-						DotPath(1, 3)
+						If \DrawLine = #Tree_Dot
+							DotPath(1, 3)
+						ElseIf \DrawLine = #Tree_Straight
+							StrokePath(1)
+						Else
+							ResetPath()
+						EndIf
 						AddPathBox(X + \Items()\Level * \BranchWidth - 2, Y + 1, \Items()\Text\RequieredWidth + 2, \ItemHeight - 1)
 						VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 						FillPath()
@@ -6462,21 +6476,28 @@ Module UITK
 					Y + \ItemHeight
 				Until Y > Height Or Not NextElement(\Items()) 
 				
-				If PreviousLevel And Not (ListIndex(\Items()) + 1 = ListSize(\Items()))
-					Repeat
-						If \Items()\Level < PreviousLevel
-							MovePathCursor( X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, LastLevel(\Items()\Level))
-							AddPathLine(0, \Height - LastLevel(\Items()\Level) + #Tree_BranchHeight, #PB_Path_Relative)
-							If \Items()\Level = 0
-								Break
-							Else
-								PreviousLevel = \Items()\Level
-							EndIf
-						EndIf
-					Until Not NextElement(\Items()) 
-				EndIf
 				
-				DotPath(1, 3)
+				If \DrawLine
+					If PreviousLevel And Not (ListIndex(\Items()) + 1 = ListSize(\Items()))
+						Repeat
+							If \Items()\Level < PreviousLevel
+								MovePathCursor( X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, LastLevel(\Items()\Level))
+								AddPathLine(0, \Height - LastLevel(\Items()\Level) + #Tree_BranchHeight, #PB_Path_Relative)
+								If \Items()\Level = 0
+									Break
+								Else
+									PreviousLevel = \Items()\Level
+								EndIf
+							EndIf
+						Until Not NextElement(\Items()) 
+					EndIf
+					
+					If \DrawLine = #Tree_Dot
+						DotPath(1, 3)
+					Else
+						StrokePath(1)
+					EndIf
+				EndIf
 				
 				If \VisibleScrollbar
 					\ScrollBar\Redraw(\ScrollBar)
@@ -6699,6 +6720,14 @@ Module UITK
 			\InternalHeight = 5
 			
 			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
+			
+			If Flags & #Tree_NoLine
+				\DrawLine = 0
+			ElseIf Flags & #Tree_StraightLine
+				\DrawLine = #Tree_Straight
+			Else
+				\DrawLine = #Tree_Dot
+			EndIf
 			
 			\VT\AddGadgetItem3 = @Tree_AddItem()
 			\VT\ResizeGadget = @Tree_Resize()
@@ -7851,8 +7880,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 779
-; FirstLine = 1
-; Folding = IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 6707
+; FirstLine = 310
+; Folding = LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware

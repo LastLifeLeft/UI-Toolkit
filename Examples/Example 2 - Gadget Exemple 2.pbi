@@ -31,7 +31,7 @@ AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertyBox_Text)
 AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertyBox_Text)
 AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertyBox_Text)
 
-Gadget = UITK::Tree(#PB_Any, 20, 320, 280, 270, UITK::#Border)
+Gadget = UITK::Tree(#PB_Any, 20, 320, 280, 270, UITK::#Border | UITK::#Tree_StraightLine)
 
 For a = 0 To 10
 	AddGadgetItem (Gadget, -1, "Normal Item "+Str(a), 0, 0)
@@ -96,7 +96,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 71
+; CursorPosition = 29
 ; FirstLine = 9
 ; EnableXP
 ; DPIAware
