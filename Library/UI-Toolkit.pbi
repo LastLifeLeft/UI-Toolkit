@@ -6665,6 +6665,8 @@ Module UITK
 			\InternalHeight = 0
 			\ScrollBar\State = 0
 			\VisibleScrollbar = #False
+			
+			RedrawObject()
 		EndWith
 	EndProcedure
 	
@@ -7849,8 +7851,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 7830
-; FirstLine = 2
+; CursorPosition = 779
+; FirstLine = 1
 ; Folding = IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
