@@ -200,7 +200,8 @@
 	EndEnumeration
 	
 	Enumeration #PB_EventType_FirstCustomValue; EventType
-		#Eventtype_ForcefulChange
+		#EventType_ForcefulChange
+		#EventType_RightClickChange
 		
 		#EventType_FirstAvailableCustomValue
 	EndEnumeration	
@@ -6579,7 +6580,7 @@ Module UITK
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					;}
-				Case #LeftButtonDown ;{
+				Case #LeftButtonDown, #RightButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					ElseIf SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
@@ -6587,7 +6588,11 @@ Module UITK
 							If \State <> ListIndex(\Items())
 								\State = ListIndex(\Items())
 								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								If *Event\EventType = #LeftButtonDown
+									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								Else
+									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #RightButtonDown)
+								EndIf
 							EndIf
 						EndIf
 					EndIf
@@ -6765,6 +6770,7 @@ Module UITK
 			\SupportedEvent[#MouseLeave] = #True
 			\SupportedEvent[#MouseMove] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#RightButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
 			\SupportedEvent[#LeftDoubleClick] = #True
 		EndWith
@@ -7905,7 +7911,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 338
-; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 203
+; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
