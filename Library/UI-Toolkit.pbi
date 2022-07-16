@@ -300,6 +300,7 @@
 	Declare RemoveFlatMenuItem(Menu, Position)
 	Declare AddFlatMenuSeparator(Menu, Position)
 	Declare ShowFlatMenu(FlatMenu, X = -1, Y = -1)
+	Declare SetFlatMenuColor(Menu, ColorType, Color)
 	
 	; Gadgets
 	Declare GetGadgetImage(Gadget)
@@ -7393,6 +7394,35 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure SetFlatMenuColor(Menu, ColorType, Color)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+		
+		With *MenuData
+			Select ColorType
+				Case #Color_WindowBorder
+					\Theme\WindowTitle =  RGB(Red(Color), Green(Color), Blue(Color))
+					SetWindowColor(\Window, \Theme\WindowTitle)
+					
+				Case #Color_Back_Cold
+					\Theme\ShadeColor[#Cold] = Color
+					
+				Case #Color_Back_Warm
+					\Theme\ShadeColor[#Warm] = Color
+					
+				Case #Color_Back_Disabled
+					
+				Case #Color_Text_Cold
+					\Theme\TextColor[#Warm] = Color
+					
+				Case #Color_Text_Warm
+					\Theme\TextColor[#Hot] = Color
+					
+				Case #Color_Text_Disabled
+					
+			EndSelect
+		EndWith
+	EndProcedure
+	
 	Procedure FlatMenu(Flags = #Default)
 		Protected Result, *MenuData.FlatMenu, GadgetList = UseGadgetList(0)
 		
@@ -7911,7 +7941,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6594
-; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 302
+; FirstLine = 6
+; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
