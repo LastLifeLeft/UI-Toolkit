@@ -7342,7 +7342,7 @@ Module UITK
 					VectorSourceColor(\Theme\TextColor[#Warm])
 					Y + #MenuSeparatorHeight
 				Else
-					If \Item()\Disabled
+					If Not \Item()\Disabled
 						If ListIndex(\Item()) = \State
 							AddPathBox(0, Y, \Width, \ItemHeight)
 							VectorSourceColor(\Theme\ShadeColor[#Warm])
@@ -7387,7 +7387,9 @@ Module UITK
 						If \Item()\Type = #Item
 							Y + \ItemHeight
 							If MouseY <= Y
-								State = ListIndex(\Item())
+								If Not \Item()\Disabled
+									State = ListIndex(\Item())
+								EndIf
 								Break
 							EndIf
 						Else
@@ -7979,7 +7981,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 341
-; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACABAAAAAAAAAw
+; CursorPosition = 342
+; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
