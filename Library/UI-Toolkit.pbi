@@ -6420,6 +6420,7 @@ Module UITK
 	Structure Tree_Item
 		Text.Text
 		Level.b
+		*data
 	EndStructure
 	
 	Structure TreeData Extends GadgetData
@@ -6734,8 +6735,28 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Tree_GetItemData(*this.PB_Gadget, Position)
+		Protected *GadgetData.TreeData = *this\vt, *Result
+		
+		If Position > -1 And SelectElement(*GadgetData\Items(), Position)
+			*Result = *GadgetData\Items()\Data
+		EndIf
+		
+		ProcedureReturn *Result
+	EndProcedure
+	
 	
 	; Setters
+	Procedure Tree_SetItemData(*this.PB_Gadget, Position, *Data)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			SelectElement(*GadgetData\Items(), Position)
+			*GadgetData\Items()\Data = *Data
+			
+			RedrawObject()
+		EndIf
+	EndProcedure
 	
 	
 	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData, Gadget, x, y, Width, Height, Flags)
@@ -6765,6 +6786,9 @@ Module UITK
 			\VT\CountGadgetItems = @Tree_CountItem()
 			\VT\GetGadgetItemImage = @Tree_GetItemImage()
 			\VT\ClearGadgetItemList = @Tree_ClearItems()
+			\vt\SetGadgetItemData = @Tree_SetItemData()
+			\vt\GetGadgetItemData = @Tree_GetItemData()
+			
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -7941,8 +7965,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 302
-; FirstLine = 6
-; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA+
+; CursorPosition = 275
+; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
