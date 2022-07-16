@@ -6591,7 +6591,7 @@ Module UITK
 								If *Event\EventType = #LeftButtonDown
 									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 								Else
-									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #RightButtonDown)
+									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_RightClickChange)
 								EndIf
 							EndIf
 						EndIf
@@ -7911,7 +7911,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 203
-; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA-
+; CursorPosition = 2478
+; FirstLine = 5
+; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
