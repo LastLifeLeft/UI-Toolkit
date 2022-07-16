@@ -201,7 +201,7 @@
 	
 	Enumeration #PB_EventType_FirstCustomValue; EventType
 		#EventType_ForcefulChange
-		#EventType_RightClickChange
+		#EventType_ItemRightClick
 		
 		#EventType_FirstAvailableCustomValue
 	EndEnumeration	
@@ -6588,11 +6588,11 @@ Module UITK
 							If \State <> ListIndex(\Items())
 								\State = ListIndex(\Items())
 								Redraw = #True
-								If *Event\EventType = #LeftButtonDown
-									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-								Else
-									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_RightClickChange)
-								EndIf
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							EndIf
+							
+							If *Event\EventType = #RightButtonDown
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ItemRightClick)
 							EndIf
 						EndIf
 					EndIf
@@ -7911,8 +7911,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 2478
-; FirstLine = 5
+; CursorPosition = 6594
 ; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
