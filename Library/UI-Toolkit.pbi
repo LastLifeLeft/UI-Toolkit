@@ -301,6 +301,7 @@
 	Declare AddFlatMenuSeparator(Menu, Position)
 	Declare ShowFlatMenu(FlatMenu, X = -1, Y = -1)
 	Declare SetFlatMenuColor(Menu, ColorType, Color)
+	Declare DisableFlatMenuItem(Menu, Position, State)
 	
 	; Gadgets
 	Declare GetGadgetImage(Gadget)
@@ -670,6 +671,7 @@ Module UITK
 		Text.Text
 		Icon.i
 		ID.i
+		Disabled.b
 	EndStructure
 	
 	Structure FlatMenu
@@ -7340,17 +7342,22 @@ Module UITK
 					VectorSourceColor(\Theme\TextColor[#Warm])
 					Y + #MenuSeparatorHeight
 				Else
-					If ListIndex(\Item()) = \State
-						AddPathBox(0, Y, \Width, \ItemHeight)
-						VectorSourceColor(\Theme\ShadeColor[#Warm])
-						FillPath()
-						VectorSourceColor(\Theme\TextColor[#Hot])
+					If \Item()\Disabled
+						If ListIndex(\Item()) = \State
+							AddPathBox(0, Y, \Width, \ItemHeight)
+							VectorSourceColor(\Theme\ShadeColor[#Warm])
+							FillPath()
+							VectorSourceColor(\Theme\TextColor[#Hot])
+							DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
+							VectorSourceColor(\Theme\TextColor[#Warm])
+						Else
+							DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
+						EndIf
+					Else
+						VectorSourceColor(\Theme\TextColor[#Disabled])
 						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
 						VectorSourceColor(\Theme\TextColor[#Warm])
-					Else
-						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
 					EndIf
-					
 					Y + \ItemHeight
 				EndIf
 			Next
@@ -7433,8 +7440,6 @@ Module UITK
 				Case #Color_Back_Warm
 					\Theme\ShadeColor[#Warm] = Color
 					
-				Case #Color_Back_Disabled
-					
 				Case #Color_Text_Cold
 					\Theme\TextColor[#Warm] = Color
 					
@@ -7442,7 +7447,7 @@ Module UITK
 					\Theme\TextColor[#Hot] = Color
 					
 				Case #Color_Text_Disabled
-					
+					\Theme\TextColor[#Disabled] = Color
 			EndSelect
 		EndWith
 	EndProcedure
@@ -7562,6 +7567,15 @@ Module UITK
 	Procedure RemoveFlatMenuItem(Menu, Position)
 		
 		
+	EndProcedure
+	
+	Procedure DisableFlatMenuItem(Menu, Position, State)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+		
+		If Position > -1 And SelectElement(*MenuData\Item(), Position)
+			*MenuData\Item()\Disabled = State
+			FlatMenu_Redraw(*MenuData)
+		EndIf
 	EndProcedure
 	
 	; Getters
@@ -7965,7 +7979,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 275
-; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA5
+; CursorPosition = 341
+; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACABAAAAAAAAAw
 ; EnableXP
 ; DPIAware
