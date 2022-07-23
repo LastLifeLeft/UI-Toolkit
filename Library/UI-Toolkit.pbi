@@ -6682,8 +6682,7 @@ Module UITK
 		Protected *GadgetData.TreeData = *this\vt
 		
 		With *GadgetData
-			If Position > -1 And Position < ListSize(\Items())
-				SelectElement(\Items(), Position)
+			If Position > -1 And SelectElement(\Items(), Position)
 				
 				If Position <= \State
 					\State - 1
@@ -6771,7 +6770,6 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	
 	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tree)
@@ -6795,6 +6793,7 @@ Module UITK
 			EndIf
 			
 			\VT\AddGadgetItem3 = @Tree_AddItem()
+			\VT\RemoveGadgetItem = @Tree_RemoveItem()
 			\VT\ResizeGadget = @Tree_Resize()
 			\VT\CountGadgetItems = @Tree_CountItem()
 			\VT\GetGadgetItemImage = @Tree_GetItemImage()
@@ -7992,8 +7991,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6803
-; FirstLine = 350
-; Folding = LAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAACCACAAAAAAAAAg
+; CursorPosition = 6771
+; FirstLine = 331
+; Folding = LAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAACCAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
