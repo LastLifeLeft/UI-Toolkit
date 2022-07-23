@@ -5598,7 +5598,9 @@ Module UITK
 				
 				Repeat 
 					If \Sections()\Height
-						\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0, \ThemeData)
+						If \SectionHeight
+							\RedrawSection(@\Sections(), \OriginX, Y, \Width, \SectionHeight, 0, \ThemeData)
+						EndIf
 						ItemY = Y + \SectionHeight
 						ItemX = \ItemHMargin
 						ItemCount = 0
@@ -7991,8 +7993,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6771
-; FirstLine = 331
-; Folding = LAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAACCAAAAAAAAAAAg
+; CursorPosition = 5602
+; FirstLine = 279
+; Folding = LAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
