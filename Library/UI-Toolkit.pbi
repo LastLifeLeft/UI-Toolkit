@@ -61,7 +61,7 @@
 		#Trackbar_Scale
 		
 		#Attribute_Library_SectionHeight
-		
+		#Attribute_Tree_ItemDepth
 	EndEnumeration
 	
 	Enumeration ; Corners
@@ -6747,6 +6747,17 @@ Module UITK
 		ProcedureReturn *Result
 	EndProcedure
 	
+	Procedure Tree_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
+		Protected *GadgetData.TreeData = *this\vt, *Result
+		
+		If Position > -1 And SelectElement(*GadgetData\Items(), Position)
+			Select Attribute
+				Case #Attribute_Tree_ItemDepth
+					ProcedureReturn *GadgetData\Items()\Level
+					
+			EndSelect
+		EndIf
+	EndProcedure
 	
 	; Setters
 	Procedure Tree_SetItemData(*this.PB_Gadget, Position, *Data)
@@ -6790,7 +6801,7 @@ Module UITK
 			\VT\ClearGadgetItemList = @Tree_ClearItems()
 			\vt\SetGadgetItemData = @Tree_SetItemData()
 			\vt\GetGadgetItemData = @Tree_GetItemData()
-			
+			\vt\GetGadgetItemAttribute2 = @Tree_GetItemAttribute()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -7981,7 +7992,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 342
-; Folding = JAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAw
+; CursorPosition = 6803
+; FirstLine = 350
+; Folding = LAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAACCACAAAAAAAAAg
 ; EnableXP
 ; DPIAware
