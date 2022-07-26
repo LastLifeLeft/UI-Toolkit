@@ -8,7 +8,7 @@ Define Height = DesktopHeight(0)
 
 Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), SquaredImage = ImageID(LoadImage(#PB_Any, "Squared.png"))
 
-Window = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_Invisible)
+Window = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : Light theme", UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_Invisible)
 UITK::SetWindowIcon(Window, ImageID(Image))
 Gadget = UITK::PropertyBox(#PB_Any, 20, 20, 280, 280, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Title", 0, UITK::#PropertyBox_Title)
@@ -32,6 +32,7 @@ AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertyBox_Text)
 AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertyBox_Text)
 
 Gadget = UITK::Tree(#PB_Any, 20, 320, 280, 270, UITK::#Border | UITK::#Tree_StraightLine)
+EnableGadgetDrop(Gadget, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
 For a = 0 To 10
 	AddGadgetItem (Gadget, -1, "Normal Item "+Str(a), 0, 0)
@@ -96,7 +97,6 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 29
-; FirstLine = 9
+; CursorPosition = 15
 ; EnableXP
 ; DPIAware

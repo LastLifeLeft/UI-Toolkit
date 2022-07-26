@@ -159,6 +159,7 @@
 		#SubClass_GetGadgetFont
 		#SubClass_SetGadgetFont
 		#SubClass_SetGadgetItemImage
+		#SubClass_DropHandler
 	EndEnumeration
 	
 	Enumeration ;State
@@ -208,6 +209,10 @@
 	
 	Enumeration #PB_Event_FirstCustomValue
 		#Event_CloseMenu
+		#Event_Drag_Enter 
+		#Event_Drag_Update
+		#Event_Drag_Leave
+		#Event_Drag_Finish
 		
 		#Event_FirstAvailableCustomValue
 	EndEnumeration
@@ -337,6 +342,7 @@
 	Declare AdvancedDragFiles(File.s, ImageID, Action = #PB_Drag_Copy)
 	Declare AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)
 	Declare AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)
+	Declare RegisterDropCallback(*Callback)
 	;}
 EndDeclareModule
 
@@ -346,6 +352,7 @@ Module UITK
 	;{ Macro
 	Macro InitializeObject(GadgetType)
 		*GadgetData\Gadget = Gadget
+		
 		*GadgetData\ParentWindow = CurrentWindow()
 		
 		*GadgetData\Width = Width
@@ -354,6 +361,8 @@ Module UITK
 		*GadgetData\Border = Bool(Flags & #Border)
 		
 		*GadgetData\Redraw = @GadgetType#_Redraw()
+		
+		*GadgetData\DropHover = -1
 		
 		If Flags & #HAlignCenter
 			*GadgetData\TextBock\HAlign = #HAlignCenter
@@ -545,6 +554,7 @@ Module UITK
 				
 				; From here on, custom procedures
 				*GetGadgetItemImage
+				*DropHandler
 			EndStructure
 			
 			Structure PB_Gadget
@@ -659,6 +669,8 @@ Module UITK
 		Enabled.b
 		
 		*DefaultEventHandler
+		
+		DropHover.i
 	EndStructure
 	
 	Enumeration ;Menu types
@@ -694,6 +706,7 @@ Module UITK
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
 	Global IconFont = FontID(LoadFont(#PB_Any, "Segoe MDL2 Assets", 10, #PB_Font_HighQuality))
+	Global NewMap GadgetHandler()
 	
 	Prototype ItemRedraw(*Item, X, Y, Width, Height, State, *Theme.Theme)
 	
@@ -1244,6 +1257,8 @@ Module UITK
 	Procedure Default_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
 		
+		DeleteMapElement(GadgetHandler(), Str(GadgetID(*GadgetData\Gadget)))
+		
 		If *GadgetData\DefaultEventHandler
 			UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
 		EndIf
@@ -1544,6 +1559,9 @@ Module UITK
 			Case #SubClass_SetGadgetItemImage
 				*Result = *this\vt\SetGadgetItemImage
 				*this\vt\SetGadgetItemImage = *Adress
+			Case #SubClass_DropHandler
+				*Result = *this\vt\DropHandler
+				*this\vt\DropHandler = *Adress
 		EndSelect
 		
 		ProcedureReturn *Result
@@ -2400,7 +2418,7 @@ Module UITK
 	SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
 	SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
 	Global ADNDGadget = ImageGadget(#PB_Any, 0, 0, 1, 1, 0)
-	Global ADNDHook
+	Global ADNDHook, *DropCallback
 	
 	#ADND_OffsetX = 8
 	#ADND_OffsetY = 8
@@ -2477,6 +2495,31 @@ Module UITK
 		HideWindow(ADNDWindow, #True)
 		UnhookWindowsHookEx_(ADNDHook)
 	EndProcedure
+	
+	Procedure DropCallback(TargetHandle, State, Format, Action, x, y)
+		Protected *this.PB_Gadget, *GadgetData.GadgetData, Result
+		
+		If FindMapElement(GadgetHandler(), Str(TargetHandle))
+			*this = IsGadget(GadgetHandler())
+			*GadgetData = *this\vt
+			
+			If *this\vt\DropHandler
+				Result = CallFunctionFast(*this\vt\DropHandler, *GadgetData, State, Format, Action, x, y)
+			ElseIf *DropCallback
+				Result = CallFunctionFast(*DropCallback, TargetHandle, State, Format, Action, x, y)
+			EndIf
+		ElseIf *DropCallback
+			Result = CallFunctionFast(*DropCallback, TargetHandle, State, Format, Action, x, y)
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure RegisterDropCallback(*Callback)
+		*DropCallback = *Callback
+	EndProcedure
+	
+	SetDropCallback(@DropCallback())
 	;}
 	
 	
@@ -2663,6 +2706,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				Button_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
@@ -2835,6 +2880,8 @@ Module UITK
 				EndIf
 			EndIf
 			
+			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+			GadgetHandler() = Gadget
 			Toggle_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 			
 			RedrawObject()
@@ -3010,6 +3057,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				CheckBox_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
@@ -3432,6 +3481,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				Scrollbar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
 				
 				RedrawObject()
@@ -3513,6 +3564,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				Label_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
@@ -3573,11 +3626,12 @@ Module UITK
 		Protected *GadgetData.ScrollAreaData = *this\vt
 		
 		With *GadgetData
-			If IsGadget(*GadgetData\VerticalScrollbar) : FreeGadget(*GadgetData\VerticalScrollbar) : EndIf
-			If IsGadget(*GadgetData\HorizontalScrollbar) : FreeGadget(*GadgetData\HorizontalScrollbar) : EndIf
-			If IsGadget(*GadgetData\ScrollArea) : FreeGadget(*GadgetData\ScrollArea) : EndIf
+			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
+			If IsGadget(\VerticalScrollbar) : FreeGadget(\VerticalScrollbar) : EndIf
+			If IsGadget(\HorizontalScrollbar) : FreeGadget(\HorizontalScrollbar) : EndIf
+			If IsGadget(\ScrollArea) : FreeGadget(\ScrollArea) : EndIf
 			
-			*this\vt = *GadgetData\OriginalVT
+			*this\vt = \OriginalVT
 			FreeStructure(*GadgetData)
 			CallFunctionFast(*this\vt\FreeGadget, *this)
 		EndWith
@@ -3748,6 +3802,8 @@ Module UITK
 				\VT\FreeGadget = @ScrollArea_Free()
 				
 				OpenGadgetList(\ScrollArea)
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 			EndWith
 		EndIf
 		
@@ -4303,6 +4359,7 @@ Module UITK
 	Procedure VerticalList_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
+		DeleteMapElement(GadgetHandler(), Str(GadgetID(*GadgetData\Gadget)))
 		FreeStructure(*GadgetData\ScrollBar)
 		
 		Default_FreeGadget(*this.PB_Gadget)
@@ -4498,6 +4555,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				VerticalList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 				
 				RedrawObject()
@@ -4919,6 +4978,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				TrackBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
 				
 				RedrawObject()
@@ -5058,12 +5119,13 @@ Module UITK
 		Protected *GadgetData.ComboData = *this\vt
 		
 		With *GadgetData
+			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
 			UnbindEvent(#PB_Event_DeactivateWindow, @Combo_WindowHandler(), \MenuWindow)
 			UnbindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
 			FreeGadget(\MenuCanvas)
 			CloseWindow(\MenuWindow)
 			
-			If *GadgetData\DefaultEventHandler
+			If \DefaultEventHandler
 				UnbindGadgetEvent(\Gadget, \DefaultEventHandler)
 			EndIf
 			
@@ -5202,6 +5264,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				Combo_Meta(*GadgetData.ComboData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
@@ -5280,6 +5344,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				Container_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
@@ -5522,6 +5588,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				Radio_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text, RadioGroup, Flags)
 				
 				RedrawObject()
@@ -6133,6 +6201,8 @@ Module UITK
 				EndIf
 			EndIf
 			
+			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+			GadgetHandler() = Gadget
 			Library_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 			
 			RedrawObject()
@@ -6402,6 +6472,8 @@ Module UITK
 				EndIf
 			EndIf
 			
+			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+			GadgetHandler() = Gadget
 			PropertyBox_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 			
 			RedrawObject()
@@ -6489,7 +6561,7 @@ Module UITK
 					EndIf
 					AddPathLine(X + \Items()\Level * \BranchWidth, Y + #Tree_BranchHeight)
 					
-					If \State = ListIndex(\Items())
+					If \State = ListIndex(\Items()) 
 						If \DrawLine = #Tree_Dot
 							DotPath(1, 3)
 						ElseIf \DrawLine = #Tree_Straight
@@ -6504,6 +6576,21 @@ Module UITK
 					EndIf
 					
 					DrawVectorTextBlock(@\Items()\Text, X + \Items()\Level * \BranchWidth, Y)
+					
+					If \DropHover = ListIndex(\Items())
+						If \DrawLine = #Tree_Dot
+							DotPath(1, 3)
+						ElseIf \DrawLine = #Tree_Straight
+							StrokePath(1)
+						Else
+							ResetPath()
+						EndIf
+						AddPathBox(X + \Items()\Level * \BranchWidth - 2, Y + 1, \Items()\Text\RequieredWidth + 2, \ItemHeight - 1)
+						VectorSourceColor(SetAlpha(\ThemeData\TextColor[#Cold],40))
+						FillPath()
+						VectorSourceColor(\ThemeData\TextColor[#Cold])
+					EndIf
+					
 					PreviousLevel = \Items()\Level
 					Y + \ItemHeight
 				Until Y > Height Or Not NextElement(\Items()) 
@@ -6726,6 +6813,41 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Tree_DropHandler(*GadgetData.TreeData, State, Format, Action, x, y)
+		Protected Hover = -1
+		
+		With *GadgetData
+			Select State
+				Case #PB_Drag_Enter, #PB_Drag_Update
+					If SelectElement(\Items(), Floor((y + \ScrollBar\State) / \ItemHeight))
+						If (x > \Border + \BranchWidth * (\Items()\Level + 1)) And (x < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequieredWidth)
+							Hover = ListIndex(\Items())
+						EndIf
+					EndIf
+					
+					If Hover <> \DropHover
+						\DropHover = Hover
+						RedrawObject()
+					EndIf
+					
+					If \DropHover > -1
+						ProcedureReturn #True
+					EndIf
+				Case #PB_Drag_Leave
+					If \DropHover > -1
+						\DropHover = -1
+						RedrawObject()
+					EndIf
+				Case #PB_Drag_Finish
+					If \DropHover > -1
+						\DropHover = -1
+						RedrawObject()
+						ProcedureReturn #True
+					EndIf
+			EndSelect
+		EndWith
+	EndProcedure
+	
 	; Getters
 	Procedure Tree_GetItemImage(*this.PB_Gadget, Position)
 		Protected *GadgetData.TreeData = *this\vt
@@ -6803,6 +6925,7 @@ Module UITK
 			\vt\SetGadgetItemData = @Tree_SetItemData()
 			\vt\GetGadgetItemData = @Tree_GetItemData()
 			\vt\GetGadgetItemAttribute2 = @Tree_GetItemAttribute()
+			\VT\DropHandler = @Tree_DropHandler()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -6846,6 +6969,8 @@ Module UITK
 				EndIf
 			EndIf
 			
+			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+			GadgetHandler() = Gadget
 			Tree_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 			
 			RedrawObject()
@@ -7318,6 +7443,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				HorizontalList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
@@ -7958,6 +8085,8 @@ Module UITK
 					EndIf
 				EndIf
 				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
 				Tab_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
@@ -7993,8 +8122,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 5602
-; FirstLine = 279
-; Folding = LAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAg
+; CursorPosition = 6586
+; FirstLine = 176
+; Folding = JAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
