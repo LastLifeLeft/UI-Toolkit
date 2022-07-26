@@ -2497,7 +2497,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure DropCallback(TargetHandle, State, Format, Action, x, y)
-		Protected *this.PB_Gadget, *GadgetData.GadgetData, Result
+		Protected *this.PB_Gadget, *GadgetData.GadgetData, Result = #True
 		
 		If FindMapElement(GadgetHandler(), Str(TargetHandle))
 			*this = IsGadget(GadgetHandler())
@@ -8122,8 +8122,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6586
-; FirstLine = 176
-; Folding = JAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAA9
+; CursorPosition = 2499
+; FirstLine = 3
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
