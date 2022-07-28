@@ -6008,6 +6008,7 @@ Module UITK
 			ClearList(\Items())
 			ClearList(\Sections())
 			
+			\State = -1
 			\InternalHeight = 0
 			\VisibleScrollbar = #False
 			\ScrollBar\State = 0
@@ -8122,8 +8123,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 2499
-; FirstLine = 3
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 6010
+; FirstLine = 54
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAABAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
