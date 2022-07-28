@@ -5767,17 +5767,12 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure Library_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+	Procedure Library_AddItem(*This.PB_Gadget, Position.w, *Text, ImageID, Flags.i)
 		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.BITMAP
 		
 		With *GadgetData
-			If Position > -1 And Position < ListSize(\Items())
-				SelectElement(\Items(), Position)
-				*NewItem = InsertElement(\Items())
-			Else
-				LastElement(\Items())
-				*NewItem = AddElement(\Items())
-			EndIf
+			LastElement(\Items())
+			*NewItem = AddElement(\Items())
 			
 			*NewItem\ImageID = ImageID
 			*NewItem\Text\OriginalText = PeekS(*Text)
@@ -5805,7 +5800,13 @@ Module UITK
 			
 			*NewItem\Section = @\Sections()
 			
-			AddElement(\Sections()\Items())
+			If Position > -1 And SelectElement(\Sections()\Items(), Position)
+				InsertElement(\Sections()\Items())
+			Else
+				LastElement(\Sections()\Items())
+				AddElement(\Sections()\Items())
+			EndIf
+			
 			\Sections()\Items() = *NewItem
 			
 			If ListSize(\Sections()\Items()) % \ItemPerLine = 1
@@ -8123,8 +8124,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6010
-; FirstLine = 54
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAABAAAAAAAAAAAAAAAA9
+; CursorPosition = 803
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
