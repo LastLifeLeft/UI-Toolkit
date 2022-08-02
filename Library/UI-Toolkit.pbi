@@ -6774,11 +6774,6 @@ Module UITK
 		
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position)
-				
-				If Position <= \State
-					\State - 1
-				EndIf
-				
 				DeleteElement(\Items())
 				
 				\InternalHeight - \ItemHeight
@@ -6791,6 +6786,13 @@ Module UITK
 				EndIf
 				
 				RedrawObject()
+				
+				If Position < \State
+					\State - 1
+				ElseIf Position = \State
+					\State - 1
+					PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+				EndIf
 			EndIf
 		EndWith
 	EndProcedure
@@ -8124,7 +8126,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 803
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 6794
+; FirstLine = 63
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAEAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
