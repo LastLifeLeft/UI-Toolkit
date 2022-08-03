@@ -3086,46 +3086,90 @@ Module UITK
 	EndStructure
 	
 	Procedure ScrollBar_Redraw(*GadgetData.ScrollBarData)
-		Protected Radius.f, Point
+		Protected Radius.f, Point, Width.f, Height.f, Pos
 		
 		With *GadgetData
-			Radius = \Thickness * 0.5
-			AddPathCircle(\OriginX + Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
 			If \Background
 				VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 			Else
 				VectorSourceColor(0)
 			EndIf
 			
-			If \Vertical
-				AddPathBox(- \Thickness, 0, \Width, \Height - \Thickness, #PB_Path_Relative)
-				AddPathCircle(\OriginX + Radius, \OriginY + \Height - Radius, Radius, 0, 360, #PB_Path_Default)
-				FillPath(#PB_Path_Winding)
+			If \MouseState
+				Radius = \Thickness * 0.5
+				AddPathCircle(\OriginX + Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
 				
-				VectorSourceColor(\ThemeData\FrontColor[\MouseState])
-				
-				If \BarSize >= 0
-					AddPathCircle(\OriginX + Radius, \OriginY + Radius + \Position, Radius, 0, 360, #PB_Path_Default)
-					AddPathBox(- \Thickness, 0, \Width, \BarSize, #PB_Path_Relative)
-					AddPathCircle(\OriginX + Radius, \OriginY + Radius + \BarSize + \Position, Radius, 0, 360, #PB_Path_Default)
-					
+				If \Vertical
+					AddPathBox(- \Thickness, 0, \Width, \Height - \Thickness, #PB_Path_Relative)
+					AddPathCircle(\OriginX + Radius, \OriginY + \Height - Radius, Radius, 0, 360, #PB_Path_Default)
 					FillPath(#PB_Path_Winding)
-				EndIf
-			Else
-				AddPathBox(- Radius, - Radius, \Width - \Thickness, \Height, #PB_Path_Relative)
-				AddPathCircle(\OriginX + \Width - Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-				FillPath(#PB_Path_Winding)
-				
-				If \BarSize >= 0
+					
 					VectorSourceColor(\ThemeData\FrontColor[\MouseState])
 					
-					AddPathCircle(\OriginX + Radius + \Position, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-					AddPathBox(- Radius, - Radius, \BarSize, \Height, #PB_Path_Relative)
-					AddPathCircle(\OriginX + Radius + \Position + \BarSize, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
-					
+					If \BarSize >= 0
+						AddPathCircle(\OriginX + Radius, \OriginY + Radius + \Position, Radius, 0, 360, #PB_Path_Default)
+						AddPathBox(- \Thickness, 0, \Width, \BarSize, #PB_Path_Relative)
+						AddPathCircle(\OriginX + Radius, \OriginY + Radius + \BarSize + \Position, Radius, 0, 360, #PB_Path_Default)
+						
+						FillPath(#PB_Path_Winding)
+					EndIf
+				Else
+					AddPathBox(- Radius, - Radius, \Width - \Thickness, \Height, #PB_Path_Relative)
+					AddPathCircle(\OriginX + \Width - Radius, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
 					FillPath(#PB_Path_Winding)
+					
+					If \BarSize >= 0
+						VectorSourceColor(\ThemeData\FrontColor[\MouseState])
+						
+						AddPathCircle(\OriginX + Radius + \Position, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
+						AddPathBox(- Radius, - Radius, \BarSize, \Height, #PB_Path_Relative)
+						AddPathCircle(\OriginX + Radius + \Position + \BarSize, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
+						
+						FillPath(#PB_Path_Winding)
+					EndIf
 				EndIf
+			Else
+				Radius = \Thickness * 0.3
+				
+				If \Vertical
+					Width = Radius * 2
+					Pos = Round(\OriginX + Width, #PB_Round_Up)
+					AddPathCircle(Pos, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
+					AddPathBox(- Width, 0, Width, \Height - Width, #PB_Path_Relative)
+					AddPathCircle(Pos, \OriginY + \Height - Radius, Radius, 0, 360, #PB_Path_Default)
+					FillPath(#PB_Path_Winding)
+					
+					VectorSourceColor(\ThemeData\FrontColor[\MouseState])
+					
+					If \BarSize >= 0
+						AddPathCircle(Pos, \OriginY + Radius + \Position, Radius, 0, 360, #PB_Path_Default)
+						AddPathBox(- Width, 0, Width, \BarSize + \Thickness * 0.4, #PB_Path_Relative)
+						AddPathCircle(Pos, \OriginY + Radius + \BarSize + \Position + \Thickness * 0.4, Radius, 0, 360, #PB_Path_Default)
+						
+						FillPath(#PB_Path_Winding)
+					EndIf
+				Else
+					Height = Radius * 2
+					Pos = Round(\OriginY + Height, #PB_Round_Up)
+					AddPathCircle(\OriginX + Radius, Pos, Radius, 0, 360, #PB_Path_Default)
+					AddPathBox(- Radius, - Radius, \Width - Width, Height, #PB_Path_Relative)
+					AddPathCircle(\OriginX + \Width - Radius, Pos, Radius, 0, 360, #PB_Path_Default)
+					FillPath(#PB_Path_Winding)
+					
+					VectorSourceColor(\ThemeData\FrontColor[\MouseState])
+					
+					If \BarSize >= 0
+						AddPathCircle(\OriginX + Radius + \Position, Pos, Radius, 0, 360, #PB_Path_Default)
+						AddPathBox(- Radius, - Radius, \BarSize + \Thickness * 0.4, Height, #PB_Path_Relative)
+						AddPathCircle(\OriginX + Radius + \Position + \BarSize + \Thickness * 0.4, Pos, Radius, 0, 360, #PB_Path_Default)
+						
+						FillPath(#PB_Path_Winding)
+					EndIf
+				EndIf
+				
 			EndIf
+			
+			
 		EndWith
 	EndProcedure
 	
@@ -6776,6 +6820,13 @@ Module UITK
 			If Position > -1 And SelectElement(\Items(), Position)
 				DeleteElement(\Items())
 				
+				If Position < \State
+					\State - 1
+				ElseIf Position = \State
+					\State - 1
+ 					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+				EndIf
+				
 				\InternalHeight - \ItemHeight
 				
 				If \InternalHeight > \Height
@@ -6787,12 +6838,6 @@ Module UITK
 				
 				RedrawObject()
 				
-				If Position < \State
-					\State - 1
-				ElseIf Position = \State
-					\State - 1
-					PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-				EndIf
 			EndIf
 		EndWith
 	EndProcedure
@@ -8126,8 +8171,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6794
-; FirstLine = 63
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAEAAAAAAAAAAA9
+; CursorPosition = 3129
+; FirstLine = 52
+; Folding = JAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware

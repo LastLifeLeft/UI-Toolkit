@@ -8,7 +8,7 @@ Define Height = DesktopHeight(0)
 
 Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), SquaredImage = ImageID(LoadImage(#PB_Any, "Squared.png"))
 
-Window = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : Light theme", UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_Invisible)
+Window = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : Dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_Invisible)
 UITK::SetWindowIcon(Window, ImageID(Image))
 Gadget = UITK::PropertyBox(#PB_Any, 20, 20, 280, 280, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Title", 0, UITK::#PropertyBox_Title)
@@ -97,6 +97,6 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 15
+; CursorPosition = 10
 ; EnableXP
 ; DPIAware
