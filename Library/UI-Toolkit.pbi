@@ -3086,7 +3086,7 @@ Module UITK
 	EndStructure
 	
 	Procedure ScrollBar_Redraw(*GadgetData.ScrollBarData)
-		Protected Radius.f, Point, Width.f, Height.f, Pos
+		Protected Radius.f, Point, Width, Height, Pos
 		
 		With *GadgetData
 			If \Background
@@ -3129,11 +3129,11 @@ Module UITK
 					EndIf
 				EndIf
 			Else
-				Radius = \Thickness * 0.3
+				Radius = \Thickness * 0.25
 				
 				If \Vertical
 					Width = Radius * 2
-					Pos = Round(\OriginX + Width, #PB_Round_Up)
+					Pos = Round(\OriginX + \Width - Radius, #PB_Round_Down)
 					AddPathCircle(Pos, \OriginY + Radius, Radius, 0, 360, #PB_Path_Default)
 					AddPathBox(- Width, 0, Width, \Height - Width, #PB_Path_Relative)
 					AddPathCircle(Pos, \OriginY + \Height - Radius, Radius, 0, 360, #PB_Path_Default)
@@ -3143,14 +3143,14 @@ Module UITK
 					
 					If \BarSize >= 0
 						AddPathCircle(Pos, \OriginY + Radius + \Position, Radius, 0, 360, #PB_Path_Default)
-						AddPathBox(- Width, 0, Width, \BarSize + \Thickness * 0.4, #PB_Path_Relative)
-						AddPathCircle(Pos, \OriginY + Radius + \BarSize + \Position + \Thickness * 0.4, Radius, 0, 360, #PB_Path_Default)
+						AddPathBox(- Width, 0, Width, \BarSize + \Thickness * 0.5, #PB_Path_Relative)
+						AddPathCircle(Pos, \OriginY + Radius + \BarSize + \Position + \Thickness * 0.5, Radius, 0, 360, #PB_Path_Default)
 						
 						FillPath(#PB_Path_Winding)
 					EndIf
 				Else
 					Height = Radius * 2
-					Pos = Round(\OriginY + Height, #PB_Round_Up)
+					Pos = Round(\OriginY + \Height - Radius, #PB_Round_Down)
 					AddPathCircle(\OriginX + Radius, Pos, Radius, 0, 360, #PB_Path_Default)
 					AddPathBox(- Radius, - Radius, \Width - Width, Height, #PB_Path_Relative)
 					AddPathCircle(\OriginX + \Width - Radius, Pos, Radius, 0, 360, #PB_Path_Default)
@@ -3160,8 +3160,8 @@ Module UITK
 					
 					If \BarSize >= 0
 						AddPathCircle(\OriginX + Radius + \Position, Pos, Radius, 0, 360, #PB_Path_Default)
-						AddPathBox(- Radius, - Radius, \BarSize + \Thickness * 0.4, Height, #PB_Path_Relative)
-						AddPathCircle(\OriginX + Radius + \Position + \BarSize + \Thickness * 0.4, Pos, Radius, 0, 360, #PB_Path_Default)
+						AddPathBox(- Radius, - Radius, \BarSize + \Thickness * 0.5, Height, #PB_Path_Relative)
+						AddPathCircle(\OriginX + Radius + \Position + \BarSize + \Thickness * 0.5, Pos, Radius, 0, 360, #PB_Path_Default)
 						
 						FillPath(#PB_Path_Winding)
 					EndIf
@@ -3908,7 +3908,7 @@ Module UITK
 			VectorSourceColor(*Theme\TextColor[State])
 		EndIf
 		
-		DrawVectorTextBlock(@*Item\Text, X, Y)
+		DrawVectorTextBlock(@*Item\Text, X + #VerticalList_Margin, Y)
 		
 		If State = #Hot
 			MovePathCursor(X + *Item\Text\Width - #VerticalList_IconWidth, Y + (*Item\Text\Height - 14) * 0.5)
@@ -3984,7 +3984,7 @@ Module UITK
 					
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
-					\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, Y, Width, \ItemHeight, State, \ThemeData)
+					\ItemRedraw(@\Items(), \Border, Y, Width, \ItemHeight, State, \ThemeData)
 					Y + \ItemHeight
 					ItemCount + 1
 				Until ItemCount > \MaxDisplayedItem Or (Not NextElement(\Items()))
@@ -8171,8 +8171,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 3129
-; FirstLine = 52
-; Folding = JAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 3910
+; FirstLine = 48
+; Folding = JAAAAAAAAAAAAAAAAAAAAAAAgGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
