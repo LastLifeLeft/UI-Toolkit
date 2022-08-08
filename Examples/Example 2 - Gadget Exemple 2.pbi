@@ -72,6 +72,8 @@ AddGadgetItem(Tab, -1, "Prululu 2", ImageID(Image))
 AddGadgetItem(Tab, -1, "Prululu 3", ImageID(Image))
 SetGadgetItemAttribute(Tab, 2, UITK::#Tab_Color, $FFFF00FF)
 
+String = UITK::String(#PB_Any, 320, 310, 621, 20, "Text")
+
 HideWindow(Window, #False)
 
 Repeat
@@ -97,6 +99,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 10
+; CursorPosition = 74
+; FirstLine = 23
 ; EnableXP
 ; DPIAware

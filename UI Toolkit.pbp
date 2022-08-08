@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2022-08-04 20:26" user="LastLife" host="MONSTRO"/>
+    <lastopen date="2022-08-08 16:28" user="LastLife" host="MONSTRO"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -33,11 +33,11 @@
     </file>
     <file name="Examples\Example 2 - Gadget Exemple 2.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="0ac4a413b35eafc83719c411626af4a9"/>
+      <fingerprint md5="14a3d35ff710085e76af823f360ba411"/>
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="eb5f58b5c2f2c55cdb8754e868ff28e0"/>
+      <fingerprint md5="deccb4ed1c1aa0052d94429c0a30668c"/>
     </file>
   </section>
   <section name="targets">
@@ -50,7 +50,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 1" enabled="1" default="1">
+    <target name="Example 1" enabled="1" default="0">
       <inputfile value="Examples\Example 1 - Gadget Exemple 1.pbi"/>
       <outputfile value="Examples\Example 1.exe"/>
       <compiler version="PureBasic 6.00 Beta 7 - C Backend (Windows - x64)"/>
@@ -59,7 +59,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 2" enabled="1" default="0">
+    <target name="Example 2" enabled="1" default="1">
       <inputfile value="Examples\Example 2 - Gadget Exemple 2.pbi"/>
       <outputfile value="Examples\Example 2.exe"/>
       <compiler version="PureBasic 6.00 Beta 7 - C Backend (Windows - x64)"/>

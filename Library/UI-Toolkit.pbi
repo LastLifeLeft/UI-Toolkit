@@ -329,6 +329,7 @@
 	Declare Tree(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare Tab(Gadget, x, y, Width, Height, Flags = #Default)
+	Declare String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -1098,31 +1099,31 @@ Module UITK
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
 		If *GadgetData\Enabled
 			Select EventType()
-				Case #PB_EventType_MouseEnter
+				Case #PB_EventType_MouseEnter ;{
 					If *GadgetData\SupportedEvent[#MouseEnter]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #MouseEnter
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_MouseLeave
+					;}
+				Case #PB_EventType_MouseLeave ;{
 					If *GadgetData\SupportedEvent[#MouseLeave]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #MouseLeave
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_MouseMove
+					;}
+				Case #PB_EventType_MouseMove ;{
 					If *GadgetData\SupportedEvent[#MouseMove]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #MouseMove
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_MouseWheel
+					;}
+				Case #PB_EventType_MouseWheel ;{
 					If *GadgetData\SupportedEvent[#MouseWheel]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
@@ -1130,40 +1131,40 @@ Module UITK
 						Event\EventType = #MouseWheel
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_LeftButtonDown
+					;}
+				Case #PB_EventType_LeftButtonDown ;{
 					If *GadgetData\SupportedEvent[#LeftButtonDown]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #LeftButtonDown
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_LeftButtonUp
+					;}
+				Case #PB_EventType_LeftButtonUp ;{
 					If *GadgetData\SupportedEvent[#LeftButtonUp]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #LeftButtonUp
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_LeftClick
+					;}
+				Case #PB_EventType_LeftClick ;{
 					If *GadgetData\SupportedEvent[#LeftClick]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #LeftClick
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_LeftDoubleClick
+					;}
+				Case #PB_EventType_LeftDoubleClick ;{
 					If *GadgetData\SupportedEvent[#LeftDoubleClick]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #LeftDoubleClick
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_RightButtonDown
+					;}
+				Case #PB_EventType_RightButtonDown ;{
 					If *GadgetData\SupportedEvent[#RightButtonDown]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
@@ -1171,83 +1172,85 @@ Module UITK
 						Event\EventType = #RightButtonDown
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_RightButtonUp
+					;}
+				Case #PB_EventType_RightButtonUp ;{
 					If *GadgetData\SupportedEvent[#RightButtonUp]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #RightButtonUp
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_RightClick
+					;}
+				Case #PB_EventType_RightClick ;{
 					If *GadgetData\SupportedEvent[#RightClick]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #RightClick
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_RightDoubleClick
+					;}
+				Case #PB_EventType_RightDoubleClick ;{
 					If *GadgetData\SupportedEvent[#RightDoubleClick]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #RightDoubleClick
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_MiddleButtonDown
+					;}
+				Case #PB_EventType_MiddleButtonDown ;{
 					If *GadgetData\SupportedEvent[#MiddleButtonDown]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #MiddleButtonDown
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_MiddleButtonUp
+					;}
+				Case #PB_EventType_MiddleButtonUp ;{
 					If *GadgetData\SupportedEvent[#MiddleButtonUp]
 						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
 						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
 						Event\EventType = #MiddleButtonUp
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_Focus
+					;}
+				Case #PB_EventType_Focus ;{
 					If *GadgetData\SupportedEvent[#Focus]
 						Event\EventType = #Focus
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_LostFocus
+					;}
+				Case #PB_EventType_LostFocus ;{
 					If *GadgetData\SupportedEvent[#LostFocus]
 						Event\EventType = #LostFocus
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_KeyDown
+					;}
+				Case #PB_EventType_KeyDown ;{
 					If *GadgetData\SupportedEvent[#KeyDown]
 						Event\EventType = #KeyDown
+						Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_Key)
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_KeyUp
+					;}
+				Case #PB_EventType_KeyUp ;{
 					If *GadgetData\SupportedEvent[#KeyUp]
 						Event\EventType = #KeyUp
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_Input
+					;}
+				Case #PB_EventType_Input ;{
 					If *GadgetData\SupportedEvent[#Input]
 						Event\EventType = #Input
+						Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_Input)
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
-				Case #PB_EventType_Resize
+					;}
+				Case #PB_EventType_Resize ;{
 					If *GadgetData\SupportedEvent[#Resize]
 						Event\EventType = #Resize
 						*GadgetData\EventHandler(*GadgetData, Event)
 					EndIf
-					
+					;}
 				Default
 					ProcedureReturn
 			EndSelect
@@ -3927,16 +3930,12 @@ Module UITK
 		Protected Y = *GadgetData\OriginY, Width = *GadgetData\Width - 2 * *GadgetData\Border, Position, ItemCount, State, CurrentItem, Drawn
 		
 		With *GadgetData
-			
 			If \Border
 				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
-			Else
-				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
-			EndIf
-			
-			If *GadgetData\Border
 				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
 				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 			EndIf
 			
 			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
@@ -7504,6 +7503,309 @@ Module UITK
 	EndProcedure
 	;}
 	
+	;{ String
+	#String_CarretHeight = 16
+	Structure String_CharacterData
+		Char.s
+		Width.i
+		Position.i
+	EndStructure
+	
+	Structure StringData Extends GadgetData
+		Timer.i
+		Carret.i
+		CarretVisible.i
+		CarretPosition.i
+		TextPositionX.i
+		TextPositionY.i
+		String.s
+		SelectionPosition.i
+		SelectionDuration.i
+		List CharacterData.String_CharacterData()
+	EndStructure
+	
+	Procedure String_ProcessString(*GadgetData.StringData)
+		Protected Loop, CharacterCount, Position
+		
+		With *GadgetData
+			Position = \TextPositionX
+			ClearList(\CharacterData())
+			CharacterCount = Len(\String)
+			
+			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			
+			For Loop = 1 To CharacterCount
+				AddElement(\CharacterData())
+				\CharacterData()\Char = Mid(\String, Loop, 1)
+				\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
+				\CharacterData()\Position = Position
+				Position + \CharacterData()\Width
+			Next
+			
+			AddElement(\CharacterData())
+			\CharacterData()\Position = Position
+			
+			StopVectorDrawing()
+		EndWith
+	EndProcedure
+	
+	Procedure String_Redraw(*GadgetData.StringData)
+		With *GadgetData
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
+				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
+			EndIf
+			
+			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+			ClipPath(#PB_Path_Preserve)
+			FillPath()
+			
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			
+			VectorSourceColor(\ThemeData\TextColor[#Cold])
+			MovePathCursor(\TextPositionX, \TextPositionY)
+			DrawVectorParagraph(\String, \Width, \Height)
+		EndWith
+	EndProcedure
+	
+	Procedure String_CarretRedraw(*GadgetData.StringData, Timer)
+		With *GadgetData
+			HideGadget(\Carret, \CarretVisible)
+			\CarretVisible = Bool(Not \CarretVisible)
+		EndWith
+	EndProcedure
+	
+	Procedure String_EventHandler(*GadgetData.StringData, *Event.Event)
+		Protected Size
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #Input ;{
+					SelectElement(\CharacterData(), \CarretPosition - 1)
+					Size = \CharacterData()\Position + \CharacterData()\Width
+					AddElement(\CharacterData())
+					\CharacterData()\Char = Chr(*Event\Param)
+					\CharacterData()\Position = Size
+					StartVectorDrawing(CanvasVectorOutput(\Gadget))
+					If \TextBock\FontScale
+						VectorFont(\TextBock\FontID, \TextBock\FontScale)
+					Else
+						VectorFont(\TextBock\FontID)
+					EndIf
+					\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
+					StopVectorDrawing()
+					
+					Size = \CharacterData()\Width
+					
+					While NextElement(\CharacterData())
+						\CharacterData()\Position + Size
+					Wend
+					
+					\String = Left(\String, \CarretPosition) + Chr(*Event\Param) + Right(\String, Len(\String) - \CarretPosition)
+					RedrawObject()
+					
+					\CarretPosition + 1
+					
+					ResizeGadget(\Carret, GadgetX(\Carret) + Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					HideGadget(\Carret, #False)
+					\CarretVisible = #True
+					RemoveGadgetTimer(\Timer)
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					
+					
+					;}
+				Case #LeftButtonDown ;{
+					ForEach \CharacterData()
+						If \CharacterData()\Position + 2 > *Event\MouseX
+							Break
+						EndIf
+					Next
+					
+					\CarretPosition = ListIndex(\CharacterData())
+					ResizeGadget(\Carret, \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					HideGadget(\Carret, #False)
+					\CarretVisible = #True
+					RemoveGadgetTimer(\Timer)
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					;}
+				Case #KeyDown ;{
+					Select *Event\Param
+						Case #PB_Shortcut_Left ;{
+							If \CarretPosition > 0
+								\CarretPosition - 1
+								SelectElement(\CharacterData(), \CarretPosition)
+								ResizeGadget(\Carret, \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+							EndIf
+							;}
+						Case #PB_Shortcut_Right ;{
+							If \CarretPosition < ListSize(\CharacterData()) And SelectElement(\CharacterData(), \CarretPosition + 1)
+								\CarretPosition + 1
+								ResizeGadget(\Carret, \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+							EndIf
+							;}
+						Case #PB_Shortcut_Delete ;{
+							If \CarretPosition < ListSize(\CharacterData()) - 1
+								SelectElement(\CharacterData(), \CarretPosition)
+								Size = \CharacterData()\Width
+								DeleteElement(\CharacterData())
+								
+								While NextElement(\CharacterData())
+									\CharacterData()\Position - Size
+								Wend
+								
+								\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - \CarretPosition - 1)
+								RedrawObject()
+								
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+							EndIf
+							;}
+						Case #PB_Shortcut_Back ;{
+							If \CarretPosition
+								\CarretPosition -1
+								SelectElement(\CharacterData(), \CarretPosition)
+								Size = \CharacterData()\Width
+								DeleteElement(\CharacterData())
+								
+								While NextElement(\CharacterData())
+									\CharacterData()\Position - Size
+								Wend
+								
+								\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - \CarretPosition - 1)
+								RedrawObject()
+								
+								ResizeGadget(\Carret, GadgetX(\Carret) - Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+							EndIf
+							;}
+					EndSelect
+					;}
+				Case #Focus ;{
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					;}
+				Case #LostFocus ;{
+					RemoveGadgetTimer(\Timer)
+					If \CarretVisible
+						HideGadget(\Carret, #True)
+						\CarretVisible = #False
+					EndIf
+					;}
+				Case #MouseEnter ;{
+					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
+					;}
+				Case #MouseLeave ;{
+					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
+					;}
+			EndSelect
+		EndWith
+	EndProcedure
+	
+	Procedure String_Meta(*GadgetData.StringData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(String)
+		
+		With *GadgetData
+			\SupportedEvent[#Focus] = #True
+			\SupportedEvent[#LostFocus] = #True
+			\SupportedEvent[#MouseEnter] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#Input] = #True
+			
+			\TextPositionX = \OriginX + BorderMargin
+			\TextPositionY = \OriginY + Round((\Height - #String_CarretHeight) * 0.5, #PB_Round_Down) - 1
+			\String = Text
+			
+			\Carret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, #String_CarretHeight)
+			CloseGadgetList()
+			SetGadgetColor(\Carret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]),
+			                                                  Green(\ThemeData\TextColor[#Cold]),
+			                                                  Blue(\ThemeData\TextColor[#Cold])))
+			
+			String_ProcessString(*GadgetData)
+			
+			HideGadget(\Carret, #True)
+			
+			\String = Text
+		EndWith
+	EndProcedure
+	
+	Procedure String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.StringData, *ThemeData
+		
+		If AccessibilityMode
+			Result = StringGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Text_Right) |
+			                                                       (Bool(Flags & #HAlignCenter) * #PB_Text_Center) |
+			                                                       (Bool(Flags & #Border) * #PB_Text_Border))
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | #PB_Canvas_Container)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				AllocateStructureX(*GadgetData, StringData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				AllocateStructureX(*ThemeData, Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
+				String_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+				
+				CloseGadgetList()
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	;}
+	
 	;{ Menu
 	#MenuMinimumWidth = 140
 	#MenuSeparatorHeight = 5
@@ -8171,8 +8473,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 3910
-; FirstLine = 48
-; Folding = JAAAAAAAAAAAAAAAAAAAAAAAgGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 7522
+; FirstLine = 121
+; Folding = JAAAEAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAsLAAAAAAAw
 ; EnableXP
 ; DPIAware
