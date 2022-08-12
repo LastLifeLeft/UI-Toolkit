@@ -56,15 +56,15 @@ AddGadgetItem(Gadget, -1, "Sub-Sub-Item 1", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 2", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 3", 0, 2)
 
-VList1 = UITK::HorizontalList(#PB_Any, 320, 20, 621, 80, UITK::#Border | UITK::#Drag)
-EnableGadgetDrop(VList1, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
+HList1 = UITK::HorizontalList(#PB_Any, 320, 20, 621, 80, UITK::#Border | UITK::#Drag)
+EnableGadgetDrop(HList1, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
 For a = 0 To 10
-	AddGadgetItem(VList1, -1, "Item " + a, SquaredImage, 2)
+	AddGadgetItem(HList1, -1, "Item " + a, SquaredImage, 2)
 Next
 
-VList2 = UITK::HorizontalList(#PB_Any, 320, 120, 621, 80, UITK::#Border | UITK::#Drag)
-EnableGadgetDrop(VList2, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
+HList2 = UITK::HorizontalList(#PB_Any, 320, 120, 621, 80, UITK::#Border | UITK::#Drag)
+EnableGadgetDrop(HList2, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
 Tab = UITK::Tab(#PB_Any, 320, 220, 621, 70)
 AddGadgetItem(Tab, -1, "Prululu 1", ImageID(Image))
@@ -72,9 +72,14 @@ AddGadgetItem(Tab, -1, "Prululu 2", ImageID(Image))
 AddGadgetItem(Tab, -1, "Prululu 3", ImageID(Image))
 SetGadgetItemAttribute(Tab, 2, UITK::#Tab_Color, $FFFF00FF)
 
-String = UITK::String(#PB_Any, 320, 310, 621, 20, "Text")
+String = UITK::String(#PB_Any, 320, 310, 621, 20, "Editable Text", UITK::#Border)
+String = UITK::String(#PB_Any, 320, 350, 621, 20, "Editable Text", UITK::#Border | UITK::#HAlignRight)
+String = UITK::String(#PB_Any, 320, 390, 621, 20, "Editable Text", UITK::#Border | UITK::#HAlignCenter)
 
 HideWindow(Window, #False)
+
+SetActiveGadget(String)
+UITK::StringSetSelection(String, 1, 3)
 
 Repeat
 	Select WaitWindowEvent()
@@ -86,20 +91,20 @@ Repeat
 		Case #PB_Event_GadgetDrop
 			; this is a bad example : you can drag from a gadget to itself, resulting in an empty item. Can't figure how to get the ID of the source of the drag through PB api.
 			Select EventGadget()
-				Case VList1
-					state = GetGadgetState(VList2)
-					AddGadgetItem(VList1, -1, GetGadgetItemText(VList2, state), UITK::GetGadgetItemImage(VList2, state))
-					RemoveGadgetItem(VList2, state)
-				Case VList2
-					state = GetGadgetState(VList1)
-					AddGadgetItem(VList2, -1, GetGadgetItemText(VList1, state), UITK::GetGadgetItemImage(VList1, state))
-					RemoveGadgetItem(VList1, state)
+				Case HList1
+					state = GetGadgetState(HList2)
+					AddGadgetItem(HList1, -1, GetGadgetItemText(HList2, state), UITK::GetGadgetItemImage(HList2, state))
+					RemoveGadgetItem(HList2, state)
+				Case HList2
+					state = GetGadgetState(HList1)
+					AddGadgetItem(HList2, -1, GetGadgetItemText(HList1, state), UITK::GetGadgetItemImage(HList1, state))
+					RemoveGadgetItem(HList1, state)
 			EndSelect
 	EndSelect
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 74
+; CursorPosition = 68
 ; FirstLine = 23
 ; EnableXP
 ; DPIAware

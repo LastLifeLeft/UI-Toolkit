@@ -14,6 +14,7 @@
 		#LightMode										; Use the light color scheme
 		#ReOrder										; Allow user to reorder items by draging them arround the gadget. Mutually exclusive with #Drag.
 		#Drag											; Enable drag from this gadget. Mutually exclusive with #Reorder.
+		#Editable										; 
 		
 		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
@@ -55,6 +56,8 @@
 		#Attribute_TextScale
 		#Attribute_SortItems
 		#Attribute_CornerType
+		#Attribute_TextSelectionPosition
+		#Attribute_TextSelectionLenght
 		
 		#Tab_Color
 		
@@ -312,6 +315,7 @@
 	Declare GetGadgetImage(Gadget)
 	Declare SetGadgetImage(Gadget, Image)
 	Declare GetGadgetItemImage(Gadget, Position)
+	Declare StringSetSelection(Gadget, Position, Lenght)
 	
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
@@ -3071,6 +3075,732 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
+	;}
+	
+	;{ String
+	#String_CarretHeight = 16
+	Structure String_CharacterData
+		Char.s
+		Width.i
+		Position.i
+	EndStructure
+	
+	Structure StringData Extends GadgetData
+		Timer.i
+		Carret.i
+		AlignementOffset.i
+		CarretVisible.i
+		CarretPosition.i
+		TextPositionX.i
+		TextPositionY.i
+		String.s
+		SelectionPosition.i
+		SelectionLenght.i
+		List CharacterData.String_CharacterData()
+		Selecting.b
+		Focus.b
+	EndStructure
+	
+	Procedure String_ProcessString(*GadgetData.StringData)
+		Protected Loop, CharacterCount, Position
+		
+		With *GadgetData
+			Position = \TextPositionX
+			ClearList(\CharacterData())
+			CharacterCount = Len(\String)
+			
+			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			
+			For Loop = 1 To CharacterCount
+				AddElement(\CharacterData())
+				\CharacterData()\Char = Mid(\String, Loop, 1)
+				\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
+				\CharacterData()\Position = Position
+				Position + \CharacterData()\Width
+			Next
+			
+			If \TextBock\HAlign = #HAlignCenter
+				\AlignementOffset = (\Width - Position) * 0.5
+			ElseIf \TextBock\HAlign = #HAlignRight
+				\AlignementOffset = \Width - Position - BorderMargin
+			EndIf
+			
+			AddElement(\CharacterData())
+			\CharacterData()\Position = Position
+			
+			StopVectorDrawing()
+		EndWith
+	EndProcedure
+	
+	Procedure String_Redraw(*GadgetData.StringData)
+		Protected Loop, Size, Position, Text.s
+		
+		With *GadgetData
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
+				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
+			EndIf
+			
+			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+			ClipPath(#PB_Path_Preserve)
+			FillPath()
+			
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			
+			VectorSourceColor(\ThemeData\TextColor[#Cold])
+			MovePathCursor(\TextPositionX + \AlignementOffset, \TextPositionY)
+			DrawVectorParagraph(\String, \Width, \Height)
+			
+			If \SelectionPosition > -1 And \Focus
+				SelectElement(\CharacterData(), \SelectionPosition)
+				Position = \CharacterData()\Position + \AlignementOffset
+				
+				If \SelectionLenght < 0
+					For Loop = -1 To \SelectionLenght Step -1
+						PreviousElement(\CharacterData())
+						Size + \CharacterData()\Width
+						Text = \CharacterData()\Char + Text
+					Next
+					Position - Size
+				Else
+					Size = \CharacterData()\Width
+					Text = \CharacterData()\Char
+					
+					For Loop = 2 To \SelectionLenght
+						NextElement(\CharacterData())
+						Size + \CharacterData()\Width
+						Text + \CharacterData()\Char
+					Next
+				EndIf
+				
+				AddPathBox(Position, \TextPositionY + 1, Size, #String_CarretHeight)
+				VectorSourceColor(SetAlpha(FixColor(\ThemeData\Special1[#Hot]), 255))
+				FillPath()
+				
+				VectorSourceColor(\ThemeData\TextColor[#Cold])
+				MovePathCursor(Position, \TextPositionY)
+				DrawVectorParagraph(Text, \Width, \Height)
+				
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure String_CarretRedraw(*GadgetData.StringData, Timer)
+		With *GadgetData
+			HideGadget(\Carret, \CarretVisible)
+			\CarretVisible = Bool(Not \CarretVisible)
+		EndWith
+	EndProcedure
+	
+	Procedure String_RemoveSelection(*GadgetData.StringData)
+		Protected Size, Loop
+		
+		With *GadgetData
+			If \SelectionLenght < 0
+				\CarretPosition = \SelectionPosition + \SelectionLenght
+				SelectElement(\CharacterData(), \CarretPosition)
+				\SelectionLenght = Abs(\SelectionLenght)
+			Else
+				\CarretPosition = \SelectionPosition
+				SelectElement(\CharacterData(), \SelectionPosition)
+			EndIf
+			
+			\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - (\CarretPosition + \SelectionLenght))
+			
+			For Loop = 1 To \SelectionLenght
+				Size + \CharacterData()\Width
+				DeleteElement(\CharacterData())
+				NextElement(\CharacterData())
+				\CharacterData()\Position - Size
+			Next
+			
+			While NextElement(\CharacterData())
+				\CharacterData()\Position - Size
+			Wend
+			
+			If \TextBock\HAlign = #HAlignCenter
+				\AlignementOffset = (\Width - \CharacterData()\Position) * 0.5
+			ElseIf \TextBock\HAlign = #HAlignRight
+				\AlignementOffset = \Width - \CharacterData()\Position - BorderMargin
+			EndIf
+			
+			\SelectionLenght = 0
+			\SelectionPosition = -1
+		EndWith
+	EndProcedure
+	
+	Procedure String_EventHandler(*GadgetData.StringData, *Event.Event)
+		Protected Size, Selection, Modifiers, Text.s, Loop
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #Input ;{
+					If \SelectionPosition > -1
+						String_RemoveSelection(*GadgetData.StringData)
+					EndIf
+					
+					If \CarretPosition = 0
+						FirstElement(\CharacterData())
+						Size = \CharacterData()\Position
+						InsertElement(\CharacterData())
+					Else
+						SelectElement(\CharacterData(), \CarretPosition - 1)
+						Size = \CharacterData()\Position + \CharacterData()\Width
+						AddElement(\CharacterData())
+					EndIf
+					
+					\CharacterData()\Char = Chr(*Event\Param)
+					\CharacterData()\Position = Size
+					StartVectorDrawing(CanvasVectorOutput(\Gadget))
+					
+					If \TextBock\FontScale
+						VectorFont(\TextBock\FontID, \TextBock\FontScale)
+					Else
+						VectorFont(\TextBock\FontID)
+					EndIf
+					
+					\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
+					If \TextBock\HAlign = #HAlignCenter
+						\AlignementOffset - \CharacterData()\Width * 0.5
+					ElseIf \TextBock\HAlign = #HAlignRight
+						\AlignementOffset - \CharacterData()\Width
+					EndIf
+					
+					ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position + \CharacterData()\Width, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					
+					StopVectorDrawing()
+					
+					Size = \CharacterData()\Width
+					
+					While NextElement(\CharacterData())
+						\CharacterData()\Position + Size
+					Wend
+					
+					\String = Left(\String, \CarretPosition) + Chr(*Event\Param) + Right(\String, Len(\String) - \CarretPosition)
+					RedrawObject()
+					
+					\CarretPosition + 1
+					HideGadget(\Carret, #False)
+					\CarretVisible = #True
+					RemoveGadgetTimer(\Timer)
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+					;}
+				Case #LeftButtonDown ;{
+					ForEach \CharacterData()
+						If \CharacterData()\Position + 2 > (*Event\MouseX - \AlignementOffset)
+							Break
+						EndIf
+					Next
+					
+					\CarretPosition = ListIndex(\CharacterData())
+					ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					HideGadget(\Carret, #False)
+					\CarretVisible = #True
+					RemoveGadgetTimer(\Timer)
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					\Selecting = #True
+					\SelectionLenght = 0
+					\SelectionPosition = -1
+					RedrawObject()
+					;}
+				Case #LeftButtonUp ;{
+					\Selecting = #False
+					;}
+				Case #KeyDown ;{
+					Select *Event\Param
+						Case #PB_Shortcut_Left ;{
+							If \CarretPosition > 0
+								Modifiers = GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers)
+								If Modifiers & #PB_Canvas_Shift
+									If \SelectionPosition > -1
+										\SelectionLenght -1
+										If \SelectionLenght = 0
+											\SelectionPosition = -1
+										EndIf
+									Else
+										\SelectionPosition = \CarretPosition
+										\SelectionLenght = -1
+									EndIf
+									RedrawObject()
+								ElseIf \SelectionPosition > -1
+									\SelectionPosition = -1
+									\SelectionLenght = 0
+									RedrawObject()
+								EndIf
+								
+								\CarretPosition - 1
+								SelectElement(\CharacterData(), \CarretPosition)
+								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+							Else
+								If \SelectionPosition > -1 And Not (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
+									\SelectionPosition = -1
+									\SelectionLenght = 0
+									RedrawObject()
+								EndIf
+							EndIf
+							;}
+						Case #PB_Shortcut_Right ;{
+							If \CarretPosition < ListSize(\CharacterData()) And SelectElement(\CharacterData(), \CarretPosition + 1)
+								Modifiers = GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers)
+								If Modifiers & #PB_Canvas_Shift
+									If \SelectionPosition > -1
+										\SelectionLenght +1
+										If \SelectionLenght = 0
+											\SelectionPosition = -1
+										EndIf
+									Else
+										\SelectionPosition = \CarretPosition
+										\SelectionLenght = 1
+									EndIf
+									RedrawObject()
+									SelectElement(\CharacterData(), \CarretPosition + 1)
+								ElseIf \SelectionPosition > -1
+									\SelectionPosition = -1
+									\SelectionLenght = 0
+									RedrawObject()
+									SelectElement(\CharacterData(), \CarretPosition + 1)
+								EndIf
+								
+								\CarretPosition + 1
+								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+							Else
+								If \SelectionPosition > -1 And Not (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
+									\SelectionPosition = -1
+									\SelectionLenght = 0
+									RedrawObject()
+								EndIf
+							EndIf
+							;}
+						Case #PB_Shortcut_Delete ;{
+							If \SelectionPosition > -1
+								String_RemoveSelection(*GadgetData.StringData)
+								SelectElement(\CharacterData(), \CarretPosition)
+								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								RedrawObject()
+								
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+							ElseIf \CarretPosition < ListSize(\CharacterData()) - 1
+								SelectElement(\CharacterData(), \CarretPosition)
+								Size = \CharacterData()\Width
+								
+								If \TextBock\HAlign = #HAlignCenter
+									\AlignementOffset + \CharacterData()\Width * 0.5
+									ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								ElseIf \TextBock\HAlign = #HAlignRight
+									\AlignementOffset + \CharacterData()\Width
+									ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								EndIf
+								
+								DeleteElement(\CharacterData())
+								
+								While NextElement(\CharacterData())
+									\CharacterData()\Position - Size
+								Wend
+								
+								\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - \CarretPosition - 1)
+								
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								RedrawObject()
+								
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+							EndIf
+							;}
+						Case #PB_Shortcut_Back ;{
+							If \SelectionPosition > -1
+								String_RemoveSelection(*GadgetData.StringData)
+								SelectElement(\CharacterData(), \CarretPosition)
+								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								RedrawObject()
+								
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+							ElseIf \CarretPosition
+								\CarretPosition -1
+								SelectElement(\CharacterData(), \CarretPosition)
+								Size = \CharacterData()\Width
+								
+								If \TextBock\HAlign = #HAlignCenter
+									\AlignementOffset + \CharacterData()\Width * 0.5
+									ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								ElseIf \TextBock\HAlign = #HAlignRight
+									\AlignementOffset + \CharacterData()\Width
+								Else
+									ResizeGadget(\Carret, GadgetX(\Carret) - Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								EndIf
+								
+								DeleteElement(\CharacterData())
+								
+								While NextElement(\CharacterData())
+									\CharacterData()\Position - Size
+								Wend
+								
+								\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - \CarretPosition - 1)
+								
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								RedrawObject()
+								
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+							EndIf
+							;}
+						Case #PB_Shortcut_V ;{
+							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control 
+								Text = GetClipboardText()
+								If Text <> ""
+									If \SelectionPosition > -1
+										String_RemoveSelection(*GadgetData)
+									EndIf
+									
+									\String = Left(\String, \CarretPosition) + Text + Right(\String, Len(\String) - \CarretPosition)
+									\CarretPosition + Len(Text)
+									String_ProcessString(*GadgetData)
+									
+									SelectElement(\CharacterData(), \CarretPosition)
+									ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									HideGadget(\Carret, #False)
+									\CarretVisible = #True
+									RemoveGadgetTimer(\Timer)
+									\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+									RedrawObject()
+									
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								EndIf
+							EndIf
+							;}
+						Case #PB_Shortcut_C ;{
+							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control And \SelectionPosition > -1
+								
+								If \SelectionLenght < 0
+									\CarretPosition = \SelectionPosition + \SelectionLenght
+									SelectElement(\CharacterData(), \CarretPosition)
+									\SelectionLenght = Abs(\SelectionLenght)
+								Else
+									\CarretPosition = \SelectionPosition
+									SelectElement(\CharacterData(), \SelectionPosition)
+								EndIf
+								
+								For Loop = 1 To \SelectionLenght
+									Text + \CharacterData()\Char
+									NextElement(\CharacterData())
+								Next
+								
+								SetClipboardText(Text)
+							EndIf
+							;}
+						Case #PB_Shortcut_X ;{
+							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control And \SelectionPosition > -1
+								
+								If \SelectionLenght < 0
+									\CarretPosition = \SelectionPosition + \SelectionLenght
+									SelectElement(\CharacterData(), \CarretPosition)
+									\SelectionLenght = Abs(\SelectionLenght)
+									\SelectionPosition = \CarretPosition
+								Else
+									\CarretPosition = \SelectionPosition
+									SelectElement(\CharacterData(), \SelectionPosition)
+								EndIf
+								
+								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								
+								For Loop = 1 To \SelectionLenght
+									Text + \CharacterData()\Char
+									NextElement(\CharacterData())
+								Next
+								
+								SetClipboardText(Text)
+								String_RemoveSelection(*GadgetData.StringData)
+								
+								RedrawObject()
+								
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+							EndIf
+							;}
+						Case #PB_Shortcut_A ;{
+							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control
+								\SelectionPosition = 0
+								\CarretPosition = ListSize(\CharacterData()) - 1
+								\SelectionLenght = \CarretPosition
+								
+								LastElement(\CharacterData())
+								
+								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Carret, #False)
+								\CarretVisible = #True
+								RemoveGadgetTimer(\Timer)
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								RedrawObject()
+							EndIf
+							;}
+						Case #PB_Shortcut_Return ;{
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ForcefulChange)
+							;}
+					EndSelect
+					;}
+				Case #Focus ;{
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					\Focus = #True
+					
+					SelectElement(\CharacterData(), \CarretPosition)
+					ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, \TextPositionY + 1, #PB_Ignore, #PB_Ignore)
+					HideGadget(\Carret, #False)
+					\CarretVisible = #True
+					
+					If \SelectionPosition > -1
+						RedrawObject()
+					EndIf
+					;}
+				Case #LostFocus ;{
+					RemoveGadgetTimer(\Timer)
+					If \CarretVisible
+						HideGadget(\Carret, #True)
+						\CarretVisible = #False
+					EndIf
+					
+					\Focus = #False
+					
+					If \SelectionPosition > -1
+						RedrawObject()
+					EndIf
+					;}
+				Case #MouseMove ;{
+					If \Selecting
+						ForEach \CharacterData()
+							If \CharacterData()\Position + 2 > (*Event\MouseX - \AlignementOffset)
+								Break
+							EndIf
+						Next
+						Selection = ListIndex(\CharacterData())
+						
+						If Selection <> \CarretPosition
+							If \SelectionPosition = -1
+								\SelectionPosition = \CarretPosition
+							EndIf
+							
+							\CarretPosition = ListIndex(\CharacterData())
+							\SelectionLenght = \CarretPosition - \SelectionPosition
+							
+							If \SelectionLenght = 0
+								\SelectionPosition = -1
+							EndIf
+							
+							ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+							HideGadget(\Carret, #False)
+							\CarretVisible = #True
+							RemoveGadgetTimer(\Timer)
+							\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+							
+							RedrawObject()
+						EndIf
+					EndIf
+					;}
+				Case #MouseEnter ;{
+					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
+					;}
+				Case #MouseLeave ;{
+					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
+					;}
+			EndSelect
+		EndWith
+	EndProcedure
+	
+	; Getters
+	Procedure.s String_GetText(*this.PB_Gadget)
+		Protected *GadgetData.StringData = *this\vt
+		ProcedureReturn *GadgetData\String
+	EndProcedure
+	
+	Procedure String_GetAttribute(*this.PB_Gadget, Attribute)
+		Protected *GadgetData.StringData = *this\vt, Result
+		
+		With *GadgetData
+			Select Attribute
+				Case #Attribute_TextSelectionPosition
+					Result =  \SelectionPosition
+					
+				Case #Attribute_TextSelectionLenght
+					Result = \SelectionLenght
+					
+				Default
+					Result = Default_GetAttribute(*this.PB_Gadget, Attribute)
+			EndSelect
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	; Setters
+	Procedure String_SetText(*this.PB_Gadget, Text.s)
+		Protected *GadgetData.StringData = *this\vt
+		
+		With *GadgetData
+			\String = Text
+			\SelectionLenght = 0
+			\SelectionPosition = -1
+			\CarretPosition = Len(\String)
+			String_ProcessString(*GadgetData)
+			RedrawObject()
+			
+			LastElement(\CharacterData())
+			ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			
+			If \Focus = \Gadget
+				HideGadget(\Carret, #False)
+				\CarretVisible = #True
+				RemoveGadgetTimer(\Timer)
+				\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+			EndIf
+		EndWith
+		
+	EndProcedure
+	
+	Procedure StringSetSelection(Gadget, Position, Lenght)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.StringData = *this\vt
+		
+		With *GadgetData
+			\SelectionPosition = Position
+			\SelectionLenght = Lenght
+			\CarretPosition = Position + Lenght
+			
+			SelectElement(\CharacterData(), \CarretPosition)
+			ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			HideGadget(\Carret, #False)
+			\CarretVisible = #True
+			RemoveGadgetTimer(\Timer)
+			\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
+	
+	Procedure String_Meta(*GadgetData.StringData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(String)
+		
+		With *GadgetData
+			\SupportedEvent[#Focus] = #True
+			\SupportedEvent[#LostFocus] = #True
+			\SupportedEvent[#MouseEnter] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#KeyDown] = #True
+			\SupportedEvent[#KeyUp] = #True
+			\SupportedEvent[#Input] = #True
+			
+			\TextPositionX = \OriginX + BorderMargin * Bool(\TextBock\HAlign = #HAlignLeft)						
+			\TextPositionY = \OriginY + Round((\Height - #String_CarretHeight) * 0.5, #PB_Round_Down) - 1
+			\String = Text
+			\SelectionPosition = -1
+			
+			If \Carret = 0
+				\Carret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, #String_CarretHeight)
+				CloseGadgetList()
+				SetGadgetColor(\Carret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]),
+				                                                  Green(\ThemeData\TextColor[#Cold]),
+				                                                  Blue(\ThemeData\TextColor[#Cold])))
+			EndIf
+			
+			String_ProcessString(*GadgetData)
+			
+			HideGadget(\Carret, #True)
+			
+			\VT\GetGadgetText = @String_GetText()
+			\VT\SetGadgetText = @String_SetText()
+			
+		EndWith
+	EndProcedure
+	
+	Procedure String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.StringData, *ThemeData
+		
+		If AccessibilityMode
+			Result = StringGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Text_Right) |
+			                                                       (Bool(Flags & #HAlignCenter) * #PB_Text_Center) |
+			                                                       (Bool(Flags & #Border) * #PB_Text_Border))
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | #PB_Canvas_Container)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				AllocateStructureX(*GadgetData, StringData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				AllocateStructureX(*ThemeData, Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
+				String_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+				
+				CloseGadgetList()
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
 	;}
 	
 	;{ Scrollbar
@@ -7503,309 +8233,6 @@ Module UITK
 	EndProcedure
 	;}
 	
-	;{ String
-	#String_CarretHeight = 16
-	Structure String_CharacterData
-		Char.s
-		Width.i
-		Position.i
-	EndStructure
-	
-	Structure StringData Extends GadgetData
-		Timer.i
-		Carret.i
-		CarretVisible.i
-		CarretPosition.i
-		TextPositionX.i
-		TextPositionY.i
-		String.s
-		SelectionPosition.i
-		SelectionDuration.i
-		List CharacterData.String_CharacterData()
-	EndStructure
-	
-	Procedure String_ProcessString(*GadgetData.StringData)
-		Protected Loop, CharacterCount, Position
-		
-		With *GadgetData
-			Position = \TextPositionX
-			ClearList(\CharacterData())
-			CharacterCount = Len(\String)
-			
-			StartVectorDrawing(CanvasVectorOutput(\Gadget))
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
-			
-			For Loop = 1 To CharacterCount
-				AddElement(\CharacterData())
-				\CharacterData()\Char = Mid(\String, Loop, 1)
-				\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
-				\CharacterData()\Position = Position
-				Position + \CharacterData()\Width
-			Next
-			
-			AddElement(\CharacterData())
-			\CharacterData()\Position = Position
-			
-			StopVectorDrawing()
-		EndWith
-	EndProcedure
-	
-	Procedure String_Redraw(*GadgetData.StringData)
-		With *GadgetData
-			If \Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
-				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
-				StrokePath(2, #PB_Path_Preserve)
-			Else
-				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
-			EndIf
-			
-			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-			ClipPath(#PB_Path_Preserve)
-			FillPath()
-			
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
-			
-			VectorSourceColor(\ThemeData\TextColor[#Cold])
-			MovePathCursor(\TextPositionX, \TextPositionY)
-			DrawVectorParagraph(\String, \Width, \Height)
-		EndWith
-	EndProcedure
-	
-	Procedure String_CarretRedraw(*GadgetData.StringData, Timer)
-		With *GadgetData
-			HideGadget(\Carret, \CarretVisible)
-			\CarretVisible = Bool(Not \CarretVisible)
-		EndWith
-	EndProcedure
-	
-	Procedure String_EventHandler(*GadgetData.StringData, *Event.Event)
-		Protected Size
-		
-		With *GadgetData
-			Select *Event\EventType
-				Case #Input ;{
-					SelectElement(\CharacterData(), \CarretPosition - 1)
-					Size = \CharacterData()\Position + \CharacterData()\Width
-					AddElement(\CharacterData())
-					\CharacterData()\Char = Chr(*Event\Param)
-					\CharacterData()\Position = Size
-					StartVectorDrawing(CanvasVectorOutput(\Gadget))
-					If \TextBock\FontScale
-						VectorFont(\TextBock\FontID, \TextBock\FontScale)
-					Else
-						VectorFont(\TextBock\FontID)
-					EndIf
-					\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
-					StopVectorDrawing()
-					
-					Size = \CharacterData()\Width
-					
-					While NextElement(\CharacterData())
-						\CharacterData()\Position + Size
-					Wend
-					
-					\String = Left(\String, \CarretPosition) + Chr(*Event\Param) + Right(\String, Len(\String) - \CarretPosition)
-					RedrawObject()
-					
-					\CarretPosition + 1
-					
-					ResizeGadget(\Carret, GadgetX(\Carret) + Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-					HideGadget(\Carret, #False)
-					\CarretVisible = #True
-					RemoveGadgetTimer(\Timer)
-					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-					
-					
-					;}
-				Case #LeftButtonDown ;{
-					ForEach \CharacterData()
-						If \CharacterData()\Position + 2 > *Event\MouseX
-							Break
-						EndIf
-					Next
-					
-					\CarretPosition = ListIndex(\CharacterData())
-					ResizeGadget(\Carret, \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-					HideGadget(\Carret, #False)
-					\CarretVisible = #True
-					RemoveGadgetTimer(\Timer)
-					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-					;}
-				Case #KeyDown ;{
-					Select *Event\Param
-						Case #PB_Shortcut_Left ;{
-							If \CarretPosition > 0
-								\CarretPosition - 1
-								SelectElement(\CharacterData(), \CarretPosition)
-								ResizeGadget(\Carret, \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
-								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-							EndIf
-							;}
-						Case #PB_Shortcut_Right ;{
-							If \CarretPosition < ListSize(\CharacterData()) And SelectElement(\CharacterData(), \CarretPosition + 1)
-								\CarretPosition + 1
-								ResizeGadget(\Carret, \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
-								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-							EndIf
-							;}
-						Case #PB_Shortcut_Delete ;{
-							If \CarretPosition < ListSize(\CharacterData()) - 1
-								SelectElement(\CharacterData(), \CarretPosition)
-								Size = \CharacterData()\Width
-								DeleteElement(\CharacterData())
-								
-								While NextElement(\CharacterData())
-									\CharacterData()\Position - Size
-								Wend
-								
-								\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - \CarretPosition - 1)
-								RedrawObject()
-								
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
-								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-							EndIf
-							;}
-						Case #PB_Shortcut_Back ;{
-							If \CarretPosition
-								\CarretPosition -1
-								SelectElement(\CharacterData(), \CarretPosition)
-								Size = \CharacterData()\Width
-								DeleteElement(\CharacterData())
-								
-								While NextElement(\CharacterData())
-									\CharacterData()\Position - Size
-								Wend
-								
-								\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - \CarretPosition - 1)
-								RedrawObject()
-								
-								ResizeGadget(\Carret, GadgetX(\Carret) - Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
-								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-							EndIf
-							;}
-					EndSelect
-					;}
-				Case #Focus ;{
-					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-					;}
-				Case #LostFocus ;{
-					RemoveGadgetTimer(\Timer)
-					If \CarretVisible
-						HideGadget(\Carret, #True)
-						\CarretVisible = #False
-					EndIf
-					;}
-				Case #MouseEnter ;{
-					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
-					;}
-				Case #MouseLeave ;{
-					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
-					;}
-			EndSelect
-		EndWith
-	EndProcedure
-	
-	Procedure String_Meta(*GadgetData.StringData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
-		*GadgetData\ThemeData = *ThemeData
-		InitializeObject(String)
-		
-		With *GadgetData
-			\SupportedEvent[#Focus] = #True
-			\SupportedEvent[#LostFocus] = #True
-			\SupportedEvent[#MouseEnter] = #True
-			\SupportedEvent[#MouseLeave] = #True
-			\SupportedEvent[#LeftButtonDown] = #True
-			\SupportedEvent[#KeyDown] = #True
-			\SupportedEvent[#Input] = #True
-			
-			\TextPositionX = \OriginX + BorderMargin
-			\TextPositionY = \OriginY + Round((\Height - #String_CarretHeight) * 0.5, #PB_Round_Down) - 1
-			\String = Text
-			
-			\Carret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, #String_CarretHeight)
-			CloseGadgetList()
-			SetGadgetColor(\Carret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]),
-			                                                  Green(\ThemeData\TextColor[#Cold]),
-			                                                  Blue(\ThemeData\TextColor[#Cold])))
-			
-			String_ProcessString(*GadgetData)
-			
-			HideGadget(\Carret, #True)
-			
-			\String = Text
-		EndWith
-	EndProcedure
-	
-	Procedure String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.StringData, *ThemeData
-		
-		If AccessibilityMode
-			Result = StringGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Text_Right) |
-			                                                       (Bool(Flags & #HAlignCenter) * #PB_Text_Center) |
-			                                                       (Bool(Flags & #Border) * #PB_Text_Border))
-		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | #PB_Canvas_Container)
-			
-			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, StringData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
-				String_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
-				
-				CloseGadgetList()
-				
-				RedrawObject()
-			EndIf
-		EndIf
-		
-		ProcedureReturn Result
-	EndProcedure
-	;}
-	
 	;{ Menu
 	#MenuMinimumWidth = 140
 	#MenuSeparatorHeight = 5
@@ -8473,8 +8900,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 7522
-; FirstLine = 121
-; Folding = JAAAEAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAsLAAAAAAAw
+; CursorPosition = 3744
+; FirstLine = 86
+; Folding = AAAAAAAAAAAAAAAAAAAAAABAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
