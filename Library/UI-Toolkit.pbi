@@ -206,6 +206,7 @@
 	Enumeration #PB_EventType_FirstCustomValue; EventType
 		#EventType_ForcefulChange
 		#EventType_ItemRightClick
+		#EventType_ItemTextChange
 		
 		#EventType_FirstAvailableCustomValue
 	EndEnumeration	
@@ -3101,6 +3102,17 @@ Module UITK
 		Focus.b
 	EndStructure
 	
+	Macro String_SupportedEvents()
+		*GadgetData\SupportedEvent[#Focus] = #True
+		*GadgetData\SupportedEvent[#LostFocus] = #True
+		*GadgetData\SupportedEvent[#MouseMove] = #True
+		*GadgetData\SupportedEvent[#LeftButtonDown] = #True
+		*GadgetData\SupportedEvent[#LeftButtonUp] = #True
+		*GadgetData\SupportedEvent[#KeyDown] = #True
+		*GadgetData\SupportedEvent[#KeyUp] = #True
+		*GadgetData\SupportedEvent[#Input] = #True
+	EndMacro
+	
 	Procedure String_ProcessString(*GadgetData.StringData)
 		Protected Loop, CharacterCount, Position
 		
@@ -3133,6 +3145,10 @@ Module UITK
 			AddElement(\CharacterData())
 			\CharacterData()\Position = Position
 			
+			If \CarretPosition > CharacterCount
+				\CarretPosition = CharacterCount
+			EndIf
+			
 			StopVectorDrawing()
 		EndWith
 	EndProcedure
@@ -3143,7 +3159,7 @@ Module UITK
 		With *GadgetData
 			If \Border
 				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
-				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
+				VectorSourceColor(\ThemeData\LineColor[#Cold])
 				StrokePath(2, #PB_Path_Preserve)
 			Else
 				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
@@ -3160,12 +3176,12 @@ Module UITK
 			EndIf
 			
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
-			MovePathCursor(\TextPositionX + \AlignementOffset, \TextPositionY)
+			MovePathCursor(\TextPositionX + \AlignementOffset + \OriginX, \TextPositionY + \OriginY)
 			DrawVectorParagraph(\String, \Width, \Height)
 			
 			If \SelectionPosition > -1 And \Focus
 				SelectElement(\CharacterData(), \SelectionPosition)
-				Position = \CharacterData()\Position + \AlignementOffset
+				Position = \CharacterData()\Position + \AlignementOffset + \OriginX
 				
 				If \SelectionLenght < 0
 					For Loop = -1 To \SelectionLenght Step -1
@@ -3185,12 +3201,12 @@ Module UITK
 					Next
 				EndIf
 				
-				AddPathBox(Position, \TextPositionY + 1, Size, #String_CarretHeight)
-				VectorSourceColor(SetAlpha(FixColor(\ThemeData\Special1[#Hot]), 255))
+				AddPathBox(Position, \OriginY + \TextPositionY + 1, Size, #String_CarretHeight)
+				VectorSourceColor(SetAlpha(FixColor($4F9BF2), 255))
 				FillPath()
 				
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
-				MovePathCursor(Position, \TextPositionY)
+				MovePathCursor(Position, \OriginY + \TextPositionY)
 				DrawVectorParagraph(Text, \Width, \Height)
 				
 			EndIf
@@ -3243,7 +3259,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure String_EventHandler(*GadgetData.StringData, *Event.Event)
-		Protected Size, Selection, Modifiers, Text.s, Loop
+		Protected Size, Selection, Modifiers, Text.s, Loop, Redraw
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -3279,7 +3295,7 @@ Module UITK
 						\AlignementOffset - \CharacterData()\Width
 					EndIf
 					
-					ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position + \CharacterData()\Width, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position + \CharacterData()\Width, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 					
 					StopVectorDrawing()
 					
@@ -3290,7 +3306,7 @@ Module UITK
 					Wend
 					
 					\String = Left(\String, \CarretPosition) + Chr(*Event\Param) + Right(\String, Len(\String) - \CarretPosition)
-					RedrawObject()
+					Redraw = #True
 					
 					\CarretPosition + 1
 					HideGadget(\Carret, #False)
@@ -3308,7 +3324,7 @@ Module UITK
 					Next
 					
 					\CarretPosition = ListIndex(\CharacterData())
-					ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 					HideGadget(\Carret, #False)
 					\CarretVisible = #True
 					RemoveGadgetTimer(\Timer)
@@ -3316,7 +3332,7 @@ Module UITK
 					\Selecting = #True
 					\SelectionLenght = 0
 					\SelectionPosition = -1
-					RedrawObject()
+					Redraw = #True
 					;}
 				Case #LeftButtonUp ;{
 					\Selecting = #False
@@ -3336,16 +3352,16 @@ Module UITK
 										\SelectionPosition = \CarretPosition
 										\SelectionLenght = -1
 									EndIf
-									RedrawObject()
+									Redraw = #True
 								ElseIf \SelectionPosition > -1
 									\SelectionPosition = -1
 									\SelectionLenght = 0
-									RedrawObject()
+									Redraw = #True
 								EndIf
 								
 								\CarretPosition - 1
 								SelectElement(\CharacterData(), \CarretPosition)
-								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								HideGadget(\Carret, #False)
 								\CarretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -3354,7 +3370,7 @@ Module UITK
 								If \SelectionPosition > -1 And Not (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
 									\SelectionPosition = -1
 									\SelectionLenght = 0
-									RedrawObject()
+									Redraw = #True
 								EndIf
 							EndIf
 							;}
@@ -3371,17 +3387,17 @@ Module UITK
 										\SelectionPosition = \CarretPosition
 										\SelectionLenght = 1
 									EndIf
-									RedrawObject()
+									Redraw = #True
 									SelectElement(\CharacterData(), \CarretPosition + 1)
 								ElseIf \SelectionPosition > -1
 									\SelectionPosition = -1
 									\SelectionLenght = 0
-									RedrawObject()
+									Redraw = #True
 									SelectElement(\CharacterData(), \CarretPosition + 1)
 								EndIf
 								
 								\CarretPosition + 1
-								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								HideGadget(\Carret, #False)
 								\CarretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -3390,7 +3406,7 @@ Module UITK
 								If \SelectionPosition > -1 And Not (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
 									\SelectionPosition = -1
 									\SelectionLenght = 0
-									RedrawObject()
+									Redraw = #True
 								EndIf
 							EndIf
 							;}
@@ -3398,13 +3414,13 @@ Module UITK
 							If \SelectionPosition > -1
 								String_RemoveSelection(*GadgetData.StringData)
 								SelectElement(\CharacterData(), \CarretPosition)
-								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								
 								HideGadget(\Carret, #False)
 								\CarretVisible = #True
 								RemoveGadgetTimer(\Timer)
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-								RedrawObject()
+								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							ElseIf \CarretPosition < ListSize(\CharacterData()) - 1
@@ -3413,10 +3429,10 @@ Module UITK
 								
 								If \TextBock\HAlign = #HAlignCenter
 									\AlignementOffset + \CharacterData()\Width * 0.5
-									ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								ElseIf \TextBock\HAlign = #HAlignRight
 									\AlignementOffset + \CharacterData()\Width
-									ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								EndIf
 								
 								DeleteElement(\CharacterData())
@@ -3431,7 +3447,7 @@ Module UITK
 								\CarretVisible = #True
 								RemoveGadgetTimer(\Timer)
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-								RedrawObject()
+								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf
@@ -3440,13 +3456,13 @@ Module UITK
 							If \SelectionPosition > -1
 								String_RemoveSelection(*GadgetData.StringData)
 								SelectElement(\CharacterData(), \CarretPosition)
-								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								
 								HideGadget(\Carret, #False)
 								\CarretVisible = #True
 								RemoveGadgetTimer(\Timer)
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-								RedrawObject()
+								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							ElseIf \CarretPosition
@@ -3456,7 +3472,7 @@ Module UITK
 								
 								If \TextBock\HAlign = #HAlignCenter
 									\AlignementOffset + \CharacterData()\Width * 0.5
-									ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								ElseIf \TextBock\HAlign = #HAlignRight
 									\AlignementOffset + \CharacterData()\Width
 								Else
@@ -3475,7 +3491,7 @@ Module UITK
 								\CarretVisible = #True
 								RemoveGadgetTimer(\Timer)
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-								RedrawObject()
+								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf
@@ -3493,12 +3509,12 @@ Module UITK
 									String_ProcessString(*GadgetData)
 									
 									SelectElement(\CharacterData(), \CarretPosition)
-									ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 									HideGadget(\Carret, #False)
 									\CarretVisible = #True
 									RemoveGadgetTimer(\Timer)
 									\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-									RedrawObject()
+									Redraw = #True
 									
 									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 								EndIf
@@ -3537,7 +3553,7 @@ Module UITK
 									SelectElement(\CharacterData(), \SelectionPosition)
 								EndIf
 								
-								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								HideGadget(\Carret, #False)
 								\CarretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -3551,7 +3567,7 @@ Module UITK
 								SetClipboardText(Text)
 								String_RemoveSelection(*GadgetData.StringData)
 								
-								RedrawObject()
+								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf
@@ -3564,12 +3580,12 @@ Module UITK
 								
 								LastElement(\CharacterData())
 								
-								ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								HideGadget(\Carret, #False)
 								\CarretVisible = #True
 								RemoveGadgetTimer(\Timer)
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
-								RedrawObject()
+								Redraw = #True
 							EndIf
 							;}
 						Case #PB_Shortcut_Return ;{
@@ -3582,12 +3598,12 @@ Module UITK
 					\Focus = #True
 					
 					SelectElement(\CharacterData(), \CarretPosition)
-					ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, \TextPositionY + 1, #PB_Ignore, #PB_Ignore)
+					ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, \OriginY + \TextPositionY + \Border, #PB_Ignore, #PB_Ignore)
 					HideGadget(\Carret, #False)
 					\CarretVisible = #True
 					
 					If \SelectionPosition > -1
-						RedrawObject()
+						Redraw = #True
 					EndIf
 					;}
 				Case #LostFocus ;{
@@ -3600,7 +3616,7 @@ Module UITK
 					\Focus = #False
 					
 					If \SelectionPosition > -1
-						RedrawObject()
+						Redraw = #True
 					EndIf
 					;}
 				Case #MouseMove ;{
@@ -3624,13 +3640,13 @@ Module UITK
 								\SelectionPosition = -1
 							EndIf
 							
-							ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+							ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 							HideGadget(\Carret, #False)
 							\CarretVisible = #True
 							RemoveGadgetTimer(\Timer)
 							\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
 							
-							RedrawObject()
+							Redraw = #True
 						EndIf
 					EndIf
 					;}
@@ -3641,7 +3657,13 @@ Module UITK
 					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
 					;}
 			EndSelect
+			
+			If Redraw
+				RedrawObject()
+			EndIf
 		EndWith
+		
+		ProcedureReturn Redraw
 	EndProcedure
 	
 	; Getters
@@ -3694,16 +3716,14 @@ Module UITK
 		
 	EndProcedure
 	
-	Procedure StringSetSelection(Gadget, Position, Lenght)
-		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.StringData = *this\vt
-		
+	Procedure StringSetSelection_Meta(*GadgetData.StringData, Position, Lenght)
 		With *GadgetData
 			\SelectionPosition = Position
 			\SelectionLenght = Lenght
 			\CarretPosition = Position + Lenght
 			
 			SelectElement(\CharacterData(), \CarretPosition)
-			ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 			HideGadget(\Carret, #False)
 			\CarretVisible = #True
 			RemoveGadgetTimer(\Timer)
@@ -3713,22 +3733,18 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure StringSetSelection(Gadget, Position, Lenght)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.StringData = *this\vt
+		
+		StringSetSelection_Meta(*GadgetData.StringData, Position, Lenght)
+	EndProcedure
+	
 	
 	Procedure String_Meta(*GadgetData.StringData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(String)
 		
 		With *GadgetData
-			\SupportedEvent[#Focus] = #True
-			\SupportedEvent[#LostFocus] = #True
-			\SupportedEvent[#MouseEnter] = #True
-			\SupportedEvent[#MouseLeave] = #True
-			\SupportedEvent[#MouseMove] = #True
-			\SupportedEvent[#LeftButtonDown] = #True
-			\SupportedEvent[#LeftButtonUp] = #True
-			\SupportedEvent[#KeyDown] = #True
-			\SupportedEvent[#KeyUp] = #True
-			\SupportedEvent[#Input] = #True
 			
 			\TextPositionX = \OriginX + BorderMargin * Bool(\TextBock\HAlign = #HAlignLeft)						
 			\TextPositionY = \OriginY + Round((\Height - #String_CarretHeight) * 0.5, #PB_Round_Down) - 1
@@ -3743,12 +3759,21 @@ Module UITK
 				                                                  Blue(\ThemeData\TextColor[#Cold])))
 			EndIf
 			
-			String_ProcessString(*GadgetData)
+			If Gadget > -1
+				String_ProcessString(*GadgetData)
+			Else
+				AddElement(\CharacterData())
+				\CharacterData()\Position = \TextPositionX
+			EndIf
 			
 			HideGadget(\Carret, #True)
 			
 			\VT\GetGadgetText = @String_GetText()
 			\VT\SetGadgetText = @String_SetText()
+			
+			String_SupportedEvents()
+			*GadgetData\SupportedEvent[#MouseEnter] = #True
+			*GadgetData\SupportedEvent[#MouseLeave] = #True
 			
 		EndWith
 	EndProcedure
@@ -4613,6 +4638,11 @@ Module UITK
 		ReorderWindow.i	; We should share with the drag window? Might add some issues since it's subclassed?
 		ReorderCanvas.i
 		
+		Editable.l
+		Editing.b
+		EditCursor.b
+		*String.StringData
+		
 		*ItemRedraw.ItemRedraw
 		*ScrollBar.ScrollBarData
 		
@@ -4714,6 +4744,7 @@ Module UITK
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
 					\ItemRedraw(@\Items(), \Border, Y, Width, \ItemHeight, State, \ThemeData)
+					
 					Y + \ItemHeight
 					ItemCount + 1
 				Until ItemCount > \MaxDisplayedItem Or (Not NextElement(\Items()))
@@ -4724,9 +4755,16 @@ Module UITK
 					FillPath()
 				EndIf
 				
+				If \Editing
+					SaveVectorState()
+					\String\Redraw(\String)
+					RestoreVectorState()
+				EndIf
+				
 				If \VisibleScrollbar
 					\ScrollBar\Redraw(\ScrollBar)
 				EndIf
+				
 			EndIf
 		EndWith
 	EndProcedure
@@ -4782,12 +4820,17 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
-		Protected Redraw, Item, *Element, Image
+		Protected Redraw, Item, *Element, Image, Cursor = *GadgetData\EditCursor
 		With *GadgetData
 			
 			Select *Event\EventType
 				Case #MouseMove ;{
-					If \DragState = #Drag_Init ;{
+					If \EditCursor = #PB_Cursor_IBeam And \String\Selecting = #True ;{
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+						;}
+					ElseIf \DragState = #Drag_Init ;{
 						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
 							If \Drag 
 								Image = CreateImage(#PB_Any, \Width, \ItemHeight, 32, \ThemeData\ShadeColor[#Hot])
@@ -4877,6 +4920,8 @@ Module UITK
 						EndIf
 						;}
 					Else;{
+						Cursor = #PB_Cursor_Default
+						
 						If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
 							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 							
@@ -4896,30 +4941,66 @@ Module UITK
 								\ItemState = Item
 								Redraw = #True
 							EndIf
+							
+							If item = \State And \Editing
+								If *Event\MouseY > \String\OriginY And *Event\MouseY < \String\OriginY + \string\Height And *Event\MouseX > \String\OriginX
+									Cursor = #PB_Cursor_IBeam
+								EndIf
+							EndIf
 						Else
 							\ItemState = -1
 						EndIf
 					EndIf ;}
-						  ;}
+					;}
 				Case #LeftButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						If \Editing
+							\Editing = #False
+							SelectElement(\Items(), \State)
+							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+							PrepareVectorTextBlock(@\Items()\Text)
+							
+							*Event\EventType = #LostFocus
+							\String\EventHandler(\String, *Event)
+							
+							Redraw = #True
+						EndIf
 					Else
 						If \ItemState > -1 
-							If \ItemState <> \State
-								\State = \ItemState
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-								AddGadgetTimer(*GadgetData, 200, @VerticalList_FocusTimer())
-								Redraw = #True
-							EndIf
-							If \Reorder
-								\DragState = #Drag_Init
-								\DragOriginX = *Event\MouseX
-								\DragOriginY = *Event\MouseY
-							ElseIf \Drag
-								\DragState = #Drag_Init
-								\DragOriginX = *Event\MouseX
-								\DragOriginY = *Event\MouseY
+							If \EditCursor
+								*Event\MouseX - \String\OriginX
+								*Event\MouseY - \String\OriginY
+								Redraw = \String\EventHandler(\String, *Event)
+							Else
+								If \Editing
+									\Editing = #False
+									SelectElement(\Items(), \State)
+									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+									PrepareVectorTextBlock(@\Items()\Text)
+									
+									*Event\EventType = #LostFocus
+									\String\EventHandler(\String, *Event)
+									
+									Redraw = #True
+								EndIf
+								
+								If \ItemState <> \State
+									\State = \ItemState
+									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+									AddGadgetTimer(*GadgetData, 200, @VerticalList_FocusTimer())
+									Redraw = #True
+								EndIf
+								
+								If \Reorder
+									\DragState = #Drag_Init
+									\DragOriginX = *Event\MouseX
+									\DragOriginY = *Event\MouseY
+								ElseIf \Drag
+									\DragState = #Drag_Init
+									\DragOriginX = *Event\MouseX
+									\DragOriginY = *Event\MouseY
+								EndIf
 							EndIf
 						EndIf
 					EndIf
@@ -4979,23 +5060,68 @@ Module UITK
 						ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
 						*Event\EventType = #MouseMove
 						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
+						
+						If \Editing
+							\Editing = #False
+							SelectElement(\Items(), \State)
+							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+							PrepareVectorTextBlock(@\Items()\Text)
+							
+							*Event\EventType = #LostFocus
+							\String\EventHandler(\String, *Event)
+							
+							Redraw = #True
+						EndIf
 					EndIf
 					;}
 				Case #KeyDown ;{
 					If \DragState = #Drag_None
 						Select *Event\Param
-							Case #PB_Shortcut_Down
+							Case #PB_Shortcut_Down ;{
 								If \State < ListSize(\Items()) - 1
 									\State + 1
 									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
-								EndIf
-							Case #PB_Shortcut_Up
+								EndIf ;}
+							Case #PB_Shortcut_Up ;{
 								If \State > 0
 									\State - 1
 									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
+								EndIf ;}
+							Case #PB_Shortcut_F2 ;{
+								If \Editable And \State > -1 And Not \Editing
+									\Editing = #True
+									SelectElement(\Items(), \State)
+									\String\String = \Items()\Text\OriginalText
+									String_ProcessString(\String)
+									Redraw = #True
+									
+									*Event\EventType = #Focus
+									\String\OriginX = \Items()\Text\TextX + #VerticalList_Margin + \Border
+									\String\Width = \Items()\Text\Width
+									\String\OriginY = \State * \ItemHeight - \ScrollBar\State + \Items()\Text\TextY + \Border - 2
+									\String\EventHandler(\String, *Event)
+									StringSetSelection_Meta(\String, 0, Len(\String\String))
+								EndIf ;}
+							Case #PB_Shortcut_Return ;{
+								If \Editing
+									\Editing = #False
+									SelectElement(\Items(), \State)
+									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+									PrepareVectorTextBlock(@\Items()\Text)
+									
+									*Event\EventType = #LostFocus
+									\String\EventHandler(\String, *Event)
+									
+									Redraw = #True
 								EndIf
+								;}
+							Default	 ;{
+								If \Editing
+									Redraw = \String\EventHandler(\String, *Event)
+								EndIf
+								;}	
 						EndSelect
 					EndIf
 					;}
@@ -5004,7 +5130,32 @@ Module UITK
 						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
 					EndIf
 					;}
+				Case #LostFocus ;{
+					If \Editing
+						\Editing = #False
+						SelectElement(\Items(), \State)
+						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+						PrepareVectorTextBlock(@\Items()\Text)
+						
+						*Event\EventType = #LostFocus
+						\String\EventHandler(\String, *Event)
+						
+						Redraw = #True
+					EndIf
+					;}	
+				Default ;{
+					If \Editing
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					EndIf
+					;}
 			EndSelect
+			
+			If Cursor <> \EditCursor
+				\EditCursor = Cursor
+				SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, Cursor)
+			EndIf
 			
 			If Redraw
 				RedrawObject()
@@ -5234,7 +5385,7 @@ Module UITK
 	EndProcedure
 	
 	
-	Procedure VerticalList_Meta(*GadgetData.VerticalListData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
+	Procedure VerticalList_Meta(*GadgetData.VerticalListData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags, *CustomItem)
 		Protected GadgetList
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(VerticalList)
@@ -5290,6 +5441,22 @@ Module UITK
 			\SupportedEvent[#LeftButtonUp] = #True
 			\SupportedEvent[#LeftDoubleClick] = #True
 			\SupportedEvent[#KeyDown] = #True
+			
+			Protected *StringThemeData.Theme
+			\Editable = Bool(Flags & #Editable)
+			\EditCursor = #PB_Cursor_Default
+			If \Editable
+				*StringThemeData = AllocateMemory(SizeOf(Theme))
+				CopyMemory(*ThemeData, *StringThemeData, SizeOf(Theme))
+				*StringThemeData\CornerRadius = 0
+				*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
+				AllocateStructureX(\String, StringData)
+				String_Meta(\String, *StringThemeData, -1, 0, 0, \Width, 20, "", #HAlignLeft)
+				\String\Gadget = Gadget
+				String_SupportedEvents()
+				CloseGadgetList()
+			EndIf
+			
 		EndWith
 		
 	EndProcedure
@@ -5300,7 +5467,7 @@ Module UITK
 		If AccessibilityMode
 			
 		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Editable) * #PB_Canvas_Container))
 			
 			If Result
 				If Gadget = #PB_Any
@@ -5331,6 +5498,639 @@ Module UITK
 				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
 				GadgetHandler() = Gadget
 				VerticalList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	;}
+	
+	;{ HorizontalList
+	#HList_ItemHeight = 100
+	
+	Structure HorizontalList_Item
+		ImageX.l
+		ImageY.l
+		imageID.i
+		Text.Text
+	EndStructure
+	
+	Structure HorizontalListData Extends GadgetData
+		ItemWidth.l
+		VisibleScrollbar.b
+		InternalWidth.l
+		DragOriginX.l
+		DragOriginY.l
+		
+		Editable.l
+		Editing.b
+		EditCursor.b
+		
+		Drag.b
+		DragState.b
+		List Items.HorizontalList_Item()
+		*ScrollBar.ScrollBarData
+		*String.StringData
+	EndStructure
+	
+	Procedure HorizontalList_ItemRedraw(*Item.HorizontalList_Item, X, Y, Width, Height, State, *Theme.Theme)
+		If State = #Hot
+			AddPathBox(X, Y, Width, Height)
+			VectorSourceColor(*Theme\ShadeColor[#Hot])
+			FillPath()
+			VectorSourceColor(*Theme\TextColor[#Cold])
+		ElseIf State = #Warm
+			AddPathBox(X, Y, Width, Height)
+			VectorSourceColor(*Theme\ShadeColor[#Warm])
+			FillPath()
+			VectorSourceColor(*Theme\TextColor[#Cold])
+		EndIf
+		
+		If *Item\imageID
+			MovePathCursor(X + *Item\ImageX, Y + *Item\ImageY)
+			DrawVectorImage(*Item\imageID)
+		EndIf
+		
+		DrawVectorTextBlock(@*Item\Text, X, Y)
+	EndProcedure
+	
+	Procedure HorizontalList_Redraw(*GadgetData.HorizontalListData)
+		With *GadgetData
+			Protected X = \OriginX + \Border
+			
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
+				StrokePath(2, #PB_Path_Preserve)
+			Else
+				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
+			EndIf
+			
+			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+			ClipPath(#PB_Path_Preserve)
+			FillPath()
+			
+			If ListSize(\Items())
+				VectorFont(\TextBock\FontID)
+				VectorSourceColor(\ThemeData\TextColor[#Cold])
+				
+				If \ScrollBar\State
+					SelectElement(\Items(), Floor(\ScrollBar\State / \ItemWidth))
+					X - (\ScrollBar\State % \ItemWidth)
+				Else
+					FirstElement(\Items())
+				EndIf
+					
+				Repeat
+					If ListIndex(\Items()) = \State
+						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Hot, \ThemeData)
+						
+						SaveVectorState()
+						If \Editing
+							String_Redraw(\String)
+						EndIf
+						RestoreVectorState()
+					ElseIf ListIndex(\Items()) = \MouseState
+						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Warm, \ThemeData)
+					Else
+						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Cold, \ThemeData)
+					EndIf
+					
+					X + \ItemWidth
+				Until X > \Width Or Not NextElement(\Items())
+			EndIf
+			
+			If \VisibleScrollbar
+				\ScrollBar\Redraw(\ScrollBar)
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList_Resize(*This.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.HorizontalListData = *this\vt, PreviousHeight
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		With *GadgetData
+			PreviousHeight = \Height
+			\Width = GadgetWidth(\Gadget)
+			\Height = GadgetHeight(\Gadget)
+			
+			Scrollbar_ResizeMeta(\ScrollBar, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness)
+			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Width)
+			
+			If \InternalWidth > \Width
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
+			
+			If PreviousHeight <> \Height
+				ForEach \Items()
+					\Items()\Text\Height = \Height
+					PrepareVectorTextBlock(@\Items()\Text)
+				Next
+			EndIf
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList_StateFocus(*GadgetData.HorizontalListData)
+		Protected Result
+		
+		With *GadgetData
+			If \VisibleScrollbar
+				If Ceil(\ScrollBar\State / \ItemWidth) > \State
+					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemWidth)
+					Result = #True
+				ElseIf Floor((\ScrollBar\State + \Width - \ItemWidth) / \ItemWidth) < \State
+					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemWidth - \Width + \ItemWidth)
+					Result = #True
+				EndIf
+			EndIf
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure HorizontalList_FocusTimer(*GadgetData.HorizontalListData, Timer)
+		RemoveGadgetTimer(Timer)
+		
+		If HorizontalList_StateFocus(*GadgetData)
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
+	Procedure HorizontalList_EventHandler(*GadgetData.HorizontalListData, *Event.Event)
+		Protected Redraw, HoverItem, Keyboard, Image, Cursor = *GadgetData\EditCursor
+		
+		With *GadgetData
+			Select *Event\EventType
+				Case #Input ;{
+					If \Editing
+						Redraw = \String\EventHandler(\String, *Event)
+					EndIf
+					;}
+				Case #MouseMove ;{
+					If \EditCursor = #PB_Cursor_IBeam And \String\Selecting = #True
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					Else
+						Cursor = #PB_Cursor_Default
+						If \DragState = #Drag_None ;{
+							If \VisibleScrollbar And (*Event\MouseY >= \ScrollBar\OriginY Or \ScrollBar\Drag = #True)
+								Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+							ElseIf \ScrollBar\MouseState
+								\ScrollBar\MouseState = #False
+								Redraw = #True
+							EndIf
+							
+							If Not \ScrollBar\MouseState
+								HoverItem = Floor((*Event\MouseX + \ScrollBar\State) / \ItemWidth)
+								If HoverItem <> \MouseState
+									\MouseState = HoverItem
+									Redraw = #True
+								EndIf
+								
+								If HoverItem = \State
+									If \Editing
+										If *Event\MouseY > \String\OriginY And *Event\MouseY < \String\OriginY + \String\Height
+											Cursor = #PB_Cursor_IBeam
+										EndIf
+									EndIf
+								EndIf
+							ElseIf \MouseState > -1
+								\MouseState = -1
+								Redraw = #True
+							EndIf
+							;}
+						ElseIf \DragState = #Drag_Init ;{
+							If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
+								Image = CreateImage(#PB_Any, \ItemWidth, \Height, 32, \ThemeData\ShadeColor[#Cold])
+								StartVectorDrawing(ImageVectorOutput(Image))
+								VectorFont(\TextBock\FontID)
+								VectorSourceColor(\ThemeData\TextColor[#Cold])
+								SelectElement(\Items(),\State)
+								HorizontalList_ItemRedraw(@\Items(), 0, 0, \ItemWidth, \Height, #Hot, \ThemeData)
+								StopVectorDrawing()
+								AdvancedDragPrivate(#Drag_HListItem, ImageID(Image))
+								\DragState = #Drag_None
+								FreeImage(Image)
+							EndIf
+							;}
+						EndIf
+					EndIf
+					;}
+				Case #MouseLeave ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \MouseState > -1
+						\MouseState = -1
+						Redraw = #True
+					EndIf
+					
+					;}
+				Case #LeftButtonDown ;{
+					If \ScrollBar\MouseState
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						
+						If \Editing
+							\Editing = #False
+							SelectElement(\Items(), \State)
+							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+							PrepareVectorTextBlock(@\Items()\Text)
+							
+							*Event\EventType = #LostFocus
+							\String\EventHandler(\String, *Event)
+						EndIf
+					Else
+						If \MouseState > -1 
+							If \State <> \MouseState
+								If \Editing
+									\Editing = #False
+									SelectElement(\Items(), \State)
+									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+									PrepareVectorTextBlock(@\Items()\Text)
+									
+									*Event\EventType = #LostFocus
+									\String\EventHandler(\String, *Event)
+								EndIf
+								
+								\State = \MouseState
+								Redraw = #True
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
+								
+								If \Drag
+									\DragState = #Drag_Init
+									\DragOriginX = *Event\MouseX
+									\DragOriginY = *Event\MouseY
+								EndIf
+							Else
+								If \EditCursor
+									*Event\MouseX - \String\OriginX
+									*Event\MouseY - \String\OriginY
+									Redraw = \String\EventHandler(\String, *Event)
+								ElseIf \Drag
+									\DragState = #Drag_Init
+									\DragOriginX = *Event\MouseX
+									\DragOriginY = *Event\MouseY
+								EndIf
+							EndIf
+							
+						EndIf
+					EndIf
+					;}
+				Case #LeftButtonUp ;{
+					If \EditCursor = #PB_Cursor_IBeam And \String\Selecting = #True
+						Redraw = \String\EventHandler(\String, *Event)
+					Else
+						If \ScrollBar\Drag 
+							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						EndIf
+						\DragState = #Drag_None
+					EndIf
+					;}
+				Case #LeftDoubleClick ;{
+					If \MouseState > -1
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
+					EndIf
+					;}
+				Case #KeyDown ;{
+					Select *Event\Param 
+						Case #PB_Shortcut_Left ;{
+							If \Editing
+								Redraw = \String\EventHandler(\String, *Event)
+							ElseIf \State > 0
+								\State - 1
+								HorizontalList_StateFocus(*GadgetData)
+								Redraw = #True
+							EndIf ;}
+						Case #PB_Shortcut_Right ;{
+							If \Editing
+								Redraw = \String\EventHandler(\String, *Event)
+							ElseIf \State < ListSize(\Items()) - 1
+								\State + 1
+								HorizontalList_StateFocus(*GadgetData)
+								Redraw = #True
+							EndIf ;}
+						Case #PB_Shortcut_F2 ;{
+							If \Editable And \State > -1 And Not \Editing
+								\Editing = #True
+								SelectElement(\Items(), \State)
+								\String\String = \Items()\Text\OriginalText
+								String_ProcessString(\String)
+								Redraw = #True
+								
+								*Event\EventType = #Focus
+								\String\OriginX = \State * \ItemWidth - \ScrollBar\State + \Border
+								\String\OriginY = \Items()\Text\TextY - 1
+								\String\EventHandler(\String, *Event)
+								StringSetSelection_Meta(\String, 0, Len(\String\String))
+							EndIf ;}
+						Case #PB_Shortcut_Escape ;{
+								\Editing = #False
+								*Event\EventType = #LostFocus
+								\String\EventHandler(\String, *Event)
+								Redraw = #True
+							;}
+						Case #PB_Shortcut_Return ;{
+							If \Editing
+								\Editing = #False
+								SelectElement(\Items(), \State)
+								\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+								PrepareVectorTextBlock(@\Items()\Text)
+								
+								*Event\EventType = #LostFocus
+								\String\EventHandler(\String, *Event)
+								
+								Redraw = #True
+							EndIf
+							;}
+						Default	  ;{
+							If \Editing
+								Redraw = \String\EventHandler(\String, *Event)
+							EndIf
+							;}
+					EndSelect
+					;}
+				Case #LostFocus ;{
+					If \Editing
+						\Editing = #False
+						SelectElement(\Items(), \State)
+						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+						PrepareVectorTextBlock(@\Items()\Text)
+						
+						*Event\EventType = #LostFocus
+						\String\EventHandler(\String, *Event)
+						
+						Redraw = #True
+					EndIf
+					;}
+				Default ;{
+					If \Editing
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					EndIf
+					;}
+			EndSelect
+			
+			If Cursor <> \EditCursor
+				\EditCursor = Cursor
+				SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, Cursor)
+			EndIf
+			
+			If Redraw
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.BITMAP
+		With *GadgetData
+			
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*NewItem = InsertElement(\Items())
+			Else
+				LastElement(\Items())
+				*NewItem = AddElement(\Items())
+			EndIf
+			
+			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\LineLimit = 1
+			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\Width = \ItemWidth
+			*NewItem\Text\Height = Floor(\Height * 0.9)
+			*NewItem\Text\VAlign = #VAlignBottom
+			*NewItem\Text\HAlign = #HAlignCenter
+			
+			PrepareVectorTextBlock(@*NewItem\Text)
+			
+			*NewItem\imageID = ImageID
+			
+			If *NewItem\imageID
+				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
+				*NewItem\ImageY = (\Height - 20 - HBitmap\bmHeight) * 0.5
+			EndIf
+			
+			\InternalWidth = ListSize(\Items()) * \ItemWidth
+			
+			If \InternalWidth > \Width
+				\VisibleScrollbar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+			Else
+				\VisibleScrollbar = #False
+			EndIf
+			
+			ChangeCurrentElement(\Items(), *NewItem)
+			Position = ListIndex(\Items())
+			RedrawObject()
+		EndWith
+		
+		ProcedureReturn Position
+	EndProcedure
+	
+	Procedure HorizontalList_RemoveItem(*This.PB_Gadget, Position)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				DeleteElement(\Items())
+				\InternalWidth = ListSize(\Items()) * \ItemWidth
+				
+				If \InternalWidth > \Width
+					\VisibleScrollbar = #True
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+				Else
+					\VisibleScrollbar = #False
+				EndIf
+				
+				If \State > Position
+					\State - 1
+				ElseIf \State = Position
+					If \State = ListSize(\Items())
+						\State - 1
+					EndIf
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+				EndIf
+				
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList_CountItem(*This.PB_Gadget)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+	
+	Procedure HorizontalList_FreeGadget(*this.PB_Gadget)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		FreeStructure(*GadgetData\ScrollBar)
+		
+		If *GadgetData\Editable
+			FreeMemory(*GadgetData\String\ThemeData)
+			FreeStructure(*GadgetData\String)
+		EndIf
+		
+		Default_FreeGadget(*this.PB_Gadget)
+	EndProcedure
+	
+	
+	; Getters
+	Procedure.s HorizontalList_GetItemText(*this.PB_Gadget, Position)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				ProcedureReturn \Items()\Text\OriginalText
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList_GetItemImage(*this.PB_Gadget, Position)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				
+				ProcedureReturn \Items()\imageID
+			EndIf
+		EndWith
+	EndProcedure
+	
+	
+	; Setters
+	Procedure HorizontalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		With *GadgetData
+			Select Attribute
+				Case #Attribute_ItemWidth ;{
+					\ItemWidth = Value
+					\InternalWidth = ListSize(\Items()) * \ItemWidth
+					
+					If \InternalWidth > \Width
+						\VisibleScrollbar = #True
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
+					Else
+						\VisibleScrollbar = #False
+					EndIf
+					
+					ForEach \Items()
+						\Items()\Text\Width = \ItemWidth
+						PrepareVectorTextBlock(@\Items()\Text)
+					Next
+					;}
+				Default ;{	
+					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+					;}
+			EndSelect
+		EndWith
+		RedrawObject()
+	EndProcedure
+	
+	
+	Procedure HorizontalList_Meta(*GadgetData.HorizontalListData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(HorizontalList)
+		
+		With *GadgetData
+			AllocateStructureX(\ScrollBar, ScrollBarData)
+			\VisibleScrollbar = #False
+			\ItemWidth = Height
+			\State = -1
+			\MouseState = -1
+			\Drag = Bool(Flags & #Drag)
+			
+			Scrollbar_Meta(\ScrollBar, *ThemeData, -1, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness, 0, 0, \Width, #Null)
+			
+			\VT\AddGadgetItem2 = @HorizontalList_AddItem()
+			\VT\RemoveGadgetItem = @HorizontalList_RemoveItem()
+			\VT\ResizeGadget = @HorizontalList_Resize()
+			\VT\SetGadgetAttribute = @HorizontalList_SetAttribute()
+			\VT\CountGadgetItems = @HorizontalList_CountItem()
+			\VT\GetGadgetItemImage = @HorizontalList_GetItemImage()
+			\VT\GetGadgetItemText = @HorizontalList_GetItemText()
+			
+			; Enable only the needed events
+			\SupportedEvent[#MouseWheel] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#LeftDoubleClick] = #True
+			\SupportedEvent[#KeyDown] = #True
+			
+			Protected *StringThemeData.Theme
+			\Editable = Bool(Flags & #Editable)
+			\EditCursor = #PB_Cursor_Default
+			If \Editable
+				*StringThemeData = AllocateMemory(SizeOf(Theme))
+				CopyMemory(*ThemeData, *StringThemeData, SizeOf(Theme))
+				*StringThemeData\CornerRadius = 0
+				*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
+				AllocateStructureX(\String, StringData)
+				String_Meta(\String, *StringThemeData, -1, 0, 0, \ItemWidth, 20, "", #HAlignCenter)
+				\String\Gadget = Gadget
+				String_SupportedEvents()
+				CloseGadgetList()
+			EndIf
+			
+		EndWith
+	EndProcedure
+	
+	Procedure HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.HorizontalListData, *ThemeData
+		
+		If AccessibilityMode
+			
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Editable) * #PB_Canvas_Container))
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				AllocateStructureX(*GadgetData, HorizontalListData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				AllocateStructureX(*ThemeData, Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
+				HorizontalList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -7281,6 +8081,12 @@ Module UITK
 		VisibleScrollbar.b
 		MaxLevel.b
 		DrawLine.l
+		
+		Editable.l
+		Editing.b
+		EditCursor.b
+		*String.StringData
+		
 		*ScrollBar.ScrollBarData
 		List Items.Tree_Item()
 	EndStructure
@@ -7348,9 +8154,18 @@ Module UITK
 						VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 						FillPath()
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
+						
+						DrawVectorTextBlock(@\Items()\Text, X + \Items()\Level * \BranchWidth, Y)
+						
+						SaveVectorState()
+						If \Editing
+							String_Redraw(\String)
+						EndIf
+						RestoreVectorState()
+						
+					Else
+						DrawVectorTextBlock(@\Items()\Text, X + \Items()\Level * \BranchWidth, Y)
 					EndIf
-					
-					DrawVectorTextBlock(@\Items()\Text, X + \Items()\Level * \BranchWidth, Y)
 					
 					If \DropHover = ListIndex(\Items())
 						If \DrawLine = #Tree_Dot
@@ -7431,16 +8246,29 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree_EventHandler(*GadgetData.TreeData, *Event.Event)
-		Protected Redraw, Y, NewItem = -1, ItemRow
+		Protected Redraw, Y, NewItem = -1, ItemRow, Cursor = *GadgetData\EditCursor
 		
 		With *GadgetData
 			Select *Event\EventType
 				Case #MouseMove ;{
+					Cursor = #PB_Cursor_Default
+					
 					If \VisibleScrollbar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					ElseIf \ScrollBar\MouseState
 						\ScrollBar\MouseState = #False
 						Redraw = #True
+					EndIf
+					
+					If \Editing
+						If \String\Selecting = #True
+							*Event\MouseX - \String\OriginX
+							*Event\MouseY - \String\OriginY
+							Redraw = \String\EventHandler(\String, *Event)
+							Cursor = #PB_Cursor_IBeam
+						ElseIf *Event\MouseY > \String\OriginY And *Event\MouseY < \String\OriginY + \String\Height
+							Cursor = #PB_Cursor_IBeam
+						EndIf
 					EndIf
 					;}
 				Case #MouseLeave ;{
@@ -7451,8 +8279,39 @@ Module UITK
 				Case #LeftButtonDown, #RightButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						
+						If \Editing
+							\Editing = #False
+							SelectElement(\Items(), \State)
+							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+							PrepareVectorTextBlock(@\Items()\Text)
+							
+							*Event\EventType = #LostFocus
+							\String\EventHandler(\String, *Event)
+							
+							Redraw = #True
+						EndIf
 					ElseIf SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
 						If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequieredWidth)
+							If Cursor = #PB_Cursor_IBeam
+								*Event\MouseX - \String\OriginX
+								*Event\MouseY - \String\OriginY
+								Redraw = \String\EventHandler(\String, *Event)
+							ElseIf \Editing
+								
+								NewItem = ListIndex(\Items())
+								\Editing = #False
+								SelectElement(\Items(), \State)
+								\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+								PrepareVectorTextBlock(@\Items()\Text)
+								
+								*Event\EventType = #LostFocus
+								\String\EventHandler(\String, *Event)
+								
+								Redraw = #True
+								SelectElement(\Items(), NewItem)
+							EndIf
+							
 							If \State <> ListIndex(\Items())
 								\State = ListIndex(\Items())
 								Redraw = #True
@@ -7466,7 +8325,9 @@ Module UITK
 					EndIf
 					;}
 				Case #LeftButtonUp ;{
-					If \ScrollBar\Drag 
+					If \EditCursor = #PB_Cursor_IBeam And \String\Selecting = #True
+						Redraw = \String\EventHandler(\String, *Event)
+					ElseIf \ScrollBar\Drag 
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					;}
@@ -7488,7 +8349,115 @@ Module UITK
 						EndIf
 					EndIf
 					;}
+				Case #KeyDown ;{
+					Select *Event\Param 
+						Case #PB_Shortcut_Up ;{
+							If \State > 0
+								If \Editing
+									\Editing = #False
+									SelectElement(\Items(), \State)
+									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+									PrepareVectorTextBlock(@\Items()\Text)
+									
+									*Event\EventType = #LostFocus
+									\String\EventHandler(\String, *Event)
+									
+									Redraw = #True
+								EndIf
+								
+								\State - 1
+								Redraw = #True
+								
+								If \ScrollBar\State > \State * \ItemHeight
+									ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemHeight)
+								EndIf
+								
+							EndIf
+							;}
+						Case #PB_Shortcut_Down ;{
+							If \State < ListSize(\Items()) - 1
+								If \Editing
+									\Editing = #False
+									SelectElement(\Items(), \State)
+									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+									PrepareVectorTextBlock(@\Items()\Text)
+									
+									*Event\EventType = #LostFocus
+									\String\EventHandler(\String, *Event)
+									
+									Redraw = #True
+								EndIf
+								
+								\State + 1
+								
+								If \ScrollBar\State + \Height < (\State + 1) * \ItemHeight
+									ScrollBar_SetState_Meta(\ScrollBar, (\State + 1) * \ItemHeight - \Height)
+								EndIf
+								
+								Redraw = #True
+							EndIf
+							;}
+						Case #PB_Shortcut_F2 ;{
+							If \Editable And \State > -1 And Not \Editing
+								\Editing = #True
+								SelectElement(\Items(), \State)
+								\String\String = \Items()\Text\OriginalText
+								String_ProcessString(\String)
+								Redraw = #True
+								
+								*Event\EventType = #Focus
+								\String\OriginX = \OriginX + \Border + \BranchWidth + 1 + \Items()\Level * \BranchWidth + \Items()\Text\TextX
+								\String\OriginY = \State * \ItemHeight - \ScrollBar\State + \Border + 1
+								\String\EventHandler(\String, *Event)
+								StringSetSelection_Meta(\String, 0, Len(\String\String))
+							EndIf ;}
+						Case #PB_Shortcut_Return ;{
+							If \Editing
+								\Editing = #False
+								SelectElement(\Items(), \State)
+								\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+								PrepareVectorTextBlock(@\Items()\Text)
+								
+								*Event\EventType = #LostFocus
+								\String\EventHandler(\String, *Event)
+								
+								Redraw = #True
+							EndIf
+							;}	
+						Default ;{
+							If \Editing
+								Redraw = \String\EventHandler(\String, *Event)
+							EndIf
+							;}
+					EndSelect
+					;}
+				Case #LostFocus ;{
+					If \Editing
+						\Editing = #False
+						SelectElement(\Items(), \State)
+						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+						PrepareVectorTextBlock(@\Items()\Text)
+						
+						*Event\EventType = #LostFocus
+						\String\EventHandler(\String, *Event)
+						
+						Redraw = #True
+					EndIf
+					;}	
+				Default ;{
+					If \Editing
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					EndIf
+					;}
 			EndSelect
+			
+			If Cursor <> \EditCursor
+				\EditCursor = Cursor
+				SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, Cursor)
+			EndIf
+			
 			If Redraw
 				RedrawObject()
 			EndIf
@@ -7672,7 +8641,7 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tree)
 		
@@ -7713,13 +8682,29 @@ Module UITK
 			\SupportedEvent[#RightButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
 			\SupportedEvent[#LeftDoubleClick] = #True
+			\SupportedEvent[#KeyDown] = #True
+			
+			Protected *StringThemeData.Theme
+			\Editable = Bool(Flags & #Editable)
+			\EditCursor = #PB_Cursor_Default
+			If \Editable
+				*StringThemeData = AllocateMemory(SizeOf(Theme))
+				CopyMemory(*ThemeData, *StringThemeData, SizeOf(Theme))
+				*StringThemeData\CornerRadius = 0
+				*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
+				AllocateStructureX(\String, StringData)
+				String_Meta(\String, *StringThemeData, -1, 0, 0, \Width, 20, "", #HAlignLeft)
+				\String\Gadget = Gadget
+				String_SupportedEvents()
+				CloseGadgetList()
+			EndIf
 		EndWith
 	EndProcedure
 	
 	Procedure Tree(Gadget, x, y, Width, Height, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.TreeData, *ThemeData
 		
-		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container)
+		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Editable) * #PB_Canvas_Container))
 		
 		If Result
 			If Gadget = #PB_Any
@@ -7752,481 +8737,6 @@ Module UITK
 			Tree_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 			
 			RedrawObject()
-		EndIf
-		
-		CloseGadgetList()
-		ProcedureReturn Result
-	EndProcedure
-	;}
-	
-	;{ HorizontalList
-	#HList_ItemHeight = 100
-	
-	Structure HorizontalList_Item
-		ImageX.l
-		ImageY.l
-		imageID.i
-		Text.Text
-	EndStructure
-	
-	Structure HorizontalListData Extends GadgetData
-		ItemWidth.l
-		VisibleScrollbar.b
-		*ScrollBar.ScrollBarData
-		InternalWidth.i
-		DragOriginX.l
-		DragOriginY.l
-		Drag.b
-		DragState.b
-		List Items.HorizontalList_Item()
-	EndStructure
-	
-	Procedure HorizontalList_ItemRedraw(*Item.HorizontalList_Item, X, Y, Width, Height, State, *Theme.Theme)
-		If State = #Hot
-			AddPathBox(X, Y, Width, Height)
-			VectorSourceColor(*Theme\ShadeColor[#Hot])
-			FillPath()
-			VectorSourceColor(*Theme\TextColor[#Cold])
-		ElseIf State = #Warm
-			AddPathBox(X, Y, Width, Height)
-			VectorSourceColor(*Theme\ShadeColor[#Warm])
-			FillPath()
-			VectorSourceColor(*Theme\TextColor[#Cold])
-		EndIf
-		
-		If *Item\imageID
-			MovePathCursor(X + *Item\ImageX, Y + *Item\ImageY)
-			DrawVectorImage(*Item\imageID)
-		EndIf
-		
-		DrawVectorTextBlock(@*Item\Text, X, Y)
-	EndProcedure
-	
-	Procedure HorizontalList_Redraw(*GadgetData.HorizontalListData)
-		With *GadgetData
-			Protected X = \OriginX + \Border
-			
-			If \Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
-				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
-				StrokePath(2, #PB_Path_Preserve)
-			Else
-				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
-			EndIf
-			
-			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-			ClipPath(#PB_Path_Preserve)
-			FillPath()
-			
-			If ListSize(\Items())
-				VectorFont(\TextBock\FontID)
-				VectorSourceColor(\ThemeData\TextColor[#Cold])
-				
-				If \ScrollBar\State
-					SelectElement(\Items(), Floor(\ScrollBar\State / \ItemWidth))
-					X - (\ScrollBar\State % \ItemWidth)
-				Else
-					FirstElement(\Items())
-				EndIf
-					
-				Repeat
-					If ListIndex(\Items()) = \State
-						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Hot, \ThemeData)
-					ElseIf ListIndex(\Items()) = \MouseState
-						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Warm, \ThemeData)
-					Else
-						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Cold, \ThemeData)
-					EndIf
-					
-					X + \ItemWidth
-				Until X > \Width Or Not NextElement(\Items())
-			EndIf
-			
-			If \VisibleScrollbar
-				\ScrollBar\Redraw(\ScrollBar)
-			EndIf
-		EndWith
-	EndProcedure
-	
-	Procedure HorizontalList_Resize(*This.PB_Gadget, x, y, Width, Height)
-		Protected *GadgetData.HorizontalListData = *this\vt, PreviousHeight
-		
-		*this\VT = *GadgetData\OriginalVT
-		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
-		*this\VT = *GadgetData
-		
-		With *GadgetData
-			PreviousHeight = \Height
-			\Width = GadgetWidth(\Gadget)
-			\Height = GadgetHeight(\Gadget)
-			
-			Scrollbar_ResizeMeta(\ScrollBar, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness)
-			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Width)
-			
-			If \InternalWidth > \Width
-				\VisibleScrollbar = #True
-				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
-			Else
-				\VisibleScrollbar = #False
-			EndIf
-			
-			If PreviousHeight <> \Height
-				ForEach \Items()
-					\Items()\Text\Height = \Height
-					PrepareVectorTextBlock(@\Items()\Text)
-				Next
-			EndIf
-			
-			RedrawObject()
-		EndWith
-	EndProcedure
-	
-	Procedure HorizontalList_StateFocus(*GadgetData.HorizontalListData)
-		Protected Result
-		
-		With *GadgetData
-			If \VisibleScrollbar
-				If Ceil(\ScrollBar\State / \ItemWidth) > \State
-					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemWidth)
-					Result = #True
-				ElseIf Floor((\ScrollBar\State + \Width - \ItemWidth) / \ItemWidth) < \State
-					ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemWidth - \Width + \ItemWidth)
-					Result = #True
-				EndIf
-			EndIf
-		EndWith
-		
-		ProcedureReturn Result
-	EndProcedure
-	
-	Procedure HorizontalList_FocusTimer(*GadgetData.HorizontalListData, Timer)
-		RemoveGadgetTimer(Timer)
-		
-		If HorizontalList_StateFocus(*GadgetData)
-			RedrawObject()
-		EndIf
-	EndProcedure
-	
-	Procedure HorizontalList_EventHandler(*GadgetData.HorizontalListData, *Event.Event)
-		Protected Redraw, HoverItem, Keyboard, Image
-		
-		With *GadgetData
-			Select *Event\EventType
-				Case #MouseMove ;{
-					If \DragState = #Drag_None
-						If \VisibleScrollbar And (*Event\MouseY >= \ScrollBar\OriginY Or \ScrollBar\Drag = #True)
-							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-						ElseIf \ScrollBar\MouseState
-							\ScrollBar\MouseState = #False
-							Redraw = #True
-						EndIf
-						
-						If Not \ScrollBar\MouseState
-							HoverItem = Floor((*Event\MouseX + \ScrollBar\State) / \ItemWidth)
-							If HoverItem <> \MouseState
-								\MouseState = HoverItem
-								Redraw = #True
-							EndIf
-						ElseIf \MouseState > -1
-							\MouseState = -1
-							Redraw = #True
-						EndIf
-					ElseIf \DragState = #Drag_Init
-						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
-							Image = CreateImage(#PB_Any, \ItemWidth, \Height, 32, \ThemeData\ShadeColor[#Cold])
-							StartVectorDrawing(ImageVectorOutput(Image))
-							VectorFont(\TextBock\FontID)
-							VectorSourceColor(\ThemeData\TextColor[#Cold])
-							SelectElement(\Items(),\State)
-							HorizontalList_ItemRedraw(@\Items(), 0, 0, \ItemWidth, \Height, #Hot, \ThemeData)
-							StopVectorDrawing()
-							AdvancedDragPrivate(#Drag_HListItem, ImageID(Image))
-							\DragState = #Drag_None
-							FreeImage(Image)
-						EndIf
-					EndIf
-					;}
-				Case #MouseLeave ;{
-					If \ScrollBar\MouseState
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf \MouseState > -1
-						\MouseState = -1
-						Redraw = #True
-					EndIf
-					
-					;}
-				Case #LeftButtonDown ;{
-					If \ScrollBar\MouseState
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					Else
-						If \MouseState > -1 
-							If \State <> \MouseState
-								\State = \MouseState
-								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-								AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
-							EndIf
-							
-							If \Drag
-								\DragState = #Drag_Init
-								\DragOriginX = *Event\MouseX
-								\DragOriginY = *Event\MouseY
-							EndIf
-						EndIf
-					EndIf
-					;}
-				Case #LeftButtonUp ;{
-					If \ScrollBar\Drag 
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					EndIf
-					\DragState = #Drag_None
-					;}
-				Case #LeftDoubleClick ;{
-					If \MouseState > -1
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
-					EndIf
-					;}
-				Case #KeyDown ;{
-					If *Event\Param = #PB_Shortcut_Left
-						If \State > 0
-							\State - 1
-							HorizontalList_StateFocus(*GadgetData)
-							Redraw = #True
-						EndIf
-					ElseIf *Event\Param = #PB_Shortcut_Right
-						If \State < ListSize(\Items()) - 1
-							\State + 1
-							HorizontalList_StateFocus(*GadgetData)
-							Redraw = #True
-						EndIf
-					EndIf
-					;}
-			EndSelect
-			If Redraw
-				RedrawObject()
-			EndIf
-		EndWith
-	EndProcedure
-	
-	Procedure HorizontalList_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
-		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.BITMAP
-		With *GadgetData
-			
-			If Position > -1 And Position < ListSize(\Items())
-				SelectElement(\Items(), Position)
-				*NewItem = InsertElement(\Items())
-			Else
-				LastElement(\Items())
-				*NewItem = AddElement(\Items())
-			EndIf
-			
-			*NewItem\Text\OriginalText = PeekS(*Text)
-			*NewItem\Text\LineLimit = 1
-			*NewItem\Text\FontID = \TextBock\FontID
-			*NewItem\Text\Width = \ItemWidth
-			*NewItem\Text\Height = Floor(\Height * 0.9)
-			*NewItem\Text\VAlign = #VAlignBottom
-			*NewItem\Text\HAlign = #HAlignCenter
-			
-			PrepareVectorTextBlock(@*NewItem\Text)
-			
-			*NewItem\imageID = ImageID
-			
-			If *NewItem\imageID
-				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
-				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
-				*NewItem\ImageY = (\Height - 20 - HBitmap\bmHeight) * 0.5
-			EndIf
-			
-			\InternalWidth = ListSize(\Items()) * \ItemWidth
-			
-			If \InternalWidth > \Width
-				\VisibleScrollbar = #True
-				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
-			Else
-				\VisibleScrollbar = #False
-			EndIf
-			
-			ChangeCurrentElement(\Items(), *NewItem)
-			Position = ListIndex(\Items())
-			RedrawObject()
-		EndWith
-		
-		ProcedureReturn Position
-	EndProcedure
-	
-	Procedure HorizontalList_RemoveItem(*This.PB_Gadget, Position)
-		Protected *GadgetData.HorizontalListData = *this\vt
-		
-		With *GadgetData
-			If Position > -1 And Position < ListSize(\Items())
-				SelectElement(\Items(), Position)
-				DeleteElement(\Items())
-				\InternalWidth = ListSize(\Items()) * \ItemWidth
-				
-				If \InternalWidth > \Width
-					\VisibleScrollbar = #True
-					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
-				Else
-					\VisibleScrollbar = #False
-				EndIf
-				
-				If \State > Position
-					\State - 1
-				ElseIf \State = Position
-					If \State = ListSize(\Items())
-						\State - 1
-					EndIf
-					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-				EndIf
-				
-				RedrawObject()
-			EndIf
-		EndWith
-	EndProcedure
-	
-	Procedure HorizontalList_CountItem(*This.PB_Gadget)
-		Protected *GadgetData.HorizontalListData = *this\vt
-		
-		ProcedureReturn ListSize(*GadgetData\Items())
-	EndProcedure
-	
-	Procedure HorizontalList_FreeGadget(*this.PB_Gadget)
-		Protected *GadgetData.HorizontalListData = *this\vt
-		
-		FreeStructure(*GadgetData\ScrollBar)
-		
-		Default_FreeGadget(*this.PB_Gadget)
-	EndProcedure
-	
-	
-	; Getters
-	Procedure.s HorizontalList_GetItemText(*this.PB_Gadget, Position)
-		Protected *GadgetData.HorizontalListData = *this\vt
-		With *GadgetData
-			If Position > -1 And Position < ListSize(\Items())
-				SelectElement(\Items(), Position)
-				ProcedureReturn \Items()\Text\OriginalText
-			EndIf
-		EndWith
-	EndProcedure
-	
-	Procedure HorizontalList_GetItemImage(*this.PB_Gadget, Position)
-		Protected *GadgetData.HorizontalListData = *this\vt
-		With *GadgetData
-			If Position > -1 And Position < ListSize(\Items())
-				SelectElement(\Items(), Position)
-				
-				ProcedureReturn \Items()\imageID
-			EndIf
-		EndWith
-	EndProcedure
-	
-	
-	; Setters
-	Procedure HorizontalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
-		Protected *GadgetData.HorizontalListData = *this\vt
-		
-		With *GadgetData
-			Select Attribute
-				Case #Attribute_ItemWidth ;{
-					\ItemWidth = Value
-					\InternalWidth = ListSize(\Items()) * \ItemWidth
-					
-					If \InternalWidth > \Width
-						\VisibleScrollbar = #True
-						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalWidth)
-					Else
-						\VisibleScrollbar = #False
-					EndIf
-					
-					ForEach \Items()
-						\Items()\Text\Width = \ItemWidth
-						PrepareVectorTextBlock(@\Items()\Text)
-					Next
-					;}
-				Default ;{	
-					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
-					;}
-			EndSelect
-		EndWith
-		RedrawObject()
-	EndProcedure
-	
-	
-	Procedure HorizontalList_Meta(*GadgetData.HorizontalListData, *ThemeData, Gadget, x, y, Width, Height, Flags)
-		*GadgetData\ThemeData = *ThemeData
-		InitializeObject(HorizontalList)
-		
-		With *GadgetData
-			AllocateStructureX(\ScrollBar, ScrollBarData)
-			\VisibleScrollbar = #False
-			\ItemWidth = Height
-			\State = -1
-			\MouseState = -1
-			\Drag = Bool(Flags & #Drag)
-			
-			Scrollbar_Meta(\ScrollBar, *ThemeData, -1, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness, 0, 0, \Width, #Null)
-			
-			\VT\AddGadgetItem2 = @HorizontalList_AddItem()
-			\VT\RemoveGadgetItem = @HorizontalList_RemoveItem()
-			\VT\ResizeGadget = @HorizontalList_Resize()
-			\VT\SetGadgetAttribute = @HorizontalList_SetAttribute()
-			\VT\CountGadgetItems = @HorizontalList_CountItem()
-			\VT\GetGadgetItemImage = @HorizontalList_GetItemImage()
-			\VT\GetGadgetItemText = @HorizontalList_GetItemText()
-			
-			; Enable only the needed events
-			\SupportedEvent[#MouseWheel] = #True
-			\SupportedEvent[#MouseLeave] = #True
-			\SupportedEvent[#MouseMove] = #True
-			\SupportedEvent[#LeftButtonDown] = #True
-			\SupportedEvent[#LeftButtonUp] = #True
-			\SupportedEvent[#LeftDoubleClick] = #True
-			\SupportedEvent[#KeyDown] = #True
-		EndWith
-	EndProcedure
-	
-	Procedure HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
-		Protected Result, *this.PB_Gadget, *GadgetData.HorizontalListData, *ThemeData
-		
-		If AccessibilityMode
-			
-		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
-			
-			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, HorizontalListData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
-				HorizontalList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
-				
-				RedrawObject()
-			EndIf
 		EndIf
 		
 		ProcedureReturn Result
@@ -8900,8 +9410,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 3744
-; FirstLine = 86
-; Folding = AAAAAAAAAAAAAAAAAAAAAABAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 809
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware

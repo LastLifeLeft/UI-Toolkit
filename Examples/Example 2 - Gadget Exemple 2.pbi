@@ -31,7 +31,7 @@ AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertyBox_Text)
 AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertyBox_Text)
 AddGadgetItem(Gadget, -1, "Even moar entries", 0, UITK::#PropertyBox_Text)
 
-Gadget = UITK::Tree(#PB_Any, 20, 320, 280, 270, UITK::#Border | UITK::#Tree_StraightLine)
+Gadget = UITK::Tree(#PB_Any, 20, 320, 280, 270, UITK::#Border | UITK::#Tree_StraightLine | UITK::#Editable)
 EnableGadgetDrop(Gadget, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
 For a = 0 To 10
@@ -56,7 +56,7 @@ AddGadgetItem(Gadget, -1, "Sub-Sub-Item 1", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 2", 0, 2)
 AddGadgetItem(Gadget, -1, "Sub-Sub-Item 3", 0, 2)
 
-HList1 = UITK::HorizontalList(#PB_Any, 320, 20, 621, 80, UITK::#Border | UITK::#Drag)
+HList1 = UITK::HorizontalList(#PB_Any, 320, 20, 621, 80, UITK::#Border | UITK::#Drag | UITK::#Editable)
 EnableGadgetDrop(HList1, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
 For a = 0 To 10
@@ -104,7 +104,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 68
-; FirstLine = 23
+; CursorPosition = 33
+; FirstLine = 4
 ; EnableXP
 ; DPIAware
