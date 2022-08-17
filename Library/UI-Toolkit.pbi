@@ -342,6 +342,7 @@
 	Declare Disable(Gadget, State)
 	Declare Freeze(Gadget, State)
 	Declare AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
+	Declare EditGadgetItem(Gadget)
 	
 	; Drag & drop
 	Declare AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy)
@@ -1097,6 +1098,14 @@ Module UITK
 		
 		*GadgetData\Freeze = Bool(State)
 		RedrawObject()
+	EndProcedure
+	
+	Procedure EditGadgetItem(Gadget)
+		Protected Event.Event, *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+		          
+		Event\EventType = #KeyDown
+		Event\Param = #PB_Shortcut_F2
+		*GadgetData\EventHandler(*GadgetData, Event)
 	EndProcedure
 	
 	; Default functions
@@ -9410,7 +9419,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 809
-; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 356
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
