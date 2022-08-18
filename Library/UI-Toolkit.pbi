@@ -8638,6 +8638,14 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure.s Tree_GetItemText(*this.PB_Gadget, Position)
+		Protected *GadgetData.TreeData = *this\vt, *Result
+		
+		If Position > -1 And SelectElement(*GadgetData\Items(), Position)
+			ProcedureReturn *GadgetData\Items()\Text\OriginalText
+		EndIf
+	EndProcedure
+	
 	; Setters
 	Procedure Tree_SetItemData(*this.PB_Gadget, Position, *Data)
 		Protected *GadgetData.TreeData = *this\vt
@@ -8681,6 +8689,7 @@ Module UITK
 			\vt\SetGadgetItemData = @Tree_SetItemData()
 			\vt\GetGadgetItemData = @Tree_GetItemData()
 			\vt\GetGadgetItemAttribute2 = @Tree_GetItemAttribute()
+			\vt\GetGadgetItemText = @Tree_GetItemText()
 			\VT\DropHandler = @Tree_DropHandler()
 			
 			; Enable only the needed events
@@ -9419,7 +9428,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 356
-; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 8686
+; FirstLine = 108
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAsAAAAAA5
 ; EnableXP
 ; DPIAware
