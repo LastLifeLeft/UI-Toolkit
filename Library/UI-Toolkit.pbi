@@ -4962,55 +4962,40 @@ Module UITK
 					EndIf ;}
 					;}
 				Case #LeftButtonDown ;{
+					If \EditCursor
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					ElseIf \Editing
+						\Editing = #False
+						SelectElement(\Items(), \State)
+						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+						PrepareVectorTextBlock(@\Items()\Text)
+						
+						*Event\EventType = #LostFocus
+						\String\EventHandler(\String, *Event)
+						
+						Redraw = #True
+					EndIf
+					
 					If \ScrollBar\MouseState
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-						If \Editing
-							\Editing = #False
-							SelectElement(\Items(), \State)
-							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-							PrepareVectorTextBlock(@\Items()\Text)
-							
-							*Event\EventType = #LostFocus
-							\String\EventHandler(\String, *Event)
-							
+						Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \ItemState > -1
+						If \ItemState <> \State
+							\State = \ItemState
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							AddGadgetTimer(*GadgetData, 200, @VerticalList_FocusTimer())
 							Redraw = #True
 						EndIf
-					Else
-						If \ItemState > -1 
-							If \EditCursor
-								*Event\MouseX - \String\OriginX
-								*Event\MouseY - \String\OriginY
-								Redraw = \String\EventHandler(\String, *Event)
-							Else
-								If \Editing
-									\Editing = #False
-									SelectElement(\Items(), \State)
-									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-									PrepareVectorTextBlock(@\Items()\Text)
-									
-									*Event\EventType = #LostFocus
-									\String\EventHandler(\String, *Event)
-									
-									Redraw = #True
-								EndIf
-								
-								If \ItemState <> \State
-									\State = \ItemState
-									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-									AddGadgetTimer(*GadgetData, 200, @VerticalList_FocusTimer())
-									Redraw = #True
-								EndIf
-								
-								If \Reorder
-									\DragState = #Drag_Init
-									\DragOriginX = *Event\MouseX
-									\DragOriginY = *Event\MouseY
-								ElseIf \Drag
-									\DragState = #Drag_Init
-									\DragOriginX = *Event\MouseX
-									\DragOriginY = *Event\MouseY
-								EndIf
-							EndIf
+						
+						If \Reorder
+							\DragState = #Drag_Init
+							\DragOriginX = *Event\MouseX
+							\DragOriginY = *Event\MouseY
+						ElseIf \Drag
+							\DragState = #Drag_Init
+							\DragOriginX = *Event\MouseX
+							\DragOriginY = *Event\MouseY
 						EndIf
 					EndIf
 					;}
@@ -5747,53 +5732,40 @@ Module UITK
 					
 					;}
 				Case #LeftButtonDown ;{
-					If \ScrollBar\MouseState
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					If \EditCursor
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					ElseIf \Editing
+						\Editing = #False
+						SelectElement(\Items(), \State)
+						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+						PrepareVectorTextBlock(@\Items()\Text)
 						
-						If \Editing
-							\Editing = #False
-							SelectElement(\Items(), \State)
-							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-							PrepareVectorTextBlock(@\Items()\Text)
+						*Event\EventType = #LostFocus
+						\String\EventHandler(\String, *Event)
+					EndIf
+					
+					If \ScrollBar\MouseState
+						Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \MouseState > -1 
+						If \State <> \MouseState
+							\State = \MouseState
+							Redraw = #True
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
 							
-							*Event\EventType = #LostFocus
-							\String\EventHandler(\String, *Event)
-						EndIf
-					Else
-						If \MouseState > -1 
-							If \State <> \MouseState
-								If \Editing
-									\Editing = #False
-									SelectElement(\Items(), \State)
-									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-									PrepareVectorTextBlock(@\Items()\Text)
-									
-									*Event\EventType = #LostFocus
-									\String\EventHandler(\String, *Event)
-								EndIf
-								
-								\State = \MouseState
-								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
-								AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
-								
-								If \Drag
-									\DragState = #Drag_Init
-									\DragOriginX = *Event\MouseX
-									\DragOriginY = *Event\MouseY
-								EndIf
-							Else
-								If \EditCursor
-									*Event\MouseX - \String\OriginX
-									*Event\MouseY - \String\OriginY
-									Redraw = \String\EventHandler(\String, *Event)
-								ElseIf \Drag
-									\DragState = #Drag_Init
-									\DragOriginX = *Event\MouseX
-									\DragOriginY = *Event\MouseY
-								EndIf
+							If \Drag
+								\DragState = #Drag_Init
+								\DragOriginX = *Event\MouseX
+								\DragOriginY = *Event\MouseY
 							EndIf
-							
+						Else
+							If \Drag
+								\DragState = #Drag_Init
+								\DragOriginX = *Event\MouseX
+								\DragOriginY = *Event\MouseY
+							EndIf
 						EndIf
 					EndIf
 					;}
@@ -8297,49 +8269,66 @@ Module UITK
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					;}
-				Case #LeftButtonDown, #RightButtonDown ;{
-					If \ScrollBar\MouseState
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+				Case #LeftButtonDown ;{
+					If Cursor = #PB_Cursor_IBeam
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					ElseIf \Editing
+						NewItem = ListIndex(\Items())
+						\Editing = #False
+						SelectElement(\Items(), \State)
+						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+						PrepareVectorTextBlock(@\Items()\Text)
 						
-						If \Editing
-							\Editing = #False
-							SelectElement(\Items(), \State)
-							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-							PrepareVectorTextBlock(@\Items()\Text)
-							
-							*Event\EventType = #LostFocus
-							\String\EventHandler(\String, *Event)
-							
-							Redraw = #True
-						EndIf
+						*Event\EventType = #LostFocus
+						\String\EventHandler(\String, *Event)
+						*Event\EventType = #LeftButtonDown
+						
+						Redraw = #True
+						SelectElement(\Items(), NewItem)
+					EndIf
+					
+					If \ScrollBar\MouseState
+						Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
 					ElseIf SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
 						If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequieredWidth)
-							If Cursor = #PB_Cursor_IBeam
-								*Event\MouseX - \String\OriginX
-								*Event\MouseY - \String\OriginY
-								Redraw = \String\EventHandler(\String, *Event)
-							ElseIf \Editing
-								
-								NewItem = ListIndex(\Items())
-								\Editing = #False
-								SelectElement(\Items(), \State)
-								\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-								PrepareVectorTextBlock(@\Items()\Text)
-								
-								*Event\EventType = #LostFocus
-								\String\EventHandler(\String, *Event)
-								
-								Redraw = #True
-								SelectElement(\Items(), NewItem)
-							EndIf
-							
 							If \State <> ListIndex(\Items())
 								\State = ListIndex(\Items())
 								Redraw = #True
 								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 							EndIf
-							
-							If *Event\EventType = #RightButtonDown
+						EndIf
+					EndIf
+					;}
+				Case #RightButtonDown ;{
+					If Cursor = #PB_Cursor_IBeam
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					ElseIf \Editing
+						NewItem = ListIndex(\Items())
+						\Editing = #False
+						SelectElement(\Items(), \State)
+						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+						PrepareVectorTextBlock(@\Items()\Text)
+						
+						*Event\EventType = #LostFocus
+						\String\EventHandler(\String, *Event)
+						*Event\EventType = #RightButtonDown
+						
+						Redraw = #True
+						SelectElement(\Items(), NewItem)
+					EndIf
+					
+					If Not \ScrollBar\MouseState
+						If SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
+							If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequieredWidth)
+								If \State <> ListIndex(\Items())
+									\State = ListIndex(\Items())
+									Redraw = #True
+									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								EndIf
 								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ItemRightClick)
 							EndIf
 						EndIf
@@ -9454,7 +9443,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9454
-; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 8350
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
