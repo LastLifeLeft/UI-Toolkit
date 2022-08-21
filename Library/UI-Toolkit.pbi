@@ -7658,6 +7658,17 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure Library_SetItemText(*this.PB_Gadget, Position, *Text)
+		Protected *GadgetData.LibraryData = *this\vt
+		
+		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			*GadgetData\Items()\Text\OriginalText = PeekS(*Text)
+			PrepareVectorTextBlock(@*GadgetData\Items()\Text)
+			
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
 	Procedure Library_SetAttribute(*This.PB_Gadget, Attribute, Value)
 		Protected *GadgetData.LibraryData = *this\vt
 		
@@ -7737,6 +7748,7 @@ Module UITK
 			\VT\ResizeGadget = @Library_Resize()
 			
 			\VT\SetGadgetItemData = @Library_SetItemData()
+			\VT\SetGadgetItemText = @Library_SetItemText()
 			\VT\SetGadgetAttribute = @Library_SetAttribute()
 			
 			\VT\GetGadgetItemData = @Library_GetItemData()
@@ -8658,6 +8670,17 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure Tree_SetItemText(*this.PB_Gadget, Position, *Text)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			*GadgetData\Items()\Text\OriginalText = PeekS(*Text)
+			PrepareVectorTextBlock(@*GadgetData\Items()\Text)
+			
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
 	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tree)
@@ -8684,12 +8707,16 @@ Module UITK
 			\VT\RemoveGadgetItem = @Tree_RemoveItem()
 			\VT\ResizeGadget = @Tree_Resize()
 			\VT\CountGadgetItems = @Tree_CountItem()
-			\VT\GetGadgetItemImage = @Tree_GetItemImage()
 			\VT\ClearGadgetItemList = @Tree_ClearItems()
-			\vt\SetGadgetItemData = @Tree_SetItemData()
-			\vt\GetGadgetItemData = @Tree_GetItemData()
-			\vt\GetGadgetItemAttribute2 = @Tree_GetItemAttribute()
-			\vt\GetGadgetItemText = @Tree_GetItemText()
+			
+			\VT\SetGadgetItemData = @Tree_SetItemData()
+			\VT\SetGadgetItemText = @Tree_SetItemText()
+			
+			\VT\GetGadgetItemData = @Tree_GetItemData()
+			\VT\GetGadgetItemAttribute2 = @Tree_GetItemAttribute()
+			\VT\GetGadgetItemText = @Tree_GetItemText()
+			\VT\GetGadgetItemImage = @Tree_GetItemImage()
+			
 			\VT\DropHandler = @Tree_DropHandler()
 			
 			; Enable only the needed events
@@ -9426,10 +9453,8 @@ EndModule
 
 
 
-
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 8686
-; FirstLine = 108
-; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAsAAAAAA5
+; CursorPosition = 9454
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
