@@ -27,6 +27,9 @@
 		#Window_CloseButton
 		#Window_MaximizeButton
 		#Window_MinimizeButton
+		
+		; DoNotUse
+		#Gadget_Meta
 	EndEnumeration
 	
 	#Tree_DotLine = 0
@@ -335,6 +338,7 @@
 	Declare HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare Tab(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
+	Declare TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -717,7 +721,10 @@ Module UITK
 	
 	Prototype ItemRedraw(*Item, X, Y, Width, Height, State, *Theme.Theme)
 	
-	;{ Set default themes
+	#Drag_Distance = 7
+	;}
+	
+	;{ Default themes
 	With DefaultTheme 
 		\WindowColor = SetAlpha(FixColor($F0F0F0), 255)
 		
@@ -733,6 +740,7 @@ Module UITK
 		\ShadeColor[#Cold]		= SetAlpha(FixColor($DEDEDE), 255)
 		\ShadeColor[#Warm]		= SetAlpha(FixColor($D3D3D3), 255)
 		\ShadeColor[#Hot]		= SetAlpha(FixColor($C4C4C4), 255)
+		\ShadeColor[#Disabled]	= SetAlpha(FixColor($F0F0F0), 255)
 		
 		\LineColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($90C8F6), 255)
@@ -777,6 +785,7 @@ Module UITK
 		\ShadeColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
 		\ShadeColor[#Warm]		= SetAlpha(FixColor($4F545C), 255)
 		\ShadeColor[#Hot]		= SetAlpha(FixColor($676A70), 255)
+		\ShadeColor[#Disabled]	= SetAlpha(FixColor($36393F), 255)
 		
 		\LineColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
 		\LineColor[#Warm]		= SetAlpha(FixColor($A2A3A5), 255)
@@ -806,7 +815,7 @@ Module UITK
 		\CornerRadius			= 4
 	EndWith
 	;}
-	;}
+
 	
 	
 	;General:
@@ -1075,6 +1084,11 @@ Module UITK
 	
 	Procedure DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
 		MovePathCursor(X + *TextData\TextX, Y + *TextData\TextY, #PB_Path_Default)
+		If *TextData\FontScale
+			VectorFont(*TextData\FontID, *TextData\FontScale)
+		Else
+			VectorFont(*TextData\FontID)
+		EndIf
 		DrawVectorParagraph(*TextData\Text, *TextData\Width, *TextData\Height, *TextData\VectorAlign)
 		
 		If *TextData\Image
@@ -2540,6 +2554,7 @@ Module UITK
 	;}
 	
 	
+	
 	;Gadgets:
 	;{ Button
 	#Button_Margin = 3
@@ -2574,12 +2589,6 @@ Module UITK
 			FillPath()
 			
 			VectorSourceColor(\ThemeData\TextColor[State])
-			
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
 			
 			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin, 145 + Bool(State <> #Disabled) * 110)
 			
@@ -2746,12 +2755,6 @@ Module UITK
 		Protected X, Y
 		
 		With *GadgetData
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
-			
 			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
@@ -2919,12 +2922,6 @@ Module UITK
 		Protected X, Y
 		
 		With *GadgetData
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
-			
 			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
 			If \TextBock\HAlign = #HAlignRight
@@ -3088,7 +3085,6 @@ Module UITK
 	;}
 	
 	;{ String
-	#String_CarretHeight = 16
 	Structure String_CharacterData
 		Char.s
 		Width.i
@@ -3106,6 +3102,7 @@ Module UITK
 		String.s
 		SelectionPosition.i
 		SelectionLenght.i
+		CarretHeight.l
 		List CharacterData.String_CharacterData()
 		Selecting.b
 		Focus.b
@@ -3131,12 +3128,13 @@ Module UITK
 			CharacterCount = Len(\String)
 			
 			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			
 			If \TextBock\FontScale
 				VectorFont(\TextBock\FontID, \TextBock\FontScale)
 			Else
 				VectorFont(\TextBock\FontID)
 			EndIf
-			
+		
 			For Loop = 1 To CharacterCount
 				AddElement(\CharacterData())
 				\CharacterData()\Char = Mid(\String, Loop, 1)
@@ -3210,14 +3208,13 @@ Module UITK
 					Next
 				EndIf
 				
-				AddPathBox(Position, \OriginY + \TextPositionY + 1, Size, #String_CarretHeight)
+				AddPathBox(Position, \OriginY + \TextPositionY + 1, Size, \CarretHeight)
 				VectorSourceColor(SetAlpha(FixColor($4F9BF2), 255))
 				FillPath()
 				
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				MovePathCursor(Position, \OriginY + \TextPositionY)
 				DrawVectorParagraph(Text, \Width, \Height)
-				
 			EndIf
 			
 		EndWith
@@ -3290,7 +3287,6 @@ Module UITK
 					\CharacterData()\Char = Chr(*Event\Param)
 					\CharacterData()\Position = Size
 					StartVectorDrawing(CanvasVectorOutput(\Gadget))
-					
 					If \TextBock\FontScale
 						VectorFont(\TextBock\FontID, \TextBock\FontScale)
 					Else
@@ -3725,6 +3721,26 @@ Module UITK
 		
 	EndProcedure
 	
+	Procedure String_SetFont_Meta(*GadgetData.StringData, FontID)
+		With *GadgetData
+			\TextBock\FontID = FontID
+			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			\CarretHeight = Ceil( VectorTextHeight("Oh!"))
+			\TextPositionY = \OriginY + Round((\Height - \CarretHeight) * 0.5, #PB_Round_Nearest) - 1
+			ResizeGadget(\Carret, #PB_Ignore, #PB_Ignore, #PB_Ignore, \CarretHeight)
+			StopVectorDrawing()
+		EndWith
+	EndProcedure
+	
+	Procedure String_SetFont(*this.PB_Gadget, FontID)
+		String_SetFont_Meta(*this\vt, FontID)
+	EndProcedure
+	
 	Procedure StringSetSelection_Meta(*GadgetData.StringData, Position, Lenght)
 		With *GadgetData
 			\SelectionPosition = Position
@@ -3755,30 +3771,40 @@ Module UITK
 		
 		With *GadgetData
 			
+			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			If \TextBock\FontScale
+				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			Else
+				VectorFont(\TextBock\FontID)
+			EndIf
+			\CarretHeight = Ceil( VectorTextHeight("Oh!"))
+			Debug \CarretHeight
+			StopVectorDrawing()
 			\TextPositionX = \OriginX + BorderMargin * Bool(\TextBock\HAlign = #HAlignLeft)						
-			\TextPositionY = \OriginY + Round((\Height - #String_CarretHeight) * 0.5, #PB_Round_Down) - 1
+			\TextPositionY = \OriginY + Round((\Height - \CarretHeight) * 0.5, #PB_Round_Nearest) - 1
 			\String = Text
 			\SelectionPosition = -1
 			
 			If \Carret = 0
-				\Carret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, #String_CarretHeight)
+				\Carret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, \CarretHeight)
 				CloseGadgetList()
 				SetGadgetColor(\Carret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]),
 				                                                  Green(\ThemeData\TextColor[#Cold]),
 				                                                  Blue(\ThemeData\TextColor[#Cold])))
 			EndIf
 			
-			If Gadget > -1
-				String_ProcessString(*GadgetData)
-			Else
+			If Flags & #Gadget_Meta
 				AddElement(\CharacterData())
 				\CharacterData()\Position = \TextPositionX
+			Else
+				String_ProcessString(*GadgetData)
 			EndIf
 			
 			HideGadget(\Carret, #True)
 			
 			\VT\GetGadgetText = @String_GetText()
 			\VT\SetGadgetText = @String_SetText()
+			\VT\SetGadgetFont = @String_SetFont()
 			
 			String_SupportedEvents()
 			*GadgetData\SupportedEvent[#MouseEnter] = #True
@@ -4310,11 +4336,6 @@ Module UITK
 	
 	Procedure Label_Redraw(*GadgetData.LabelData)
 		With *GadgetData
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
 			DrawVectorTextBlock(@\TextBock, \OriginX, \OriginY)
 		EndWith
@@ -4644,7 +4665,7 @@ Module UITK
 		ReorderPosition.i
 		ReorderTimer.i
 		ReorderDirection.b
-		ReorderWindow.i	; We should share with the drag window? Might add some issues since it's subclassed?
+		ReorderWindow.i	; We use the same window as drag window? Might add some issues since it's subclassed?
 		ReorderCanvas.i
 		
 		Editable.l
@@ -4686,12 +4707,6 @@ Module UITK
 			MovePathCursor(X + *Item\Text\Width - #VerticalList_IconWidth, Y + (*Item\Text\Height - 14) * 0.5)
 			VectorFont(IconFont, 16)
 			DrawVectorText("")
-			
-			If *Item\Text\FontScale
-				VectorFont(*Item\Text\FontID, *Item\Text\FontScale)
-			Else
-				VectorFont(*Item\Text\FontID)
-			EndIf
 		EndIf
 	EndProcedure
 	
@@ -4721,12 +4736,6 @@ Module UITK
 				
 				If (\ReorderPosition > - 1) And Position > \ItemState
 					NextElement(\Items())
-				EndIf
-				
-				If \TextBock\FontScale
-					VectorFont(\TextBock\FontID, \TextBock\FontScale)
-				Else
-					VectorFont(\TextBock\FontID)
 				EndIf
 				
 				Repeat
@@ -4840,13 +4849,12 @@ Module UITK
 						Redraw = \String\EventHandler(\String, *Event)
 						;}
 					ElseIf \DragState = #Drag_Init ;{
-						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
+						If Abs(\DragOriginX - *Event\MouseX) > #Drag_Distance Or Abs(\DragOriginY - *Event\MouseY) > #Drag_Distance
 							If \Drag 
 								Image = CreateImage(#PB_Any, \Width, \ItemHeight, 32, \ThemeData\ShadeColor[#Hot])
 								SelectElement(\Items(),\State)
 								
 								StartVectorDrawing(ImageVectorOutput(Image))
-								VectorFont(\TextBock\FontID)
 								VectorSourceColor(\ThemeData\TextColor[#Hot])
 								\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot, \ThemeData)
 								StopVectorDrawing()
@@ -4872,11 +4880,6 @@ Module UITK
 								VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 								AddPathBox(0, 0, \Width, \ItemHeight)
 								
-								If \TextBock\FontScale
-									VectorFont(\TextBock\FontID, \TextBock\FontScale)
-								Else
-									VectorFont(\TextBock\FontID)
-								EndIf
 								FillPath()
 								
 								SelectElement(\Items(), \State)
@@ -5186,8 +5189,6 @@ Module UITK
 			If ListSize(\Items()) * \ItemHeight > \Height
 				\VisibleScrollbar = #True
 				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
-			Else
-				\VisibleScrollbar = #False
 			EndIf
 			
 			If \SortItem
@@ -5277,6 +5278,7 @@ Module UITK
 	Procedure VerticalList_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
+		CloseWindow(*GadgetData\ReorderWindow)
 		DeleteMapElement(GadgetHandler(), Str(GadgetID(*GadgetData\Gadget)))
 		FreeStructure(*GadgetData\ScrollBar)
 		
@@ -5445,8 +5447,7 @@ Module UITK
 				*StringThemeData\CornerRadius = 0
 				*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
 				AllocateStructureX(\String, StringData)
-				String_Meta(\String, *StringThemeData, -1, 0, 0, \Width, 20, "", #HAlignLeft)
-				\String\Gadget = Gadget
+				String_Meta(\String, *StringThemeData, Gadget, 0, 0, \Width, 20, "", #HAlignLeft | #Gadget_Meta)
 				String_SupportedEvents()
 				CloseGadgetList()
 			EndIf
@@ -6066,8 +6067,7 @@ Module UITK
 				*StringThemeData\CornerRadius = 0
 				*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
 				AllocateStructureX(\String, StringData)
-				String_Meta(\String, *StringThemeData, -1, 0, 0, \ItemWidth, 20, "", #HAlignCenter)
-				\String\Gadget = Gadget
+				String_Meta(\String, *StringThemeData, Gadget, 0, 0, \ItemWidth, 20, "", #HAlignCenter | #Gadget_Meta)
 				String_SupportedEvents()
 				CloseGadgetList()
 			EndIf
@@ -6150,12 +6150,6 @@ Module UITK
 		Protected Progress, X, Y, Ratio.d, TextHeight, Height, Width, Text.s, TextWidth
 		
 		With *GadgetData
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
-			
 			VectorSourceColor(\ThemeData\LineColor[#Cold])
 			TextHeight = VectorTextHeight("a")
 			
@@ -6581,12 +6575,6 @@ Module UITK
 			
 			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
-			
 			DrawVectorTextBlock(@\TextBock, \OriginX + #Combo_ItemMargin, \OriginY + \VMargin)
 			VectorFont(IconFont)
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
@@ -6928,12 +6916,6 @@ Module UITK
 		Protected X, Y, State
 		
 		With *GadgetData
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
-			Else
-				VectorFont(\TextBock\FontID)
-			EndIf
-			
 			If \State
 				State = #Hot
 			Else
@@ -7250,24 +7232,12 @@ Module UITK
 	EndProcedure
 	
 	Procedure Library_RedrawSection(*Section.Library_Section, X, Y, Width, Height, State, *Theme.Theme)
-		If *Section\Text\FontScale
-			VectorFont(*Section\Text\FontID, *Section\Text\FontScale)
-		Else
-			VectorFont(*Section\Text\FontID)
-		EndIf
-		
 		DrawVectorTextBlock(@*Section\Text, X + 20, Y)
 	EndProcedure
 	
 	Procedure Library_RedrawItem(*Item.Library_Item, X, Y, Width, Height, State, *Theme.Theme)
 		Protected TextHeight = Height - *Item\Text\Height
 		With *Item
-			If \Text\FontScale
-				VectorFont(\Text\FontID, \Text\FontScale)
-			Else
-				VectorFont(\Text\FontID)
-			EndIf
-			
 			MovePathCursor(X + \ImageX, Y + \ImageY)
 			DrawVectorImage(\ImageID)
 						
@@ -7858,14 +7828,11 @@ Module UITK
 					FirstElement(\Items())
 				EndIf
 				
-				VectorFont(\TextBock\FontID)
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				
 				Repeat
 					If \Items()\Type = #PropertyBox_Title
-						VectorFont(\Items()\Text\FontID, \Items()\Text\FontScale)
 						DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 1)
-						VectorFont(\TextBock\FontID)
 					Else
 						VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 						AddPathBox(X, Y, \Width, \ItemHeight - 1)
@@ -8116,7 +8083,6 @@ Module UITK
 					FirstElement(\Items())
 				EndIf
 				
-				VectorFont(\TextBock\FontID)
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				
 				Repeat
@@ -8682,7 +8648,7 @@ Module UITK
 			\State = -1
 			\InternalHeight = 5
 			
-			Scrollbar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
+			Scrollbar_Meta(\ScrollBar, *ThemeData, -1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			
 			If Flags & #Tree_NoLine
 				\DrawLine = 0
@@ -8727,8 +8693,7 @@ Module UITK
 				*StringThemeData\CornerRadius = 0
 				*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
 				AllocateStructureX(\String, StringData)
-				String_Meta(\String, *StringThemeData, -1, 0, 0, \Width, 20, "", #HAlignLeft)
-				\String\Gadget = Gadget
+				String_Meta(\String, *StringThemeData, Gadget, 0, 0, \Width, 20, "", #HAlignLeft | #Gadget_Meta)
 				String_SupportedEvents()
 				CloseGadgetList()
 			EndIf
@@ -8791,7 +8756,6 @@ Module UITK
 			AddPathBox(0, 0, \Width, \Height)
 			VectorSourceColor(\Theme\ShadeColor[#Cold])
 			FillPath()
-			VectorFont(\FontID)
 			VectorSourceColor(\Theme\TextColor[#Warm])
 			
 			ForEach \Item()
@@ -9110,7 +9074,6 @@ Module UITK
 			Protected X = \OriginX + \Border
 			
 			If ListSize(\Items())
-				VectorFont(\TextBock\FontID)
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				
 				FirstElement(\Items())
@@ -9419,6 +9382,773 @@ Module UITK
 	EndProcedure
 	;}
 	
+	;{ Timeline
+	#EnableTimeline = #True 					; This is a big chunk of code, and it's totally useless for anything but a sequence editor, keep it #False to avoid your programme getting chonkier for nothing
+	
+	CompilerIf #EnableTimeline
+		#Timeline_List_Width = 222
+		#Timeline_List_TextMargin = 10
+		#Timeline_Header_Height = 60
+		#Timeline_List_LineHeight = 60
+		#Timeline_TrackbarThickness = 7
+		#Timeline_Focus_Timer = 400
+		
+		Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Segoe UI Semibold", 12, #PB_Font_HighQuality))
+		
+		Structure TimeLine_Line
+			Text.Text
+			Height.l
+			UnfoldedHeight.l
+			Y.l
+		EndStructure
+		
+		Structure TimeLineData Extends GadgetData
+			BodyHeight.l
+			BodyWidth.l
+			
+			RedrawList.b
+			RedrawBody.b
+			RedrawHeader.b
+			RedrawAll.b
+			
+			InternalHeight.l
+			
+			DragState.i
+			DragOriginX.i
+			DragOriginY.i
+			ReorderWindow.i
+			ReorderCanvas.i
+			ReorderPosition.i
+			ReorderFocusTimer.i
+			ReorderDirection.i
+			
+			Editing.i
+			
+			*FirstDisplayedLine
+			
+			List Lines.TimeLine_Line()
+			
+			VisibleVerticalScrollbar.b
+			*VScrollBar.ScrollBarData
+			
+			VisibleHorizontalScrollbar.b
+			*HScrollBar.ScrollBarData
+			
+			*String.StringData
+			
+		EndStructure
+		
+		Procedure Timeline_Redraw_ListItem(*GadgetData.TimeLineData, X, Y, State)
+			With *GadgetData
+				If State = #Cold
+					VectorSourceColor(SetAlpha(\ThemeData\TextColor[State], 200))
+					DrawVectorTextBlock(@\Lines()\Text, X + #Timeline_List_TextMargin, Y)
+				Else
+					AddPathBox(X, Y, #Timeline_List_Width - 0.5, \Lines()\Height)
+					VectorSourceColor(\ThemeData\ShadeColor[State])
+					FillPath()
+					VectorSourceColor(\ThemeData\TextColor[State])
+					DrawVectorTextBlock(@\Lines()\Text, X + #Timeline_List_TextMargin, Y)
+					VectorSourceColor(\ThemeData\TextColor[#Cold])
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure Timeline_Redraw_BodyItem(*GadgetData.TimeLineData, X, Y, State, Alt)
+			With *GadgetData
+				If State = #Cold
+					If Alt
+						AddPathBox(X, Y, \BodyWidth, \Lines()\Height)
+						VectorSourceColor(SetAlpha(\ThemeData\WindowColor, 150))
+						FillPath()
+					EndIf
+				Else
+					AddPathBox(X + 0.5, Y, \BodyWidth, \Lines()\Height)
+					VectorSourceColor(\ThemeData\ShadeColor[State])
+					FillPath()
+				EndIf
+				
+			EndWith
+		EndProcedure
+		
+		Procedure TimeLine_Redraw(*GadgetData.TimeLineData)
+			Protected State, Y, X, Alt, ReorderPosition
+			
+			With *GadgetData
+				If \Border
+					AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+					VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
+					StrokePath(2, #PB_Path_Preserve)
+				Else
+					AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
+				EndIf
+				
+				VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+				
+				If \RedrawAll
+					\RedrawAll = #False
+					\RedrawList = #True
+					\RedrawHeader = #True
+					\RedrawBody = #True
+					FillPath(#PB_Path_Preserve)
+				EndIf
+				
+				ClipPath()
+				
+				SaveVectorState()
+				
+				If \RedrawList ;{
+					AddPathBox(\OriginX, \OriginY + #Timeline_Header_Height, #Timeline_List_Width, \BodyHeight)
+					ClipPath(#PB_Path_Preserve)
+					FillPath()
+					
+					MovePathCursor(\OriginX + #Timeline_List_Width, 0)
+					AddPathLine(0, \Height, #PB_Path_Relative)
+					VectorSourceColor(\ThemeData\WindowColor)
+					StrokePath(2)
+					
+					If \FirstDisplayedLine
+						ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
+						Y = \Lines()\Y - \VScrollBar\State + #Timeline_Header_Height
+						If \DragState = #Drag_Active And \State < ListIndex(\Lines())
+							Y - #Timeline_List_LineHeight
+							Alt = Bool(Not Alt)
+						EndIf
+						
+						Repeat
+							If Not ListIndex(\Lines()) = \State
+								Timeline_Redraw_ListItem(*GadgetData, \OriginX, Y, Bool(ListIndex(\Lines()) = \MouseState) * #Warm)
+							ElseIf Not \DragState = #Drag_Active
+								Timeline_Redraw_ListItem(*GadgetData, \OriginX, Y, #Hot)
+							Else
+								Continue
+							EndIf
+							
+							Y + \Lines()\Height
+						Until Y > \Height Or (Not NextElement(\Lines()))
+					EndIf
+					
+					If \DragState = #Drag_Active
+						MovePathCursor(\OriginX, \OriginY + (\ReorderPosition * #Timeline_List_LineHeight - \VScrollBar\State + #Timeline_Header_Height))
+						AddPathLine(#Timeline_List_Width, 0, #PB_Path_Relative)
+						VectorSourceColor(\ThemeData\TextColor[#Hot])
+						StrokePath(3)
+					ElseIf \Editing
+						\String\Redraw(\String)
+					EndIf
+					
+					RestoreVectorState()
+					SaveVectorState()
+					\RedrawList = #False
+				EndIf ;}
+				
+				If \RedrawHeader ;{
+					AddPathBox(\OriginX + #Timeline_List_Width, \OriginY, \BodyWidth, #Timeline_Header_Height)
+					ClipPath(#PB_Path_Preserve)
+					FillPath()
+					
+					MovePathCursor(0, #Timeline_Header_Height)
+					AddPathLine(\Width, 0, #PB_Path_Relative)
+					
+					VectorSourceColor(\ThemeData\WindowColor)
+					StrokePath(2)
+					RestoreVectorState()
+					SaveVectorState()
+					\RedrawHeader = #False
+				EndIf ;}
+				
+				If \RedrawBody ;{
+					AddPathBox(\OriginX + #Timeline_List_Width, \OriginY + #Timeline_Header_Height, \BodyWidth, \BodyHeight)
+					ClipPath(#PB_Path_Preserve)
+					FillPath()
+					
+					If \FirstDisplayedLine
+						ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
+						Y = \Lines()\Y - \VScrollBar\State + #Timeline_Header_Height
+						X = \OriginX + #Timeline_List_Width + 0.5
+						Alt = ListIndex(\Lines()) % 2
+						If \DragState = #Drag_Active And \State < ListIndex(\Lines())
+							Alt = Bool(Not Alt)
+						EndIf
+						
+						Repeat
+							If Not ListIndex(\Lines()) = \State
+								Timeline_Redraw_BodyItem(*GadgetData, X, Y, Bool(ListIndex(\Lines()) = \MouseState) * #Warm, Alt)
+							ElseIf Not \DragState = #Drag_Active
+								Timeline_Redraw_BodyItem(*GadgetData, X, Y, #Hot, Alt)
+							Else
+								Continue
+							EndIf
+							Y + \Lines()\Height
+							Alt = Bool(Not Alt)
+						Until Y > \Height Or (Not NextElement(\Lines()))
+					EndIf
+					
+					RestoreVectorState()
+					SaveVectorState()
+					\RedrawBody = #False
+					
+					If \VisibleVerticalScrollbar
+						\VScrollBar\Redraw(\VScrollBar)
+					EndIf
+				EndIf ;}
+				
+			EndWith
+		EndProcedure
+		
+		Procedure Timeline_Focus(*GadgetData.TimeLineData)
+			With *GadgetData
+				If \VisibleVerticalScrollbar
+					SelectElement(\Lines(), \State)
+					If \Lines()\Y < \VScrollBar\State
+						ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y)
+						ProcedureReturn #True
+					ElseIf \Lines()\Y + \Lines()\Height > \VScrollBar\State + \BodyHeight
+						ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y + \Lines()\Height - \BodyHeight)
+						ProcedureReturn #True
+					EndIf
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure TimeLine_FocusTimer(*GadgetData.TimeLineData, Timer)
+			If Timeline_Focus(*GadgetData)
+				*GadgetData\RedrawBody = #True
+				*GadgetData\RedrawList = #True
+				StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+				TimeLine_Redraw(*GadgetData)
+				StopVectorDrawing()
+			EndIf
+			RemoveGadgetTimer(Timer)
+		EndProcedure
+		
+		Procedure TimeLine_ReorderFocusTimer(*GadgetData.TimeLineData, Timer)
+			With *GadgetData
+				ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
+				If \ReorderDirection
+					If \ReorderPosition < ListSize(\Lines()) - 1
+						NextElement(\Lines())
+						If ListIndex(\Lines()) = \State
+							NextElement(\Lines())
+							\ReorderPosition + 1
+							ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State + #Timeline_List_LineHeight * 2)
+						Else
+							ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State + #Timeline_List_LineHeight)
+						EndIf
+						\FirstDisplayedLine = @\Lines()
+						\RedrawBody = #True
+						\RedrawList = #True
+						\ReorderPosition + 1
+					EndIf
+				Else
+					If ListIndex(\Lines())
+						PreviousElement(\Lines())
+						If ListIndex(\Lines()) = \State
+							PreviousElement(\Lines())
+							\ReorderPosition - 1
+						EndIf
+						\FirstDisplayedLine = @\Lines()
+						ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y)
+						\RedrawBody = #True
+						\RedrawList = #True
+						\ReorderPosition - 1
+					EndIf
+				EndIf
+				
+				If \RedrawAll + \RedrawBody + \RedrawHeader + \RedrawList
+					StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+					TimeLine_Redraw(*GadgetData)
+					StopVectorDrawing()
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
+			Protected Redraw, TempMouseState = -1, VScrollBar = #False, FirstDisplayedItem, LastDisplayedItem, Y, *Data
+			
+			With *GadgetData
+				Select *Event\EventType
+					Case #MouseEnter ;{
+						
+						;}
+					Case #MouseLeave ;{
+						If \MouseState > -1
+							\MouseState = -1
+							\RedrawBody = #True
+							\RedrawList = #True
+						EndIf
+						
+						If \VScrollBar\MouseState
+							\VScrollBar\MouseState = #Cold
+							\RedrawBody = #True
+						EndIf
+						;}
+					Case #MouseMove ;{
+						If \DragState = #Drag_None ;{
+							If *Event\MouseX > #Timeline_List_Width
+								If *Event\MouseY > #Timeline_Header_Height ;{ Body
+									If \VisibleVerticalScrollbar And (*Event\MouseX > \VScrollBar\OriginX Or \VScrollBar\Drag = #True) ;{ Vertical Scrollbar
+										\RedrawBody = ScrollBar_EventHandler(\VScrollBar, *Event)
+										VScrollBar = #True
+										If \RedrawBody And \VScrollBar\Drag
+											\RedrawList = #True
+											ForEach \Lines()
+												If \Lines()\Y + \Lines()\Height >= \VScrollBar\State
+													\FirstDisplayedLine = @\Lines()
+													Break
+												EndIf
+											Next
+										EndIf
+										;}
+									Else
+										*Event\MouseX - #Timeline_List_Width
+										*Event\MouseY - #Timeline_Header_Height
+									EndIf
+									
+									;}
+								Else ;{ Header action
+									*Event\MouseX - #Timeline_List_Width
+									
+								EndIf;}
+							ElseIf *Event\MouseY > #Timeline_Header_Height ;{ List
+								If \FirstDisplayedLine
+									ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
+									
+									*Event\MouseY + \VScrollBar\State - #Timeline_Header_Height
+									
+									Repeat
+										If *Event\MouseY < \Lines()\Y + \Lines()\Height
+											TempMouseState = ListIndex(\Lines())
+											Break
+										EndIf
+									Until Not NextElement(\Lines())
+								EndIf
+							EndIf ;}
+							
+							If \VScrollBar\MouseState And VScrollBar = #False And \VScrollBar\Drag = #False
+								\VScrollBar\MouseState = #Cold
+								\RedrawBody = #True
+							EndIf
+							
+							If \MouseState <> TempMouseState
+								\MouseState = TempMouseState
+								\RedrawBody = #True
+								\RedrawList = #True
+							EndIf
+							;}
+						ElseIf \DragState = #Drag_Init ;{
+							If Abs(\DragOriginX - *Event\MouseX) > #Drag_Distance Or Abs(\DragOriginY - *Event\MouseY) > #Drag_Distance
+								SelectElement(\Lines(), \State)
+								
+								\DragState = #Drag_Active
+								\DragOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginX
+								\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + \Lines()\Y - \VScrollBar\State + #Timeline_Header_Height
+								
+								ResizeWindow(\ReorderWindow, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, \Width, #PB_Ignore)
+								
+								StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
+								AddPathBox(#Timeline_List_Width - 1, 0, 3, #Timeline_List_LineHeight)
+								VectorSourceColor(\ThemeData\WindowColor)
+								FillPath()
+								Timeline_Redraw_ListItem(*GadgetData.TimeLineData, 0, 0, #Hot)
+								Timeline_Redraw_BodyItem(*GadgetData.TimeLineData, #Timeline_List_Width, 0, #Hot, 0)
+								StopVectorDrawing()
+								HideWindow(\ReorderWindow, #False)
+								SetActiveGadget(\ReorderCanvas)
+								
+								ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
+								FirstDisplayedItem = ListIndex(\Lines())
+								LastDisplayedItem = FirstDisplayedItem + Ceil(\BodyHeight / #Timeline_List_LineHeight)
+								\ReorderPosition = Max(min(Round((*Event\MouseY + \VScrollBar\State - #Timeline_Header_Height) / #Timeline_List_LineHeight, #PB_Round_Nearest), LastDisplayedItem), FirstDisplayedItem)
+								\RedrawBody = #True
+								\RedrawList = #True
+								
+								If \InternalHeight - #Timeline_List_LineHeight > \BodyHeight
+									ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_Maximum, \InternalHeight - #Timeline_List_LineHeight)
+								Else
+									\VisibleVerticalScrollbar = #False
+									ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_Maximum, \InternalHeight - #Timeline_List_LineHeight)
+								EndIf
+							EndIf
+							;}
+						Else;{
+							ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
+							FirstDisplayedItem = ListIndex(\Lines())
+							LastDisplayedItem = FirstDisplayedItem + Ceil(\BodyHeight / #Timeline_List_LineHeight)
+							LastDisplayedItem + Bool(LastDisplayedItem >= \State)
+							
+							If \VisibleVerticalScrollbar
+								If *Event\MouseY < #Timeline_Header_Height
+									If Not \ReorderFocusTimer
+										\ReorderDirection = 0
+										\ReorderFocusTimer = AddGadgetTimer(*GadgetData, #Timeline_Focus_Timer, @TimeLine_ReorderFocusTimer())
+										
+										If \VScrollBar\State > \Lines()\Y
+											ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y)
+										EndIf
+									EndIf
+								ElseIf *Event\MouseY > \Height
+									If Not \ReorderFocusTimer
+										\ReorderDirection = 1
+										\ReorderFocusTimer = AddGadgetTimer(*GadgetData, #Timeline_Focus_Timer, @TimeLine_ReorderFocusTimer())
+										
+										If \VScrollBar\State + \BodyHeight < LastDisplayedItem * #Timeline_List_LineHeight
+											ScrollBar_SetState_Meta(\VScrollBar, LastDisplayedItem * #Timeline_List_LineHeight - \BodyHeight)
+										EndIf
+									EndIf
+								ElseIf \ReorderFocusTimer
+									RemoveGadgetTimer(\ReorderFocusTimer)
+									\ReorderFocusTimer = 0
+								EndIf
+								\ReorderPosition = Max(min(Round((*Event\MouseY + \VScrollBar\State - #Timeline_Header_Height) / #Timeline_List_LineHeight, #PB_Round_Nearest), LastDisplayedItem), FirstDisplayedItem)
+							Else
+								\ReorderPosition = Max(min(Round((*Event\MouseY + \VScrollBar\State - #Timeline_Header_Height) / #Timeline_List_LineHeight, #PB_Round_Nearest), ListSize(\Lines()) - 1), 0)
+							EndIf
+							
+							\RedrawBody = #True
+							\RedrawList = #True
+							SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+							;}
+						EndIf
+						;}
+					Case #KeyDown ;{
+						Select *Event\Param
+							Case #PB_Shortcut_F2 ;{
+								If \State > -1 And Not \Editing
+									\RedrawBody = Timeline_Focus(*GadgetData)
+									\RedrawList = #True
+									\Editing = #True
+									SelectElement(\Lines(), \State)
+									\String\String = \Lines()\Text\OriginalText
+									String_ProcessString(\String)
+									
+									*Event\EventType = #Focus
+									\String\OriginX = \Lines()\Text\TextX + #Timeline_List_TextMargin + \Border
+									\String\Width = \Lines()\Text\Width
+									\String\OriginY = #Timeline_Header_Height + \Lines()\Y + \Lines()\Text\TextY + \Border
+									\String\EventHandler(\String, *Event)
+									StringSetSelection_Meta(\String, 0, Len(\String\String))
+								EndIf
+								;}
+							Case #PB_Shortcut_Escape ;{
+								If \Editing
+									
+								ElseIf \DragState = #Drag_Active
+									\ReorderPosition = \State
+									*Event\EventType = #LeftButtonUp
+									TimeLine_EventHandler(*GadgetData, *Event)
+								EndIf
+								;}
+							Default
+								If \Editing
+									\String\EventHandler(\String, *Event)
+									\RedrawList = #True
+								EndIf
+						EndSelect
+					;}
+					Case #KeyUp ;{
+						
+						;}
+					Case #LeftButtonDown ;{
+						If \VScrollBar\MouseState
+							\RedrawBody + ScrollBar_EventHandler(\VScrollBar, *Event)
+						ElseIf \MouseState > -1
+							\State = \MouseState
+							\RedrawBody = #True
+							\RedrawList = #True
+							\DragState = #Drag_Init
+							\DragOriginX = *Event\MouseX
+							\DragOriginY = *Event\MouseY
+						EndIf
+						;}
+					Case #LeftButtonUp ;{
+						If \VScrollBar\MouseState
+							\RedrawBody + ScrollBar_EventHandler(\VScrollBar, *Event)
+						EndIf
+						
+						If \DragState = #Drag_Init
+							\DragState = #Drag_None
+							AddGadgetTimer(*GadgetData, 200, @TimeLine_FocusTimer())
+						ElseIf \DragState = #Drag_Active
+							If \ReorderPosition = 0
+								SelectElement(\Lines(), \State)
+								MoveElement(\Lines(), #PB_List_First)
+							ElseIf \ReorderPosition = ListSize(\Lines())
+								SelectElement(\Lines(), \State)
+								MoveElement(\Lines(), #PB_List_Last)
+							Else
+								*Data = SelectElement(\Lines(), \ReorderPosition - Bool(\ReorderPosition < \State))
+								SelectElement(\Lines(), \State)
+								MoveElement(\Lines(), #PB_List_After, *Data)
+							EndIf
+							
+							ForEach \Lines()
+								\Lines()\Y = Y
+								Y + #Timeline_List_LineHeight
+							Next
+							
+							If \InternalHeight > \BodyHeight
+								\VisibleVerticalScrollbar = #True
+								ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_Maximum, \InternalHeight)
+							EndIf
+							
+							If \ReorderFocusTimer
+								RemoveGadgetTimer(\ReorderFocusTimer)
+								\ReorderFocusTimer = 0
+							EndIf
+							
+							ForEach \Lines()
+								If \Lines()\Y + \Lines()\Height >= \VScrollBar\State
+									\FirstDisplayedLine = @\Lines()
+									Break
+								EndIf
+							Next
+							
+							HideWindow(\ReorderWindow, #True)
+							
+							\DragState = #Drag_None
+							\RedrawBody = #True
+							\RedrawList = #True
+							\State = \ReorderPosition
+							\ReorderPosition = -1
+							
+							Timeline_Focus(*GadgetData)
+						EndIf
+						;}
+					Case #RightButtonDown ;{
+						
+						;}
+					Case #MouseWheel ;{
+						If \VisibleVerticalScrollbar
+							ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State - *Event\Param * #Timeline_List_LineHeight * 0.5)
+							ForEach \Lines()
+								If \Lines()\Y + \Lines()\Height >= \VScrollBar\State
+									\FirstDisplayedLine = @\Lines()
+									Break
+								EndIf
+							Next
+							*Event\EventType = #MouseMove
+							\RedrawList = Bool(Not TimeLine_EventHandler(*GadgetData, *Event))
+							\RedrawBody = \RedrawList
+						EndIf
+						;}
+					Default ;{
+						If \Editing
+							*Event\MouseX - \String\OriginX
+							*Event\MouseY - \String\OriginY
+							Redraw = \String\EventHandler(\String, *Event)
+						EndIf
+						;}		
+				EndSelect
+				
+				If \RedrawAll + \RedrawBody + \RedrawHeader + \RedrawList
+					StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+					TimeLine_Redraw(*GadgetData)
+					StopVectorDrawing()
+				EndIf
+				
+			EndWith
+			
+			ProcedureReturn Redraw
+		EndProcedure
+		
+		Procedure TimeLine_DragWindowHandler()
+			Protected Event.Event, *GadgetData.TimeLineData
+			
+			Select EventType() 
+				Case #PB_EventType_KeyDown
+					If GetGadgetAttribute(EventGadget(), #PB_Canvas_Key) = #PB_Shortcut_Escape
+						Event\EventType = #KeyDown
+						Event\Param = #PB_Shortcut_Escape
+						TimeLine_EventHandler(GetProp_(GadgetID(EventGadget()), "UITK_TimeLine"), Event)
+					EndIf
+				Case #PB_EventType_MouseWheel
+					*GadgetData.TimeLineData = GetProp_(GadgetID(EventGadget()), "UITK_TimeLine")
+					
+					Event\EventType = #MouseWheel
+					Event\MouseX =  WindowX(*GadgetData\ReorderWindow) - *GadgetData\DragOriginX
+					Event\MouseY =  WindowY(*GadgetData\ReorderWindow) - *GadgetData\DragOriginY
+					Event\Param = GetGadgetAttribute(*GadgetData\ReorderCanvas, #PB_Canvas_WheelDelta)
+					
+					TimeLine_EventHandler(*GadgetData, Event)
+			EndSelect
+		EndProcedure
+		
+		Procedure TimeLine_AddItem(*This.PB_Gadget, Position.w, *Text, ImageID, Flags.i)
+			Protected *GadgetData.TimeLineData = *this\vt, *NewItem.TimeLine_Line
+			With *GadgetData
+				If Position > -1 And Position < ListSize(\Lines())
+					SelectElement(\Lines(), Position)
+					*NewItem = InsertElement(\Lines())
+				Else
+					LastElement(\Lines())
+					*NewItem = AddElement(\Lines())
+				EndIf
+				
+				*NewItem\Text\OriginalText = PeekS(*Text)
+				*NewItem\Text\Image = ImageID
+				*NewItem\Text\LineLimit = 1
+				*NewItem\Text\FontID = TimeLine_ListFont
+				
+				*NewItem\Text\Width = #Timeline_List_Width - #Timeline_List_TextMargin * 2
+				*NewItem\Text\Height = #Timeline_List_LineHeight
+				*NewItem\Text\VAlign = #VAlignCenter
+				
+				*NewItem\Height = #Timeline_List_LineHeight
+				
+				PrepareVectorTextBlock(*NewItem\Text)
+				
+				\InternalHeight + #Timeline_List_LineHeight
+				
+				If \InternalHeight > \BodyHeight
+					\VisibleVerticalScrollbar = #True
+					ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_Maximum, \InternalHeight)
+				EndIf
+				
+				\RedrawList = #True
+				\RedrawBody = #True
+				
+				If ListIndex(\Lines())
+					PreviousElement(\Lines())
+					*NewItem\Y = \Lines()\Y + \Lines()\Height
+					NextElement(\Lines())
+				EndIf
+				
+				While NextElement(\Lines())
+					\Lines()\Y + *NewItem\Height
+				Wend
+				
+				ForEach \Lines()
+					If \Lines()\Y + \Lines()\Height >= \VScrollBar\State
+						\FirstDisplayedLine = @\Lines()
+						Break
+					EndIf
+				Next
+				
+				StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+				TimeLine_Redraw(*GadgetData)
+				StopVectorDrawing()
+			EndWith
+		EndProcedure
+		
+		Procedure TimeLine_RemoveItem(*This.PB_Gadget)
+		
+		EndProcedure
+		
+		Procedure TimeLine_CountItem(*this.PB_Gadget)
+			Protected *GadgetData.TimeLineData = *this\vt
+			ProcedureReturn ListSize(*GadgetData\Lines())
+		EndProcedure
+		
+		; Getters
+		
+		
+		
+		; Setters
+		
+		
+		
+		Procedure TimeLine_Meta(*GadgetData.TimeLineData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+			Protected GadgetList
+			
+			*GadgetData\ThemeData = *ThemeData
+			InitializeObject(TimeLine)
+			
+			With *GadgetData
+				\VT\GetGadgetState = @Default_GetState()
+				\VT\SetGadgetState = @Default_SetState()
+				\VT\AddGadgetItem3 = @TimeLine_AddItem()
+				\VT\RemoveGadgetItem = @TimeLine_RemoveItem()
+				\VT\CountGadgetItems = @TimeLine_CountItem()
+				
+				; Enable only the needed events
+				\SupportedEvent[#MouseEnter] = #True
+				\SupportedEvent[#MouseLeave] = #True
+				\SupportedEvent[#MouseMove] = #True
+				\SupportedEvent[#KeyDown] = #True
+				\SupportedEvent[#KeyUp] = #True
+				\SupportedEvent[#LeftButtonDown] = #True
+				\SupportedEvent[#RightButtonDown] = #True
+				\SupportedEvent[#LeftButtonUp] = #True
+				\SupportedEvent[#MouseWheel] = #True
+				
+				\RedrawAll = #True
+				
+				\BodyHeight = Height - BorderMargin - #Timeline_Header_Height
+				\BodyWidth = Width - BorderMargin - #Timeline_List_Width
+				\State = -1
+				\ReorderPosition = -1
+				
+				GadgetList = UseGadgetList(0)
+				\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, #Timeline_List_LineHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
+				\ReorderCanvas = CanvasGadget(#PB_Any, 0, 0, Width, #Timeline_List_LineHeight, #PB_Canvas_Keyboard)
+				BindGadgetEvent(\ReorderCanvas, @TimeLine_DragWindowHandler())
+				SetProp_(GadgetID(\ReorderCanvas), "UITK_TimeLine", *GadgetData)
+				SetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
+				SetLayeredWindowAttributes_(WindowID(\ReorderWindow), 0, 128, #LWA_ALPHA)
+				UseGadgetList(GadgetList)
+				
+				AllocateStructureX(\VScrollBar, ScrollBarData)
+				Scrollbar_Meta(\VScrollBar, *ThemeData, -1, Width - #Timeline_TrackbarThickness - BorderMargin - 2, #Timeline_Header_Height + BorderMargin, #Timeline_TrackbarThickness, \BodyHeight - 1 - BorderMargin, 0, 1, \BodyHeight , #Gadget_Vertical)
+				
+				AllocateStructureX(\HScrollBar, ScrollBarData)
+				
+				AllocateStructureX(\String, StringData)
+				String_Meta(\String, *ThemeData, Gadget, 0, 0, \Width, 24, "", #HAlignLeft | #Gadget_Meta)
+				String_SetFont_Meta(\String, TimeLine_ListFont)
+				String_SupportedEvents()
+				
+			EndWith
+		EndProcedure
+		
+		Procedure TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
+			Protected Result, *this.PB_Gadget, *GadgetData.TimeLineData, *ThemeData
+			
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | #PB_Canvas_Container)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				AllocateStructureX(*GadgetData, TimeLineData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				AllocateStructureX(*ThemeData, Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
+				TimeLine_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+				
+				If Not Flags & #PB_Canvas_Container
+					CloseGadgetList()
+				EndIf
+				
+				RedrawObject()
+				
+			EndIf
+			
+			ProcedureReturn Result
+		EndProcedure
+
+	CompilerEndIf
+	;}
 EndModule
 
 
@@ -9443,7 +10173,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 8350
-; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 3182
+; FirstLine = 47
+; Folding = AAAAAAAAAAAAAAAAAAAAAASAAAAAAAAAAAAAAgAAAAAAAACAAAAAAAAAAAAAAAAQAAAAAAMCCCFF+
 ; EnableXP
 ; DPIAware
