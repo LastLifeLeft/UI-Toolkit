@@ -1,4 +1,7 @@
-﻿IncludeFile "../Library/UI-Toolkit.pbi"
+﻿DeclareModule EnableTimeline :: EndDeclareModule
+Module EnableTimeline :: EndModule
+
+IncludeFile "../Library/UI-Toolkit.pbi"
 
 ExamineDesktops()
 Define Width = DesktopWidth(0)
@@ -6,11 +9,16 @@ Define Height = DesktopHeight(0)
 Global Timeline
 
 Procedure AddLine()
-	AddGadgetItem(Timeline, -1, "Line " + CountGadgetItems(Timeline))
+	SetGadgetState(Timeline, AddGadgetItem(Timeline, -1, "Line " + CountGadgetItems(Timeline)))
+	UITK::EditGadgetItemText(Timeline)
 EndProcedure
 
 Procedure RemoveLine()
 	RemoveGadgetItem(Timeline, GetGadgetState(Timeline))
+EndProcedure
+
+Procedure AddBlock()
+	
 EndProcedure
 
 Window = UITK::Window(#PB_Any, 0, 0, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_ScreenCentered)
@@ -22,13 +30,16 @@ BindGadgetEvent(Button, @AddLine(), #PB_EventType_Change)
 Button = UITK::Button(#PB_Any, 50, 10, 40, 40, "-")
 BindGadgetEvent(Button, @RemoveLine(), #PB_EventType_Change)
 
+Button = UITK::Button(#PB_Any, 90, 10, 40, 40, "-")
+BindGadgetEvent(Button, @AddBlock(), #PB_EventType_Change)
+
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
 		End
 	EndIf
 ForEver
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 12
+; CursorPosition = 22
 ; Folding = -
 ; EnableXP
 ; DPIAware

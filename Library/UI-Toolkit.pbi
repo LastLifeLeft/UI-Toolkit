@@ -338,7 +338,6 @@
 	Declare HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare Tab(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
-	Declare TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -346,7 +345,7 @@
 	Declare Disable(Gadget, State)
 	Declare Freeze(Gadget, State)
 	Declare AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
-	Declare EditGadgetItem(Gadget)
+	Declare EditGadgetItemText(Gadget)
 	
 	; Drag & drop
 	Declare AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy)
@@ -354,6 +353,11 @@
 	Declare AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)
 	Declare AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)
 	Declare RegisterDropCallback(*Callback)
+	
+	; Timeline
+	CompilerIf Defined(EnableTimeline, #PB_Module)
+		Declare TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
+	CompilerEndIf
 	;}
 EndDeclareModule
 
@@ -363,7 +367,7 @@ Module UITK
 	;{ Macro
 	Macro InitializeObject(GadgetType)
 		*GadgetData\Gadget = Gadget
-		
+		*GadgetData\this = IsGadget(Gadget)
 		*GadgetData\ParentWindow = CurrentWindow()
 		
 		*GadgetData\Width = Width
@@ -649,6 +653,7 @@ Module UITK
 	Structure GadgetData
 		VT.GadgetVT ;Must be the first element of this structure!
 		*OriginalVT.GadgetVT
+		*this.PB_Gadget
 		Gadget.i
 		*MetaGadget
 		Border.b
@@ -1084,11 +1089,13 @@ Module UITK
 	
 	Procedure DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
 		MovePathCursor(X + *TextData\TextX, Y + *TextData\TextY, #PB_Path_Default)
+		
 		If *TextData\FontScale
 			VectorFont(*TextData\FontID, *TextData\FontScale)
 		Else
 			VectorFont(*TextData\FontID)
 		EndIf
+		
 		DrawVectorParagraph(*TextData\Text, *TextData\Width, *TextData\Height, *TextData\VectorAlign)
 		
 		If *TextData\Image
@@ -1114,9 +1121,10 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure EditGadgetItem(Gadget)
+	Procedure EditGadgetItemText(Gadget)
 		Protected Event.Event, *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
-		          
+		
+		SetActiveGadget(Gadget)
 		Event\EventType = #KeyDown
 		Event\Param = #PB_Shortcut_F2
 		*GadgetData\EventHandler(*GadgetData, Event)
@@ -1614,6 +1622,7 @@ Module UITK
 					\CornerType = Value
 				Default
 					*GadgetData\OriginalVT\SetGadgetAttribute(*This, Attribute, Value)
+					ProcedureReturn #False
 			EndSelect
 		EndWith
 		
@@ -3656,10 +3665,10 @@ Module UITK
 					EndIf
 					;}
 				Case #MouseEnter ;{
-					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
+					\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
 					;}
 				Case #MouseLeave ;{
-					SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
+					\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
 					;}
 			EndSelect
 			
@@ -3778,7 +3787,7 @@ Module UITK
 				VectorFont(\TextBock\FontID)
 			EndIf
 			\CarretHeight = Ceil( VectorTextHeight("Oh!"))
-			Debug \CarretHeight
+			
 			StopVectorDrawing()
 			\TextPositionX = \OriginX + BorderMargin * Bool(\TextBock\HAlign = #HAlignLeft)						
 			\TextPositionY = \OriginY + Round((\Height - \CarretHeight) * 0.5, #PB_Round_Nearest) - 1
@@ -4487,7 +4496,6 @@ Module UITK
 		With *GadgetData
 			Select Attribute
 				Case #ScrollArea_InnerWidth
-					SetGadgetAttribute(*GadgetData\ScrollArea, #ScrollArea_InnerWidth, Value)
 					SetGadgetAttribute(*GadgetData\HorizontalScrollbar, #ScrollBar_Maximum, Value)
 					
 					; 					If Value <= \Width + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
@@ -4506,7 +4514,6 @@ Module UITK
 					
 				Case #ScrollArea_InnerHeight
 					SetGadgetAttribute(*GadgetData\VerticalScrollbar, #ScrollBar_Maximum, Value)
-					SetGadgetAttribute(*GadgetData\ScrollArea, #ScrollArea_InnerHeight, Value)
 					
 					; 					If Value >= \Height + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
 					; 						If Not \HiddenHScrollBar
@@ -4843,7 +4850,7 @@ Module UITK
 			
 			Select *Event\EventType
 				Case #MouseMove ;{
-					If \EditCursor = #PB_Cursor_IBeam And \String\Selecting = #True ;{
+					If \String\Selecting = #True ;{
 						*Event\MouseX - \String\OriginX
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
@@ -5005,9 +5012,7 @@ Module UITK
 				Case #LeftButtonUp ;{
 					If \ScrollBar\Drag 
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					EndIf
-					
-					If \DragState = #Drag_Active
+					ElseIf \DragState = #Drag_Active
 						If \ReorderPosition = ListSize(\Items())
 							Item = SelectElement(\Items(), \State)
 							MoveElement(\Items(), #PB_List_Last)
@@ -5038,6 +5043,10 @@ Module UITK
 						
 						Redraw = #True
 						\ReorderPosition = -1
+					ElseIf \String\Selecting
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
 					EndIf
 					
 					\DragState = #Drag_None
@@ -5151,7 +5160,7 @@ Module UITK
 			
 			If Cursor <> \EditCursor
 				\EditCursor = Cursor
-				SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, Cursor)
+				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 			EndIf
 			
 			If Redraw
@@ -5867,7 +5876,7 @@ Module UITK
 			
 			If Cursor <> \EditCursor
 				\EditCursor = Cursor
-				SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, Cursor)
+				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 			EndIf
 			
 			If Redraw
@@ -6327,10 +6336,10 @@ Module UITK
 							EndIf
 							
 							If (*Event\MouseX >= CursorX) And (*Event\MouseY >= CursorY) And (*Event\MouseX <= CursorX + #TracKbar_CursorHeight) And (*Event\MouseY <= CursorY + #TracKbar_CursorWidth)
-								SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_UpDown)
+								\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_UpDown)
 								\Hover = #True
 							Else
-								SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
+								\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
 								\Hover = #False
 							EndIf
 						Else
@@ -6343,10 +6352,10 @@ Module UITK
 							EndIf
 							
 							If (*Event\MouseX >= CursorX) And (*Event\MouseY >= CursorY) And (*Event\MouseX <= CursorX + #TracKbar_CursorWidth) And (*Event\MouseY <= CursorY + #TracKbar_CursorHeight)
-								SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
+								\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
 								\Hover = #True
 							Else
-								SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
+								\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
 								\Hover = #False
 							EndIf
 						EndIf
@@ -6749,7 +6758,7 @@ Module UITK
 			
 			SetProp_(GadgetID(\MenuCanvas), "UITK_ComboData", *GadgetData)
 			BindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
-			SetGadgetAttribute(\MenuCanvas, #Attribute_CornerRadius, 0)
+			Default_SetAttribute(\this, #Attribute_CornerRadius, 0)
 			
 			SetGadgetColor(\MenuCanvas, #Color_Shade_Cold, \ThemeData\BackColor[#Warm])
 			SetGadgetColor(\MenuCanvas, #Color_Shade_Warm, \ThemeData\BackColor[#Hot])
@@ -8431,7 +8440,7 @@ Module UITK
 			
 			If Cursor <> \EditCursor
 				\EditCursor = Cursor
-				SetGadgetAttribute(\Gadget, #PB_Canvas_Cursor, Cursor)
+				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 			EndIf
 			
 			If Redraw
@@ -9383,9 +9392,9 @@ Module UITK
 	;}
 	
 	;{ Timeline
-	#EnableTimeline = #True 					; This is a big chunk of code, and it's totally useless for anything but a sequence editor, keep it #False to avoid your programme getting chonkier for nothing
+	; This is a big chunk of code, and it's totally useless for anything but a sequence editor, it's disabled by default to avoid your programme getting chonkier for nothing. Declare EnableTimeline module before including the source to enable it.
 	
-	CompilerIf #EnableTimeline
+	CompilerIf Defined(EnableTimeline, #PB_Module)
 		#Timeline_List_Width = 222
 		#Timeline_List_TextMargin = 10
 		#Timeline_Header_Height = 60
@@ -9423,6 +9432,7 @@ Module UITK
 			ReorderDirection.i
 			
 			Editing.i
+			EditCursor.i
 			
 			*FirstDisplayedLine
 			
@@ -9597,18 +9607,43 @@ Module UITK
 		EndProcedure
 		
 		Procedure Timeline_Focus(*GadgetData.TimeLineData)
+			Protected Result
 			With *GadgetData
 				If \VisibleVerticalScrollbar
 					SelectElement(\Lines(), \State)
 					If \Lines()\Y < \VScrollBar\State
 						ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y)
-						ProcedureReturn #True
+						Result = #True
 					ElseIf \Lines()\Y + \Lines()\Height > \VScrollBar\State + \BodyHeight
 						ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y + \Lines()\Height - \BodyHeight)
-						ProcedureReturn #True
+						Result = #True
+					EndIf
+					
+					ForEach \Lines()
+						If \Lines()\Y + \Lines()\Height >= \VScrollBar\State
+							If \FirstDisplayedLine <> @\Lines()
+								\FirstDisplayedLine = @\Lines()
+								Result = #True
+							EndIf
+							Break
+						EndIf
+					Next
+					
+				ElseIf ListSize(\Lines())
+					FirstElement(\Lines())
+					If \FirstDisplayedLine <> @\Lines()
+						\FirstDisplayedLine = @\Lines()
+						Result = #True
+					EndIf
+				Else
+					If \FirstDisplayedLine
+						\FirstDisplayedLine = 0
+						Result = #True
 					EndIf
 				EndIf
 			EndWith
+			
+			ProcedureReturn Result
 		EndProcedure
 		
 		Procedure TimeLine_FocusTimer(*GadgetData.TimeLineData, Timer)
@@ -9664,13 +9699,10 @@ Module UITK
 		EndProcedure
 		
 		Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
-			Protected Redraw, TempMouseState = -1, VScrollBar = #False, FirstDisplayedItem, LastDisplayedItem, Y, *Data
+			Protected TempMouseState = -1, VScrollBar = #False, FirstDisplayedItem, LastDisplayedItem, Y, *Data, Cursor = *GadgetData\EditCursor
 			
 			With *GadgetData
 				Select *Event\EventType
-					Case #MouseEnter ;{
-						
-						;}
 					Case #MouseLeave ;{
 						If \MouseState > -1
 							\MouseState = -1
@@ -9684,7 +9716,13 @@ Module UITK
 						EndIf
 						;}
 					Case #MouseMove ;{
-						If \DragState = #Drag_None ;{
+						If \String\Selecting = #True ;{
+							*Event\MouseX - \String\OriginX
+							*Event\MouseY - \String\OriginY
+							\RedrawList = \String\EventHandler(\String, *Event)
+							;}
+						ElseIf \DragState = #Drag_None ;{
+							Cursor = #PB_Cursor_Default
 							If *Event\MouseX > #Timeline_List_Width
 								If *Event\MouseY > #Timeline_Header_Height ;{ Body
 									If \VisibleVerticalScrollbar And (*Event\MouseX > \VScrollBar\OriginX Or \VScrollBar\Drag = #True) ;{ Vertical Scrollbar
@@ -9713,6 +9751,7 @@ Module UITK
 							ElseIf *Event\MouseY > #Timeline_Header_Height ;{ List
 								If \FirstDisplayedLine
 									ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
+									Cursor = #PB_Cursor_Default
 									
 									*Event\MouseY + \VScrollBar\State - #Timeline_Header_Height
 									
@@ -9734,6 +9773,11 @@ Module UITK
 								\MouseState = TempMouseState
 								\RedrawBody = #True
 								\RedrawList = #True
+							ElseIf \Editing
+								*Event\MouseY - \VScrollBar\State + #Timeline_Header_Height
+								If *Event\MouseX >= \String\OriginX And *Event\MouseY >= \String\OriginY And *Event\MouseX <= \String\OriginX + \String\Width And *Event\MouseY <= \String\OriginY + \String\Height
+									Cursor = #PB_Cursor_IBeam
+								EndIf
 							EndIf
 							;}
 						ElseIf \DragState = #Drag_Init ;{
@@ -9825,48 +9869,97 @@ Module UITK
 									*Event\EventType = #Focus
 									\String\OriginX = \Lines()\Text\TextX + #Timeline_List_TextMargin + \Border
 									\String\Width = \Lines()\Text\Width
-									\String\OriginY = #Timeline_Header_Height + \Lines()\Y + \Lines()\Text\TextY + \Border
+									\String\OriginY = #Timeline_Header_Height + \Lines()\Y + \Lines()\Text\TextY + \Border - \VScrollBar\State
 									\String\EventHandler(\String, *Event)
 									StringSetSelection_Meta(\String, 0, Len(\String\String))
 								EndIf
 								;}
 							Case #PB_Shortcut_Escape ;{
 								If \Editing
-									
+									\Editing = #False
+									*Event\EventType = #LostFocus
+									\String\EventHandler(\String, *Event)
+									\RedrawList = #True
 								ElseIf \DragState = #Drag_Active
 									\ReorderPosition = \State
 									*Event\EventType = #LeftButtonUp
 									TimeLine_EventHandler(*GadgetData, *Event)
 								EndIf
 								;}
+							Case #PB_Shortcut_Return ;{
+								If \Editing
+									\Editing = #False
+									SelectElement(\Lines(), \State)
+									If \Lines()\Text\OriginalText <> \String\String
+										\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+										PrepareVectorTextBlock(@\Lines()\Text)
+									EndIf
+									*Event\EventType = #LostFocus
+									\String\EventHandler(\String, *Event)
+									
+									\RedrawList = #True
+								EndIf
+								;}
 							Default
 								If \Editing
-									\String\EventHandler(\String, *Event)
-									\RedrawList = #True
+									\RedrawList = \String\EventHandler(\String, *Event)
 								EndIf
 						EndSelect
 					;}
-					Case #KeyUp ;{
-						
-						;}
 					Case #LeftButtonDown ;{
 						If \VScrollBar\MouseState
 							\RedrawBody + ScrollBar_EventHandler(\VScrollBar, *Event)
-						ElseIf \MouseState > -1
-							\State = \MouseState
-							\RedrawBody = #True
-							\RedrawList = #True
-							\DragState = #Drag_Init
-							\DragOriginX = *Event\MouseX
-							\DragOriginY = *Event\MouseY
+						ElseIf \MouseState <> \State
+							If \Editing
+								\Editing = #False
+								SelectElement(\Lines(), \State)
+								If \Lines()\Text\OriginalText <> \String\String
+									\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+									PrepareVectorTextBlock(@\Lines()\Text)
+								EndIf
+								*Event\EventType = #LostFocus
+								\String\EventHandler(\String, *Event)
+								
+								\RedrawList = #True
+							EndIf
+							If \MouseState > -1 
+								\State = \MouseState
+								\RedrawBody = #True
+								\RedrawList = #True
+								\DragState = #Drag_Init
+								\DragOriginX = *Event\MouseX
+								\DragOriginY = *Event\MouseY
+							EndIf
+						Else
+							If \EditCursor = #PB_Cursor_IBeam
+								*Event\MouseX - \String\OriginX
+								*Event\MouseY - \String\OriginY
+								\RedrawList = \String\EventHandler(\String, *Event)
+							Else
+								If \Editing
+									\Editing = #False
+									SelectElement(\Lines(), \State)
+									If \Lines()\Text\OriginalText <> \String\String
+										\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+										PrepareVectorTextBlock(@\Lines()\Text)
+									EndIf
+									*Event\EventType = #LostFocus
+									\String\EventHandler(\String, *Event)
+									
+									\RedrawList = #True
+								EndIf
+								If \MouseState > -1
+									\DragState = #Drag_Init
+									\DragOriginX = *Event\MouseX
+									\DragOriginY = *Event\MouseY
+								EndIf
+							EndIf
 						EndIf
 						;}
 					Case #LeftButtonUp ;{
 						If \VScrollBar\MouseState
 							\RedrawBody + ScrollBar_EventHandler(\VScrollBar, *Event)
-						EndIf
-						
-						If \DragState = #Drag_Init
+						ElseIf \DragState = #Drag_Init
 							\DragState = #Drag_None
 							AddGadgetTimer(*GadgetData, 200, @TimeLine_FocusTimer())
 						ElseIf \DragState = #Drag_Active
@@ -9913,12 +10006,23 @@ Module UITK
 							\ReorderPosition = -1
 							
 							Timeline_Focus(*GadgetData)
+							
+						ElseIf \String\Selecting
+							*Event\MouseX - \String\OriginX
+							*Event\MouseY - \String\OriginY
+							\RedrawList = \String\EventHandler(\String, *Event)
 						EndIf
 						;}
 					Case #RightButtonDown ;{
-						
 						;}
 					Case #MouseWheel ;{
+						If \Editing
+							\Editing = #False
+							*Event\EventType = #LostFocus
+							\String\EventHandler(\String, *Event)
+							\RedrawList = #True
+						EndIf
+								
 						If \VisibleVerticalScrollbar
 							ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State - *Event\Param * #Timeline_List_LineHeight * 0.5)
 							ForEach \Lines()
@@ -9932,14 +10036,24 @@ Module UITK
 							\RedrawBody = \RedrawList
 						EndIf
 						;}
+					Case #LostFocus ;{
+						\Editing = #False
+						\String\EventHandler(\String, *Event)
+						\RedrawList = #True
+						;}
 					Default ;{
 						If \Editing
 							*Event\MouseX - \String\OriginX
 							*Event\MouseY - \String\OriginY
-							Redraw = \String\EventHandler(\String, *Event)
+							\String\EventHandler(\String, *Event)
 						EndIf
 						;}		
 				EndSelect
+				
+				If Cursor <> \EditCursor
+					\EditCursor = Cursor
+					\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, \EditCursor)
+				EndIf
 				
 				If \RedrawAll + \RedrawBody + \RedrawHeader + \RedrawList
 					StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
@@ -9948,8 +10062,6 @@ Module UITK
 				EndIf
 				
 			EndWith
-			
-			ProcedureReturn Redraw
 		EndProcedure
 		
 		Procedure TimeLine_DragWindowHandler()
@@ -9975,7 +10087,7 @@ Module UITK
 		EndProcedure
 		
 		Procedure TimeLine_AddItem(*This.PB_Gadget, Position.w, *Text, ImageID, Flags.i)
-			Protected *GadgetData.TimeLineData = *this\vt, *NewItem.TimeLine_Line
+			Protected *GadgetData.TimeLineData = *this\vt, *NewItem.TimeLine_Line, Result
 			With *GadgetData
 				If Position > -1 And Position < ListSize(\Lines())
 					SelectElement(\Lines(), Position)
@@ -9984,6 +10096,8 @@ Module UITK
 					LastElement(\Lines())
 					*NewItem = AddElement(\Lines())
 				EndIf
+				
+				Result = ListIndex(\Lines())
 				
 				*NewItem\Text\OriginalText = PeekS(*Text)
 				*NewItem\Text\Image = ImageID
@@ -10029,10 +10143,49 @@ Module UITK
 				TimeLine_Redraw(*GadgetData)
 				StopVectorDrawing()
 			EndWith
+			
+			ProcedureReturn Result
 		EndProcedure
 		
-		Procedure TimeLine_RemoveItem(*This.PB_Gadget)
-		
+		Procedure TimeLine_RemoveItem(*This.PB_Gadget, Position.w)
+			Protected *GadgetData.TimeLineData = *this\vt, Y
+			
+			With *GadgetData
+				If Position >= 0
+					If SelectElement(\Lines(), Position)
+						\InternalHeight - \Lines()\Height
+						Y = \Lines()\Y
+						DeleteElement(\Lines())
+						While NextElement(\Lines())
+							\Lines()\Y = Y
+							Y + \Lines()\Height
+						Wend
+						
+						If ListSize(\Lines()) = 0
+							\FirstDisplayedLine = 0
+							\State = -1
+						ElseIf \State > Position Or (\State = Position And ListSize(\Lines()) = Position )
+							\State - 1
+						EndIf
+						
+						If \BodyHeight >= \InternalHeight
+							\VisibleVerticalScrollbar = #False
+							ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_Maximum, \InternalHeight)
+						EndIf
+						
+						ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_Maximum, \InternalHeight)
+						
+						Timeline_Focus(*GadgetData)
+						
+						\RedrawList = #True
+						\RedrawBody = #True
+						
+						StartVectorDrawing(CanvasVectorOutput(\Gadget))
+						TimeLine_Redraw(*GadgetData)
+						StopVectorDrawing()
+					EndIf
+				EndIf
+			EndWith
 		EndProcedure
 		
 		Procedure TimeLine_CountItem(*this.PB_Gadget)
@@ -10045,7 +10198,16 @@ Module UITK
 		
 		
 		; Setters
-		
+		Procedure TimeLine_SetState(*this.PB_Gadget, State)
+			Protected *GadgetData.TimeLineData = *this\vt
+			
+			*GadgetData\State = State
+			*GadgetData\RedrawList = #True
+			*GadgetData\RedrawBody = #True
+			StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+			TimeLine_Redraw(*GadgetData)
+			StopVectorDrawing()
+		EndProcedure
 		
 		
 		Procedure TimeLine_Meta(*GadgetData.TimeLineData, *ThemeData, Gadget, x, y, Width, Height, Flags)
@@ -10056,17 +10218,15 @@ Module UITK
 			
 			With *GadgetData
 				\VT\GetGadgetState = @Default_GetState()
-				\VT\SetGadgetState = @Default_SetState()
+				\VT\SetGadgetState = @TimeLine_SetState()
 				\VT\AddGadgetItem3 = @TimeLine_AddItem()
 				\VT\RemoveGadgetItem = @TimeLine_RemoveItem()
 				\VT\CountGadgetItems = @TimeLine_CountItem()
 				
 				; Enable only the needed events
-				\SupportedEvent[#MouseEnter] = #True
 				\SupportedEvent[#MouseLeave] = #True
 				\SupportedEvent[#MouseMove] = #True
 				\SupportedEvent[#KeyDown] = #True
-				\SupportedEvent[#KeyUp] = #True
 				\SupportedEvent[#LeftButtonDown] = #True
 				\SupportedEvent[#RightButtonDown] = #True
 				\SupportedEvent[#LeftButtonUp] = #True
@@ -10173,8 +10333,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 3182
-; FirstLine = 47
-; Folding = AAAAAAAAAAAAAAAAAAAAAASAAAAAAAAAAAAAAgAAAAAAAACAAAAAAAAAAAAAAAAQAAAAAAMCCCFF+
+; CursorPosition = 9394
+; FirstLine = 42
+; Folding = EAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAADAAIAAAAAAAAEAAAAAAAAAoYAAAAAY-
 ; EnableXP
 ; DPIAware
