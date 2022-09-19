@@ -357,6 +357,7 @@
 	; Timeline
 	CompilerIf Defined(EnableTimeline, #PB_Module)
 		Declare TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
+		Declare AddMediaBlock(Gadget, Line, Position, Duration, Type, Text.s, *Data)
 	CompilerEndIf
 	;}
 EndDeclareModule
@@ -9402,7 +9403,104 @@ Module UITK
 		#Timeline_TrackbarThickness = 7
 		#Timeline_Focus_Timer = 400
 		
+		#Color_Ressources_Media = $4ABF10
+		#Color_Ressources_Audio = $FF0F84
+		#Color_Ressources_3D = $8E0FEF
+		#Color_Ressources_Overlay = $FFAC65
+		#Color_Ressources_Modifiers = $0FCAEF
+		
+		Enumeration ;Assets
+			#TimeLine_Asset_Image
+			#TimeLine_Asset_Video
+			#TimeLine_Asset_Music
+			#TimeLine_Asset_Voice
+			#TimeLine_Asset_SFX
+			#TimeLine_Asset_3D
+			#TimeLine_Asset_3DAnimated
+			#TimeLine_Asset_Particles
+			#TimeLine_Asset_Overlay
+			#TimeLine_Asset_Shape
+			#TimeLine_Asset_Transition
+			#TimeLine_Asset_PostProcessing
+			#TimeLine_Asset_Effects			
+			
+			#__TimeLine_Asset_Count
+		EndEnumeration
+		
+		Enumeration ;Type
+			#TimeLine_Type_Media
+			#TimeLine_Type_Audio
+			#TimeLine_Type_3D
+			#TimeLine_Type_Overlay
+			#TimeLine_Type_Modifiers
+		EndEnumeration
+		
+		Structure TimeLine_Asset
+			Type.w
+			Color.l
+			Icon.s
+		EndStructure
+		
+		Global Dim Timeline_Asset.Timeline_Asset(#__TimeLine_Asset_Count) ;{
+		Timeline_Asset(#TimeLine_Asset_Image)\Type = #TimeLine_Type_Media
+		Timeline_Asset(#TimeLine_Asset_Image)\Color = SetAlpha(FixColor($4ABF10), 255)
+		Timeline_Asset(#TimeLine_Asset_Image)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_Video)\Type = #TimeLine_Type_Media
+		Timeline_Asset(#TimeLine_Asset_Video)\Color = SetAlpha(FixColor($4ABF10), 255)
+		Timeline_Asset(#TimeLine_Asset_Video)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_Music)\Type = #TimeLine_Type_Audio
+		Timeline_Asset(#TimeLine_Asset_Music)\Color = SetAlpha(FixColor($FF0F84), 255)
+		Timeline_Asset(#TimeLine_Asset_Music)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_Voice)\Type = #TimeLine_Type_Audio
+		Timeline_Asset(#TimeLine_Asset_Voice)\Color = SetAlpha(FixColor($FF0F84), 255)
+		Timeline_Asset(#TimeLine_Asset_Voice)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_SFX)\Type = #TimeLine_Type_Audio
+		Timeline_Asset(#TimeLine_Asset_SFX)\Color = SetAlpha(FixColor($FF0F84), 255)
+		Timeline_Asset(#TimeLine_Asset_SFX)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_3D)\Type = #TimeLine_Type_3D
+		Timeline_Asset(#TimeLine_Asset_3D)\Color = SetAlpha(FixColor($8E0FEF), 255)
+		Timeline_Asset(#TimeLine_Asset_3D)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_3DAnimated)\Type = #TimeLine_Type_3D
+		Timeline_Asset(#TimeLine_Asset_3DAnimated)\Color = SetAlpha(FixColor($8E0FEF), 255)
+		Timeline_Asset(#TimeLine_Asset_3DAnimated)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_Particles)\Type = #TimeLine_Type_3D
+		Timeline_Asset(#TimeLine_Asset_Particles)\Color = SetAlpha(FixColor($8E0FEF), 255)
+		Timeline_Asset(#TimeLine_Asset_Particles)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_Overlay)\Type = #TimeLine_Type_Overlay
+		Timeline_Asset(#TimeLine_Asset_Overlay)\Color = SetAlpha(FixColor($FFAC65), 255)
+		Timeline_Asset(#TimeLine_Asset_Overlay)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_Shape)\Type = #TimeLine_Type_Overlay
+		Timeline_Asset(#TimeLine_Asset_Shape)\Color = SetAlpha(FixColor($FFAC65), 255)
+		Timeline_Asset(#TimeLine_Asset_Shape)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_Transition)\Type = #TimeLine_Type_Modifiers
+		Timeline_Asset(#TimeLine_Asset_Transition)\Color = SetAlpha(FixColor($0FCAEF), 255)
+		Timeline_Asset(#TimeLine_Asset_Transition)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_PostProcessing)\Type = #TimeLine_Type_Modifiers
+		Timeline_Asset(#TimeLine_Asset_PostProcessing)\Color = SetAlpha(FixColor($0FCAEF), 255)
+		Timeline_Asset(#TimeLine_Asset_PostProcessing)\Icon = ""
+		
+		Timeline_Asset(#TimeLine_Asset_Effects)\Type = #TimeLine_Type_Modifiers
+		Timeline_Asset(#TimeLine_Asset_Effects)\Color = SetAlpha(FixColor($0FCAEF), 255)
+		Timeline_Asset(#TimeLine_Asset_Effects)\Icon = ""
+		;}
+		
 		Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Segoe UI Semibold", 12, #PB_Font_HighQuality))
+		
+		Structure TimeLine_Block
+			Text.s
+			Type.w
+		EndStructure
 		
 		Structure TimeLine_Line
 			Text.Text
@@ -9436,7 +9534,11 @@ Module UITK
 			
 			*FirstDisplayedLine
 			
+			Duration.i
+			Scale.q
+			
 			List Lines.TimeLine_Line()
+			Map Blocks.TimeLine_Block()
 			
 			VisibleVerticalScrollbar.b
 			*VScrollBar.ScrollBarData
@@ -10193,6 +10295,14 @@ Module UITK
 			ProcedureReturn ListSize(*GadgetData\Lines())
 		EndProcedure
 		
+		Procedure AddMediaBlock(Gadget, Line, Position, Duration, Type, Text.s, *Data)
+			Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData = *this\vt
+			With *GadgetData
+				If Line >= 0 And SelectElement(\Lines(), Line)
+					
+				EndIf
+			EndWith
+		EndProcedure
 		; Getters
 		
 		
@@ -10238,6 +10348,7 @@ Module UITK
 				\BodyWidth = Width - BorderMargin - #Timeline_List_Width
 				\State = -1
 				\ReorderPosition = -1
+				\Duration = 600
 				
 				GadgetList = UseGadgetList(0)
 				\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, #Timeline_List_LineHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
@@ -10333,8 +10444,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9394
-; FirstLine = 42
-; Folding = EAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAADAAIAAAAAAAAEAAAAAAAAAoYAAAAAY-
+; CursorPosition = 9537
+; FirstLine = 132
+; Folding = EAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAADAAIAAAAAAAAEAAAAAAAAAoYAAAAAQ0
 ; EnableXP
 ; DPIAware

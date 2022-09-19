@@ -18,7 +18,7 @@ Procedure RemoveLine()
 EndProcedure
 
 Procedure AddBlock()
-	
+	UITK::AddMediaBlock(Timeline, 0, 50, 100, 0, "Some name", 0)
 EndProcedure
 
 Window = UITK::Window(#PB_Any, 0, 0, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_ScreenCentered)
@@ -33,13 +33,16 @@ BindGadgetEvent(Button, @RemoveLine(), #PB_EventType_Change)
 Button = UITK::Button(#PB_Any, 90, 10, 40, 40, "-")
 BindGadgetEvent(Button, @AddBlock(), #PB_EventType_Change)
 
+AddGadgetItem(Timeline, -1, "Just a line")
+SetGadgetState(Timeline, 0)
+
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
 		End
 	EndIf
 ForEver
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 22
+; CursorPosition = 20
 ; Folding = -
 ; EnableXP
 ; DPIAware
