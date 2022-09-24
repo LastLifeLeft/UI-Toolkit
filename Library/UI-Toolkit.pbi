@@ -80,6 +80,8 @@
 		#Corner_TopRight
 		#Corner_BottomLeft
 		#Corner_BottomRight
+		#Corner_TopLeftBottomRight
+		#Corner_TopRightBottomLeft
 	EndEnumeration
 	
 	Enumeration; Colors
@@ -422,12 +424,12 @@ Module UITK
 		
 		*GadgetData\Enabled = #True
 		
-		If Gadget > -1
-			BindGadgetEvent(Gadget, *GadgetData\DefaultEventHandler)
-		Else
+		If Gadget = -1 Or Flags & #Gadget_Meta
 			*GadgetData\MetaGadget = #True
 			*GadgetData\OriginX = X
 			*GadgetData\OriginY = Y
+		Else
+			BindGadgetEvent(Gadget, *GadgetData\DefaultEventHandler)
 		EndIf
 	EndMacro
 	
@@ -888,73 +890,83 @@ Module UITK
 	; Drawing functions
 	#TextBlock_ImageMargin = 4
 	
-	Procedure AddPathRoundedBox(Border_X, Border_Y, Border_Width, Border_Height, Radius, Type = #Corner_All)
+	Procedure AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
 		
 		Select Type
 			Case #Corner_All
-				MovePathCursor(Border_X, Border_Y + Radius + 1)
-				AddPathArc(Border_X, Border_Y + Border_Height, Border_X + Border_Width, Border_Y + Border_Height, Radius)
-				AddPathArc(Border_X + Border_Width, Border_Y + Border_Height, Border_X + Border_Width, Border_Y, Radius)
-				AddPathArc(Border_X + Border_Width, Border_Y, Border_X, Border_Y, Radius)
-				AddPathArc(Border_X, Border_Y, Border_X, Border_Y + Border_Height, Radius)
+				MovePathCursor(X, Y + Radius + 1)
+				AddPathArc(X, Y + Height, X + Width, Y + Height, Radius)
+				AddPathArc(X + Width, Y + Height, X + Width, Y, Radius)
+				AddPathArc(X + Width, Y, X, Y, Radius)
+				AddPathArc(X, Y, X, Y + Height, Radius)
 				ClosePath()
 				
 			Case #Corner_Top
-				MovePathCursor(Border_X, Border_Y + Border_Height)
-				AddPathArc(Border_X, Border_Y, Border_X + Border_Width,Border_Y, Radius)
-				AddPathArc(Border_X + Border_Width, Border_Y, Border_X + Border_Width, Border_Y + Border_Height, Radius)
-				AddPathLine(Border_X + Border_Width, Border_Y + Border_Height)
+				MovePathCursor(X, Y + Height)
+				AddPathArc(X, Y, X + Width,Y, Radius)
+				AddPathArc(X + Width, Y, X + Width, Y + Height, Radius)
+				AddPathLine(X + Width, Y + Height)
 				ClosePath()
 				
 			Case #Corner_Bottom
-				MovePathCursor(Border_X, Border_Y)
-				AddPathLine(Border_X + Border_Width, Border_Y)
-				AddPathArc(Border_X + Border_Width, Border_Y + Border_Height, Border_X, Border_Y + Border_Height, Radius)
-				AddPathArc(Border_X, Border_Y + Border_Height, Border_X, Border_Y, Radius)
+				MovePathCursor(X, Y)
+				AddPathLine(X + Width, Y)
+				AddPathArc(X + Width, Y + Height, X, Y + Height, Radius)
+				AddPathArc(X, Y + Height, X, Y, Radius)
 				ClosePath()
 				
 			Case #Corner_Left
-				MovePathCursor(Border_X + Border_Width, Border_Y + Border_Height)
-				AddPathArc(Border_X, Border_Y + Border_Height, Border_X, Border_Y, Radius)
-				AddPathArc(Border_X, Border_Y, Border_X + Border_Width, Border_Y, Radius)
-				AddPathLine(Border_X + Border_Width, Border_Y)
+				MovePathCursor(X + Width, Y + Height)
+				AddPathArc(X, Y + Height, X, Y, Radius)
+				AddPathArc(X, Y, X + Width, Y, Radius)
+				AddPathLine(X + Width, Y)
 				ClosePath()
 				
 			Case #Corner_Right
-				MovePathCursor(Border_X, Border_Y)
-				AddPathArc(Border_X + Border_Width, Border_Y, Border_X + Border_Width, Border_Y + Border_Height, Radius)
-				AddPathArc(Border_X + Border_Width, Border_Y + Border_Height, Border_X, Border_Y + Border_Height, Radius)
-				AddPathLine(Border_X, Border_Y + Border_Height)
+				MovePathCursor(X, Y)
+				AddPathArc(X + Width, Y, X + Width, Y + Height, Radius)
+				AddPathArc(X + Width, Y + Height, X, Y + Height, Radius)
+				AddPathLine(X, Y + Height)
 				ClosePath()
 				
 			Case #Corner_TopLeft
-				MovePathCursor(Border_X, Border_Y + Border_Height)
-				AddPathArc(Border_X, Border_Y, Border_X + Border_Width, Border_Y, Radius)
-				AddPathLine(Border_X + Border_Width, Border_Y)
-				AddPathLine(Border_X + Border_Width, Border_Y + Border_Height)
-				AddPathLine(Border_X, Border_Y + Border_Height)
+				MovePathCursor(X, Y + Height)
+				AddPathArc(X, Y, X + Width, Y, Radius)
+				AddPathLine(X + Width, Y)
+				AddPathLine(X + Width, Y + Height)
+				AddPathLine(X, Y + Height)
 				ClosePath()
 				
 			Case #Corner_TopRight
-				MovePathCursor(Border_X, Border_Y + Border_Height)
-				AddPathLine(Border_X, Border_Y)
-				AddPathArc(Border_X + Border_Width, Border_Y, Border_X + Border_Width, Border_Y + Border_Height, Radius)
-				AddPathLine(Border_X + Border_Width, Border_Y + Border_Height)
+				MovePathCursor(X, Y + Height)
+				AddPathLine(X, Y)
+				AddPathArc(X + Width, Y, X + Width, Y + Height, Radius)
+				AddPathLine(X + Width, Y + Height)
 				ClosePath()
 				
 			Case #Corner_BottomLeft
-				MovePathCursor(Border_X, Border_Y)
-				AddPathLine(Border_X + Border_Width, Border_Y)
-				AddPathLine(Border_X + Border_Width, Border_Y + Border_Height)
-				AddPathArc(Border_X, Border_Y + Border_Height, Border_X, Border_Y, Radius)
+				MovePathCursor(X, Y)
+				AddPathLine(X + Width, Y)
+				AddPathLine(X + Width, Y + Height)
+				AddPathArc(X, Y + Height, X, Y, Radius)
 				ClosePath()
 				
 			Case #Corner_BottomRight
-				MovePathCursor(Border_X, Border_Y)
-				AddPathLine(Border_X + Border_Width, Border_Y)
-				AddPathArc(Border_X + Border_Width, Border_Y + Border_Height, Border_X, Border_Y + Border_Height, Radius)
-				AddPathLine(Border_X, Border_Y + Border_Height)
+				MovePathCursor(X, Y)
+				AddPathLine(X + Width, Y)
+				AddPathArc(X + Width, Y + Height, X, Y + Height, Radius)
+				AddPathLine(X, Y + Height)
 				ClosePath()
+				
+			Case #Corner_TopLeftBottomRight
+				MovePathCursor(X, Y + Height)
+				AddPathArc(X, Y, X + Width, Y, Radius)
+				AddPathLine(X + Width, Y)
+				AddPathArc(X + Width, Y + Height, X, Y + Height, Radius)
+				ClosePath()
+				
+			Case#Corner_TopRightBottomLeft
+				
 		EndSelect
 	EndProcedure
 	
@@ -9399,7 +9411,8 @@ Module UITK
 		#Timeline_List_Width = 222
 		#Timeline_List_TextMargin = 10
 		#Timeline_Header_Height = 60
-		#Timeline_List_LineHeight = 60
+		#Timeline_List_LineHeight = 58
+		#Timeline_Body_BlockHeight = 44
 		#Timeline_TrackbarThickness = 7
 		#Timeline_Focus_Timer = 400
 		
@@ -9409,97 +9422,132 @@ Module UITK
 		#Color_Ressources_Overlay = $FFAC65
 		#Color_Ressources_Modifiers = $0FCAEF
 		
+		#Color_Mediablock_Back = $4F576B
+		#Color_Mediablock_BackAlternate = $4F576B
+		#Color_Mediablock_Border = $202020
+		#Color_Mediablock_Text = $C4D8FF
+		
+		Structure TimeLine_Theme
+			Back.l[4]
+			BackAlt.l[4]
+			Text.l[4]
+			Border.l
+		EndStructure
+		
+		Global TimeLine_Theme.TimeLine_Theme
+		TimeLine_Theme\Back[#Cold] = SetAlpha(FixColor($3B445B), 255)
+		TimeLine_Theme\Back[#Warm] = SetAlpha(FixColor($454E63), 255)
+		TimeLine_Theme\Back[#Hot] = SetAlpha(FixColor($4F576B), 255)
+		
+		TimeLine_Theme\BackAlt[#Cold] = SetAlpha(FixColor($2F3648), 255)
+		TimeLine_Theme\BackAlt[#Warm] = SetAlpha(FixColor($373E4E), 255)
+		TimeLine_Theme\BackAlt[#Hot] = SetAlpha(FixColor($3F4555), 255)
+		
+		TimeLine_Theme\Text[#Cold] = SetAlpha(FixColor($91A0BC), 255)
+		TimeLine_Theme\Text[#Warm] = SetAlpha(FixColor($91A0BC), 255)
+		TimeLine_Theme\Text[#Hot] = SetAlpha(FixColor($C4D8FF), 255)
+		
+		TimeLine_Theme\Border = SetAlpha(FixColor($202020), 255)
+		
 		Enumeration ;Assets
-			#TimeLine_Asset_Image
-			#TimeLine_Asset_Video
-			#TimeLine_Asset_Music
-			#TimeLine_Asset_Voice
-			#TimeLine_Asset_SFX
-			#TimeLine_Asset_3D
-			#TimeLine_Asset_3DAnimated
-			#TimeLine_Asset_Particles
-			#TimeLine_Asset_Overlay
-			#TimeLine_Asset_Shape
-			#TimeLine_Asset_Transition
-			#TimeLine_Asset_PostProcessing
-			#TimeLine_Asset_Effects			
+			#TimeLine_AssetType_Image
+			#TimeLine_AssetType_Video
+			#TimeLine_AssetType_Music
+			#TimeLine_AssetType_Voice
+			#TimeLine_AssetType_SFX
+			#TimeLine_AssetType_3D
+			#TimeLine_AssetType_3DAnimated
+			#TimeLine_AssetType_Particles
+			#TimeLine_AssetType_Overlay
+			#TimeLine_AssetType_Shape
+			#TimeLine_AssetType_Transition
+			#TimeLine_AssetType_PostProcessing
+			#TimeLine_AssetType_Effects			
 			
 			#__TimeLine_Asset_Count
 		EndEnumeration
 		
-		Enumeration ;Type
-			#TimeLine_Type_Media
-			#TimeLine_Type_Audio
-			#TimeLine_Type_3D
-			#TimeLine_Type_Overlay
-			#TimeLine_Type_Modifiers
+		Enumeration ;MediaType
+			#TimeLine_MediaType_Media
+			#TimeLine_MediaType_Audio
+			#TimeLine_MediaType_3D
+			#TimeLine_MediaType_Overlay
+			#TimeLine_MediaType_Modifiers
 		EndEnumeration
 		
 		Structure TimeLine_Asset
-			Type.w
+			MediaType.w
 			Color.l
 			Icon.s
 		EndStructure
 		
 		Global Dim Timeline_Asset.Timeline_Asset(#__TimeLine_Asset_Count) ;{
-		Timeline_Asset(#TimeLine_Asset_Image)\Type = #TimeLine_Type_Media
-		Timeline_Asset(#TimeLine_Asset_Image)\Color = SetAlpha(FixColor($4ABF10), 255)
-		Timeline_Asset(#TimeLine_Asset_Image)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Image)\MediaType = #TimeLine_MediaType_Media
+		Timeline_Asset(#TimeLine_AssetType_Image)\Color = SetAlpha(FixColor($39DA8A), 255)
+		Timeline_Asset(#TimeLine_AssetType_Image)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_Video)\Type = #TimeLine_Type_Media
-		Timeline_Asset(#TimeLine_Asset_Video)\Color = SetAlpha(FixColor($4ABF10), 255)
-		Timeline_Asset(#TimeLine_Asset_Video)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Video)\MediaType = #TimeLine_MediaType_Media
+		Timeline_Asset(#TimeLine_AssetType_Video)\Color = SetAlpha(FixColor($39DA8A), 255)
+		Timeline_Asset(#TimeLine_AssetType_Video)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_Music)\Type = #TimeLine_Type_Audio
-		Timeline_Asset(#TimeLine_Asset_Music)\Color = SetAlpha(FixColor($FF0F84), 255)
-		Timeline_Asset(#TimeLine_Asset_Music)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Music)\MediaType = #TimeLine_MediaType_Audio
+		Timeline_Asset(#TimeLine_AssetType_Music)\Color = SetAlpha(FixColor($FF0F84), 255)
+		Timeline_Asset(#TimeLine_AssetType_Music)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_Voice)\Type = #TimeLine_Type_Audio
-		Timeline_Asset(#TimeLine_Asset_Voice)\Color = SetAlpha(FixColor($FF0F84), 255)
-		Timeline_Asset(#TimeLine_Asset_Voice)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Voice)\MediaType = #TimeLine_MediaType_Audio
+		Timeline_Asset(#TimeLine_AssetType_Voice)\Color = SetAlpha(FixColor($FF0F84), 255)
+		Timeline_Asset(#TimeLine_AssetType_Voice)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_SFX)\Type = #TimeLine_Type_Audio
-		Timeline_Asset(#TimeLine_Asset_SFX)\Color = SetAlpha(FixColor($FF0F84), 255)
-		Timeline_Asset(#TimeLine_Asset_SFX)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_SFX)\MediaType = #TimeLine_MediaType_Audio
+		Timeline_Asset(#TimeLine_AssetType_SFX)\Color = SetAlpha(FixColor($FF0F84), 255)
+		Timeline_Asset(#TimeLine_AssetType_SFX)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_3D)\Type = #TimeLine_Type_3D
-		Timeline_Asset(#TimeLine_Asset_3D)\Color = SetAlpha(FixColor($8E0FEF), 255)
-		Timeline_Asset(#TimeLine_Asset_3D)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_3D)\MediaType = #TimeLine_MediaType_3D
+		Timeline_Asset(#TimeLine_AssetType_3D)\Color = SetAlpha(FixColor($8E0FEF), 255)
+		Timeline_Asset(#TimeLine_AssetType_3D)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_3DAnimated)\Type = #TimeLine_Type_3D
-		Timeline_Asset(#TimeLine_Asset_3DAnimated)\Color = SetAlpha(FixColor($8E0FEF), 255)
-		Timeline_Asset(#TimeLine_Asset_3DAnimated)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_3DAnimated)\MediaType = #TimeLine_MediaType_3D
+		Timeline_Asset(#TimeLine_AssetType_3DAnimated)\Color = SetAlpha(FixColor($8E0FEF), 255)
+		Timeline_Asset(#TimeLine_AssetType_3DAnimated)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_Particles)\Type = #TimeLine_Type_3D
-		Timeline_Asset(#TimeLine_Asset_Particles)\Color = SetAlpha(FixColor($8E0FEF), 255)
-		Timeline_Asset(#TimeLine_Asset_Particles)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Particles)\MediaType = #TimeLine_MediaType_3D
+		Timeline_Asset(#TimeLine_AssetType_Particles)\Color = SetAlpha(FixColor($8E0FEF), 255)
+		Timeline_Asset(#TimeLine_AssetType_Particles)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_Overlay)\Type = #TimeLine_Type_Overlay
-		Timeline_Asset(#TimeLine_Asset_Overlay)\Color = SetAlpha(FixColor($FFAC65), 255)
-		Timeline_Asset(#TimeLine_Asset_Overlay)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Overlay)\MediaType = #TimeLine_MediaType_Overlay
+		Timeline_Asset(#TimeLine_AssetType_Overlay)\Color = SetAlpha(FixColor($FFAC65), 255)
+		Timeline_Asset(#TimeLine_AssetType_Overlay)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_Shape)\Type = #TimeLine_Type_Overlay
-		Timeline_Asset(#TimeLine_Asset_Shape)\Color = SetAlpha(FixColor($FFAC65), 255)
-		Timeline_Asset(#TimeLine_Asset_Shape)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Shape)\MediaType = #TimeLine_MediaType_Overlay
+		Timeline_Asset(#TimeLine_AssetType_Shape)\Color = SetAlpha(FixColor($FFAC65), 255)
+		Timeline_Asset(#TimeLine_AssetType_Shape)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_Transition)\Type = #TimeLine_Type_Modifiers
-		Timeline_Asset(#TimeLine_Asset_Transition)\Color = SetAlpha(FixColor($0FCAEF), 255)
-		Timeline_Asset(#TimeLine_Asset_Transition)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Transition)\MediaType = #TimeLine_MediaType_Modifiers
+		Timeline_Asset(#TimeLine_AssetType_Transition)\Color = SetAlpha(FixColor($0FCAEF), 255)
+		Timeline_Asset(#TimeLine_AssetType_Transition)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_PostProcessing)\Type = #TimeLine_Type_Modifiers
-		Timeline_Asset(#TimeLine_Asset_PostProcessing)\Color = SetAlpha(FixColor($0FCAEF), 255)
-		Timeline_Asset(#TimeLine_Asset_PostProcessing)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_PostProcessing)\MediaType = #TimeLine_MediaType_Modifiers
+		Timeline_Asset(#TimeLine_AssetType_PostProcessing)\Color = SetAlpha(FixColor($0FCAEF), 255)
+		Timeline_Asset(#TimeLine_AssetType_PostProcessing)\Icon = ""
 		
-		Timeline_Asset(#TimeLine_Asset_Effects)\Type = #TimeLine_Type_Modifiers
-		Timeline_Asset(#TimeLine_Asset_Effects)\Color = SetAlpha(FixColor($0FCAEF), 255)
-		Timeline_Asset(#TimeLine_Asset_Effects)\Icon = ""
+		Timeline_Asset(#TimeLine_AssetType_Effects)\MediaType = #TimeLine_MediaType_Modifiers
+		Timeline_Asset(#TimeLine_AssetType_Effects)\Color = SetAlpha(FixColor($0FCAEF), 255)
+		Timeline_Asset(#TimeLine_AssetType_Effects)\Icon = ""
 		;}
 		
 		Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Segoe UI Semibold", 12, #PB_Font_HighQuality))
+		Global TimeLine_Font = FontID(LoadFont(#PB_Any, "Rubik", 12, #PB_Font_HighQuality))
+		Global TimeLine_FontIcon = FontID(LoadFont(#PB_Any, "Font Awesome 5 Pro Regular", 24, #PB_Font_HighQuality))
 		
 		Structure TimeLine_Block
+			AssetType.w
 			Text.s
-			Type.w
+			UUID.s
+			Postion.i
+			Duration.i
+			MaximumDuration.i
+			*ParentLine.TimeLine_Line
+			*ParentElement
 		EndStructure
 		
 		Structure TimeLine_Line
@@ -9507,6 +9555,8 @@ Module UITK
 			Height.l
 			UnfoldedHeight.l
 			Y.l
+			*FirstDisplayedBlock
+			List *MediaBlocks.TimeLine_Block()
 		EndStructure
 		
 		Structure TimeLineData Extends GadgetData
@@ -9537,6 +9587,9 @@ Module UITK
 			Duration.i
 			Scale.q
 			
+			Array *CollisionArray.TimeLine_Block(1,1)				; This can grow up quickly, and I'm not sure it's a good solution : on a 4k panel, we can quickly rise above the million entries...
+																	; I don't really know how PB is managing its 2D array, worst case scenario I could simply use a buffer and manage everything myself.
+			
 			List Lines.TimeLine_Line()
 			Map Blocks.TimeLine_Block()
 			
@@ -9549,6 +9602,28 @@ Module UITK
 			*String.StringData
 			
 		EndStructure
+		
+		Procedure.s UUID()
+			Protected Index, Byte.a, UUID_String.s
+			For Index = 0 To 15
+				
+				If Index = 7 
+					Byte = 64 + Random(15)
+				ElseIf Index = 9
+					Byte = 128 + Random(63)
+				Else
+					Byte = Random(255)
+				EndIf
+				
+				If Index = 4 Or Index = 6 Or Index = 8 Or Index = 10
+					UUID_String + "-"
+				EndIf
+				
+				UUID_String + RSet(Hex(Byte, #PB_Ascii), 2, "0")
+			Next
+			
+			ProcedureReturn UUID_String
+		EndProcedure
 		
 		Procedure Timeline_Redraw_ListItem(*GadgetData.TimeLineData, X, Y, State)
 			With *GadgetData
@@ -9566,18 +9641,67 @@ Module UITK
 			EndWith
 		EndProcedure
 		
-		Procedure Timeline_Redraw_BodyItem(*GadgetData.TimeLineData, X, Y, State, Alt)
+		Procedure Timeline_Redraw_Block(*GadgetData.TimeLineData, X, Y, State)
 			With *GadgetData
+				Protected Duration = Max(\Lines()\MediaBlocks()\Duration * \Scale, 1)
+				
+				If Duration <= 5
+					
+					
+					
+				Else
+					Y + 7
+					BeginVectorLayer()
+					AddPathRoundedBox(X, Y, Duration, #Timeline_Body_BlockHeight, 10, #Corner_BottomRight)
+					VectorSourceColor(TimeLine_Theme\Border)
+					StrokePath(1.7, #PB_Path_Preserve)
+					VectorSourceColor(TimeLine_Theme\Back[State])
+					FillPath(#PB_Path_Preserve)
+					ClipPath()
+					
+					AddPathBox(X, Y, Duration, 4)
+					VectorSourceColor(Timeline_Asset(\Lines()\MediaBlocks()\AssetType)\Color)
+					FillPath()
+					
+					If Duration > 37
+						VectorSourceColor(TimeLine_Theme\Text[State])
+						VectorFont(TimeLine_FontIcon)
+						MovePathCursor(X + 5, Y + 8)
+						DrawVectorText(Timeline_Asset(\Lines()\MediaBlocks()\AssetType)\Icon)
+						VectorFont(TimeLine_Font)
+						MovePathCursor(X + 40, Y + 8)
+						DrawVectorParagraph(\Lines()\MediaBlocks()\Text, Duration, 20)
+					EndIf
+				
+					EndVectorLayer()
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure Timeline_Redraw_Body(*GadgetData.TimeLineData, X, Y, State, Alt)
+			With *GadgetData
+				
+				AddPathBox(X, Y, \BodyWidth, \Lines()\Height)
+				
 				If State = #Cold
 					If Alt
-						AddPathBox(X, Y, \BodyWidth, \Lines()\Height)
 						VectorSourceColor(SetAlpha(\ThemeData\WindowColor, 150))
-						FillPath()
+						FillPath(#PB_Path_Preserve)
 					EndIf
 				Else
-					AddPathBox(X + 0.5, Y, \BodyWidth, \Lines()\Height)
 					VectorSourceColor(\ThemeData\ShadeColor[State])
-					FillPath()
+					FillPath(#PB_Path_Preserve)
+				EndIf
+				
+				ClipPath()
+				
+				
+				
+				If \Lines()\FirstDisplayedBlock
+					ChangeCurrentElement(\Lines()\MediaBlocks(), \Lines()\FirstDisplayedBlock)
+					Repeat
+						Timeline_Redraw_Block(*GadgetData, #Timeline_List_Width + 50, Y, 0)
+					Until X > \Width Or Not NextElement(\Lines()\MediaBlocks())
 				EndIf
 				
 			EndWith
@@ -9677,20 +9801,25 @@ Module UITK
 					If \FirstDisplayedLine
 						ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
 						Y = \Lines()\Y - \VScrollBar\State + #Timeline_Header_Height
-						X = \OriginX + #Timeline_List_Width + 0.5
+						X = \OriginX + #Timeline_List_Width
 						Alt = ListIndex(\Lines()) % 2
+						
 						If \DragState = #Drag_Active And \State < ListIndex(\Lines())
 							Alt = Bool(Not Alt)
 						EndIf
 						
 						Repeat
 							If Not ListIndex(\Lines()) = \State
-								Timeline_Redraw_BodyItem(*GadgetData, X, Y, Bool(ListIndex(\Lines()) = \MouseState) * #Warm, Alt)
+								Timeline_Redraw_Body(*GadgetData, X, Y, Bool(ListIndex(\Lines()) = \MouseState) * #Warm, Alt)
 							ElseIf Not \DragState = #Drag_Active
-								Timeline_Redraw_BodyItem(*GadgetData, X, Y, #Hot, Alt)
+								Timeline_Redraw_Body(*GadgetData, X, Y, #Hot, Alt)
 							Else
 								Continue
 							EndIf
+							
+							RestoreVectorState()
+							SaveVectorState()
+							
 							Y + \Lines()\Height
 							Alt = Bool(Not Alt)
 						Until Y > \Height Or (Not NextElement(\Lines()))
@@ -9708,7 +9837,7 @@ Module UITK
 			EndWith
 		EndProcedure
 		
-		Procedure Timeline_Focus(*GadgetData.TimeLineData)
+		Procedure Timeline_VerticalFocus(*GadgetData.TimeLineData)
 			Protected Result
 			With *GadgetData
 				If \VisibleVerticalScrollbar
@@ -9749,7 +9878,7 @@ Module UITK
 		EndProcedure
 		
 		Procedure TimeLine_FocusTimer(*GadgetData.TimeLineData, Timer)
-			If Timeline_Focus(*GadgetData)
+			If Timeline_VerticalFocus(*GadgetData)
 				*GadgetData\RedrawBody = #True
 				*GadgetData\RedrawList = #True
 				StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
@@ -9897,7 +10026,7 @@ Module UITK
 								VectorSourceColor(\ThemeData\WindowColor)
 								FillPath()
 								Timeline_Redraw_ListItem(*GadgetData.TimeLineData, 0, 0, #Hot)
-								Timeline_Redraw_BodyItem(*GadgetData.TimeLineData, #Timeline_List_Width, 0, #Hot, 0)
+								Timeline_Redraw_Body(*GadgetData.TimeLineData, #Timeline_List_Width, 0, #Hot, 0)
 								StopVectorDrawing()
 								HideWindow(\ReorderWindow, #False)
 								SetActiveGadget(\ReorderCanvas)
@@ -9961,7 +10090,7 @@ Module UITK
 						Select *Event\Param
 							Case #PB_Shortcut_F2 ;{
 								If \State > -1 And Not \Editing
-									\RedrawBody = Timeline_Focus(*GadgetData)
+									\RedrawBody = Timeline_VerticalFocus(*GadgetData)
 									\RedrawList = #True
 									\Editing = #True
 									SelectElement(\Lines(), \State)
@@ -10107,7 +10236,7 @@ Module UITK
 							\State = \ReorderPosition
 							\ReorderPosition = -1
 							
-							Timeline_Focus(*GadgetData)
+							Timeline_VerticalFocus(*GadgetData)
 							
 						ElseIf \String\Selecting
 							*Event\MouseX - \String\OriginX
@@ -10147,7 +10276,7 @@ Module UITK
 						If \Editing
 							*Event\MouseX - \String\OriginX
 							*Event\MouseY - \String\OriginY
-							\String\EventHandler(\String, *Event)
+							\RedrawList = \String\EventHandler(\String, *Event)
 						EndIf
 						;}		
 				EndSelect
@@ -10158,7 +10287,7 @@ Module UITK
 				EndIf
 				
 				If \RedrawAll + \RedrawBody + \RedrawHeader + \RedrawList
-					StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+					StartVectorDrawing(CanvasVectorOutput(\Gadget))
 					TimeLine_Redraw(*GadgetData)
 					StopVectorDrawing()
 				EndIf
@@ -10277,7 +10406,7 @@ Module UITK
 						
 						ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_Maximum, \InternalHeight)
 						
-						Timeline_Focus(*GadgetData)
+						Timeline_VerticalFocus(*GadgetData)
 						
 						\RedrawList = #True
 						\RedrawBody = #True
@@ -10295,14 +10424,48 @@ Module UITK
 			ProcedureReturn ListSize(*GadgetData\Lines())
 		EndProcedure
 		
-		Procedure AddMediaBlock(Gadget, Line, Position, Duration, Type, Text.s, *Data)
-			Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData = *this\vt
+		Procedure AddMediaBlock(Gadget, Line, Position, Duration, AssetType, Text.s, *Data)
+			Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData = *this\vt, UUID.s, *NewBlock.TimeLine_Block
 			With *GadgetData
 				If Line >= 0 And SelectElement(\Lines(), Line)
+					UUID = UUID()
+					While FindMapElement(\Blocks(), UUID)
+						UUID = UUID()
+					Wend
 					
+					*NewBlock = AddMapElement(\Blocks(), UUID, #PB_Map_NoElementCheck)
+					*NewBlock\Text = Text
+					*NewBlock\UUID = UUID
+					*NewBlock\AssetType = AssetType
+					*NewBlock\Postion = Position
+					*NewBlock\Duration = Duration
+					*NewBlock\ParentLine = @\Lines()
+					
+					ForEach \Lines()\MediaBlocks()
+						If \Lines()\MediaBlocks()\Postion > Position
+							PreviousElement(\Lines()\MediaBlocks())
+							Break
+						EndIf
+					Next
+					
+					*NewBlock\ParentElement = AddElement(\Lines()\MediaBlocks())
+					\Lines()\MediaBlocks() = *NewBlock
+					
+					ForEach \Lines()\MediaBlocks()
+						If \Lines()\MediaBlocks()\Postion + \Lines()\MediaBlocks()\Duration >= \HScrollBar\State
+							\Lines()\FirstDisplayedBlock = @\Lines()\MediaBlocks()
+							Break
+						EndIf
+					Next
+					
+					\RedrawBody = #True
+					StartVectorDrawing(CanvasVectorOutput(\Gadget))
+					TimeLine_Redraw(*GadgetData)
+					StopVectorDrawing()
 				EndIf
 			EndWith
 		EndProcedure
+		
 		; Getters
 		
 		
@@ -10349,6 +10512,7 @@ Module UITK
 				\State = -1
 				\ReorderPosition = -1
 				\Duration = 600
+				\Scale = 1
 				
 				GadgetList = UseGadgetList(0)
 				\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, #Timeline_List_LineHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
@@ -10360,14 +10524,17 @@ Module UITK
 				UseGadgetList(GadgetList)
 				
 				AllocateStructureX(\VScrollBar, ScrollBarData)
-				Scrollbar_Meta(\VScrollBar, *ThemeData, -1, Width - #Timeline_TrackbarThickness - BorderMargin - 2, #Timeline_Header_Height + BorderMargin, #Timeline_TrackbarThickness, \BodyHeight - 1 - BorderMargin, 0, 1, \BodyHeight , #Gadget_Vertical)
+				Scrollbar_Meta(\VScrollBar, *ThemeData, -1, Width - #Timeline_TrackbarThickness - BorderMargin - 2, #Timeline_Header_Height + BorderMargin, #Timeline_TrackbarThickness, \BodyHeight - 1 - BorderMargin, 0, 1, \BodyHeight , #Gadget_Vertical | #Gadget_Meta)
 				
 				AllocateStructureX(\HScrollBar, ScrollBarData)
+				Scrollbar_Meta(\HScrollBar, *ThemeData, -1, #Timeline_List_Width + BorderMargin, Height - #Timeline_TrackbarThickness - BorderMargin, \BodyWidth - BorderMargin, #Timeline_TrackbarThickness, 0, \Duration, 1000, #Gadget_Meta)
 				
 				AllocateStructureX(\String, StringData)
 				String_Meta(\String, *ThemeData, Gadget, 0, 0, \Width, 24, "", #HAlignLeft | #Gadget_Meta)
 				String_SetFont_Meta(\String, TimeLine_ListFont)
 				String_SupportedEvents()
+				
+				Dim	\CollisionArray(\BodyWidth, \BodyHeight)
 				
 			EndWith
 		EndProcedure
@@ -10444,8 +10611,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9537
-; FirstLine = 132
-; Folding = EAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAADAAIAAAAAAAAEAAAAAAAAAoYAAAAAQ0
+; CursorPosition = 9477
+; FirstLine = 554
+; Folding = HAAACCAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAADAAIAAAAAAAAEAAAAgAAAAoIAAAAAAw
 ; EnableXP
 ; DPIAware

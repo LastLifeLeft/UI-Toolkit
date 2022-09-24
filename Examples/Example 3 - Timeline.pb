@@ -18,7 +18,7 @@ Procedure RemoveLine()
 EndProcedure
 
 Procedure AddBlock()
-	UITK::AddMediaBlock(Timeline, 0, 50, 100, 0, "Some name", 0)
+	UITK::AddMediaBlock(Timeline, GetGadgetState(Timeline), 50, Random(500, 100), 0, "Some name", 0)
 EndProcedure
 
 Window = UITK::Window(#PB_Any, 0, 0, 961, 609, "UI Toolkit : dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_ScreenCentered)
