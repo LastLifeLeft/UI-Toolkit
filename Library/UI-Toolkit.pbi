@@ -4866,7 +4866,7 @@ Module UITK
 			
 			Select *Event\EventType
 				Case #MouseMove ;{
-					If \String\Selecting = #True ;{
+					If \String And \String\Selecting = #True ;{
 						*Event\MouseX - \String\OriginX
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
@@ -5059,7 +5059,7 @@ Module UITK
 						
 						Redraw = #True
 						\ReorderPosition = -1
-					ElseIf \String\Selecting
+					ElseIf \String And \String\Selecting
 						*Event\MouseX - \String\OriginX
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
@@ -10614,8 +10614,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 292
-; FirstLine = 277
-; Folding = XAAACCAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAACAAIAAAAAAAAEAAAAgAAAAoIBAAAAAw-
+; CursorPosition = 9408
+; FirstLine = 25
+; Folding = RAAACCAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAACAAIAAAAAAAAEAAAAgAAAAoIBAAAAAw-
 ; EnableXP
 ; DPIAware
