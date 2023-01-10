@@ -386,19 +386,19 @@ Module UITK
 		*GadgetData\DropHover = -1
 		
 		If Flags & #HAlignCenter
-			*GadgetData\TextBock\HAlign = #HAlignCenter
+			*GadgetData\TextBlock\HAlign = #HAlignCenter
 		ElseIf Flags & #HAlignRight
-			*GadgetData\TextBock\HAlign = #HAlignRight
+			*GadgetData\TextBlock\HAlign = #HAlignRight
 		Else
-			*GadgetData\TextBock\HAlign = #HAlignLeft
+			*GadgetData\TextBlock\HAlign = #HAlignLeft
 		EndIf
 		
 		If Flags & #VAlignCenter
-			*GadgetData\TextBock\VAlign = #VAlignCenter
+			*GadgetData\TextBlock\VAlign = #VAlignCenter
 		ElseIf Flags & #VAlignBottom
-			*GadgetData\TextBock\VAlign = #VAlignBottom
+			*GadgetData\TextBlock\VAlign = #VAlignBottom
 		Else
-			*GadgetData\TextBock\VAlign = #VAlignTop
+			*GadgetData\TextBlock\VAlign = #VAlignTop
 		EndIf
 		
 		*GadgetData\EventHandler = @GadgetType#_EventHandler()
@@ -422,8 +422,8 @@ Module UITK
 		
 		*GadgetData\DefaultEventHandler = @Default_EventHandle()
 		
-		*GadgetData\TextBock\LineLimit = -1
-		*GadgetData\TextBock\FontID = DefaultFont
+		*GadgetData\TextBlock\LineLimit = -1
+		*GadgetData\TextBlock\FontID = DefaultFont
 		
 		*GadgetData\Enabled = #True
 		
@@ -684,7 +684,7 @@ Module UITK
 		
 		Redraw.Redraw
 		EventHandler.EventHandler
-		TextBock.Text
+		TextBlock.Text
 		ParentWindow.i
 		
 		Freeze.b
@@ -826,7 +826,7 @@ Module UITK
 		\CornerRadius			= 4
 	EndWith
 	;}
-
+	
 	
 	
 	;General:
@@ -1335,10 +1335,10 @@ Module UITK
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
 			
-			*GadgetData\TextBock\Width = \Width 
-			*GadgetData\TextBock\Height = \Height 
+			*GadgetData\TextBlock\Width = \Width 
+			*GadgetData\TextBlock\Height = \Height 
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -1346,7 +1346,7 @@ Module UITK
 	; Getters
 	Procedure Default_GetFont(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
-		ProcedureReturn *GadgetData\TextBock\FontID
+		ProcedureReturn *GadgetData\TextBlock\FontID
 	EndProcedure
 	
 	Procedure Default_GetColor(*This.PB_Gadget, ColorType)
@@ -1424,8 +1424,8 @@ Module UITK
 	Procedure Default_GetRequiredSize(*This.PB_Gadget, *Width, *Height)
 		Protected *GadgetData.GadgetData = *this\vt
 		
-		PokeW(*Width, *GadgetData\TextBock\RequieredWidth + *GadgetData\HMargin * 2)
-		PokeW(*Height, *GadgetData\TextBock\RequieredHeight + *GadgetData\VMargin * 2)
+		PokeW(*Width, *GadgetData\TextBlock\RequieredWidth + *GadgetData\HMargin * 2)
+		PokeW(*Height, *GadgetData\TextBlock\RequieredHeight + *GadgetData\VMargin * 2)
 	EndProcedure
 	
 	Procedure Default_GetAttribute(*This.PB_Gadget, Attribute)
@@ -1438,7 +1438,7 @@ Module UITK
 				Case #Attribute_Border
 					Result = \Border
 				Case #Attribute_TextScale
-					Result = \TextBock\FontScale
+					Result = \TextBlock\FontScale
 				Case #Attribute_CornerType
 					Result = \CornerType
 				Default
@@ -1451,7 +1451,7 @@ Module UITK
 	
 	Procedure.s Default_GetText(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
-		ProcedureReturn *GadgetData\TextBock\OriginalText
+		ProcedureReturn *GadgetData\TextBlock\OriginalText
 	EndProcedure
 	
 	Procedure GetGadgetImage(Gadget)
@@ -1484,9 +1484,9 @@ Module UITK
 	Procedure SetGadgetImage(Gadget, Image)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
 		
-		*GadgetData\TextBock\Image = Image
+		*GadgetData\TextBlock\Image = Image
 		
-		PrepareVectorTextBlock(@*GadgetData\TextBock)
+		PrepareVectorTextBlock(@*GadgetData\TextBlock)
 		RedrawObject()
 	EndProcedure
 	
@@ -1632,8 +1632,8 @@ Module UITK
 				Case #Attribute_Border
 					\Border = Value
 				Case #Attribute_TextScale
-					\TextBock\FontScale = Value
-					PrepareVectorTextBlock(@\TextBock)
+					\TextBlock\FontScale = Value
+					PrepareVectorTextBlock(@\TextBlock)
 				Case #Attribute_CornerType
 					\CornerType = Value
 				Default
@@ -1647,8 +1647,8 @@ Module UITK
 	
 	Procedure Default_SetFont(*this.PB_Gadget, FontID)
 		Protected *GadgetData.GadgetData = *this\vt
-		*GadgetData\TextBock\FontID = FontID
-		PrepareVectorTextBlock(@*GadgetData\TextBock)
+		*GadgetData\TextBlock\FontID = FontID
+		PrepareVectorTextBlock(@*GadgetData\TextBlock)
 		RedrawObject()
 	EndProcedure
 	
@@ -1728,8 +1728,8 @@ Module UITK
 	
 	Procedure Default_SetText(*this.PB_Gadget, Text.s)
 		Protected *GadgetData.GadgetData = *this\vt
-		*GadgetData\TextBock\OriginalText = Text
-		PrepareVectorTextBlock(@*GadgetData\TextBock)
+		*GadgetData\TextBlock\OriginalText = Text
+		PrepareVectorTextBlock(@*GadgetData\TextBlock)
 		RedrawObject()
 	EndProcedure
 	;}
@@ -2615,7 +2615,7 @@ Module UITK
 			
 			VectorSourceColor(\ThemeData\TextColor[State])
 			
-			DrawVectorTextBlock(@\TextBock, \OriginX + \HMargin, \OriginY + \VMargin, 145 + Bool(State <> #Disabled) * 110)
+			DrawVectorTextBlock(@\TextBlock, \OriginX + \HMargin, \OriginY + \VMargin, 145 + Bool(State <> #Disabled) * 110)
 			
 		EndWith
 	EndProcedure
@@ -2679,34 +2679,34 @@ Module UITK
 		
 		With *GadgetData
 			\Toggle = Bool(Flags & #Button_Toggle)
-			\TextBock\OriginalText = Text
+			\TextBlock\OriginalText = Text
 			
 			; Button alignement is different from default alignement.
 			If Flags & #VAlignTop
-				\TextBock\VAlign = #VAlignTop
+				\TextBlock\VAlign = #VAlignTop
 			ElseIf Flags & #VAlignBottom
-				\TextBock\VAlign = #VAlignBottom
+				\TextBlock\VAlign = #VAlignBottom
 			Else
-				\TextBock\VAlign = #VAlignCenter
+				\TextBlock\VAlign = #VAlignCenter
 			EndIf
 			
 			If Flags & #HAlignLeft
-				*GadgetData\TextBock\HAlign = #HAlignLeft
+				*GadgetData\TextBlock\HAlign = #HAlignLeft
 			ElseIf Flags & #HAlignRight
-				*GadgetData\TextBock\HAlign = #HAlignRight
+				*GadgetData\TextBlock\HAlign = #HAlignRight
 			Else
-				*GadgetData\TextBock\HAlign = #HAlignCenter
+				*GadgetData\TextBlock\HAlign = #HAlignCenter
 			EndIf
 			
-			If \TextBock\HAlign <> #HAlignCenter
+			If \TextBlock\HAlign <> #HAlignCenter
 				\HMargin = #Button_Margin + \Border
 				\VMargin = #Button_Margin
 			EndIf
 			
-			\TextBock\Width = Width - \HMargin * 2
-			\TextBock\Height = Height - \VMargin * 2
+			\TextBlock\Width = Width - \HMargin * 2
+			\TextBlock\Height = Height - \VMargin * 2
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			
 			\VT\GetGadgetState = @Default_GetState()
 			\VT\SetGadgetState = @Default_SetState()
@@ -2782,11 +2782,11 @@ Module UITK
 		With *GadgetData
 			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
-			If \TextBock\HAlign = #HAlignRight
-				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
+			If \TextBlock\HAlign = #HAlignRight
+				DrawVectorTextBlock(@\TextBlock, X + \HMargin * 2, Y)
 				X = \OriginX + #ToggleSize * 0.5 + BorderMargin
 			Else
-				DrawVectorTextBlock(@\TextBock, X, Y)
+				DrawVectorTextBlock(@\TextBlock, X, Y)
 				X = \OriginX + \Width - #ToggleSize * 1.5 - BorderMargin
 			EndIf
 			
@@ -2870,19 +2870,19 @@ Module UITK
 		InitializeObject(Toggle)
 		
 		With *GadgetData
-			\TextBock\Width = Width - #ToggleSize * 2 - BorderMargin * 2
-			\TextBock\Height = Height - BorderMargin * 2
-			\TextBock\OriginalText = Text
+			\TextBlock\Width = Width - #ToggleSize * 2 - BorderMargin * 2
+			\TextBlock\Height = Height - BorderMargin * 2
+			\TextBlock\OriginalText = Text
 			\HMargin = #ToggleSize + BorderMargin
 			\VMargin = BorderMargin
 			
 			If Flags & #HAlignCenter
-				\TextBock\HAlign = #HAlignLeft
+				\TextBlock\HAlign = #HAlignLeft
 			EndIf
 			
-			\TextBock\VAlign = #VAlignCenter
+			\TextBlock\VAlign = #VAlignCenter
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftClick] = #True
@@ -2949,11 +2949,11 @@ Module UITK
 		With *GadgetData
 			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
-			If \TextBock\HAlign = #HAlignRight
-				DrawVectorTextBlock(@\TextBock, X + \HMargin * 2, Y)
+			If \TextBlock\HAlign = #HAlignRight
+				DrawVectorTextBlock(@\TextBlock, X + \HMargin * 2, Y)
 				X = \OriginX + BorderMargin
 			Else
-				DrawVectorTextBlock(@\TextBock, X, Y)
+				DrawVectorTextBlock(@\TextBlock, X, Y)
 				X = \OriginX + \Width - #CheckboxSize - BorderMargin
 			EndIf
 			
@@ -3036,19 +3036,19 @@ Module UITK
 		InitializeObject(CheckBox)
 		
 		With *GadgetData
-			\TextBock\Width = Width - #CheckboxSize - BorderMargin * 2
-			\TextBock\Height = Height - BorderMargin * 2
-			\TextBock\OriginalText = Text
+			\TextBlock\Width = Width - #CheckboxSize - BorderMargin * 2
+			\TextBlock\Height = Height - BorderMargin * 2
+			\TextBlock\OriginalText = Text
 			\HMargin = #CheckboxSize * 0.5 + BorderMargin
 			\VMargin = BorderMargin
 			
 			If Flags & #HAlignCenter
-				\TextBock\HAlign = #HAlignLeft
+				\TextBlock\HAlign = #HAlignLeft
 			EndIf
 			
-			\TextBock\VAlign = #VAlignCenter
+			\TextBlock\VAlign = #VAlignCenter
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftClick] = #True
@@ -3154,10 +3154,10 @@ Module UITK
 			
 			StartVectorDrawing(CanvasVectorOutput(\Gadget))
 			
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			If \TextBlock\FontScale
+				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
 			Else
-				VectorFont(\TextBock\FontID)
+				VectorFont(\TextBlock\FontID)
 			EndIf
 		
 			For Loop = 1 To CharacterCount
@@ -3168,9 +3168,9 @@ Module UITK
 				Position + \CharacterData()\Width
 			Next
 			
-			If \TextBock\HAlign = #HAlignCenter
+			If \TextBlock\HAlign = #HAlignCenter
 				\AlignementOffset = (\Width - Position) * 0.5
-			ElseIf \TextBock\HAlign = #HAlignRight
+			ElseIf \TextBlock\HAlign = #HAlignRight
 				\AlignementOffset = \Width - Position - BorderMargin
 			EndIf
 			
@@ -3201,10 +3201,10 @@ Module UITK
 			ClipPath(#PB_Path_Preserve)
 			FillPath()
 			
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			If \TextBlock\FontScale
+				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
 			Else
-				VectorFont(\TextBock\FontID)
+				VectorFont(\TextBlock\FontID)
 			EndIf
 			
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
@@ -3278,9 +3278,9 @@ Module UITK
 				\CharacterData()\Position - Size
 			Wend
 			
-			If \TextBock\HAlign = #HAlignCenter
+			If \TextBlock\HAlign = #HAlignCenter
 				\AlignementOffset = (\Width - \CharacterData()\Position) * 0.5
-			ElseIf \TextBock\HAlign = #HAlignRight
+			ElseIf \TextBlock\HAlign = #HAlignRight
 				\AlignementOffset = \Width - \CharacterData()\Position - BorderMargin
 			EndIf
 			
@@ -3312,16 +3312,16 @@ Module UITK
 					\CharacterData()\Char = Chr(*Event\Param)
 					\CharacterData()\Position = Size
 					StartVectorDrawing(CanvasVectorOutput(\Gadget))
-					If \TextBock\FontScale
-						VectorFont(\TextBock\FontID, \TextBock\FontScale)
+					If \TextBlock\FontScale
+						VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
 					Else
-						VectorFont(\TextBock\FontID)
+						VectorFont(\TextBlock\FontID)
 					EndIf
 					
 					\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
-					If \TextBock\HAlign = #HAlignCenter
+					If \TextBlock\HAlign = #HAlignCenter
 						\AlignementOffset - \CharacterData()\Width * 0.5
-					ElseIf \TextBock\HAlign = #HAlignRight
+					ElseIf \TextBlock\HAlign = #HAlignRight
 						\AlignementOffset - \CharacterData()\Width
 					EndIf
 					
@@ -3457,10 +3457,10 @@ Module UITK
 								SelectElement(\CharacterData(), \CarretPosition)
 								Size = \CharacterData()\Width
 								
-								If \TextBock\HAlign = #HAlignCenter
+								If \TextBlock\HAlign = #HAlignCenter
 									\AlignementOffset + \CharacterData()\Width * 0.5
 									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								ElseIf \TextBock\HAlign = #HAlignRight
+								ElseIf \TextBlock\HAlign = #HAlignRight
 									\AlignementOffset + \CharacterData()\Width
 									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								EndIf
@@ -3500,10 +3500,10 @@ Module UITK
 								SelectElement(\CharacterData(), \CarretPosition)
 								Size = \CharacterData()\Width
 								
-								If \TextBock\HAlign = #HAlignCenter
+								If \TextBlock\HAlign = #HAlignCenter
 									\AlignementOffset + \CharacterData()\Width * 0.5
 									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								ElseIf \TextBock\HAlign = #HAlignRight
+								ElseIf \TextBlock\HAlign = #HAlignRight
 									\AlignementOffset + \CharacterData()\Width
 								Else
 									ResizeGadget(\Carret, GadgetX(\Carret) - Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
@@ -3748,12 +3748,12 @@ Module UITK
 	
 	Procedure String_SetFont_Meta(*GadgetData.StringData, FontID)
 		With *GadgetData
-			\TextBock\FontID = FontID
+			\TextBlock\FontID = FontID
 			StartVectorDrawing(CanvasVectorOutput(\Gadget))
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			If \TextBlock\FontScale
+				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
 			Else
-				VectorFont(\TextBock\FontID)
+				VectorFont(\TextBlock\FontID)
 			EndIf
 			\CarretHeight = Ceil( VectorTextHeight("Oh!"))
 			\TextPositionY = \OriginY + Round((\Height - \CarretHeight) * 0.5, #PB_Round_Nearest) - 1
@@ -3797,15 +3797,15 @@ Module UITK
 		With *GadgetData
 			
 			StartVectorDrawing(CanvasVectorOutput(\Gadget))
-			If \TextBock\FontScale
-				VectorFont(\TextBock\FontID, \TextBock\FontScale)
+			If \TextBlock\FontScale
+				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
 			Else
-				VectorFont(\TextBock\FontID)
+				VectorFont(\TextBlock\FontID)
 			EndIf
 			\CarretHeight = Ceil( VectorTextHeight("Oh!"))
 			
 			StopVectorDrawing()
-			\TextPositionX = \OriginX + BorderMargin * Bool(\TextBock\HAlign = #HAlignLeft)						
+			\TextPositionX = \OriginX + BorderMargin * Bool(\TextBlock\HAlign = #HAlignLeft)						
 			\TextPositionY = \OriginY + Round((\Height - \CarretHeight) * 0.5, #PB_Round_Nearest) - 1
 			\String = Text
 			\SelectionPosition = -1
@@ -4362,7 +4362,7 @@ Module UITK
 	Procedure Label_Redraw(*GadgetData.LabelData)
 		With *GadgetData
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
-			DrawVectorTextBlock(@\TextBock, \OriginX, \OriginY)
+			DrawVectorTextBlock(@\TextBlock, \OriginX, \OriginY)
 		EndWith
 	EndProcedure
 	
@@ -4374,11 +4374,11 @@ Module UITK
 		InitializeObject(Label)
 		
 		With *GadgetData
-			\TextBock\Width = Width
-			\TextBock\Height = Height
-			\TextBock\OriginalText = Text
+			\TextBlock\Width = Width
+			\TextBlock\Height = Height
+			\TextBlock\OriginalText = Text
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			
 			UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
 			*GadgetData\DefaultEventHandler = 0
@@ -5203,9 +5203,9 @@ Module UITK
 			\Items()\Text\OriginalText = PeekS(*Text)
 			\Items()\Text\Image = ImageID
 			\Items()\Text\LineLimit = 1
-			\Items()\Text\FontID = \TextBock\FontID
+			\Items()\Text\FontID = \TextBlock\FontID
 			
-			\Items()\Text\Width = \TextBock\Width - #VerticalList_Margin * 2
+			\Items()\Text\Width = \TextBlock\Width - #VerticalList_Margin * 2
 			\Items()\Text\Height = \ItemHeight
 			\Items()\Text\VAlign = #VAlignCenter
 			
@@ -5405,6 +5405,20 @@ Module UITK
 		
 	EndProcedure
 	
+	Procedure VerticalList_SetFont(*this.PB_Gadget, FontID)
+		Protected *GadgetData.VerticalListData = *this\vt
+		
+		With *GadgetData
+			\TextBlock\FontID = FontID
+			
+			ForEach \Items()
+				\Items()\Text\FontID = FontID
+				PrepareVectorTextBlock(@\Items()\Text)
+			Next
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
 	
 	Procedure VerticalList_Meta(*GadgetData.VerticalListData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags, *CustomItem)
 		Protected GadgetList
@@ -5412,7 +5426,7 @@ Module UITK
 		InitializeObject(VerticalList)
 		
 		With *GadgetData
-			\TextBock\Width = Width - #VerticalList_Margin
+			\TextBlock\Width = Width - #VerticalList_Margin
 			
 			If *CustomItem
 				\ItemRedraw = *CustomItem 
@@ -5453,6 +5467,7 @@ Module UITK
 			\VT\GetGadgetItemText = @VerticalList_GetItemText()
 			\VT\FreeGadget = @VerticalList_FreeGadget()
 			\VT\GetGadgetItemImage = @VerticalList_GetItemImage()
+			\VT\SetGadgetFont = @VerticalList_SetFont()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -5593,7 +5608,7 @@ Module UITK
 			FillPath()
 			
 			If ListSize(\Items())
-				VectorFont(\TextBock\FontID)
+				VectorFont(\TextBlock\FontID)
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				
 				If \ScrollBar\State
@@ -5735,7 +5750,7 @@ Module UITK
 							If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
 								Image = CreateImage(#PB_Any, \ItemWidth, \Height, 32, \ThemeData\ShadeColor[#Cold])
 								StartVectorDrawing(ImageVectorOutput(Image))
-								VectorFont(\TextBock\FontID)
+								VectorFont(\TextBlock\FontID)
 								VectorSourceColor(\ThemeData\TextColor[#Cold])
 								SelectElement(\Items(),\State)
 								HorizontalList_ItemRedraw(@\Items(), 0, 0, \ItemWidth, \Height, #Hot, \ThemeData)
@@ -5915,7 +5930,7 @@ Module UITK
 			
 			*NewItem\Text\OriginalText = PeekS(*Text)
 			*NewItem\Text\LineLimit = 1
-			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\FontID = \TextBlock\FontID
 			*NewItem\Text\Width = \ItemWidth
 			*NewItem\Text\Height = Floor(\Height * 0.9)
 			*NewItem\Text\VAlign = #VAlignBottom
@@ -6183,7 +6198,7 @@ Module UITK
 				Ratio = (Height - #TracKbar_CursorWidth) / (\Maximum - \Minimum)
 				Progress = Round((\State - \Minimum) * Ratio, #PB_Round_Nearest)
 				
-				If \TextBock\HAlign = #HAlignRight
+				If \TextBlock\HAlign = #HAlignRight
 					X = \OriginX + \Width - #TracKbar_CursorHeight - #Trackbar_Margin
 					
 					ForEach \Items()
@@ -6243,7 +6258,7 @@ Module UITK
 				Ratio = (Width - #TracKbar_CursorWidth) / (\Maximum - \Minimum)
 				Progress = Round((\State - \Minimum) * Ratio, #PB_Round_Nearest)
 				
-				If \TextBock\VAlign = #VAlignTop
+				If \TextBlock\VAlign = #VAlignTop
 					Y = \OriginY + #Trackbar_Margin
 					
 					ForEach \Items()
@@ -6345,7 +6360,7 @@ Module UITK
 						If \Vertical
 							CursorY = \OriginY + Round((\State - \Minimum) / (\Maximum - \Minimum) * (\Height - #TracKbar_CursorWidth - #Trackbar_Margin * 2), #PB_Round_Nearest) + #Trackbar_Margin
 							
-							If \TextBock\HAlign = #HAlignRight
+							If \TextBlock\HAlign = #HAlignRight
 								CursorX = \OriginX + \Width - #TracKbar_CursorHeight - #Trackbar_Margin
 							Else
 								CursorX = \OriginX + #Trackbar_Margin
@@ -6361,7 +6376,7 @@ Module UITK
 						Else
 							CursorX = \OriginX + Round((\State - \Minimum) / (\Maximum - \Minimum) * (\Width - #TracKbar_CursorWidth - #Trackbar_Margin * 2), #PB_Round_Nearest) + #Trackbar_Margin
 							
-							If \TextBock\VAlign = #VAlignBottom
+							If \TextBlock\VAlign = #VAlignBottom
 								CursorY = \OriginY + \Height - #TracKbar_CursorHeight - #Trackbar_Margin
 							Else
 								CursorY = \OriginY + #Trackbar_Margin
@@ -6499,9 +6514,9 @@ Module UITK
 				\VMargin = 20
 			EndIf
 			
-			\TextBock\RequieredHeight = \VMargin * 2
-			\TextBock\RequieredWidth = \HMargin * 2
-			\TextBock\FontID = BoldFont
+			\TextBlock\RequieredHeight = \VMargin * 2
+			\TextBlock\RequieredWidth = \HMargin * 2
+			\TextBlock\FontID = BoldFont
 			
 			\VT\AddGadgetItem2 = @Trackbar_AddGadgetItem()
 			\VT\SetGadgetText = @Trackbar_SetText()
@@ -6600,7 +6615,7 @@ Module UITK
 			
 			VectorSourceColor(\ThemeData\TextColor[\MouseState])
 			
-			DrawVectorTextBlock(@\TextBock, \OriginX + #Combo_ItemMargin, \OriginY + \VMargin)
+			DrawVectorTextBlock(@\TextBlock, \OriginX + #Combo_ItemMargin, \OriginY + \VMargin)
 			VectorFont(IconFont)
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
 			MovePathCursor(\Width - #Combo_IconWidth, (\Height - #Combo_IconHeight) * 0.6)
@@ -6673,9 +6688,9 @@ Module UITK
 		
 		*GadgetData\State = *VListData\State
 		SelectElement(*VListData\Items(), *VListData\State)
-		*GadgetData\TextBock\OriginalText = *VListData\Items()\Text\OriginalText
-		*GadgetData\TextBock\Image = *VListData\Items()\Text\Image
-		PrepareVectorTextBlock(@*GadgetData\TextBock)
+		*GadgetData\TextBlock\OriginalText = *VListData\Items()\Text\OriginalText
+		*GadgetData\TextBlock\Image = *VListData\Items()\Text\Image
+		PrepareVectorTextBlock(@*GadgetData\TextBlock)
 		*GadgetData\Unfolded = #False
 		RedrawObject()
 		HideWindow(*GadgetData\MenuWindow , #True)
@@ -6724,9 +6739,9 @@ Module UITK
 		SetGadgetState(*GadgetData\MenuCanvas, State)
 		*VListData\State = State
 		SelectElement(*VListData\Items(), *VListData\State)
-		*GadgetData\TextBock\OriginalText = *VListData\Items()\Text\OriginalText
-		*GadgetData\TextBock\Image = *VListData\Items()\Text\Image
-		PrepareVectorTextBlock(@*GadgetData\TextBock)
+		*GadgetData\TextBlock\OriginalText = *VListData\Items()\Text\OriginalText
+		*GadgetData\TextBlock\Image = *VListData\Items()\Text\Image
+		PrepareVectorTextBlock(@*GadgetData\TextBlock)
 		*GadgetData\Unfolded = #False
 		RedrawObject()
 	EndProcedure
@@ -6751,13 +6766,13 @@ Module UITK
 		InitializeObject(Combo)
 		
 		With *GadgetData
-			*GadgetData\TextBock\VAlign = #VAlignCenter
+			*GadgetData\TextBlock\VAlign = #VAlignCenter
 			
 			\HMargin = #Combo_Margin + \Border
 			\VMargin = #Combo_Margin
 			
-			\TextBock\Width = Width - \HMargin * 2
-			\TextBock\Height = Height - \VMargin * 2
+			\TextBlock\Width = Width - \HMargin * 2
+			\TextBlock\Height = Height - \VMargin * 2
 			
 			\MenuState = -1
 			\State = -1
@@ -6962,14 +6977,14 @@ Module UITK
 			VectorSourceColor(\ThemeData\TextColor[State])
 			
 			If \HAlign = #HAlignLeft
-				DrawVectorTextBlock(@\TextBock, X + \HMargin, 0)
+				DrawVectorTextBlock(@\TextBlock, X + \HMargin, 0)
 				X = \OriginX + \Width - #RadioSize - BorderMargin - \HMargin
 			ElseIf \HAlign = #HAlignRight
-				DrawVectorTextBlock(@\TextBock, X + \HMargin, 0)
+				DrawVectorTextBlock(@\TextBlock, X + \HMargin, 0)
 				X = \OriginX + BorderMargin + \HMargin
 			Else
 				X = \OriginX + BorderMargin + \HMargin
-				DrawVectorTextBlock(@\TextBock, X + \HMargin + #RadioSize, 0)
+				DrawVectorTextBlock(@\TextBlock, X + \HMargin + #RadioSize, 0)
 			EndIf
 			
 			Y = Floor(\OriginY + (\Height - #RadioSize) * 0.5)
@@ -7075,20 +7090,20 @@ Module UITK
 		InitializeObject(Radio)
 		
 		With *GadgetData
-			\TextBock\Width = Width - #RadioSize - BorderMargin * 2
-			\TextBock\Height = Height - BorderMargin * 2
-			\TextBock\OriginalText = Text
+			\TextBlock\Width = Width - #RadioSize - BorderMargin * 2
+			\TextBlock\Height = Height - BorderMargin * 2
+			\TextBlock\OriginalText = Text
 			\HMargin = #RadioSize * 0.5 + BorderMargin
 			\VMargin = BorderMargin
-			\HAlign = \TextBock\HAlign
+			\HAlign = \TextBlock\HAlign
 			
 			If Flags & #HAlignCenter
-				\TextBock\HAlign = #HAlignLeft
+				\TextBlock\HAlign = #HAlignLeft
 			EndIf
 			
-			\TextBock\VAlign = #VAlignCenter
+			\TextBlock\VAlign = #VAlignCenter
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			
 			\VT\FreeGadget = @Radio_Free()
 			\VT\SetGadgetState = @Radio_SetState()
@@ -7299,7 +7314,7 @@ Module UITK
 			
 			*NewSection\Text\OriginalText = PeekS(*Text)
 			*NewSection\Text\LineLimit = 1
-			*NewSection\Text\FontID = \TextBock\FontID
+			*NewSection\Text\FontID = \TextBlock\FontID
 			*NewSection\Text\FontScale = 20
 			*NewSection\Text\VAlign = #VAlignCenter
 			
@@ -7326,7 +7341,7 @@ Module UITK
 			*NewItem\ImageID = ImageID
 			*NewItem\Text\OriginalText = PeekS(*Text)
 			*NewItem\Text\LineLimit = 1
-			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\FontID = \TextBlock\FontID
 			*NewItem\Text\Width = \ItemWidth
 			*NewItem\Text\Height = #Library_ItemTextHeight
 			*NewItem\Text\VAlign = #VAlignTop
@@ -7808,8 +7823,8 @@ Module UITK
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
 			
-			\TextBock\Width = \Width 
-			\TextBock\Height = \Height 
+			\TextBlock\Width = \Width 
+			\TextBlock\Height = \Height 
 			
 			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
@@ -7821,7 +7836,7 @@ Module UITK
 				\VisibleScrollbar = #False
 			EndIf
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -7951,7 +7966,7 @@ Module UITK
 				*NewItem\Text\FontID = BoldFont
 				*NewItem\Text\FontScale = 11
 			Else
-				*NewItem\Text\FontID = \TextBock\FontID
+				*NewItem\Text\FontID = \TextBlock\FontID
 			EndIf
 			*NewItem\Text\Width = \ColumnWidth
 			*NewItem\Text\Height = \ItemHeight
@@ -8211,8 +8226,8 @@ Module UITK
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
 			
-			\TextBock\Width = \Width 
-			\TextBock\Height = \Height 
+			\TextBlock\Width = \Width 
+			\TextBlock\Height = \Height 
 			
 			Scrollbar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
@@ -8224,7 +8239,7 @@ Module UITK
 				\VisibleScrollbar = #False
 			EndIf
 			
-			PrepareVectorTextBlock(@*GadgetData\TextBock)
+			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -8488,7 +8503,7 @@ Module UITK
 				*NewItem\Level = 0
 			EndIf
 			
-			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\FontID = \TextBlock\FontID
 			
 			*NewItem\Text\Width = \Width - (*NewItem\Level + 1) * #Tree_BranchWidth
 			*NewItem\Text\Height = \ItemHeight
@@ -9212,7 +9227,7 @@ Module UITK
 			
 			*NewItem\Text\OriginalText = PeekS(*Text)
 			*NewItem\Text\LineLimit = 1
-			*NewItem\Text\FontID = \TextBock\FontID
+			*NewItem\Text\FontID = \TextBlock\FontID
 			*NewItem\Text\Width = \ItemWidth
 			*NewItem\Text\Height = Floor(\Height * 0.95)
 			*NewItem\Text\VAlign = #VAlignBottom
@@ -10614,8 +10629,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9408
-; FirstLine = 25
-; Folding = RAAACCAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAACAAIAAAAAAAAEAAAAgAAAAoIBAAAAAw-
+; CursorPosition = 829
+; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
