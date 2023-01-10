@@ -289,6 +289,9 @@
 	;}
 	
 	;{ Public procedures declaration
+	; Utilities
+	Declare CurrentWindow()
+	
 	; Setters
 	Declare SetAccessibilityMode(State) 					; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
 	Declare SetGadgetColorScheme(Gadget, ThemeJson.s)		; Apply a complete color scheme at once
@@ -10611,8 +10614,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9477
-; FirstLine = 554
-; Folding = HAAACCAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAADAAIAAAAAAAAEAAAAgAAAAoIAAAAAAw
+; CursorPosition = 292
+; FirstLine = 277
+; Folding = XAAACCAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAgAAAAACAAIAAAAAAAAEAAAAgAAAAoIBAAAAAw-
 ; EnableXP
 ; DPIAware
