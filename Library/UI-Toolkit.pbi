@@ -5204,6 +5204,7 @@ Module UITK
 			\Items()\Text\Image = ImageID
 			\Items()\Text\LineLimit = 1
 			\Items()\Text\FontID = \TextBlock\FontID
+			\Items()\Text\FontScale = \TextBlock\FontScale
 			
 			\Items()\Text\Width = \TextBlock\Width - #VerticalList_Margin * 2
 			\Items()\Text\Height = \ItemHeight
@@ -10638,7 +10639,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 5386
+; CursorPosition = 829
 ; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
