@@ -5381,6 +5381,15 @@ Module UITK
 				Case #Attribute_SortItems ;{
 					\SortItem = Value
 					;}
+				Case #Attribute_TextScale ;{
+					\TextBlock\FontScale = Value
+					ForEach \Items()
+						\Items()\Text\FontScale = Value
+						PrepareVectorTextBlock(@\Items()\Text)
+					Next
+					
+					RedrawObject()
+					;}
 				Default ;{	
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
 					;}
@@ -10629,7 +10638,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 829
-; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 5386
+; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
