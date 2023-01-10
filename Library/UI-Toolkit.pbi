@@ -1074,7 +1074,7 @@ Module UITK
 		
 		If *TextData\VAlign = #VAlignCenter
 			*TextData\ImageY = (*TextData\Height - HBitmap\bmHeight) * 0.5
-			*TextData\TextY = (*TextData\Height - LineCount * TextHeight) * 0.5
+			*TextData\TextY = (*TextData\Height - LineCount * TextHeight) * 0.55
 		ElseIf *TextData\VAlign = #VAlignBottom
 			*TextData\TextY = *TextData\Height - LineCount * TextHeight
 			*TextData\ImageY = *TextData\Height - HBitmap\bmHeight
@@ -10639,7 +10639,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 829
-; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 1076
+; FirstLine = 101
+; Folding = QAAAIQAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
