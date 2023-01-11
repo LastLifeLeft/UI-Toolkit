@@ -23,13 +23,16 @@
 		#Tree_NoLine
 		#Tree_StraightLine
 		
-		; Window
-		#Window_CloseButton
-		#Window_MaximizeButton
-		#Window_MinimizeButton
-		
 		; DoNotUse
 		#Gadget_Meta
+	EndEnumeration
+	
+	EnumerationBinary ; Window flags
+		#Window_MinimizeButton
+		#Window_CloseButton
+		#Window_MaximizeButton
+		#Window_Sizable
+		#Window_ScreenCentered
 	EndEnumeration
 	
 	#Tree_DotLine = 0
@@ -2078,7 +2081,7 @@ Module UITK
 		ProcedureReturn CallWindowProc_(*WindowBarData\OriginalProc, hWnd, Msg, wParam, lParam)
 	EndProcedure
 	
-	Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
+	Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
 		Protected Result, Image, *WindowData.ThemedWindow, *WindowBarData.WindowBar, *ContainerData.WindowContainer ,WindowID, OffsetX
 		
 		If DWMEnabled = - 1
@@ -2089,18 +2092,22 @@ Module UITK
 			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (Bool(Flags & #Window_CloseButton) * #PB_Window_SystemMenu) |
 			                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
 			                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize) |
-			                                                                  (Bool(Flags & #PB_Window_SizeGadget) * #PB_Window_SizeGadget) |
+			                                                                  (Bool(Flags & #Window_Sizable) * #PB_Window_SizeGadget) |
 			                                                                  (Bool(Flags & #PB_Window_Invisible) * #PB_Window_Invisible) |
-			                                                                  (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+			                                                                  (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 		Else
 			AllocateStructureX(*WindowData, ThemedWindow)
-			*WindowData\Sizable = Bool(Flags & #PB_Window_SizeGadget)
+			*WindowData\Sizable = Bool(Flags & #Window_Sizable)
+			
+; 			Debug UITK::#Window_CloseButton
+; 			Debug #PB_Window_SizeGadget
+			Debug Bool(Flags & #PB_Window_SizeGadget = Flags)
 			
 			If *WindowData\Sizable
-				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			Else
 				InnerHeight + #WindowBarHeight
-				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, #PB_Window_BorderLess | #PB_Window_Invisible | (Bool(Flags & #PB_Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, #PB_Window_BorderLess | #PB_Window_Invisible | (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			EndIf
 			
 			If Window = #PB_Any
@@ -10637,10 +10644,8 @@ EndModule
 
 
 
-
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 1076
-; FirstLine = 101
-; Folding = QAAAIQAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 10634
+; Folding = AAAAAAAAAAAAAACAACAAAAAAAAAAAAAAAAAAAAAgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
