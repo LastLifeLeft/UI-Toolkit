@@ -2099,10 +2099,6 @@ Module UITK
 			AllocateStructureX(*WindowData, ThemedWindow)
 			*WindowData\Sizable = Bool(Flags & #Window_Sizable)
 			
-; 			Debug UITK::#Window_CloseButton
-; 			Debug #PB_Window_SizeGadget
-			Debug Bool(Flags & #PB_Window_SizeGadget = Flags)
-			
 			If *WindowData\Sizable
 				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			Else
@@ -10645,7 +10641,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 35
-; Folding = TAAAAAAAAAAAAACAACAAAAAAAAAAAAAAAAAAAAAgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 832
+; FirstLine = 9
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
