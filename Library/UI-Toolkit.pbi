@@ -16,6 +16,14 @@
 		#Drag											; Enable drag from this gadget. Mutually exclusive with #Reorder.
 		#Editable										; 
 		
+		; Window flags
+		#Window_MinimizeButton
+		#Window_CloseButton
+		#Window_MaximizeButton
+		#Window_Sizable
+		#Window_ScreenCentered
+		#Window_Invisible
+		
 		; Special
 		#Button_Toggle									; Creates a toggle button: one click pushes it, another will release it.
 		#Gadget_Vertical								; scrollbar/trackbar/... is vertical (instead of horizontal, which is the default).
@@ -25,14 +33,6 @@
 		
 		; DoNotUse
 		#Gadget_Meta
-	EndEnumeration
-	
-	EnumerationBinary ; Window flags
-		#Window_MinimizeButton
-		#Window_CloseButton
-		#Window_MaximizeButton
-		#Window_Sizable
-		#Window_ScreenCentered
 	EndEnumeration
 	
 	#Tree_DotLine = 0
@@ -2093,7 +2093,7 @@ Module UITK
 			                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
 			                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize) |
 			                                                                  (Bool(Flags & #Window_Sizable) * #PB_Window_SizeGadget) |
-			                                                                  (Bool(Flags & #PB_Window_Invisible) * #PB_Window_Invisible) |
+			                                                                  (Bool(Flags & #Window_Invisible) * #PB_Window_Invisible) |
 			                                                                  (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 		Else
 			AllocateStructureX(*WindowData, ThemedWindow)
@@ -2203,7 +2203,7 @@ Module UITK
 			
 			SetWindowPos_(WindowID, 0, 0, 0, 0, 0, #SWP_NOSIZE|#SWP_NOMOVE|#SWP_FRAMECHANGED)
 			
-			HideWindow(Window, Bool(Flags & #PB_Window_Invisible))
+			HideWindow(Window, Bool(Flags & #Window_Invisible))
 		EndIf
 		
 		ProcedureReturn Result
@@ -10645,7 +10645,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 10634
-; Folding = AAAAAAAAAAAAAACAACAAAAAAAAAAAAAAAAAAAAAgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 35
+; Folding = TAAAAAAAAAAAAACAACAAAAAAAAAAAAAAAAAAAAAgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware

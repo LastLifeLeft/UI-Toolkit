@@ -9,7 +9,7 @@ Define Height = DesktopHeight(0)
 Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), LibraryImageID = ImageID(LoadImage(#PB_Any, "Tiled.png"))
 Global TitleFont = FontID(LoadFont(#PB_Any, "Calibry", 9, #PB_Font_HighQuality | #PB_Font_Bold))
 
-Window1 = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : it's fixin' time!", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignLeft | #PB_Window_SizeGadget )
+Window1 =  UITK::Window(#PB_Any, 0, 0, 1000, 600, "UI Toolkit : it's fixin' time!", UITK::#Window_ScreenCentered | UITK::#HAlignLeft | UITK::#Window_CloseButton | UITK::#DarkMode)
 
 UITK::SetWindowIcon(Window1, ImageID(Image))
 
@@ -22,6 +22,6 @@ SetGadgetFont(0, TitleFont)
 
 Repeat : WaitWindowEvent() : ForEver
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 11
+; CursorPosition = 17
 ; EnableXP
 ; DPIAware
