@@ -38,9 +38,10 @@
 	#Tree_DotLine = 0
 	
 	Enumeration 5000 ; Gadget attribues
-		#ScrollBar_Minimum	
+		#ScrollBar_Minimum
 		#ScrollBar_Maximum	
 		#ScrollBar_PageLength
+		#ScrollBar_ScrollStep
 		
 		#ScrollArea_InnerWidth
 		#ScrollArea_InnerHeight
@@ -4084,7 +4085,7 @@ Module UITK
 						Lenght = \Width
 					EndIf
 					
-					Position = Clamp(\State - *GadgetData\OriginalVT\GetGadgetAttribute(*GadgetData\Gadget, #PB_Canvas_WheelDelta) * \ScrollStep, \Min, \Max - \PageLenght)
+					Position = Clamp(\State - *GadgetData\OriginalVT\GetGadgetAttribute(*GadgetData, #PB_Canvas_WheelDelta) * \ScrollStep, \Min, \Max - \PageLenght)
 					If Position <> \State
 						\State = Position
 						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
@@ -4115,10 +4116,10 @@ Module UITK
 				Result = *GadgetData\Max
 			Case #ScrollBar_PageLength
 				Result = *GadgetData\PageLenght
-				CompilerIf #PB_Compiler_Debugger
-				Default	
-					Debug "WARNING! Attribute #"+Attribute+ " unused on Scrollbar gadget... Might be wanting to get canvas attribute?"
-				CompilerEndIf
+			Case #ScrollBar_ScrollStep
+				Result = *GadgetData\ScrollStep
+			Default
+				Result = *GadgetData\OriginalVT\GetGadgetAttribute(*This, Attribute)
 		EndSelect
 		
 		ProcedureReturn Result
@@ -4205,6 +4206,8 @@ Module UITK
 					
 					RedrawObject()
 					;}
+				Case #ScrollBar_ScrollStep
+					\ScrollStep = Attribute
 				Default	
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
 			EndSelect
@@ -10641,8 +10644,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 832
-; FirstLine = 9
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 4087
+; FirstLine = 443
+; Folding = TAAAIAAAAAABAAAAAAAAAAAAAAAAU5AIAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware

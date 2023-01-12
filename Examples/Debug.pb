@@ -13,15 +13,10 @@ Window1 =  UITK::Window(#PB_Any, 0, 0, 1000, 600, "UI Toolkit : it's fixin' time
 
 UITK::SetWindowIcon(Window1, ImageID(Image))
 
-UITK::VerticalList(0, 10, 10, 300, 500)
-AddGadgetItem(0, -1, "Item 1")
-AddGadgetItem(0, -1, "Item 2")
-AddGadgetItem(0, -1, "Item 3")
-AddGadgetItem(0, -1, "Item 4")
-SetGadgetFont(0, TitleFont)
+UITK::ScrollBar(0, 10, 10, 7, 200, 0, 300, 200, UITK::#Gadget_Vertical) 
 
 Repeat : WaitWindowEvent() : ForEver
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 17
+; CursorPosition = 15
 ; EnableXP
 ; DPIAware
