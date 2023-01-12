@@ -4085,7 +4085,7 @@ Module UITK
 						Lenght = \Width
 					EndIf
 					
-					Position = Clamp(\State - *GadgetData\OriginalVT\GetGadgetAttribute(*GadgetData, #PB_Canvas_WheelDelta) * \ScrollStep, \Min, \Max - \PageLenght)
+					Position = Clamp(\State - GetGadgetAttribute(*GadgetData\Gadget, #PB_Canvas_WheelDelta) * \ScrollStep, \Min, \Max - \PageLenght)
 					If Position <> \State
 						\State = Position
 						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
@@ -4207,7 +4207,7 @@ Module UITK
 					RedrawObject()
 					;}
 				Case #ScrollBar_ScrollStep
-					\ScrollStep = Attribute
+					\ScrollStep = Value
 				Default	
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
 			EndSelect
@@ -10644,8 +10644,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 4087
-; FirstLine = 443
-; Folding = TAAAIAAAAAABAAAAAAAAAAAAAAAAU5AIAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 3893
+; FirstLine = 407
+; Folding = TAAAIAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
