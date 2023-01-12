@@ -1500,127 +1500,127 @@ Module UITK
 		Select Function
 			Case #SubClass_EventHandler
 				*Result = *GadgetData\EventHandler
-				*GadgetData\EventHandler = *Adress
+				If *Adress : *GadgetData\EventHandler = *Adress : EndIf
 			Case #SubClass_GadgetCallback
 				*Result = *this\vt\GadgetCallback
-				*this\vt\GadgetCallback = *Adress
+				If *Adress : *this\vt\GadgetCallback = *Adress : EndIf
 			Case #SubClass_FreeGadget
 				*Result = *this\vt\FreeGadget
-				*this\vt\FreeGadget = *Adress
+				If *Adress : *this\vt\FreeGadget = *Adress : EndIf
 			Case #SubClass_GetGadgetState
 				*Result = *this\vt\GetGadgetState
-				*this\vt\GetGadgetState = *Adress
+				If *Adress : *this\vt\GetGadgetState = *Adress : EndIf
 			Case #SubClass_SetGadgetState
 				*Result = *this\vt\SetGadgetState
-				*this\vt\SetGadgetState = *Adress
+				If *Adress : *this\vt\SetGadgetState = *Adress : EndIf
 			Case #SubClass_GetGadgetText
 				*Result = *this\vt\GetGadgetText
-				*this\vt\GetGadgetText = *Adress
+				If *Adress : *this\vt\GetGadgetText = *Adress : EndIf
 			Case #SubClass_SetGadgetText
 				*Result = *this\vt\SetGadgetText
-				*this\vt\SetGadgetText = *Adress
+				If *Adress : *this\vt\SetGadgetText = *Adress : EndIf
 			Case #SubClass_AddGadgetItem2
 				*Result = *this\vt\AddGadgetItem2
-				*this\vt\AddGadgetItem2 = *Adress
+				If *Adress : *this\vt\AddGadgetItem2 = *Adress : EndIf
 			Case #SubClass_AddGadgetItem3
 				*Result = *this\vt\AddGadgetItem3
-				*this\vt\AddGadgetItem3 = *Adress
+				If *Adress : *this\vt\AddGadgetItem3 = *Adress : EndIf
 			Case #SubClass_RemoveGadgetItem
 				*Result = *this\vt\RemoveGadgetItem
-				*this\vt\RemoveGadgetItem = *Adress
+				If *Adress : *this\vt\RemoveGadgetItem = *Adress : EndIf
 			Case #SubClass_ClearGadgetItemList
 				*Result = *this\vt\ClearGadgetItemList
-				*this\vt\ClearGadgetItemList = *Adress
+				If *Adress : *this\vt\ClearGadgetItemList = *Adress : EndIf
 			Case #SubClass_ResizeGadget
 				*Result = *this\vt\ResizeGadget
-				*this\vt\ResizeGadget = *Adress
+				If *Adress : *this\vt\ResizeGadget = *Adress : EndIf
 			Case #SubClass_CountGadgetItems
 				*Result = *this\vt\CountGadgetItems
-				*this\vt\CountGadgetItems = *Adress
+				If *Adress : *this\vt\CountGadgetItems = *Adress : EndIf
 			Case #SubClass_GetGadgetItemState
 				*Result = *this\vt\GetGadgetItemState
-				*this\vt\GetGadgetItemState = *Adress
+				If *Adress : *this\vt\GetGadgetItemState = *Adress : EndIf
 			Case #SubClass_SetGadgetItemState
 				*Result = *this\vt\SetGadgetItemState
-				*this\vt\SetGadgetItemState = *Adress
+				If *Adress : *this\vt\SetGadgetItemState = *Adress : EndIf
 			Case #SubClass_GetGadgetItemText
 				*Result = *this\vt\GetGadgetItemText
-				*this\vt\GetGadgetItemText = *Adress
+				If *Adress : *this\vt\GetGadgetItemText = *Adress : EndIf
 			Case #SubClass_SetGadgetItemText
 				*Result = *this\vt\SetGadgetItemText
-				*this\vt\SetGadgetItemText = *Adress
+				If *Adress : *this\vt\SetGadgetItemText = *Adress : EndIf
 			Case #SubClass_OpenGadgetList2
 				*Result = *this\vt\OpenGadgetList2
-				*this\vt\OpenGadgetList2 = *Adress
+				If *Adress : *this\vt\OpenGadgetList2 = *Adress : EndIf
 			Case #SubClass_GadgetX
 				*Result = *this\vt\GadgetX
-				*this\vt\GadgetX = *Adress
+				If *Adress : *this\vt\GadgetX = *Adress : EndIf
 			Case #SubClass_GadgetY
 				*Result = *this\vt\GadgetY
-				*this\vt\GadgetY = *Adress
+				If *Adress : *this\vt\GadgetY = *Adress : EndIf
 			Case #SubClass_GadgetWidth
 				*Result = *this\vt\GadgetWidth
-				*this\vt\GadgetWidth = *Adress
+				If *Adress : *this\vt\GadgetWidth = *Adress : EndIf
 			Case #SubClass_GadgetHeight
 				*Result = *this\vt\GadgetHeight
-				*this\vt\GadgetHeight = *Adress
+				If *Adress : *this\vt\GadgetHeight = *Adress : EndIf
 			Case #SubClass_HideGadget
 				*Result = *this\vt\HideGadget
-				*this\vt\HideGadget = *Adress
+				If *Adress : *this\vt\HideGadget = *Adress : EndIf
 			Case #SubClass_AddGadgetColumn
 				*Result = *this\vt\AddGadgetColumn
-				*this\vt\AddGadgetColumn = *Adress
+				If *Adress : *this\vt\AddGadgetColumn = *Adress : EndIf
 			Case #SubClass_RemoveGadgetColumn
 				*Result = *this\vt\RemoveGadgetColumn
-				*this\vt\RemoveGadgetColumn = *Adress
+				If *Adress : *this\vt\RemoveGadgetColumn = *Adress : EndIf
 			Case #SubClass_GetGadgetAttribute
 				*Result = *this\vt\GetGadgetAttribute
-				*this\vt\GetGadgetAttribute = *Adress
+				If *Adress : *this\vt\GetGadgetAttribute = *Adress : EndIf
 			Case #SubClass_SetGadgetAttribute
 				*Result = *this\vt\SetGadgetAttribute
-				*this\vt\SetGadgetAttribute = *Adress
+				If *Adress : *this\vt\SetGadgetAttribute = *Adress : EndIf
 			Case #SubClass_GetGadgetItemAttribute2
 				*Result = *this\vt\GetGadgetItemAttribute2
-				*this\vt\GetGadgetItemAttribute2 = *Adress
+				If *Adress : *this\vt\GetGadgetItemAttribute2 = *Adress : EndIf
 			Case #SubClass_SetGadgetItemAttribute2
 				*Result = *this\vt\SetGadgetItemAttribute2
-				*this\vt\SetGadgetItemAttribute2 = *Adress
+				If *Adress : *this\vt\SetGadgetItemAttribute2 = *Adress : EndIf
 			Case #SubClass_SetGadgetColor
 				*Result = *this\vt\SetGadgetColor
-				*this\vt\SetGadgetColor = *Adress
+				If *Adress : *this\vt\SetGadgetColor = *Adress : EndIf
 			Case #SubClass_GetGadgetColor
 				*Result = *this\vt\GetGadgetColor
-				*this\vt\GetGadgetColor = *Adress
+				If *Adress : *this\vt\GetGadgetColor = *Adress : EndIf
 			Case #SubClass_SetGadgetItemColor2
 				*Result = *this\vt\SetGadgetItemColor2
-				*this\vt\SetGadgetItemColor2 = *Adress
+				If *Adress : *this\vt\SetGadgetItemColor2 = *Adress : EndIf
 			Case #SubClass_GetGadgetItemColor2
 				*Result = *this\vt\GetGadgetItemColor2
-				*this\vt\GetGadgetItemColor2 = *Adress
+				If *Adress : *this\vt\GetGadgetItemColor2 = *Adress : EndIf
 			Case #SubClass_SetGadgetItemData
 				*Result = *this\vt\SetGadgetItemData
-				*this\vt\SetGadgetItemData = *Adress
+				If *Adress : *this\vt\SetGadgetItemData = *Adress : EndIf
 			Case #SubClass_GetGadgetItemData
 				*Result = *this\vt\GetGadgetItemData
-				*this\vt\GetGadgetItemData = *Adress
+				If *Adress : *this\vt\GetGadgetItemData = *Adress : EndIf
 			Case #SubClass_GetRequiredSize
 				*Result = *this\vt\GetRequiredSize
-				*this\vt\GetRequiredSize = *Adress
+				If *Adress : *this\vt\GetRequiredSize = *Adress : EndIf
 			Case #SubClass_SetActiveGadget
 				*Result = *this\vt\SetActiveGadget
-				*this\vt\SetActiveGadget = *Adress
+				If *Adress : *this\vt\SetActiveGadget = *Adress : EndIf
 			Case #SubClass_GetGadgetFont
 				*Result = *this\vt\GetGadgetFont
-				*this\vt\GetGadgetFont = *Adress
+				If *Adress : *this\vt\GetGadgetFont = *Adress : EndIf
 			Case #SubClass_SetGadgetFont
 				*Result = *this\vt\SetGadgetFont
-				*this\vt\SetGadgetFont = *Adress
+				If *Adress : *this\vt\SetGadgetFont = *Adress : EndIf
 			Case #SubClass_SetGadgetItemImage
 				*Result = *this\vt\SetGadgetItemImage
-				*this\vt\SetGadgetItemImage = *Adress
+				If *Adress : *this\vt\SetGadgetItemImage = *Adress : EndIf
 			Case #SubClass_DropHandler
 				*Result = *this\vt\DropHandler
-				*this\vt\DropHandler = *Adress
+				If *Adress : *this\vt\DropHandler = *Adress : EndIf
 		EndSelect
 		
 		ProcedureReturn *Result
@@ -4085,7 +4085,7 @@ Module UITK
 						Lenght = \Width
 					EndIf
 					
-					Position = Clamp(\State - Event\Param * \ScrollStep, \Min, \Max - \PageLenght)
+					Position = Clamp(\State - *Event\Param * \ScrollStep, \Min, \Max - \PageLenght)
 					If Position <> \State
 						\State = Position
 						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
@@ -10645,7 +10645,7 @@ EndModule
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
 ; CursorPosition = 4087
-; FirstLine = 417
-; Folding = TAAAIAAAAAABAAAAAAAAAAAAAAAAUIAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; FirstLine = 119
+; Folding = RAAAIAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware

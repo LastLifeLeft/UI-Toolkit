@@ -15,12 +15,8 @@ UITK::SetWindowIcon(Window1, ImageID(Image))
 
 UITK::ScrollBar(0, 10, 10, 7, 200, 0, 300, 200, UITK::#Gadget_Vertical) 
 
-
-ScrollAreaGadget(1, 200, 10, 200, 200, 150, 300, 50, #PB_ScrollArea_BorderLess)
-
-
 Repeat : WaitWindowEvent() : ForEver
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 19
+; CursorPosition = 15
 ; EnableXP
 ; DPIAware
