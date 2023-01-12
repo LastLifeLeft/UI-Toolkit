@@ -230,6 +230,13 @@
 		#Event_FirstAvailableCustomValue
 	EndEnumeration
 	
+	Structure Event
+		EventType.l
+		MouseX.l
+		MouseY.l
+		Param.l
+	EndStructure
+	
 	Structure Text
 		OriginalText.s
 		LineCount.b
@@ -649,13 +656,6 @@ Module UITK
 		#Drag_Init
 		#Drag_Active
 	EndEnumeration
-	
-	Structure Event
-		EventType.l
-		MouseX.l
-		MouseY.l
-		Param.l
-	EndStructure
 	
 	Prototype Redraw(*GadgetData)
 	Prototype EventHandler(*this.PB_Gadget, *Event.Event)
@@ -10644,8 +10644,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 4087
-; FirstLine = 119
-; Folding = RAAAIAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 231
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
