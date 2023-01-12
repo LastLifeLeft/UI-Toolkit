@@ -15,6 +15,7 @@
 		#ReOrder										; Allow user to reorder items by draging them arround the gadget. Mutually exclusive with #Drag.
 		#Drag											; Enable drag from this gadget. Mutually exclusive with #Reorder.
 		#Editable										; 
+		#Container										; The gadget will behave as a container
 		
 		; Window flags
 		#Window_MinimizeButton
@@ -4318,7 +4319,7 @@ Module UITK
 		Protected Result, *GadgetData.ScrollBarData, *this.PB_Gadget, *ThemeData
 		
 		If AccessibilityMode
-			Result = ScrollBarGadget(Gadget, x, y, Width, Height, Min, Max, PageLenght, Bool(Flags & #Gadget_Vertical) * #PB_ScrollBar_Vertical)
+			Result = ScrollBarGadget(Gadget, x, y, Width, Height, Min, Max, PageLenght, Bool( #Gadget_Vertical) * #PB_ScrollBar_Vertical)
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
@@ -7152,7 +7153,7 @@ Module UITK
 			; 			                                                           (Bool(Flags & #HAlignCenter) * #PB_Radio_Center) |
 			; 			                                                           #PB_Radio_ThreeState)
 		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Container) * #PB_Canvas_Container))
 			
 			If Result
 				If Gadget = #PB_Any
@@ -10644,7 +10645,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 231
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 380
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
