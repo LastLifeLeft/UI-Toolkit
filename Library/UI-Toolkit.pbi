@@ -4085,7 +4085,7 @@ Module UITK
 						Lenght = \Width
 					EndIf
 					
-					Position = Clamp(\State - GetGadgetAttribute(*GadgetData\Gadget, #PB_Canvas_WheelDelta) * \ScrollStep, \Min, \Max - \PageLenght)
+					Position = Clamp(\State - Event\Param * \ScrollStep, \Min, \Max - \PageLenght)
 					If Position <> \State
 						\State = Position
 						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
@@ -10644,8 +10644,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 3893
-; FirstLine = 407
-; Folding = TAAAIAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 4087
+; FirstLine = 417
+; Folding = TAAAIAAAAAABAAAAAAAAAAAAAAAAUIAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
