@@ -879,6 +879,20 @@ Module UITK
 		ProcedureReturn A
 	EndProcedure
 	
+	Procedure.f MinF(A.f, B.f)
+		If A < B
+			ProcedureReturn A
+		EndIf
+		ProcedureReturn B
+	EndProcedure
+	
+	Procedure.f MaxF(A.f, B.f)
+		If A > B
+			ProcedureReturn A
+		EndIf
+		ProcedureReturn B
+	EndProcedure
+	
 	; Misc
 	Procedure CurrentWindow()
 		Protected Window =- 1
@@ -9439,6 +9453,68 @@ Module UITK
 	EndProcedure
 	;}
 	
+	;{ Color picker
+	Structure ColorPickerData Extends GadgetData
+		Color.l
+	EndStructure
+	
+	Procedure ColorPicker_Redraw(*GadgetData.ColorPickerData)
+		
+	EndProcedure
+	
+	Procedure ColorPicker_EventHandler(*GadgetData.ColorPickerData, *Event.Event)
+		
+	EndProcedure
+	
+	Procedure ColorPicker_Meta(*GadgetData.ColorPickerData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+		
+	EndProcedure
+	
+	Procedure ColorPicker(Gadget, x, y, Width, Height, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.ColorPickerData, *ThemeData
+		
+		If AccessibilityMode
+			
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height, (Bool(Flags & #Container) * #PB_Canvas_Container))
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				AllocateStructureX(*GadgetData, ColorPickerData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				AllocateStructureX(*ThemeData, Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
+				ColorPicker_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+				
+				RedrawObject()
+			EndIf
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	;}
+	
 	;{ Timeline
 	; This is a big chunk of code, and it's totally useless for anything but a sequence editor, it's disabled by default to avoid your programme getting chonkier for nothing. Declare EnableTimeline module before including the source to enable it.
 	
@@ -10622,6 +10698,8 @@ Module UITK
 
 	CompilerEndIf
 	;}
+	
+	
 EndModule
 
 
@@ -10645,7 +10723,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 380
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 9478
+; FirstLine = 94
+; Folding = RBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAkBAAAAAA9
 ; EnableXP
 ; DPIAware
