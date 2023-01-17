@@ -9701,14 +9701,12 @@ Module UITK
 				ElseIf \Hue > 360
 					\Hue - 360
 				EndIf
-				
-				\Color = HSBToRGB(\Hue, \Saturation, 100)
-				
-				\HueX = \WheelX	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Cos(Radian(\Hue + 180)), #PB_Round_Nearest)
-				\HueY = \WheelY	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Sin(Radian(\Hue + 180)), #PB_Round_Nearest)
-				\BrightnessX = \BarX + Round(\Brightness * 0.01 * \BarWidth, #PB_Round_Nearest)
 			EndIf
 			
+			\Color = HSBToRGB(\Hue, \Saturation, 100)
+			\HueX = \WheelX	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Cos(Radian(\Hue + 180)), #PB_Round_Nearest)
+			\HueY = \WheelY	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Sin(Radian(\Hue + 180)), #PB_Round_Nearest)
+			\BrightnessX = \BarX + Round(\Brightness * 0.01 * \BarWidth, #PB_Round_Nearest)
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -11023,8 +11021,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 11008
-; FirstLine = 28
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUAAAAAAA9
+; CursorPosition = 11006
+; FirstLine = 26
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAA9
 ; EnableXP
 ; DPIAware
