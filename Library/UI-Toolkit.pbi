@@ -9662,6 +9662,7 @@ Module UITK
 			EndSelect
 			If Redraw
 				RedrawObject()
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 			EndIf
 		EndWith
 	EndProcedure
@@ -11021,8 +11022,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 11006
-; FirstLine = 26
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAA9
+; CursorPosition = 9664
+; FirstLine = 131
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAEEAAAAAAA9
 ; EnableXP
 ; DPIAware
