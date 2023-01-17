@@ -9713,6 +9713,17 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure ColorPicker_SetColor(*This.PB_Gadget, ColorType, Color)
+		Protected *GadgetData.ColorPickerData = *this\vt
+		
+		If ColorType = #Color_Parent
+			*GadgetData\ThemeData\WindowColor = Color
+			ColorPicker_DrawWheel(*GadgetData)
+		EndIf
+		
+		Default_SetColor(*This, ColorType, Color)
+	EndProcedure
+	
 	Procedure ColorPicker_Meta(*GadgetData.ColorPickerData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(ColorPicker)
@@ -9752,6 +9763,7 @@ Module UITK
 			\SupportedEvent[#LeftButtonUp] = #True
 			
 			\VT\SetGadgetState = @ColorPicker_SetState()
+			\VT\SetGadgetColor = @ColorPicker_SetColor()
 			
 		EndWith
 	EndProcedure
@@ -11011,8 +11023,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9489
-; FirstLine = 22
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAA+
+; CursorPosition = 11008
+; FirstLine = 28
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUAAAAAAA9
 ; EnableXP
 ; DPIAware
