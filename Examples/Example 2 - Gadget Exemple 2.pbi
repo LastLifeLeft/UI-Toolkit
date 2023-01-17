@@ -77,6 +77,7 @@ String = UITK::String(#PB_Any, 541, 250, 400, 20, "Editable Text", UITK::#Border
 String = UITK::String(#PB_Any, 541, 280, 400, 20, "Editable Text", UITK::#Border | UITK::#HAlignCenter)
 
 ColorPicker = UITK::ColorPicker(#PB_Any, 320, 320, 199, 270)
+SetGadgetState(ColorPicker, $AA00AA)
 
 HideWindow(Window, #False)
 
@@ -106,7 +107,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 78
-; FirstLine = 43
+; CursorPosition = 79
+; FirstLine = 44
 ; EnableXP
 ; DPIAware

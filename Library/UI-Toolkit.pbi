@@ -866,32 +866,32 @@ Module UITK
 		ProcedureReturn Value
 	EndProcedure
 	
-	Procedure Min(A, B)
-		If A > B
-			ProcedureReturn B
+	Procedure Min(A, Blue)
+		If A > Blue
+			ProcedureReturn Blue
 		EndIf
 		ProcedureReturn A
 	EndProcedure
 	
-	Procedure Max(A, B)
-		If A < B
-			ProcedureReturn B
+	Procedure Max(A, Blue)
+		If A < Blue
+			ProcedureReturn Blue
 		EndIf
 		ProcedureReturn A
 	EndProcedure
 	
-	Procedure.f MinF(A.f, B.f)
-		If A < B
+	Procedure.f MinF(A.f, Blue.f)
+		If A < Blue
 			ProcedureReturn A
 		EndIf
-		ProcedureReturn B
+		ProcedureReturn Blue
 	EndProcedure
 	
-	Procedure.f MaxF(A.f, B.f)
-		If A > B
+	Procedure.f MaxF(A.f, Blue.f)
+		If A > Blue
 			ProcedureReturn A
 		EndIf
-		ProcedureReturn B
+		ProcedureReturn Blue
 	EndProcedure
 	
 	; Misc
@@ -9487,8 +9487,8 @@ Module UITK
 	#ColorPickerBarHeight = 15
 	#ColorPickerVerticalMargin = 20	
 	
-	Procedure HSBToRGB(Hue.f, Saturation.f, Brightness.f)
-		Protected R, G, B
+	Procedure HSBToRGB(Hue.f, Saturation.f, Brightness.f) ; Seems a bit janky. It works for my purpose but I wouldn't trust it beyond that
+		Protected Red, Green, Blue
 		Protected Max = Round(Brightness * 2.55, #PB_Round_Nearest)
 		Protected Min = Round((1 - Saturation * 0.01) * Max, #PB_Round_Nearest)
 		
@@ -9497,44 +9497,44 @@ Module UITK
 		EndIf
 		
 		If Hue >= 60 And Hue < 180
-			G = Max
+			Green = Max
 			Hue = (Hue - 120) * (Max - Min) * 0.0166666666
 			
 			If Hue > 0
-				R = Min
-				B = hue + R
+				Red = Min
+				Blue = hue + Red
 			Else
-				B = Min
-				R = B - hue
+				Blue = Min
+				Red = Blue - hue
 			EndIf
 		ElseIf Hue >= 180 And Hue < 300
-			B = Max
+			Blue = Max
 			Hue = (Hue - 240) * (Max - Min) * 0.0166666666
 			
 			If Hue > 0
-				G = Min
-				R = hue + G
+				Green = Min
+				Red = hue + Green
 			Else
-				R = Min
-				G = R - hue
+				Red = Min
+				Green = Red - hue
 			EndIf
 		Else
-			R = Max
+			Red = Max
 			If Hue >= 300
 				Hue - 360
 			EndIf
 			
 			Hue = Hue * (Max - Min) * 0.0166666666
 			If hue > 0
-				B = Min
-				G = hue + B
+				Blue = Min
+				Green = hue + Blue
 			Else
-				G = Min
-				B = G - hue
+				Green = Min
+				Blue = Green - hue
 			EndIf
 		EndIf
 		
-		ProcedureReturn RGB(R, G, B)
+		ProcedureReturn RGB(Red, Green, Blue)
 	EndProcedure
 	
 	Procedure ColorPicker_DrawWheel(*GadgetData.ColorPickerData)
@@ -9666,6 +9666,53 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure ColorPicker_SetState(*This.PB_Gadget, State)
+		Protected *GadgetData.ColorPickerData = *this\vt
+		Protected.f Red, Green, Blue, Max, Min, Delta
+		
+		With *GadgetData
+			\State = State
+			Red = Red(State) / 255
+			Green = Green(State) / 255
+			Blue = Blue(State) / 255
+			
+			Max = MaxF(MaxF(Red, Green),Blue)
+			Min = MinF(MinF(Red, Green),Blue)
+	
+			\Brightness = Max * 100
+			Delta = Max - Min
+			
+			If Delta < 0.00001 Or Max = 0
+				\Saturation = 0
+				\Hue = 0
+			Else
+				\Saturation = Delta / Max * 100
+				
+				If Red = max
+					\Hue = (Green - Blue) / Delta * 60
+				ElseIf Green = max
+					\Hue = (((Blue - Red) * 60) / Delta) + 120
+				Else
+					\Hue = (((Red - Green) * 60) / Delta) + 240
+				EndIf
+				
+				If \Hue < 0
+					\Hue + 360
+				ElseIf \Hue > 360
+					\Hue - 360
+				EndIf
+				
+				\Color = HSBToRGB(\Hue, \Saturation, 100)
+				
+				\HueX = \WheelX	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Cos(Radian(\Hue + 180)), #PB_Round_Nearest)
+				\HueY = \WheelY	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Sin(Radian(\Hue + 180)), #PB_Round_Nearest)
+				\BrightnessX = \BarX + Round(\Brightness * 0.01 * \BarWidth, #PB_Round_Nearest)
+			EndIf
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
 	Procedure ColorPicker_Meta(*GadgetData.ColorPickerData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(ColorPicker)
@@ -9703,6 +9750,9 @@ Module UITK
 			\SupportedEvent[#MouseMove] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
+			
+			\VT\SetGadgetState = @ColorPicker_SetState()
+			
 		EndWith
 	EndProcedure
 	
@@ -9750,6 +9800,7 @@ Module UITK
 		
 		ProcedureReturn Result
 	EndProcedure
+	
 	;}
 	
 	;{ Timeline
@@ -10960,8 +11011,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9584
-; FirstLine = 99
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkPAAAAAAA-
+; CursorPosition = 9489
+; FirstLine = 22
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAA+
 ; EnableXP
 ; DPIAware
