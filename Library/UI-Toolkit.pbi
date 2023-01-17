@@ -355,6 +355,7 @@
 	Declare HorizontalList(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare Tab(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
+	Declare ColorPicker(Gadget, x, y, Width, Height, Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -9454,20 +9455,177 @@ Module UITK
 	;}
 	
 	;{ Color picker
+	Enumeration
+		#ColorPicker_Drag_None
+		#ColorPicker_Drag_Hue
+		#ColorPicker_Drag_Brightness
+		#ColorPicker_Drag_Alpha
+	EndEnumeration
+	
 	Structure ColorPickerData Extends GadgetData
+		WheelImg.i
+		WheelRadius.l
+		WheelX.l
+		WheelY.l
+		WheelSize.l
+		BarWidth.l
+		BarX.l
+		BrightnessBarY.l
+		AlphaBarY.l
 		Color.l
+		Hue.f
+		Saturation.f
+		Brightness.f
+		Drag.
 	EndStructure
 	
-	Procedure ColorPicker_Redraw(*GadgetData.ColorPickerData)
+	#ColorPickerBarHeight = 15
+	#ColorPickerVerticalMargin = 20	
+	
+	Procedure HSBToRGB(Hue.f, Saturation.f, Brightness.f)
+		Protected R, G, B
+		Protected Max = Round(Brightness * 2.55, #PB_Round_Nearest)
+		Protected Min = Round((1 - Saturation * 0.01) * Max, #PB_Round_Nearest)
 		
+		If Hue >= 60 And Hue < 180
+			G = Max
+			Hue = (Hue - 120) * (Max - Min) * 0.0166666666
+			
+			If Hue > 0
+				R = Min
+				B = hue + R
+			Else
+				B = Min
+				R = B - hue
+			EndIf
+		ElseIf Hue >= 180 And Hue < 300
+			B = Max
+			Hue = (Hue - 240) * (Max - Min) * 0.0166666666
+			
+			If Hue > 0
+				G = Min
+				R = hue + G
+			Else
+				R = Min
+				G = R - hue
+			EndIf
+		Else
+			R = Max
+			If Hue >= 300
+				Hue - 360
+			EndIf
+			
+			Hue = Hue * (Max - Min) * 0.0166666666
+			If hue > 0
+				B = Min
+				G = hue + B
+			Else
+				G = Min
+				B = G - hue
+			EndIf
+		EndIf
+		
+		ProcedureReturn RGB(R, G, B)
+	EndProcedure
+	
+	Procedure ColorPicker_DrawWheel(*GadgetData.ColorPickerData)
+		Protected LoopX, LoopY, Hypotenuse.f, PointDistance.f
+		With *GadgetData
+			If \WheelImg 
+				FreeImage(\WheelImg)
+			EndIf
+			
+			\WheelImg = CreateImage(#PB_Any, \WheelSize, \WheelSize, 24)
+			StartDrawing(ImageOutput(\WheelImg))
+			Hypotenuse = Sqr(Pow(\WheelRadius * 0.715, 2) * 2) / 100
+			For LoopX = - \WheelRadius To \WheelRadius
+				For LoopY = - \WheelRadius To \WheelRadius
+					PointDistance = Sqr(LoopX * LoopX + LoopY * LoopY)
+					If PointDistance <= \WheelRadius + 1
+						Plot(\WheelRadius * 2 - (LoopX + \WheelRadius), \WheelRadius * 2 - (LoopY + \WheelRadius), HSBToRGB(180 + Degree(ATan2(LoopX / PointDistance, LoopY / PointDistance)), Sqr(LoopX * LoopX + LoopY * LoopY) / Hypotenuse, 100))
+					EndIf
+				Next LoopY	
+			Next LoopX
+			Plot(\WheelRadius, \WheelRadius, $FFFFFF) ;HSBToRGB get the central pixel wrong.
+			StopDrawing()
+			
+			StartVectorDrawing(ImageVectorOutput(\WheelImg))
+			AddPathBox(0, 0, \WheelRadius * 2 + 1, \WheelRadius * 2 + 1)
+			AddPathCircle(\WheelRadius + 0.5, \WheelRadius + 0.5, \WheelRadius + 0.5)
+			
+			VectorSourceColor(\ThemeData\WindowColor)
+			FillPath()
+			StopVectorDrawing()
+		EndWith
+	EndProcedure
+	
+	Procedure ColorPicker_Redraw(*GadgetData.ColorPickerData)
+		With *GadgetData
+			MovePathCursor(\WheelX, \WheelY)
+			DrawVectorImage(ImageID(\WheelImg))
+			
+			AddPathBox(\BarX, \BrightnessBarY, \BarWidth, #ColorPickerBarHeight)
+			VectorSourceColor(\ThemeData\Highlight)
+			StrokePath(2, #PB_Path_Preserve)
+			VectorSourceLinearGradient(\BarX, 0, \BarWidth + \BarX, 0)
+			VectorSourceGradientColor(SetAlpha($000000, 255), 0)
+			VectorSourceGradientColor(SetAlpha(\Color, 255), 1)
+			FillPath()
+		EndWith
 	EndProcedure
 	
 	Procedure ColorPicker_EventHandler(*GadgetData.ColorPickerData, *Event.Event)
+		Protected Redraw
 		
+		With *GadgetData
+			Select *Event\EventType
+				Case #MouseMove
+					
+				Case #MouseLeave
+					
+				Case #LeftButtonDown
+					
+			EndSelect
+			If Redraw
+				RedrawObject()
+			EndIf
+		EndWith
 	EndProcedure
 	
 	Procedure ColorPicker_Meta(*GadgetData.ColorPickerData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(ColorPicker)
 		
+		With *GadgetData
+			If Width > Height
+				
+			Else
+				\WheelSize = Width
+			EndIf
+			
+			If Not \WheelSize % 2
+				\WheelSize - 1
+			EndIf
+			
+			\WheelX = (Width - \WheelSize) * 0.5
+			\WheelY = 2
+			\BarX = \WheelSize * 0.05
+			\BarWidth = \WheelSize - \BarX * 2
+			\BarX + \WheelX
+			\BrightnessBarY = \WheelSize + \WheelY + #ColorPickerVerticalMargin
+			\AlphaBarY = \BrightnessBarY + #ColorPickerVerticalMargin + #ColorPickerBarHeight
+			\WheelRadius = Round(\WheelSize * 0.5, #PB_Round_Down)
+			\Color = $FFFFFF
+			\State = $FFFFFF
+			\Hue = 0
+			\Saturation = 0
+			\Brightness = 100
+			ColorPicker_DrawWheel(*GadgetData)
+			
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+		EndWith
 	EndProcedure
 	
 	Procedure ColorPicker(Gadget, x, y, Width, Height, Flags = #Default)
@@ -9476,7 +9634,8 @@ Module UITK
 		If AccessibilityMode
 			
 		Else
-			Result = CanvasGadget(Gadget, x, y, Width, Height, (Bool(Flags & #Container) * #PB_Canvas_Container))
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
 			If Result
 				If Gadget = #PB_Any
 					Gadget = Result
@@ -9502,10 +9661,10 @@ Module UITK
 						CopyStructure(@DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
+				ColorPicker_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
 				GadgetHandler() = Gadget
-				ColorPicker_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -10723,8 +10882,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9478
-; FirstLine = 94
-; Folding = RBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAkBAAAAAA9
+; CursorPosition = 9461
+; FirstLine = 147
+; Folding = xCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQIAAEDAAAAAAw
 ; EnableXP
 ; DPIAware

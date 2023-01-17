@@ -66,15 +66,17 @@ Next
 HList2 = UITK::HorizontalList(#PB_Any, 320, 120, 621, 80, UITK::#Border | UITK::#Drag)
 EnableGadgetDrop(HList2, #PB_Drop_Private, #PB_Drag_Move | #PB_Drag_Copy | #PB_Drag_Link, UITK::#Drag_HListItem)
 
-Tab = UITK::Tab(#PB_Any, 320, 220, 621, 70)
+Tab = UITK::Tab(#PB_Any, 320, 230, 210, 70)
 AddGadgetItem(Tab, -1, "Prululu 1", ImageID(Image))
 AddGadgetItem(Tab, -1, "Prululu 2", ImageID(Image))
 AddGadgetItem(Tab, -1, "Prululu 3", ImageID(Image))
 SetGadgetItemAttribute(Tab, 2, UITK::#Tab_Color, $FFFF00FF)
 
-String = UITK::String(#PB_Any, 320, 310, 621, 20, "Editable Text", UITK::#Border)
-String = UITK::String(#PB_Any, 320, 350, 621, 20, "Editable Text", UITK::#Border | UITK::#HAlignRight)
-String = UITK::String(#PB_Any, 320, 390, 621, 20, "Editable Text", UITK::#Border | UITK::#HAlignCenter)
+String = UITK::String(#PB_Any, 541, 220, 400, 20, "Editable Text", UITK::#Border)
+String = UITK::String(#PB_Any, 541, 250, 400, 20, "Editable Text", UITK::#Border | UITK::#HAlignRight)
+String = UITK::String(#PB_Any, 541, 280, 400, 20, "Editable Text", UITK::#Border | UITK::#HAlignCenter)
+
+ColorPicker = UITK::ColorPicker(#PB_Any, 320, 320, 199, 270)
 
 HideWindow(Window, #False)
 
@@ -104,7 +106,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 33
-; FirstLine = 4
+; CursorPosition = 78
+; FirstLine = 43
 ; EnableXP
 ; DPIAware
