@@ -9474,9 +9474,13 @@ Module UITK
 		AlphaBarY.l
 		Color.l
 		Hue.f
+		HueX.l
+		HueY.l
 		Saturation.f
 		Brightness.f
-		Drag.
+		Alpha.b
+		Drag.i
+		AlphaSelection.b
 	EndStructure
 	
 	#ColorPickerBarHeight = 15
@@ -9486,6 +9490,10 @@ Module UITK
 		Protected R, G, B
 		Protected Max = Round(Brightness * 2.55, #PB_Round_Nearest)
 		Protected Min = Round((1 - Saturation * 0.01) * Max, #PB_Round_Nearest)
+		
+		If Saturation = 0
+			ProcedureReturn RGB(Max, Max, Max)
+		EndIf
 		
 		If Hue >= 60 And Hue < 180
 			G = Max
@@ -9542,11 +9550,11 @@ Module UITK
 				For LoopY = - \WheelRadius To \WheelRadius
 					PointDistance = Sqr(LoopX * LoopX + LoopY * LoopY)
 					If PointDistance <= \WheelRadius + 1
-						Plot(\WheelRadius * 2 - (LoopX + \WheelRadius), \WheelRadius * 2 - (LoopY + \WheelRadius), HSBToRGB(180 + Degree(ATan2(LoopX / PointDistance, LoopY / PointDistance)), Sqr(LoopX * LoopX + LoopY * LoopY) / Hypotenuse, 100))
+						;\WheelRadius * 2 - 
+						Plot((LoopX + \WheelRadius), (LoopY + \WheelRadius), HSBToRGB(180 + Degree(ATan2(LoopX / PointDistance, LoopY / PointDistance)), PointDistance / Hypotenuse, 100))
 					EndIf
 				Next LoopY	
 			Next LoopX
-			Plot(\WheelRadius, \WheelRadius, $FFFFFF) ;HSBToRGB get the central pixel wrong.
 			StopDrawing()
 			
 			StartVectorDrawing(ImageVectorOutput(\WheelImg))
@@ -9561,30 +9569,84 @@ Module UITK
 	
 	Procedure ColorPicker_Redraw(*GadgetData.ColorPickerData)
 		With *GadgetData
-			MovePathCursor(\WheelX, \WheelY)
+			MovePathCursor(\WheelX + \OriginX, \WheelY + \OriginY)
 			DrawVectorImage(ImageID(\WheelImg))
 			
-			AddPathBox(\BarX, \BrightnessBarY, \BarWidth, #ColorPickerBarHeight)
+			AddPathBox(\BarX + \OriginX, \BrightnessBarY + \OriginY, \BarWidth, #ColorPickerBarHeight)
 			VectorSourceColor(\ThemeData\Highlight)
 			StrokePath(2, #PB_Path_Preserve)
-			VectorSourceLinearGradient(\BarX, 0, \BarWidth + \BarX, 0)
+			VectorSourceLinearGradient(\BarX + \OriginX, 0, \BarWidth + \BarX + \OriginX, 0)
 			VectorSourceGradientColor(SetAlpha($000000, 255), 0)
 			VectorSourceGradientColor(SetAlpha(\Color, 255), 1)
+			FillPath()
+			
+			AddPathCircle(\OriginX + \HueX, \OriginY + \HueY, 5)
+			VectorSourceColor(SetAlpha($000000, 255))
+			StrokePath(2)
+			
+			AddPathCircle(\OriginX + \HueX, \OriginY + \HueY, 4)
+			VectorSourceColor(SetAlpha($FFFFFF, 255))
+			StrokePath(2, #PB_Path_Preserve)
+			
+			VectorSourceColor(SetAlpha(\Color, 255))
 			FillPath()
 		EndWith
 	EndProcedure
 	
 	Procedure ColorPicker_EventHandler(*GadgetData.ColorPickerData, *Event.Event)
-		Protected Redraw
+		Protected Redraw, Hue.f, Saturation.f, PointDistance.f, Angle.f
 		
 		With *GadgetData
 			Select *Event\EventType
 				Case #MouseMove
+					Select \Drag
+						Case #ColorPicker_Drag_Hue
+							PointDistance = MinF(Sqr(Pow(*Event\MouseX - (\WheelX + \WheelRadius), 2) + Pow(*Event\MouseY - (\WheelY + \WheelRadius), 2)), \WheelRadius + 1)
+							Angle = ATan2((*Event\MouseX - (\WheelX + \WheelRadius)) / PointDistance, (*Event\MouseY - (\WheelY + \WheelRadius)) / PointDistance)
+							Hue = 180 + Degree(Angle)
+							Saturation = PointDistance / (\WheelRadius + 1) * 100
+							
+							If Hue <> \Hue Or Saturation <> \Saturation
+								\Hue = Hue
+								\Saturation = Saturation
+								\Color = HSBToRGB(\Hue, \Saturation, 100)
+								\HueX = \WheelX	+ \WheelRadius + PointDistance * Cos(Angle)
+								\HueY = \WheelY	+ \WheelRadius + PointDistance * Sin(Angle)
+								
+								Redraw = #True
+								
+							EndIf
+						Case #ColorPicker_Drag_Brightness
+							
+						Case #ColorPicker_Drag_Alpha
+							
+						Case #ColorPicker_Drag_None
+							
+					EndSelect
+				Case #LeftButtonDown ;{
+					If *Event\MouseY >= \WheelY
+						If *Event\MouseY <= \WheelY + \WheelSize
+							If Sqr(Pow(*Event\MouseX - (\WheelX + \WheelRadius), 2) + Pow(*Event\MouseY - (\WheelY + \WheelRadius), 2)) <= \WheelRadius
+								\Drag = #ColorPicker_Drag_Hue
+							EndIf
+						ElseIf *Event\MouseY >= \BrightnessBarY
+							If *Event\MouseY <=  \BrightnessBarY + #ColorPickerBarHeight
+								\Drag = #ColorPicker_Drag_Brightness
+							ElseIf \AlphaSelection And *Event\MouseY >= \AlphaBarY And *Event\MouseY <= \AlphaBarY + #ColorPickerBarHeight
+								\Drag = #ColorPicker_Drag_Alpha
+							EndIf
+						EndIf
+					EndIf
 					
-				Case #MouseLeave
+					If \Drag
+						*Event\EventType = #MouseMove
+						ColorPicker_EventHandler(*GadgetData, *Event)
+					EndIf
+					;}
+				Case #LeftButtonUp ;{
+					\Drag = #ColorPicker_Drag_None
 					
-				Case #LeftButtonDown
-					
+					;}
 			EndSelect
 			If Redraw
 				RedrawObject()
@@ -9608,7 +9670,7 @@ Module UITK
 			EndIf
 			
 			\WheelX = (Width - \WheelSize) * 0.5
-			\WheelY = 2
+			\WheelY = 7
 			\BarX = \WheelSize * 0.05
 			\BarWidth = \WheelSize - \BarX * 2
 			\BarX + \WheelX
@@ -9620,11 +9682,12 @@ Module UITK
 			\Hue = 0
 			\Saturation = 0
 			\Brightness = 100
+			\Alpha = 255	
 			ColorPicker_DrawWheel(*GadgetData)
 			
 			\SupportedEvent[#MouseMove] = #True
-			\SupportedEvent[#MouseLeave] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
 		EndWith
 	EndProcedure
 	
@@ -10882,8 +10945,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9461
-; FirstLine = 147
-; Folding = xCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQIAAEDAAAAAAw
+; CursorPosition = 9589
+; FirstLine = 188
+; Folding = xCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAA1PAAAAAAA-
 ; EnableXP
 ; DPIAware
