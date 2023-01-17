@@ -9478,6 +9478,7 @@ Module UITK
 		HueY.l
 		Saturation.f
 		Brightness.f
+		BrightnessX.i
 		Alpha.b
 		Drag.i
 		AlphaSelection.b
@@ -9537,7 +9538,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure ColorPicker_DrawWheel(*GadgetData.ColorPickerData)
-		Protected LoopX, LoopY, Hypotenuse.f, PointDistance.f
+		Protected LoopX, LoopY, TotalDistance.f, PointDistance.f
 		With *GadgetData
 			If \WheelImg 
 				FreeImage(\WheelImg)
@@ -9545,13 +9546,13 @@ Module UITK
 			
 			\WheelImg = CreateImage(#PB_Any, \WheelSize, \WheelSize, 24)
 			StartDrawing(ImageOutput(\WheelImg))
-			Hypotenuse = Sqr(Pow(\WheelRadius * 0.715, 2) * 2) / 100
+			TotalDistance = (\WheelRadius + 1) / 100
 			For LoopX = - \WheelRadius To \WheelRadius
 				For LoopY = - \WheelRadius To \WheelRadius
 					PointDistance = Sqr(LoopX * LoopX + LoopY * LoopY)
 					If PointDistance <= \WheelRadius + 1
 						;\WheelRadius * 2 - 
-						Plot((LoopX + \WheelRadius), (LoopY + \WheelRadius), HSBToRGB(180 + Degree(ATan2(LoopX / PointDistance, LoopY / PointDistance)), PointDistance / Hypotenuse, 100))
+						Plot((LoopX + \WheelRadius), (LoopY + \WheelRadius), HSBToRGB(180 + Degree(ATan2(LoopX / PointDistance, LoopY / PointDistance)), PointDistance / TotalDistance, 100))
 					EndIf
 				Next LoopY	
 			Next LoopX
@@ -9581,14 +9582,20 @@ Module UITK
 			FillPath()
 			
 			AddPathCircle(\OriginX + \HueX, \OriginY + \HueY, 5)
+			AddPathBox(\OriginX + \BrightnessX, \BrightnessBarY - 5, 10, 10 + #ColorPickerBarHeight)
 			VectorSourceColor(SetAlpha($000000, 255))
 			StrokePath(2)
 			
 			AddPathCircle(\OriginX + \HueX, \OriginY + \HueY, 4)
 			VectorSourceColor(SetAlpha($FFFFFF, 255))
 			StrokePath(2, #PB_Path_Preserve)
-			
 			VectorSourceColor(SetAlpha(\Color, 255))
+			FillPath()
+			
+			AddPathBox(\OriginX + \BrightnessX + 1, \BrightnessBarY - 4, 8, 8 + #ColorPickerBarHeight)
+			VectorSourceColor(SetAlpha($FFFFFF, 255))
+			StrokePath(2, #PB_Path_Preserve)
+			VectorSourceColor(SetAlpha(\State, 255))
 			FillPath()
 		EndWith
 	EndProcedure
@@ -9612,15 +9619,20 @@ Module UITK
 								\Color = HSBToRGB(\Hue, \Saturation, 100)
 								\HueX = \WheelX	+ \WheelRadius + PointDistance * Cos(Angle)
 								\HueY = \WheelY	+ \WheelRadius + PointDistance * Sin(Angle)
-								
+								\State = HSBToRGB(\Hue, \Saturation, \Brightness)
 								Redraw = #True
-								
 							EndIf
 						Case #ColorPicker_Drag_Brightness
+							*Event\MouseX = Clamp(*Event\MouseX, \BarX, \BarX + \BarWidth)
+							PointDistance = (*Event\MouseX - \BarX) / \BarWidth * 100
 							
+							If \Brightness <> PointDistance
+								\Brightness = PointDistance
+								\BrightnessX = *Event\MouseX - 5
+								\State = HSBToRGB(\Hue, \Saturation, \Brightness)
+								Redraw = #True
+							EndIf
 						Case #ColorPicker_Drag_Alpha
-							
-						Case #ColorPicker_Drag_None
 							
 					EndSelect
 				Case #LeftButtonDown ;{
@@ -9662,7 +9674,7 @@ Module UITK
 			If Width > Height
 				
 			Else
-				\WheelSize = Width
+				\WheelSize = Width - 12
 			EndIf
 			
 			If Not \WheelSize % 2
@@ -9681,6 +9693,9 @@ Module UITK
 			\State = $FFFFFF
 			\Hue = 0
 			\Saturation = 0
+			\HueX = \WheelX	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Cos(0), #PB_Round_Nearest)
+			\HueY = \WheelY	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Sin(0), #PB_Round_Nearest)
+			\BrightnessX = \BarX + \BarWidth - 5
 			\Brightness = 100
 			\Alpha = 255	
 			ColorPicker_DrawWheel(*GadgetData)
@@ -10945,8 +10960,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9589
-; FirstLine = 188
-; Folding = xCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAA1PAAAAAAA-
+; CursorPosition = 9584
+; FirstLine = 99
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkPAAAAAAA-
 ; EnableXP
 ; DPIAware
