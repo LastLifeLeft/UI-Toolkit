@@ -6816,6 +6816,7 @@ Module UITK
 			SetWindowColor(\MenuWindow, RGB(Red(\ThemeData\LineColor[#Warm]), Green(\ThemeData\LineColor[#Warm]), Blue(\ThemeData\LineColor[#Warm])))
 			
 			\MenuCanvas = VerticalList(#PB_Any, \Border, 0, \Width - \Border * 2, \Height)
+			SetGadgetAttribute(\MenuCanvas, #Attribute_CornerRadius, 0)
 			
 			UseGadgetList(GadgetList)
 			
@@ -11022,8 +11023,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 9664
-; FirstLine = 131
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAEEAAAAAAA9
+; CursorPosition = 6818
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAA9
 ; EnableXP
 ; DPIAware
