@@ -6707,6 +6707,14 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure Combo_SetItemData(*GadgetData.ComboData, Position, *Data)
+		SetGadgetItemData(*GadgetData\MenuCanvas, Position, *Data)
+	EndProcedure
+	
+	Procedure Combo_GetItemData(*GadgetData.ComboData, Position)
+		ProcedureReturn GetGadgetItemData(*GadgetData\MenuCanvas, Position)
+	EndProcedure
+	
 	Procedure Combo_WindowHandler()
 		Protected Window = EventWindow(), *GadgetData.ComboData = GetProp_(WindowID(Window), "UITK_ComboData")
 		
@@ -11022,8 +11030,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 6818
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAA9
+; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
+; CursorPosition = 835
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAw
 ; EnableXP
 ; DPIAware
