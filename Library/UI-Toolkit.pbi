@@ -5435,8 +5435,15 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_SetItemText(*this.PB_Gadget, Position, *Text)
+		Protected *GadgetData.VerticalListData = *this\vt, *Result
 		
-		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				\Items()\Text\OriginalText = PeekS(*Text)
+				PrepareVectorTextBlock(@\Items()\Text)
+			EndIf
+		EndWith
 	EndProcedure
 	
 	Procedure VerticalList_SetFont(*this.PB_Gadget, FontID)
@@ -6721,6 +6728,11 @@ Module UITK
 	Procedure Combo_GetItemData(*this.PB_Gadget, Position)
 		Protected *GadgetData.ComboData = *this\vt
 		ProcedureReturn GetGadgetItemData(*GadgetData\MenuCanvas, Position)
+	EndProcedure
+	
+	Procedure Combo_SetItemText(*this.PB_Gadget, Position, *Text)
+		Protected *GadgetData.ComboData = *this\vt
+		SetGadgetItemText(*this.PB_Gadget, Position, PeekS(*Text))
 	EndProcedure
 	
 	Procedure Combo_WindowHandler()
@@ -11055,8 +11067,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 6711
-; FirstLine = 27
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 6734
+; FirstLine = 59
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
