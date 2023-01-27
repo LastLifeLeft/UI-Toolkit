@@ -5506,6 +5506,7 @@ Module UITK
 			\VT\AddGadgetItem2 = @VerticalList_AddItem()
 			\VT\ResizeGadget = @VerticalList_Resize()
 			\VT\GetGadgetItemText = @VerticalList_GetItemText()
+			\VT\SetGadgetItemText = @VerticalList_SetItemText()
 			\VT\FreeGadget = @VerticalList_FreeGadget()
 			\VT\GetGadgetItemImage = @VerticalList_GetItemImage()
 			\VT\SetGadgetFont = @VerticalList_SetFont()
@@ -6878,6 +6879,7 @@ Module UITK
 			\VT\SetGadgetColor = @Combo_SetColor()
 			\VT\FreeGadget = @Combo_Free()
 			\VT\SetGadgetItemData = @Combo_SetItemData()
+			\VT\SetGadgetItemText = @Combo_SetItemText()
 			\VT\GetGadgetItemData = @Combo_GetItemData()
 			\VT\CountGadgetItems = @Combo_CountItems()
 			
@@ -11067,8 +11069,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 6734
-; FirstLine = 59
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 11052
+; FirstLine = 26
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
