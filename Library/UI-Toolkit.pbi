@@ -5281,6 +5281,8 @@ Module UITK
 				EndIf
 				
 				RedrawObject()
+				
+				ProcedureReturn #True
 			EndIf
 		EndWith
 	EndProcedure
@@ -6707,8 +6709,8 @@ Module UITK
 	EndProcedure
 	
 	Procedure Combo_CountItems(*this.PB_Gadget)
-		Protected *GadgetData.ComboData = *this\vt
- 		ProcedureReturn CountGadgetItems(*GadgetData\MenuCanvas)
+		Protected *GadgetData.ComboData
+ 		ProcedureReturn *GadgetData\ItemCount
 	EndProcedure
 	
 	Procedure Combo_SetItemData(*this.PB_Gadget, Position, *Data)
@@ -6776,6 +6778,19 @@ Module UITK
 		EndIf
 		
 		AddGadgetItem(*GadgetData\MenuCanvas, Position, PeekS(*Text), ImageID, Flag)
+	EndProcedure
+	
+	Procedure Combo_RemoveItem(*this.PB_Gadget, Position)
+		Protected *GadgetData.ComboData = *this\vt
+		
+		If RemoveGadgetItem(*GadgetData\MenuCanvas, Position)
+			*GadgetData\ItemCount - 1
+			
+			If *GadgetData\ItemCount <= 7
+				ResizeGadget(*GadgetData\MenuCanvas, #PB_Ignore, #PB_Ignore, #PB_Ignore, *GadgetData\ItemCount * #Combo_ItemHeight)
+				ResizeWindow(*GadgetData\MenuWindow, #PB_Ignore, #PB_Ignore, #PB_Ignore, *GadgetData\ItemCount * #Combo_ItemHeight + *GadgetData\Border)
+			EndIf
+		EndIf
 	EndProcedure
 	
 	Procedure Combo_SetState(*this.PB_Gadget, State)
@@ -6846,6 +6861,7 @@ Module UITK
 			SetGadgetColor(\MenuCanvas, #Color_Text_Hot, \ThemeData\TextColor[#Hot])
 			
 			\VT\AddGadgetItem2 = @Combo_AddItem()
+			\VT\RemoveGadgetItem = @Combo_RemoveItem()
 			\VT\SetGadgetState = @Combo_SetState()
 			\VT\SetGadgetColor = @Combo_SetColor()
 			\VT\FreeGadget = @Combo_Free()
@@ -11016,7 +11032,6 @@ Module UITK
 	CompilerEndIf
 	;}
 	
-	
 EndModule
 
 
@@ -11040,8 +11055,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 11028
-; FirstLine = 21
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 834
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
