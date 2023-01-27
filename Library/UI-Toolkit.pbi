@@ -6733,7 +6733,7 @@ Module UITK
 	
 	Procedure Combo_SetItemText(*this.PB_Gadget, Position, *Text)
 		Protected *GadgetData.ComboData = *this\vt
-		SetGadgetItemText(*this.PB_Gadget, Position, PeekS(*Text))
+		SetGadgetItemText(*GadgetData\MenuCanvas, Position, PeekS(*Text))
 	EndProcedure
 	
 	Procedure Combo_WindowHandler()
@@ -11069,8 +11069,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 11052
-; FirstLine = 26
+; CursorPosition = 6735
+; FirstLine = 3
 ; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
