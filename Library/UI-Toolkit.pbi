@@ -6709,7 +6709,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Combo_CountItems(*this.PB_Gadget)
-		Protected *GadgetData.ComboData
+		Protected *GadgetData.ComboData = *this\vt
  		ProcedureReturn *GadgetData\ItemCount
 	EndProcedure
 	
@@ -11055,7 +11055,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 834
+; CursorPosition = 6711
+; FirstLine = 27
 ; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
