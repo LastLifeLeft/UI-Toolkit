@@ -6627,7 +6627,6 @@ Module UITK
 		MenuCanvas.i
 		MenuState.i
 		ItemCount.i
-		List ItemList.Text()
 		*Scrollbar.ScrollBarData
 	EndStructure
 	
@@ -6707,11 +6706,18 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure Combo_SetItemData(*GadgetData.ComboData, Position, *Data)
+	Procedure Combo_CountItems(*this.PB_Gadget)
+		Protected *GadgetData.ComboData = *this\vt
+ 		ProcedureReturn CountGadgetItems(*GadgetData\MenuCanvas)
+	EndProcedure
+	
+	Procedure Combo_SetItemData(*this.PB_Gadget, Position, *Data)
+		Protected *GadgetData.ComboData = *this\vt
 		SetGadgetItemData(*GadgetData\MenuCanvas, Position, *Data)
 	EndProcedure
 	
-	Procedure Combo_GetItemData(*GadgetData.ComboData, Position)
+	Procedure Combo_GetItemData(*this.PB_Gadget, Position)
+		Protected *GadgetData.ComboData = *this\vt
 		ProcedureReturn GetGadgetItemData(*GadgetData\MenuCanvas, Position)
 	EndProcedure
 	
@@ -6844,7 +6850,8 @@ Module UITK
 			\VT\SetGadgetColor = @Combo_SetColor()
 			\VT\FreeGadget = @Combo_Free()
 			\VT\SetGadgetItemData = @Combo_SetItemData()
-			\VT\SetGadgetItemData = @Combo_GetItemData()
+			\VT\GetGadgetItemData = @Combo_GetItemData()
+			\VT\CountGadgetItems = @Combo_CountItems()
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftButtonDown] = #True
@@ -11033,7 +11040,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 2600
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAw
+; CursorPosition = 11028
+; FirstLine = 21
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
