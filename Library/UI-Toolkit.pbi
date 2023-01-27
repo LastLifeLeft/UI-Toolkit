@@ -6843,6 +6843,8 @@ Module UITK
 			\VT\SetGadgetState = @Combo_SetState()
 			\VT\SetGadgetColor = @Combo_SetColor()
 			\VT\FreeGadget = @Combo_Free()
+			\VT\SetGadgetItemData = @Combo_SetItemData()
+			\VT\SetGadgetItemData = @Combo_GetItemData()
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftButtonDown] = #True
@@ -11031,7 +11033,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 835
+; CursorPosition = 2600
 ; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAw
 ; EnableXP
 ; DPIAware
