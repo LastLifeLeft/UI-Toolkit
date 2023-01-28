@@ -834,7 +834,6 @@ Module UITK
 	;}
 	
 	
-	
 	;General:
 	;{ Shared
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
@@ -2597,7 +2596,6 @@ Module UITK
 	
 	SetDropCallback(@DropCallback())
 	;}
-	
 	
 	
 	;Gadgets:
@@ -6733,7 +6731,14 @@ Module UITK
 	
 	Procedure Combo_SetItemText(*this.PB_Gadget, Position, *Text)
 		Protected *GadgetData.ComboData = *this\vt
-		SetGadgetItemText(*GadgetData\MenuCanvas, Position, PeekS(*Text))
+		With *GadgetData
+			SetGadgetItemText(\MenuCanvas, Position, PeekS(*Text))
+			If \MenuState = Position
+				\TextBlock\OriginalText = PeekS(*Text)
+				PrepareVectorTextBlock(@\TextBlock)
+				Combo_Redraw(*GadgetData.ComboData)
+			EndIf
+		EndWith
 	EndProcedure
 	
 	Procedure Combo_WindowHandler()
@@ -11069,8 +11074,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 6735
-; FirstLine = 3
+; CursorPosition = 835
 ; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
