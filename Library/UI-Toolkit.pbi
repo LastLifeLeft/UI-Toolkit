@@ -5440,6 +5440,8 @@ Module UITK
 				SelectElement(\Items(), Position)
 				\Items()\Text\OriginalText = PeekS(*Text)
 				PrepareVectorTextBlock(@\Items()\Text)
+				RedrawObject()
+				ProcedureReturn #True
 			EndIf
 		EndWith
 	EndProcedure
@@ -6732,11 +6734,10 @@ Module UITK
 	Procedure Combo_SetItemText(*this.PB_Gadget, Position, *Text)
 		Protected *GadgetData.ComboData = *this\vt
 		With *GadgetData
-			SetGadgetItemText(\MenuCanvas, Position, PeekS(*Text))
-			If \MenuState = Position
+			If SetGadgetItemText(\MenuCanvas, Position, PeekS(*Text)) And \State = Position
 				\TextBlock\OriginalText = PeekS(*Text)
 				PrepareVectorTextBlock(@\TextBlock)
-				Combo_Redraw(*GadgetData.ComboData)
+				RedrawObject()
 			EndIf
 		EndWith
 	EndProcedure
@@ -6817,6 +6818,7 @@ Module UITK
 		
 		SetGadgetState(*GadgetData\MenuCanvas, State)
 		*VListData\State = State
+		*GadgetData\State = State
 		SelectElement(*VListData\Items(), *VListData\State)
 		*GadgetData\TextBlock\OriginalText = *VListData\Items()\Text\OriginalText
 		*GadgetData\TextBlock\Image = *VListData\Items()\Text\Image
@@ -11074,7 +11076,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 835
+; CursorPosition = 11054
 ; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
