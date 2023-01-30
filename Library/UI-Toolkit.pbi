@@ -2221,14 +2221,6 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
-	Procedure Handler_Menu()
-		Protected MenuButton = GetGadgetData(EventGadget())
-		
-		If GetGadgetState(MenuButton)
-			SetGadgetState(MenuButton, #False)
-		EndIf
-	EndProcedure
-	
 	Procedure Handler_MenuButton()
 		Protected Button = EventGadget()
 		ShowFlatMenu(GetGadgetData(Button), GadgetX(Button, #PB_Gadget_ScreenCoordinate) - 1, GadgetY(Button, #PB_Gadget_ScreenCoordinate) + GadgetHeight(Button))
@@ -2265,7 +2257,6 @@ Module UITK
 			ResizeGadget(\MenuList(), #PB_Ignore, #PB_Ignore, GadgetWidth(\MenuList(), #PB_Gadget_RequiredSize) + 2 * #SizableBorder, #PB_Ignore)
 			\MenuOffset + GadgetWidth(\MenuList())
 			
-			BindGadgetEvent(*MenuData\Canvas, @Handler_Menu(), #PB_EventType_CloseItem)
 			BindGadgetEvent(\MenuList(), @Handler_MenuButton(), #PB_EventType_Change)
 			SetGadgetData(*MenuData\Canvas, \MenuList())
 			SetGadgetData(\MenuList(), Menu)
@@ -8972,10 +8963,13 @@ Module UITK
 						FlatMenu_Redraw(*MenuData)
 					EndIf
 					;}
-				Case #PB_EventType_LostFocus
-					PostEvent(#PB_Event_Gadget, \Window, \Canvas, #PB_EventType_CloseItem)
+				Case #PB_EventType_LostFocus ;{
+					If GetGadgetState(GetGadgetData(\Canvas))
+						SetGadgetState(GetGadgetData(\Canvas), #False)
+					EndIf
+					;}
 			EndSelect
-			
+			EventType()
 		EndWith
 	EndProcedure
 	
@@ -11075,8 +11069,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.01 LTS beta 1 (Windows - x64)
-; CursorPosition = 11054
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; IDE Options = PureBasic 6.00 LTS (Windows - x64)
+; CursorPosition = 2222
+; FirstLine = 55
+; Folding = RAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQiAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
