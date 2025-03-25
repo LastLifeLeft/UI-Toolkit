@@ -841,14 +841,14 @@ Module UITK
 			PB_Object_EnumerateStart(Object)
 			PB_Object_EnumerateNext(Object,*ID.Integer)
 			PB_Object_EnumerateAbort(Object)
-			PB_Window_Objects.l
+			PB_Window_Objects.i
 		EndImport
 	CompilerElse
 		ImportC ""
 			PB_Object_EnumerateStart(Object)
 			PB_Object_EnumerateNext(Object,*ID.Integer)
 			PB_Object_EnumerateAbort(Object)
-			PB_Window_Objects.l
+			PB_Window_Objects.i
 		EndImport
 	CompilerEndIf
 	
@@ -1808,9 +1808,9 @@ Module UITK
 		SizeCursor.l
 		Sizable.l
 		
-		ButtonClose.l
-		ButtonMinimize.l
-		ButtonMaximize.l
+		ButtonClose.i
+		ButtonMinimize.i
+		ButtonMaximize.i
 		
 		Container.i
 		
@@ -11069,9 +11069,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 2222
-; FirstLine = 55
-; Folding = RAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQiAAAAAAAAAAAAAA+
+; IDE Options = PureBasic 6.20 (Windows - x64)
+; CursorPosition = 843
+; FirstLine = 8
+; Folding = RAAAYAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQiAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
