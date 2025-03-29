@@ -305,6 +305,8 @@
 	Declare CurrentWindow()
 	
 	; Setters
+	Declare SetCurrentTheme(*Theme.Theme)
+	Declare SetDarkMode(State)								; Enable or disable the dark theme
 	Declare SetAccessibilityMode(State) 					; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
 	Declare SetGadgetColorScheme(Gadget, ThemeJson.s)		; Apply a complete color scheme at once
 	Declare SubClassFunction(Gadget, Function, *Adress)		; Subclass any gadget function (Works with native pb gadgets too)
@@ -312,6 +314,7 @@
 	; Getters
 	Declare GetAccessibilityMode()							; Returns the current accessibility state.
 	Declare.s GetGadgetColorScheme(Gadget)					; Apply a complete color scheme at once
+	Declare GetCurrentTheme()								; Returns the current theme adress
 	
 	; Window
 	Declare Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
@@ -730,7 +733,7 @@ Module UITK
 	
 	Global MenuWindow
 	Global AccessibilityMode = #False
-	Global DefaultTheme.Theme, DarkTheme.Theme
+	Global LightTheme.Theme, DarkTheme.Theme, *DefaultTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
 	Global IconFont = FontID(LoadFont(#PB_Any, "Segoe MDL2 Assets", 10, #PB_Font_HighQuality))
@@ -742,7 +745,7 @@ Module UITK
 	;}
 	
 	;{ Default themes
-	With DefaultTheme 
+	With LightTheme 
 		\WindowColor = SetAlpha(FixColor($F0F0F0), 255)
 		
 		\BackColor[#Cold]		= SetAlpha(FixColor($F0F0F0), 255)
@@ -831,6 +834,24 @@ Module UITK
 		
 		\CornerRadius			= 4
 	EndWith
+	
+	*DefaultTheme = @LightTheme
+	
+	Procedure SetDarkMode(State)
+		If State = #True
+			*DefaultTheme = @DarkTheme
+		Else
+			*DefaultTheme = @LightTheme
+		EndIf
+	EndProcedure
+	
+	Procedure GetCurrentTheme()
+		ProcedureReturn *DefaultTheme
+	EndProcedure
+	
+	Procedure SetCurrentTheme(*Theme.Theme)
+		*DefaultTheme = *Theme
+	EndProcedure
 	;}
 	
 	;General:
@@ -2129,8 +2150,10 @@ Module UITK
 			
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
+			ElseIf Flags & #LightMode
+				CopyStructure(@LightTheme, *WindowData\Theme, Theme)
 			Else
-				CopyStructure(@DefaultTheme, *WindowData\Theme, Theme)
+				CopyStructure(*DefaultTheme, *WindowData\Theme, Theme)
 			EndIf
 			
 			Image = CreateImage(#PB_Any, 8, 8, 32, SetAlpha(*WindowData\Theme\WindowTitle, 255)) ; Removing SetAlpha makes LightTheme goes derp. Can anybody explain?
@@ -2755,13 +2778,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -2923,13 +2946,13 @@ Module UITK
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
 			ElseIf Flags & #LightMode
-				CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				CopyStructure(@LightTheme, *ThemeData, Theme)
 			Else
 				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 				If *WindowData
 					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 				Else
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(*DefaultTheme, *ThemeData, Theme)
 				EndIf
 			EndIf
 			
@@ -3094,13 +3117,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -3872,13 +3895,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -4343,13 +4366,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -4421,13 +4444,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -4628,13 +4651,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *GadgetData\ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *GadgetData\ThemeData, Theme)
+					CopyStructure(@LightTheme, *GadgetData\ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *GadgetData\ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *GadgetData\ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *GadgetData\ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -5552,13 +5575,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -6171,13 +6194,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -6588,13 +6611,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -6913,13 +6936,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -6993,13 +7016,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -7231,13 +7254,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -7846,13 +7869,13 @@ Module UITK
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
 			ElseIf Flags & #LightMode
-				CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				CopyStructure(@LightTheme, *ThemeData, Theme)
 			Else
 				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 				If *WindowData
 					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 				Else
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(*DefaultTheme, *ThemeData, Theme)
 				EndIf
 			EndIf
 			
@@ -8114,13 +8137,13 @@ Module UITK
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
 			ElseIf Flags & #LightMode
-				CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				CopyStructure(@LightTheme, *ThemeData, Theme)
 			Else
 				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 				If *WindowData
 					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 				Else
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(*DefaultTheme, *ThemeData, Theme)
 				EndIf
 			EndIf
 			
@@ -8838,13 +8861,13 @@ Module UITK
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
 			ElseIf Flags & #LightMode
-				CopyStructure(@DefaultTheme, *ThemeData, Theme)
+				CopyStructure(@LightTheme, *ThemeData, Theme)
 			Else
 				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 				If *WindowData
 					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 				Else
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(*DefaultTheme, *ThemeData, Theme)
 				EndIf
 			EndIf
 			
@@ -9021,7 +9044,7 @@ Module UITK
 			If Flags & #DarkMode
 				CopyStructure(DarkTheme, \Theme, Theme)
 			Else
-				CopyStructure(DefaultTheme, \Theme, Theme)
+				CopyStructure(LightTheme, \Theme, Theme)
 			EndIf
 			
 			SetWindowColor(\Window, \Theme\WindowTitle)
@@ -9480,13 +9503,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -9839,13 +9862,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				ColorPicker_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
@@ -11018,13 +11041,13 @@ Module UITK
 				If Flags & #DarkMode
 					CopyStructure(@DarkTheme, *ThemeData, Theme)
 				ElseIf Flags & #LightMode
-					CopyStructure(@DefaultTheme, *ThemeData, Theme)
+					CopyStructure(@LightTheme, *ThemeData, Theme)
 				Else
 					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 					If *WindowData
 						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
 					Else
-						CopyStructure(@DefaultTheme, *ThemeData, Theme)
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
 					EndIf
 				EndIf
 				
@@ -11069,8 +11092,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 6200
-; FirstLine = 112
-; Folding = RAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAiAAAAAAAAAAAAAA+
+; CursorPosition = 11092
+; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware

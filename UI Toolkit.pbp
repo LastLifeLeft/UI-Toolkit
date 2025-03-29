@@ -8,40 +8,40 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2025-03-29 03:08" user="LastLife" host="DESKTOP-98GDMEF"/>
+    <lastopen date="2025-03-29 03:57" user="LastLife" host="DESKTOP-98GDMEF"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+++"/>
       <fingerprint md5="b20cad52cba79c00e73fc7dc7cb7f281"/>
     </file>
     <file name="Editor\Includes\MainWindow.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="3" panelstate="+++"/>
       <fingerprint md5="df4236add4bba63f313611a9862537a5"/>
     </file>
     <file name="Editor\Includes\Project.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="3" panelstate="+++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="4" panelstate="+++"/>
       <fingerprint md5="7cab16ca1c72af804e783e78fa59f1bd"/>
     </file>
     <file name="Editor\UITK Edit.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="4" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="5" panelstate="++"/>
       <fingerprint md5="bfa70189e3c20d895fd1e4d6f5ba0529"/>
     </file>
     <file name="Examples\Debug.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="5" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="6" panelstate="++"/>
       <fingerprint md5="daffb78ebfb942492009b8e924c86311"/>
     </file>
     <file name="Examples\Example 2 - Gadget Exemple 2.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="6" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="7" panelstate="++"/>
       <fingerprint md5="1b33ef310b0e7c8a90e1634119ef0980"/>
     </file>
     <file name="Examples\Example 3 - Timeline.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="7" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="8" panelstate="++"/>
       <fingerprint md5="27ecdbfbbfc79534f319cf7a6b2d2cab"/>
     </file>
     <file name="Library\UI-Toolkit.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="8" panelstate="++"/>
-      <fingerprint md5="3cf1b9eb6d89d65ff28283acaf695612"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="9" panelstate="++"/>
+      <fingerprint md5="a2cf7953033f275b941eb2b99b49aa5e"/>
     </file>
     <file name="Examples\Example 1 - Gadget Exemple 1.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="++"/>
