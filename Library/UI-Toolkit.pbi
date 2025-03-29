@@ -1113,7 +1113,7 @@ Module UITK
 		
 		If *TextData\VAlign = #VAlignCenter
 			*TextData\ImageY = (*TextData\Height - HBitmap\bmHeight) * 0.5
-			*TextData\TextY = (*TextData\Height - LineCount * TextHeight) * 0.55
+			*TextData\TextY = (*TextData\Height - LineCount * TextHeight) * 0.55 - 2
 		ElseIf *TextData\VAlign = #VAlignBottom
 			*TextData\TextY = *TextData\Height - LineCount * TextHeight
 			*TextData\ImageY = *TextData\Height - HBitmap\bmHeight
@@ -4749,14 +4749,6 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_ItemRedraw(*Item.VerticalListItem, X, Y, Width, Height, State, *Theme.Theme)
-		If State > #Cold
-			AddPathBox(X, Y, Width, Height)
-			VectorSourceColor(*Theme\ShadeColor[State])
-			FillPath()
-			
-			VectorSourceColor(*Theme\TextColor[State])
-		EndIf
-		
 		DrawVectorTextBlock(@*Item\Text, X + #VerticalList_Margin, Y)
 		
 		If State = #Hot
@@ -4815,6 +4807,14 @@ Module UITK
 						State = #Cold
 					EndIf
 					
+					If State > #Cold
+						AddPathBox(\Border, Y, Width, \ItemHeight)
+						VectorSourceColor(\ThemeData\ShadeColor[State])
+						FillPath()
+						
+						VectorSourceColor(\ThemeData\TextColor[State])
+					EndIf
+		
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
 					\ItemRedraw(@\Items(), \Border, Y, Width, \ItemHeight, State, \ThemeData)
@@ -5338,8 +5338,9 @@ Module UITK
 	
 	Procedure VerticalList_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
-		
-		CloseWindow(*GadgetData\ReorderWindow)
+		If *GadgetData\Reorder
+			CloseWindow(*GadgetData\ReorderWindow)
+		EndIf
 		DeleteMapElement(GadgetHandler(), Str(GadgetID(*GadgetData\Gadget)))
 		FreeStructure(*GadgetData\ScrollBar)
 		
@@ -11092,7 +11093,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 11092
+; CursorPosition = 1809
 ; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
