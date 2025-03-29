@@ -833,7 +833,6 @@ Module UITK
 	EndWith
 	;}
 	
-	
 	;General:
 	;{ Shared
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
@@ -6199,7 +6198,7 @@ Module UITK
 	#TracKbar_CursorWidth = 10
 	#TracKbar_CursorHeight = 24
 	#Trackbar_IndentWidth = 20
-	#Trackbar_Margin = 3
+	#Trackbar_Margin = 1
 	
 	Structure TrackBarIndent
 		Text.s
@@ -6271,7 +6270,7 @@ Module UITK
 					EndIf
 				EndIf
 				
-					X + #TracKbar_CursorHeight * 0.5
+				X + #TracKbar_CursorHeight * 0.5
 				Y = \OriginY + #Trackbar_Margin
 				
 				VectorSourceColor(\ThemeData\ShadeColor[#Warm])
@@ -11070,8 +11069,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 843
-; FirstLine = 8
-; Folding = RAAAYAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQiAAAAAAAAAAAAAA+
+; CursorPosition = 6200
+; FirstLine = 112
+; Folding = RAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAiAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware

@@ -96,9 +96,9 @@
 		SizeCursor.l
 		Sizable.l
 		
-		ButtonClose.l
-		ButtonMinimize.l
-		ButtonMaximize.l
+		ButtonClose.i
+		ButtonMinimize.i
+		ButtonMaximize.i
 		
 		Container.i
 		
@@ -154,10 +154,6 @@
 				ProcedureReturn *WindowData\Brush
 				;}
 			Case #WM_SIZE ;{
-; 				Protected PreviousWidth = *WindowData\Width 
-; 				Protected PreviousHeight = *WindowData\Height
-; 				Protected Rect.RECT
-				
 				*WindowData\Width = lParam & $FFFF
 				*WindowData\Height = (lParam >> 16) & $FFFF
 				
@@ -579,9 +575,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.00 Beta 8 (Windows - x86)
-; CursorPosition = 502
-; FirstLine = 57
-; Folding = REYH+
+; IDE Options = PureBasic 6.20 (Windows - x64)
+; CursorPosition = 155
+; FirstLine = 18
+; Folding = ZEYH+
 ; EnableXP
 ; DPIAware
