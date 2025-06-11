@@ -4807,13 +4807,14 @@ Module UITK
 						State = #Cold
 					EndIf
 					
-					If State > #Cold
-						AddPathBox(\Border, Y, Width, \ItemHeight)
-						VectorSourceColor(\ThemeData\ShadeColor[State])
-						FillPath()
-						
-						VectorSourceColor(\ThemeData\TextColor[State])
-					EndIf
+					; This should be handled by the Item redraw, not here.
+					;If State > #Cold
+					;	AddPathBox(\Border, Y, Width, \ItemHeight)
+					;	VectorSourceColor(\ThemeData\ShadeColor[State])
+					;	FillPath()
+					;	
+					;	VectorSourceColor(\ThemeData\TextColor[State])
+					;EndIf
 		
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
@@ -11092,8 +11093,9 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 1809
-; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; IDE Options = PureBasic 6.21 Beta 10 (Windows - x64)
+; CursorPosition = 4809
+; FirstLine = 78
+; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
