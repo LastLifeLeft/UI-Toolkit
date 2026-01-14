@@ -62,6 +62,8 @@
 		#Attribute_CornerRadius
 		#Attribute_Border
 		#Attribute_TextScale
+		#Attribute_TextVerticalAlignment
+		#Attribute_TextHorizontalAlignment
 		#Attribute_SortItems
 		#Attribute_CornerType
 		#Attribute_TextSelectionPosition
@@ -1675,6 +1677,12 @@ Module UITK
 					PrepareVectorTextBlock(@\TextBlock)
 				Case #Attribute_CornerType
 					\CornerType = Value
+				Case #Attribute_TextVerticalAlignment
+					\TextBlock\VAlign = Value
+					PrepareVectorTextBlock(@\TextBlock)
+				Case #Attribute_TextHorizontalAlignment
+					\TextBlock\HAlign = Value
+					PrepareVectorTextBlock(@\TextBlock)
 				Default
 					*GadgetData\OriginalVT\SetGadgetAttribute(*This, Attribute, Value)
 					ProcedureReturn #False
@@ -5242,7 +5250,8 @@ Module UITK
 			
 			\Items()\Text\Width = \TextBlock\Width - #VerticalList_Margin * 2
 			\Items()\Text\Height = \ItemHeight
-			\Items()\Text\VAlign = #VAlignCenter
+			\Items()\Text\VAlign = \TextBlock\VAlign
+			\Items()\Text\HAlign = \TextBlock\HAlign
 			
 			PrepareVectorTextBlock(@\Items()\Text)
 			
@@ -9909,8 +9918,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.30 beta 4 (Windows - x64)
-; CursorPosition = 9888
-; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
+; IDE Options = PureBasic 6.30 (Windows - x64)
+; CursorPosition = 386
+; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
