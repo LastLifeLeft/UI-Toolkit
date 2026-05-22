@@ -8,7 +8,7 @@
 	#Margin = 6
 	#TopPanel_Height = 80
 	
-	Global Window, TreeGadget, PropertyBox, ComponantList, Canvas
+	Global Window, TreeGadget, PropertyBox, ComponentList, Canvas
 	Global WindowContainer_Width, WindowContainer_Height
 	Global CornerTLID, CornerTRID, CornerBLID, CornerBRID
 	Global MenuFile, MenuEdit, MenuHelp
@@ -37,22 +37,22 @@
 		#HList
 	EndEnumeration
 	
-	Global Dim ImageArray(1,Project::#_Componant_Count)
+	Global Dim ImageArray(1,Project::#_Component_Count)
 	
-	ImageArray(#Tree,Project::#Componant_Window) = CatchImage(#PB_Any, ?Tree_Window)
-	ImageArray(#HList,Project::#Componant_Window) = CatchImage(#PB_Any, ?Componant_Window)
+	ImageArray(#Tree,Project::#Component_Window) = CatchImage(#PB_Any, ?Tree_Window)
+	ImageArray(#HList,Project::#Component_Window) = CatchImage(#PB_Any, ?Component_Window)
 	
-	ImageArray(#Tree,Project::#Componant_Checkbox) = CatchImage(#PB_Any, ?Tree_Checkbox)
-	ImageArray(#HList,Project::#Componant_Checkbox) = CatchImage(#PB_Any, ?Componant_Checkbox)
+	ImageArray(#Tree,Project::#Component_Checkbox) = CatchImage(#PB_Any, ?Tree_Checkbox)
+	ImageArray(#HList,Project::#Component_Checkbox) = CatchImage(#PB_Any, ?Component_Checkbox)
 	
-	ImageArray(#Tree,Project::#Componant_Text) = CatchImage(#PB_Any, ?Tree_Text)
-	ImageArray(#HList,Project::#Componant_Text) = CatchImage(#PB_Any, ?Componant_Text)
+	ImageArray(#Tree,Project::#Component_Text) = CatchImage(#PB_Any, ?Tree_Text)
+	ImageArray(#HList,Project::#Component_Text) = CatchImage(#PB_Any, ?Component_Text)
 	
-	ImageArray(#Tree,Project::#Componant_Button) = CatchImage(#PB_Any, ?Tree_Button)
-	ImageArray(#HList,Project::#Componant_Button) = CatchImage(#PB_Any, ?Componant_Button)
+	ImageArray(#Tree,Project::#Component_Button) = CatchImage(#PB_Any, ?Tree_Button)
+	ImageArray(#HList,Project::#Component_Button) = CatchImage(#PB_Any, ?Component_Button)
 	
-	ImageArray(#Tree,Project::#Componant_Toggle) = CatchImage(#PB_Any, ?Tree_Toggle)
-	ImageArray(#HList,Project::#Componant_Toggle) = CatchImage(#PB_Any, ?Componant_Toggle)
+	ImageArray(#Tree,Project::#Component_Toggle) = CatchImage(#PB_Any, ?Tree_Toggle)
+	ImageArray(#HList,Project::#Component_Toggle) = CatchImage(#PB_Any, ?Component_Toggle)
 	;}
 	
 	;{ Private procedures declaration
@@ -187,7 +187,7 @@
 				
 				SetWindowPos_(GadgetID(Canvas), 0, 0, 0, WindowContainer_Width, WindowContainer_Height, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
 				RedrawCanvas()
-				ResizeGadget(ComponantList, #PB_Ignore, #PB_Ignore, WindowContainer_Width, #TopPanel_Height)
+				ResizeGadget(ComponentList, #PB_Ignore, #PB_Ignore, WindowContainer_Width, #TopPanel_Height)
 				ResizeGadget(PropertyBox, #Margin, RightGadgetHeight + #Margin + #WindowBarHeight - *WindowData\Height % 2, #RightPanel_Width, RightGadgetHeight)
 				ResizeGadget(TreeGadget, #Margin, #WindowBarHeight, #RightPanel_Width, RightGadgetHeight)
 				
@@ -350,13 +350,13 @@
 		SetGadgetAttribute(PropertyBox, UITK::#Attribute_CornerRadius, 5)
 		SetGadgetColor(PropertyBox, UITK::#Color_Parent, SetAlpha(UITK::WindowGetColor(Window, UITK::#Color_WindowBorder), 255))
 		
-		ComponantList = UITK::HorizontalList(#PB_Any, #RightPanel_Width + #Margin * 2, #WindowBarHeight, #RightPanel_Width, #TopPanel_Height, UITK::#Drag)
-		SetGadgetAttribute(ComponantList, UITK::#Attribute_CornerRadius, 5)
-		SetGadgetColor(ComponantList, UITK::#Color_Parent, SetAlpha(UITK::WindowGetColor(Window, UITK::#Color_WindowBorder), 255))
-		AddGadgetItem(ComponantList, -1, "Button", ImageID(ImageArray(#HList,Project::#Componant_Button)))
-		AddGadgetItem(ComponantList, -1, "Checkbox", ImageID(ImageArray(#HList,Project::#Componant_Checkbox)))
-		AddGadgetItem(ComponantList, -1, "Label", ImageID(ImageArray(#HList,Project::#Componant_Text)))
-		AddGadgetItem(ComponantList, -1, "Toggle", ImageID(ImageArray(#HList,Project::#Componant_Toggle)))
+		ComponentList = UITK::HorizontalList(#PB_Any, #RightPanel_Width + #Margin * 2, #WindowBarHeight, #RightPanel_Width, #TopPanel_Height, UITK::#Drag)
+		SetGadgetAttribute(ComponentList, UITK::#Attribute_CornerRadius, 5)
+		SetGadgetColor(ComponentList, UITK::#Color_Parent, SetAlpha(UITK::WindowGetColor(Window, UITK::#Color_WindowBorder), 255))
+		AddGadgetItem(ComponentList, -1, "Button", ImageID(ImageArray(#HList,Project::#Component_Button)))
+		AddGadgetItem(ComponentList, -1, "Checkbox", ImageID(ImageArray(#HList,Project::#Component_Checkbox)))
+		AddGadgetItem(ComponentList, -1, "Label", ImageID(ImageArray(#HList,Project::#Component_Text)))
+		AddGadgetItem(ComponentList, -1, "Toggle", ImageID(ImageArray(#HList,Project::#Component_Toggle)))
 		
 		Canvas = CanvasGadget(#PB_Any, #RightPanel_Width + #Margin * 2, #WindowBarHeight + #TopPanel_Height + #Margin, 20, 20, #PB_Canvas_Keyboard | #PB_Canvas_Container )
 		EnableGadgetDrop(Canvas, #PB_Drop_Private, #PB_Drag_Copy, UITK::#Drag_HListItem)
@@ -390,12 +390,12 @@
 		HideWindow(Window, #False)
 	EndProcedure
 	
-	Procedure AddComponant(Type, Name.s, Position, Level)
+	Procedure AddComponent(Type, Name.s, Position, Level)
 		AddGadgetItem(TreeGadget, Position, Name, ImageID(ImageArray(#Tree, Type)), Level)
 		
 		If CountGadgetItems(TreeGadget) = 1
 			SetGadgetState(TreeGadget, 0)
-			PopulateProperties(Project::#Componant_Window, 0)
+			PopulateProperties(Project::#Component_Window, 0)
 		EndIf
 	EndProcedure
 	
@@ -474,7 +474,7 @@
 	
 	Procedure PopulateProperties(Type, *Data)
 		Select Type
-			Case Project::#Componant_Window
+			Case Project::#Component_Window
 				AddGadgetItem(PropertyBox, -1, "Window", 0, UITK::#PropertyBox_Title)
 				AddGadgetItem(PropertyBox, -1, "Name", 0, UITK::#PropertyBox_Text)
 				AddGadgetItem(PropertyBox, -1, "Height", 0, UITK::#PropertyBox_TextNumerical)
@@ -498,24 +498,24 @@
 		Corner:
 		IncludeBinary "../Media/Corner.png"
 		
-		; Componant icons
-		Componant_Window:
+		; Component icons
+		Component_Window:
 		IncludeBinary "../Media/HList Icons/Window.png"
 		
-		Componant_Button:
+		Component_Button:
 		IncludeBinary "../Media/HList Icons/Button.png"
 		
-		Componant_Checkbox:
+		Component_Checkbox:
 		IncludeBinary "../Media/HList Icons/Checkbox.png"
 		
-		Componant_Toggle:
+		Component_Toggle:
 		IncludeBinary "../Media/HList Icons/Toggle.png"
 		
-		Componant_Text:
+		Component_Text:
 		IncludeBinary "../Media/HList Icons/Text.png"
 		
 		
-		; Tree incons
+		; Tree icons
 		Tree_Window:
 		IncludeBinary "../Media/Tree Icons/Window.png"
 		

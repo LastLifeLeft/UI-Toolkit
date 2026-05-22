@@ -7,18 +7,18 @@ EndDeclareModule
 
 DeclareModule MainWindow
 	Declare Open()
-	Declare AddComponant(Type, Name.s, Position, Level)
+	Declare AddComponent(Type, Name.s, Position, Level)
 EndDeclareModule
 
 DeclareModule Project
-	Enumeration ;Componant
-		#Componant_Window
-		#Componant_Toggle
-		#Componant_Text
-		#Componant_Checkbox
-		#Componant_Button
+	Enumeration ;Component
+		#Component_Window
+		#Component_Toggle
+		#Component_Text
+		#Component_Checkbox
+		#Component_Button
 		
-		#_Componant_Count
+		#_Component_Count
 	EndEnumeration
 	
 	Declare Load(Path.s)

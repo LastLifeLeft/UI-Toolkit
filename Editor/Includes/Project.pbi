@@ -17,7 +17,7 @@
 	EndProcedure
 	
 	Procedure New()
-		MainWindow::AddComponant(#Componant_Window, "Window", 0, 0)
+		MainWindow::AddComponent(#Component_Window, "Window", 0, 0)
 	EndProcedure
 	
 	Procedure Undo()

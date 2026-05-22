@@ -9,11 +9,11 @@
 		#VAlignTop										; Align text top
 		#VAlignCenter									; Center text
 		#VAlignBottom									; Align text bottom
-		#Border											; Draw a border arround the gadget
+		#Border											; Draw a border around the gadget
 		#DarkMode										; Use the dark color scheme
 		#LightMode										; Use the light color scheme
-		#ReOrder										; Allow user to reorder items by draging them arround the gadget. Mutually exclusive with #Drag.
-		#Drag											; Enable drag from this gadget. Mutually exclusive with #Reorder.
+		#ReOrder										; Allow user to reorder items by dragging them around the gadget. Mutually exclusive with #Drag.
+		#Drag											; Enable drag from this gadget. Mutually exclusive with #ReOrder.
 		#Editable										; 
 		#Container										; The gadget will behave as a container
 		
@@ -38,7 +38,7 @@
 	
 	#Tree_DotLine = 0
 	
-	Enumeration 5000 ; Gadget attribues
+	Enumeration 5000 ; Gadget attributes
 		#ScrollBar_Minimum
 		#ScrollBar_Maximum	
 		#ScrollBar_PageLength
@@ -67,7 +67,7 @@
 		#Attribute_SortItems
 		#Attribute_CornerType
 		#Attribute_TextSelectionPosition
-		#Attribute_TextSelectionLenght
+		#Attribute_TextSelectionLength
 		
 		#Tab_Color
 		
@@ -257,8 +257,8 @@
 		VAlign.b
 		Width.l
 		Height.l
-		RequieredWidth.w
-		RequieredHeight.w
+		RequiredWidth.w
+		RequiredHeight.w
 	EndStructure
 	
 	Structure VerticalListItem
@@ -311,12 +311,12 @@
 	Declare SetDarkMode(State)								; Enable or disable the dark theme
 	Declare SetAccessibilityMode(State) 					; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
 	Declare SetGadgetColorScheme(Gadget, ThemeJson.s)		; Apply a complete color scheme at once
-	Declare SubClassFunction(Gadget, Function, *Adress)		; Subclass any gadget function (Works with native pb gadgets too)
+	Declare SubClassFunction(Gadget, Function, *Address)		; Subclass any gadget function (Works with native pb gadgets too)
 	
 	; Getters
 	Declare GetAccessibilityMode()							; Returns the current accessibility state.
 	Declare.s GetGadgetColorScheme(Gadget)					; Apply a complete color scheme at once
-	Declare GetCurrentTheme()								; Returns the current theme adress
+	Declare GetCurrentTheme()								; Returns the current theme address
 	
 	; Window
 	Declare Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
@@ -341,12 +341,12 @@
 	Declare GetGadgetImage(Gadget)
 	Declare SetGadgetImage(Gadget, Image)
 	Declare GetGadgetItemImage(Gadget, Position)
-	Declare StringSetSelection(Gadget, Position, Lenght)
+	Declare StringSetSelection(Gadget, Position, Length)
 	
 	Declare Button(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare Toggle(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
-	Declare ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags = #Default)
+	Declare ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLength, Flags = #Default)
 	Declare Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
 	Declare TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
@@ -1017,8 +1017,8 @@ Module UITK
 	Procedure PrepareVectorTextBlock(*TextData.Text)
 		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.BITMAP
 		
-		*TextData\RequieredHeight = 0
-		*TextData\RequieredWidth = 0
+		*TextData\RequiredHeight = 0
+		*TextData\RequiredWidth = 0
 		*TextData\Text = ""
 		
 		String = ReplaceString(*TextData\OriginalText, #CRLF$, #CR$)
@@ -1036,21 +1036,21 @@ Module UITK
 		TextHeight = VectorTextHeight("a")
 		MaxLine = Floor(*TextData\Height / TextHeight)
 		
-		*TextData\RequieredHeight = TextHeight * Count
+		*TextData\RequiredHeight = TextHeight * Count
 		
 		For Loop = 1 To Count
 			AddElement(StringList())
 			StringList() = Trim(StringField(String, Loop, #CR$))
 			TextWidth = VectorTextWidth(StringList())
-			If TextWidth > *TextData\RequieredWidth
-				*TextData\RequieredWidth = TextWidth
+			If TextWidth > *TextData\RequiredWidth
+				*TextData\RequiredWidth = TextWidth
 			EndIf
 		Next
 		
 		If *TextData\Image
 			GetObject_(*TextData\Image, SizeOf(BITMAP), @HBitmap.BITMAP)
 			HBitmap\bmWidth + #TextBlock_ImageMargin
-			*TextData\RequieredWidth + HBitmap\bmWidth
+			*TextData\RequiredWidth + HBitmap\bmWidth
 		EndIf
 		
 		Width = *TextData\Width - HBitmap\bmWidth
@@ -1138,7 +1138,7 @@ Module UITK
 			*TextData\VectorAlign =  #PB_VectorParagraph_Left
 		EndIf
 		
-		*TextData\RequieredWidth + 1
+		*TextData\RequiredWidth + 1
 		
 		StopVectorDrawing()
 		FreeImage(Image)
@@ -1465,8 +1465,8 @@ Module UITK
 	Procedure Default_GetRequiredSize(*This.PB_Gadget, *Width, *Height)
 		Protected *GadgetData.GadgetData = *this\vt
 		
-		PokeW(*Width, *GadgetData\TextBlock\RequieredWidth + *GadgetData\HMargin * 2)
-		PokeW(*Height, *GadgetData\TextBlock\RequieredHeight + *GadgetData\VMargin * 2)
+		PokeW(*Width, *GadgetData\TextBlock\RequiredWidth + *GadgetData\HMargin * 2)
+		PokeW(*Height, *GadgetData\TextBlock\RequiredHeight + *GadgetData\VMargin * 2)
 	EndProcedure
 	
 	Procedure Default_GetAttribute(*This.PB_Gadget, Attribute)
@@ -1531,133 +1531,133 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure SubClassFunction(Gadget, Function, *Adress) ; Advanced functionnality! Probably too much of a niche usage, move it to the private branche of UITK?
+	Procedure SubClassFunction(Gadget, Function, *Address) ; Advanced functionality! Probably too much of a niche usage, move it to the private branch of UITK?
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt, *Result
 		
 		Select Function
 			Case #SubClass_EventHandler
 				*Result = *GadgetData\EventHandler
-				If *Adress : *GadgetData\EventHandler = *Adress : EndIf
+				If *Address : *GadgetData\EventHandler = *Address : EndIf
 			Case #SubClass_GadgetCallback
 				*Result = *this\vt\GadgetCallback
-				If *Adress : *this\vt\GadgetCallback = *Adress : EndIf
+				If *Address : *this\vt\GadgetCallback = *Address : EndIf
 			Case #SubClass_FreeGadget
 				*Result = *this\vt\FreeGadget
-				If *Adress : *this\vt\FreeGadget = *Adress : EndIf
+				If *Address : *this\vt\FreeGadget = *Address : EndIf
 			Case #SubClass_GetGadgetState
 				*Result = *this\vt\GetGadgetState
-				If *Adress : *this\vt\GetGadgetState = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetState = *Address : EndIf
 			Case #SubClass_SetGadgetState
 				*Result = *this\vt\SetGadgetState
-				If *Adress : *this\vt\SetGadgetState = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetState = *Address : EndIf
 			Case #SubClass_GetGadgetText
 				*Result = *this\vt\GetGadgetText
-				If *Adress : *this\vt\GetGadgetText = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetText = *Address : EndIf
 			Case #SubClass_SetGadgetText
 				*Result = *this\vt\SetGadgetText
-				If *Adress : *this\vt\SetGadgetText = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetText = *Address : EndIf
 			Case #SubClass_AddGadgetItem2
 				*Result = *this\vt\AddGadgetItem2
-				If *Adress : *this\vt\AddGadgetItem2 = *Adress : EndIf
+				If *Address : *this\vt\AddGadgetItem2 = *Address : EndIf
 			Case #SubClass_AddGadgetItem3
 				*Result = *this\vt\AddGadgetItem3
-				If *Adress : *this\vt\AddGadgetItem3 = *Adress : EndIf
+				If *Address : *this\vt\AddGadgetItem3 = *Address : EndIf
 			Case #SubClass_RemoveGadgetItem
 				*Result = *this\vt\RemoveGadgetItem
-				If *Adress : *this\vt\RemoveGadgetItem = *Adress : EndIf
+				If *Address : *this\vt\RemoveGadgetItem = *Address : EndIf
 			Case #SubClass_ClearGadgetItemList
 				*Result = *this\vt\ClearGadgetItemList
-				If *Adress : *this\vt\ClearGadgetItemList = *Adress : EndIf
+				If *Address : *this\vt\ClearGadgetItemList = *Address : EndIf
 			Case #SubClass_ResizeGadget
 				*Result = *this\vt\ResizeGadget
-				If *Adress : *this\vt\ResizeGadget = *Adress : EndIf
+				If *Address : *this\vt\ResizeGadget = *Address : EndIf
 			Case #SubClass_CountGadgetItems
 				*Result = *this\vt\CountGadgetItems
-				If *Adress : *this\vt\CountGadgetItems = *Adress : EndIf
+				If *Address : *this\vt\CountGadgetItems = *Address : EndIf
 			Case #SubClass_GetGadgetItemState
 				*Result = *this\vt\GetGadgetItemState
-				If *Adress : *this\vt\GetGadgetItemState = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetItemState = *Address : EndIf
 			Case #SubClass_SetGadgetItemState
 				*Result = *this\vt\SetGadgetItemState
-				If *Adress : *this\vt\SetGadgetItemState = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetItemState = *Address : EndIf
 			Case #SubClass_GetGadgetItemText
 				*Result = *this\vt\GetGadgetItemText
-				If *Adress : *this\vt\GetGadgetItemText = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetItemText = *Address : EndIf
 			Case #SubClass_SetGadgetItemText
 				*Result = *this\vt\SetGadgetItemText
-				If *Adress : *this\vt\SetGadgetItemText = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetItemText = *Address : EndIf
 			Case #SubClass_OpenGadgetList2
 				*Result = *this\vt\OpenGadgetList2
-				If *Adress : *this\vt\OpenGadgetList2 = *Adress : EndIf
+				If *Address : *this\vt\OpenGadgetList2 = *Address : EndIf
 			Case #SubClass_GadgetX
 				*Result = *this\vt\GadgetX
-				If *Adress : *this\vt\GadgetX = *Adress : EndIf
+				If *Address : *this\vt\GadgetX = *Address : EndIf
 			Case #SubClass_GadgetY
 				*Result = *this\vt\GadgetY
-				If *Adress : *this\vt\GadgetY = *Adress : EndIf
+				If *Address : *this\vt\GadgetY = *Address : EndIf
 			Case #SubClass_GadgetWidth
 				*Result = *this\vt\GadgetWidth
-				If *Adress : *this\vt\GadgetWidth = *Adress : EndIf
+				If *Address : *this\vt\GadgetWidth = *Address : EndIf
 			Case #SubClass_GadgetHeight
 				*Result = *this\vt\GadgetHeight
-				If *Adress : *this\vt\GadgetHeight = *Adress : EndIf
+				If *Address : *this\vt\GadgetHeight = *Address : EndIf
 			Case #SubClass_HideGadget
 				*Result = *this\vt\HideGadget
-				If *Adress : *this\vt\HideGadget = *Adress : EndIf
+				If *Address : *this\vt\HideGadget = *Address : EndIf
 			Case #SubClass_AddGadgetColumn
 				*Result = *this\vt\AddGadgetColumn
-				If *Adress : *this\vt\AddGadgetColumn = *Adress : EndIf
+				If *Address : *this\vt\AddGadgetColumn = *Address : EndIf
 			Case #SubClass_RemoveGadgetColumn
 				*Result = *this\vt\RemoveGadgetColumn
-				If *Adress : *this\vt\RemoveGadgetColumn = *Adress : EndIf
+				If *Address : *this\vt\RemoveGadgetColumn = *Address : EndIf
 			Case #SubClass_GetGadgetAttribute
 				*Result = *this\vt\GetGadgetAttribute
-				If *Adress : *this\vt\GetGadgetAttribute = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetAttribute = *Address : EndIf
 			Case #SubClass_SetGadgetAttribute
 				*Result = *this\vt\SetGadgetAttribute
-				If *Adress : *this\vt\SetGadgetAttribute = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetAttribute = *Address : EndIf
 			Case #SubClass_GetGadgetItemAttribute2
 				*Result = *this\vt\GetGadgetItemAttribute2
-				If *Adress : *this\vt\GetGadgetItemAttribute2 = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetItemAttribute2 = *Address : EndIf
 			Case #SubClass_SetGadgetItemAttribute2
 				*Result = *this\vt\SetGadgetItemAttribute2
-				If *Adress : *this\vt\SetGadgetItemAttribute2 = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetItemAttribute2 = *Address : EndIf
 			Case #SubClass_SetGadgetColor
 				*Result = *this\vt\SetGadgetColor
-				If *Adress : *this\vt\SetGadgetColor = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetColor = *Address : EndIf
 			Case #SubClass_GetGadgetColor
 				*Result = *this\vt\GetGadgetColor
-				If *Adress : *this\vt\GetGadgetColor = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetColor = *Address : EndIf
 			Case #SubClass_SetGadgetItemColor2
 				*Result = *this\vt\SetGadgetItemColor2
-				If *Adress : *this\vt\SetGadgetItemColor2 = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetItemColor2 = *Address : EndIf
 			Case #SubClass_GetGadgetItemColor2
 				*Result = *this\vt\GetGadgetItemColor2
-				If *Adress : *this\vt\GetGadgetItemColor2 = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetItemColor2 = *Address : EndIf
 			Case #SubClass_SetGadgetItemData
 				*Result = *this\vt\SetGadgetItemData
-				If *Adress : *this\vt\SetGadgetItemData = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetItemData = *Address : EndIf
 			Case #SubClass_GetGadgetItemData
 				*Result = *this\vt\GetGadgetItemData
-				If *Adress : *this\vt\GetGadgetItemData = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetItemData = *Address : EndIf
 			Case #SubClass_GetRequiredSize
 				*Result = *this\vt\GetRequiredSize
-				If *Adress : *this\vt\GetRequiredSize = *Adress : EndIf
+				If *Address : *this\vt\GetRequiredSize = *Address : EndIf
 			Case #SubClass_SetActiveGadget
 				*Result = *this\vt\SetActiveGadget
-				If *Adress : *this\vt\SetActiveGadget = *Adress : EndIf
+				If *Address : *this\vt\SetActiveGadget = *Address : EndIf
 			Case #SubClass_GetGadgetFont
 				*Result = *this\vt\GetGadgetFont
-				If *Adress : *this\vt\GetGadgetFont = *Adress : EndIf
+				If *Address : *this\vt\GetGadgetFont = *Address : EndIf
 			Case #SubClass_SetGadgetFont
 				*Result = *this\vt\SetGadgetFont
-				If *Adress : *this\vt\SetGadgetFont = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetFont = *Address : EndIf
 			Case #SubClass_SetGadgetItemImage
 				*Result = *this\vt\SetGadgetItemImage
-				If *Adress : *this\vt\SetGadgetItemImage = *Adress : EndIf
+				If *Address : *this\vt\SetGadgetItemImage = *Address : EndIf
 			Case #SubClass_DropHandler
 				*Result = *this\vt\DropHandler
-				If *Adress : *this\vt\DropHandler = *Adress : EndIf
+				If *Address : *this\vt\DropHandler = *Address : EndIf
 		EndSelect
 		
 		ProcedureReturn *Result
@@ -2720,7 +2720,7 @@ Module UITK
 			\Toggle = Bool(Flags & #Button_Toggle)
 			\TextBlock\OriginalText = Text
 			
-			; Button alignement is different from default alignement.
+			; Button alignment is different from default alignment.
 			If Flags & #VAlignTop
 				\TextBlock\VAlign = #VAlignTop
 			ElseIf Flags & #VAlignBottom
@@ -3157,16 +3157,16 @@ Module UITK
 	
 	Structure StringData Extends GadgetData
 		Timer.i
-		Carret.i
-		AlignementOffset.i
-		CarretVisible.i
-		CarretPosition.i
+		Caret.i
+		AlignmentOffset.i
+		CaretVisible.i
+		CaretPosition.i
 		TextPositionX.i
 		TextPositionY.i
 		String.s
 		SelectionPosition.i
-		SelectionLenght.i
-		CarretHeight.l
+		SelectionLength.i
+		CaretHeight.l
 		List CharacterData.String_CharacterData()
 		Selecting.b
 		Focus.b
@@ -3208,16 +3208,16 @@ Module UITK
 			Next
 			
 			If \TextBlock\HAlign = #HAlignCenter
-				\AlignementOffset = (\Width - Position) * 0.5
+				\AlignmentOffset = (\Width - Position) * 0.5
 			ElseIf \TextBlock\HAlign = #HAlignRight
-				\AlignementOffset = \Width - Position - BorderMargin
+				\AlignmentOffset = \Width - Position - BorderMargin
 			EndIf
 			
 			AddElement(\CharacterData())
 			\CharacterData()\Position = Position
 			
-			If \CarretPosition > CharacterCount
-				\CarretPosition = CharacterCount
+			If \CaretPosition > CharacterCount
+				\CaretPosition = CharacterCount
 			EndIf
 			
 			StopVectorDrawing()
@@ -3247,15 +3247,15 @@ Module UITK
 			EndIf
 			
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
-			MovePathCursor(\TextPositionX + \AlignementOffset + \OriginX, \TextPositionY + \OriginY)
+			MovePathCursor(\TextPositionX + \AlignmentOffset + \OriginX, \TextPositionY + \OriginY)
 			DrawVectorParagraph(\String, \Width, \Height)
 			
 			If \SelectionPosition > -1 And \Focus
 				SelectElement(\CharacterData(), \SelectionPosition)
-				Position = \CharacterData()\Position + \AlignementOffset + \OriginX
+				Position = \CharacterData()\Position + \AlignmentOffset + \OriginX
 				
-				If \SelectionLenght < 0
-					For Loop = -1 To \SelectionLenght Step -1
+				If \SelectionLength < 0
+					For Loop = -1 To \SelectionLength Step -1
 						PreviousElement(\CharacterData())
 						Size + \CharacterData()\Width
 						Text = \CharacterData()\Char + Text
@@ -3265,14 +3265,14 @@ Module UITK
 					Size = \CharacterData()\Width
 					Text = \CharacterData()\Char
 					
-					For Loop = 2 To \SelectionLenght
+					For Loop = 2 To \SelectionLength
 						NextElement(\CharacterData())
 						Size + \CharacterData()\Width
 						Text + \CharacterData()\Char
 					Next
 				EndIf
 				
-				AddPathBox(Position, \OriginY + \TextPositionY + 1, Size, \CarretHeight)
+				AddPathBox(Position, \OriginY + \TextPositionY + 1, Size, \CaretHeight)
 				VectorSourceColor(SetAlpha(FixColor($4F9BF2), 255))
 				FillPath()
 				
@@ -3284,10 +3284,10 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure String_CarretRedraw(*GadgetData.StringData, Timer)
+	Procedure String_CaretRedraw(*GadgetData.StringData, Timer)
 		With *GadgetData
-			HideGadget(\Carret, \CarretVisible)
-			\CarretVisible = Bool(Not \CarretVisible)
+			HideGadget(\Caret, \CaretVisible)
+			\CaretVisible = Bool(Not \CaretVisible)
 		EndWith
 	EndProcedure
 	
@@ -3295,18 +3295,18 @@ Module UITK
 		Protected Size, Loop
 		
 		With *GadgetData
-			If \SelectionLenght < 0
-				\CarretPosition = \SelectionPosition + \SelectionLenght
-				SelectElement(\CharacterData(), \CarretPosition)
-				\SelectionLenght = Abs(\SelectionLenght)
+			If \SelectionLength < 0
+				\CaretPosition = \SelectionPosition + \SelectionLength
+				SelectElement(\CharacterData(), \CaretPosition)
+				\SelectionLength = Abs(\SelectionLength)
 			Else
-				\CarretPosition = \SelectionPosition
+				\CaretPosition = \SelectionPosition
 				SelectElement(\CharacterData(), \SelectionPosition)
 			EndIf
 			
-			\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - (\CarretPosition + \SelectionLenght))
+			\String = Left(\String, \CaretPosition) + Right(\String, Len(\String) - (\CaretPosition + \SelectionLength))
 			
-			For Loop = 1 To \SelectionLenght
+			For Loop = 1 To \SelectionLength
 				Size + \CharacterData()\Width
 				DeleteElement(\CharacterData())
 				NextElement(\CharacterData())
@@ -3318,12 +3318,12 @@ Module UITK
 			Wend
 			
 			If \TextBlock\HAlign = #HAlignCenter
-				\AlignementOffset = (\Width - \CharacterData()\Position) * 0.5
+				\AlignmentOffset = (\Width - \CharacterData()\Position) * 0.5
 			ElseIf \TextBlock\HAlign = #HAlignRight
-				\AlignementOffset = \Width - \CharacterData()\Position - BorderMargin
+				\AlignmentOffset = \Width - \CharacterData()\Position - BorderMargin
 			EndIf
 			
-			\SelectionLenght = 0
+			\SelectionLength = 0
 			\SelectionPosition = -1
 		EndWith
 	EndProcedure
@@ -3338,12 +3338,12 @@ Module UITK
 						String_RemoveSelection(*GadgetData.StringData)
 					EndIf
 					
-					If \CarretPosition = 0
+					If \CaretPosition = 0
 						FirstElement(\CharacterData())
 						Size = \CharacterData()\Position
 						InsertElement(\CharacterData())
 					Else
-						SelectElement(\CharacterData(), \CarretPosition - 1)
+						SelectElement(\CharacterData(), \CaretPosition - 1)
 						Size = \CharacterData()\Position + \CharacterData()\Width
 						AddElement(\CharacterData())
 					EndIf
@@ -3359,12 +3359,12 @@ Module UITK
 					
 					\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
 					If \TextBlock\HAlign = #HAlignCenter
-						\AlignementOffset - \CharacterData()\Width * 0.5
+						\AlignmentOffset - \CharacterData()\Width * 0.5
 					ElseIf \TextBlock\HAlign = #HAlignRight
-						\AlignementOffset - \CharacterData()\Width
+						\AlignmentOffset - \CharacterData()\Width
 					EndIf
 					
-					ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position + \CharacterData()\Width, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position + \CharacterData()\Width, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 					
 					StopVectorDrawing()
 					
@@ -3374,32 +3374,32 @@ Module UITK
 						\CharacterData()\Position + Size
 					Wend
 					
-					\String = Left(\String, \CarretPosition) + Chr(*Event\Param) + Right(\String, Len(\String) - \CarretPosition)
+					\String = Left(\String, \CaretPosition) + Chr(*Event\Param) + Right(\String, Len(\String) - \CaretPosition)
 					Redraw = #True
 					
-					\CarretPosition + 1
-					HideGadget(\Carret, #False)
-					\CarretVisible = #True
+					\CaretPosition + 1
+					HideGadget(\Caret, #False)
+					\CaretVisible = #True
 					RemoveGadgetTimer(\Timer)
-					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 					
 					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					;}
 				Case #LeftButtonDown ;{
 					ForEach \CharacterData()
-						If \CharacterData()\Position + 2 > (*Event\MouseX - \AlignementOffset)
+						If \CharacterData()\Position + 2 > (*Event\MouseX - \AlignmentOffset)
 							Break
 						EndIf
 					Next
 					
-					\CarretPosition = ListIndex(\CharacterData())
-					ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-					HideGadget(\Carret, #False)
-					\CarretVisible = #True
+					\CaretPosition = ListIndex(\CharacterData())
+					ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					HideGadget(\Caret, #False)
+					\CaretVisible = #True
 					RemoveGadgetTimer(\Timer)
-					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 					\Selecting = #True
-					\SelectionLenght = 0
+					\SelectionLength = 0
 					\SelectionPosition = -1
 					Redraw = #True
 					;}
@@ -3409,72 +3409,72 @@ Module UITK
 				Case #KeyDown ;{
 					Select *Event\Param
 						Case #PB_Shortcut_Left ;{
-							If \CarretPosition > 0
+							If \CaretPosition > 0
 								Modifiers = GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers)
 								If Modifiers & #PB_Canvas_Shift
 									If \SelectionPosition > -1
-										\SelectionLenght -1
-										If \SelectionLenght = 0
+										\SelectionLength -1
+										If \SelectionLength = 0
 											\SelectionPosition = -1
 										EndIf
 									Else
-										\SelectionPosition = \CarretPosition
-										\SelectionLenght = -1
+										\SelectionPosition = \CaretPosition
+										\SelectionLength = -1
 									EndIf
 									Redraw = #True
 								ElseIf \SelectionPosition > -1
 									\SelectionPosition = -1
-									\SelectionLenght = 0
+									\SelectionLength = 0
 									Redraw = #True
 								EndIf
 								
-								\CarretPosition - 1
-								SelectElement(\CharacterData(), \CarretPosition)
-								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
+								\CaretPosition - 1
+								SelectElement(\CharacterData(), \CaretPosition)
+								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Caret, #False)
+								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 							Else
 								If \SelectionPosition > -1 And Not (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
 									\SelectionPosition = -1
-									\SelectionLenght = 0
+									\SelectionLength = 0
 									Redraw = #True
 								EndIf
 							EndIf
 							;}
 						Case #PB_Shortcut_Right ;{
-							If \CarretPosition < ListSize(\CharacterData()) And SelectElement(\CharacterData(), \CarretPosition + 1)
+							If \CaretPosition < ListSize(\CharacterData()) And SelectElement(\CharacterData(), \CaretPosition + 1)
 								Modifiers = GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers)
 								If Modifiers & #PB_Canvas_Shift
 									If \SelectionPosition > -1
-										\SelectionLenght +1
-										If \SelectionLenght = 0
+										\SelectionLength +1
+										If \SelectionLength = 0
 											\SelectionPosition = -1
 										EndIf
 									Else
-										\SelectionPosition = \CarretPosition
-										\SelectionLenght = 1
+										\SelectionPosition = \CaretPosition
+										\SelectionLength = 1
 									EndIf
 									Redraw = #True
-									SelectElement(\CharacterData(), \CarretPosition + 1)
+									SelectElement(\CharacterData(), \CaretPosition + 1)
 								ElseIf \SelectionPosition > -1
 									\SelectionPosition = -1
-									\SelectionLenght = 0
+									\SelectionLength = 0
 									Redraw = #True
-									SelectElement(\CharacterData(), \CarretPosition + 1)
+									SelectElement(\CharacterData(), \CaretPosition + 1)
 								EndIf
 								
-								\CarretPosition + 1
-								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
+								\CaretPosition + 1
+								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Caret, #False)
+								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 							Else
 								If \SelectionPosition > -1 And Not (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
 									\SelectionPosition = -1
-									\SelectionLenght = 0
+									\SelectionLength = 0
 									Redraw = #True
 								EndIf
 							EndIf
@@ -3482,26 +3482,26 @@ Module UITK
 						Case #PB_Shortcut_Delete ;{
 							If \SelectionPosition > -1
 								String_RemoveSelection(*GadgetData.StringData)
-								SelectElement(\CharacterData(), \CarretPosition)
-								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								SelectElement(\CharacterData(), \CaretPosition)
+								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
+								HideGadget(\Caret, #False)
+								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-							ElseIf \CarretPosition < ListSize(\CharacterData()) - 1
-								SelectElement(\CharacterData(), \CarretPosition)
+							ElseIf \CaretPosition < ListSize(\CharacterData()) - 1
+								SelectElement(\CharacterData(), \CaretPosition)
 								Size = \CharacterData()\Width
 								
 								If \TextBlock\HAlign = #HAlignCenter
-									\AlignementOffset + \CharacterData()\Width * 0.5
-									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									\AlignmentOffset + \CharacterData()\Width * 0.5
+									ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								ElseIf \TextBlock\HAlign = #HAlignRight
-									\AlignementOffset + \CharacterData()\Width
-									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									\AlignmentOffset + \CharacterData()\Width
+									ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								EndIf
 								
 								DeleteElement(\CharacterData())
@@ -3510,12 +3510,12 @@ Module UITK
 									\CharacterData()\Position - Size
 								Wend
 								
-								\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - \CarretPosition - 1)
+								\String = Left(\String, \CaretPosition) + Right(\String, Len(\String) - \CaretPosition - 1)
 								
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
+								HideGadget(\Caret, #False)
+								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
@@ -3524,28 +3524,28 @@ Module UITK
 						Case #PB_Shortcut_Back ;{
 							If \SelectionPosition > -1
 								String_RemoveSelection(*GadgetData.StringData)
-								SelectElement(\CharacterData(), \CarretPosition)
-								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								SelectElement(\CharacterData(), \CaretPosition)
+								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
+								HideGadget(\Caret, #False)
+								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-							ElseIf \CarretPosition
-								\CarretPosition -1
-								SelectElement(\CharacterData(), \CarretPosition)
+							ElseIf \CaretPosition
+								\CaretPosition -1
+								SelectElement(\CharacterData(), \CaretPosition)
 								Size = \CharacterData()\Width
 								
 								If \TextBlock\HAlign = #HAlignCenter
-									\AlignementOffset + \CharacterData()\Width * 0.5
-									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									\AlignmentOffset + \CharacterData()\Width * 0.5
+									ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								ElseIf \TextBlock\HAlign = #HAlignRight
-									\AlignementOffset + \CharacterData()\Width
+									\AlignmentOffset + \CharacterData()\Width
 								Else
-									ResizeGadget(\Carret, GadgetX(\Carret) - Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									ResizeGadget(\Caret, GadgetX(\Caret) - Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								EndIf
 								
 								DeleteElement(\CharacterData())
@@ -3554,12 +3554,12 @@ Module UITK
 									\CharacterData()\Position - Size
 								Wend
 								
-								\String = Left(\String, \CarretPosition) + Right(\String, Len(\String) - \CarretPosition - 1)
+								\String = Left(\String, \CaretPosition) + Right(\String, Len(\String) - \CaretPosition - 1)
 								
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
+								HideGadget(\Caret, #False)
+								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 								
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
@@ -3573,16 +3573,16 @@ Module UITK
 										String_RemoveSelection(*GadgetData)
 									EndIf
 									
-									\String = Left(\String, \CarretPosition) + Text + Right(\String, Len(\String) - \CarretPosition)
-									\CarretPosition + Len(Text)
+									\String = Left(\String, \CaretPosition) + Text + Right(\String, Len(\String) - \CaretPosition)
+									\CaretPosition + Len(Text)
 									String_ProcessString(*GadgetData)
 									
-									SelectElement(\CharacterData(), \CarretPosition)
-									ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-									HideGadget(\Carret, #False)
-									\CarretVisible = #True
+									SelectElement(\CharacterData(), \CaretPosition)
+									ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									HideGadget(\Caret, #False)
+									\CaretVisible = #True
 									RemoveGadgetTimer(\Timer)
-									\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+									\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 									Redraw = #True
 									
 									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
@@ -3592,16 +3592,16 @@ Module UITK
 						Case #PB_Shortcut_C ;{
 							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control And \SelectionPosition > -1
 								
-								If \SelectionLenght < 0
-									\CarretPosition = \SelectionPosition + \SelectionLenght
-									SelectElement(\CharacterData(), \CarretPosition)
-									\SelectionLenght = Abs(\SelectionLenght)
+								If \SelectionLength < 0
+									\CaretPosition = \SelectionPosition + \SelectionLength
+									SelectElement(\CharacterData(), \CaretPosition)
+									\SelectionLength = Abs(\SelectionLength)
 								Else
-									\CarretPosition = \SelectionPosition
+									\CaretPosition = \SelectionPosition
 									SelectElement(\CharacterData(), \SelectionPosition)
 								EndIf
 								
-								For Loop = 1 To \SelectionLenght
+								For Loop = 1 To \SelectionLength
 									Text + \CharacterData()\Char
 									NextElement(\CharacterData())
 								Next
@@ -3612,23 +3612,23 @@ Module UITK
 						Case #PB_Shortcut_X ;{
 							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control And \SelectionPosition > -1
 								
-								If \SelectionLenght < 0
-									\CarretPosition = \SelectionPosition + \SelectionLenght
-									SelectElement(\CharacterData(), \CarretPosition)
-									\SelectionLenght = Abs(\SelectionLenght)
-									\SelectionPosition = \CarretPosition
+								If \SelectionLength < 0
+									\CaretPosition = \SelectionPosition + \SelectionLength
+									SelectElement(\CharacterData(), \CaretPosition)
+									\SelectionLength = Abs(\SelectionLength)
+									\SelectionPosition = \CaretPosition
 								Else
-									\CarretPosition = \SelectionPosition
+									\CaretPosition = \SelectionPosition
 									SelectElement(\CharacterData(), \SelectionPosition)
 								EndIf
 								
-								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
+								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Caret, #False)
+								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								
-								For Loop = 1 To \SelectionLenght
+								For Loop = 1 To \SelectionLength
 									Text + \CharacterData()\Char
 									NextElement(\CharacterData())
 								Next
@@ -3644,16 +3644,16 @@ Module UITK
 						Case #PB_Shortcut_A ;{
 							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control
 								\SelectionPosition = 0
-								\CarretPosition = ListSize(\CharacterData()) - 1
-								\SelectionLenght = \CarretPosition
+								\CaretPosition = ListSize(\CharacterData()) - 1
+								\SelectionLength = \CaretPosition
 								
 								LastElement(\CharacterData())
 								
-								ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								HideGadget(\Carret, #False)
-								\CarretVisible = #True
+								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								HideGadget(\Caret, #False)
+								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 							EndIf
 							;}
@@ -3663,13 +3663,13 @@ Module UITK
 					EndSelect
 					;}
 				Case #Focus ;{
-					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 					\Focus = #True
 					
-					SelectElement(\CharacterData(), \CarretPosition)
-					ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, \OriginY + \TextPositionY + \Border, #PB_Ignore, #PB_Ignore)
-					HideGadget(\Carret, #False)
-					\CarretVisible = #True
+					SelectElement(\CharacterData(), \CaretPosition)
+					ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, \OriginY + \TextPositionY + \Border, #PB_Ignore, #PB_Ignore)
+					HideGadget(\Caret, #False)
+					\CaretVisible = #True
 					
 					If \SelectionPosition > -1
 						Redraw = #True
@@ -3677,9 +3677,9 @@ Module UITK
 					;}
 				Case #LostFocus ;{
 					RemoveGadgetTimer(\Timer)
-					If \CarretVisible
-						HideGadget(\Carret, #True)
-						\CarretVisible = #False
+					If \CaretVisible
+						HideGadget(\Caret, #True)
+						\CaretVisible = #False
 					EndIf
 					
 					\Focus = #False
@@ -3691,29 +3691,29 @@ Module UITK
 				Case #MouseMove ;{
 					If \Selecting
 						ForEach \CharacterData()
-							If \CharacterData()\Position + 2 > (*Event\MouseX - \AlignementOffset)
+							If \CharacterData()\Position + 2 > (*Event\MouseX - \AlignmentOffset)
 								Break
 							EndIf
 						Next
 						Selection = ListIndex(\CharacterData())
 						
-						If Selection <> \CarretPosition
+						If Selection <> \CaretPosition
 							If \SelectionPosition = -1
-								\SelectionPosition = \CarretPosition
+								\SelectionPosition = \CaretPosition
 							EndIf
 							
-							\CarretPosition = ListIndex(\CharacterData())
-							\SelectionLenght = \CarretPosition - \SelectionPosition
+							\CaretPosition = ListIndex(\CharacterData())
+							\SelectionLength = \CaretPosition - \SelectionPosition
 							
-							If \SelectionLenght = 0
+							If \SelectionLength = 0
 								\SelectionPosition = -1
 							EndIf
 							
-							ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-							HideGadget(\Carret, #False)
-							\CarretVisible = #True
+							ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+							HideGadget(\Caret, #False)
+							\CaretVisible = #True
 							RemoveGadgetTimer(\Timer)
-							\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+							\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 							
 							Redraw = #True
 						EndIf
@@ -3749,8 +3749,8 @@ Module UITK
 				Case #Attribute_TextSelectionPosition
 					Result =  \SelectionPosition
 					
-				Case #Attribute_TextSelectionLenght
-					Result = \SelectionLenght
+				Case #Attribute_TextSelectionLength
+					Result = \SelectionLength
 					
 				Default
 					Result = Default_GetAttribute(*this.PB_Gadget, Attribute)
@@ -3766,20 +3766,20 @@ Module UITK
 		
 		With *GadgetData
 			\String = Text
-			\SelectionLenght = 0
+			\SelectionLength = 0
 			\SelectionPosition = -1
-			\CarretPosition = Len(\String)
+			\CaretPosition = Len(\String)
 			String_ProcessString(*GadgetData)
 			RedrawObject()
 			
 			LastElement(\CharacterData())
-			ResizeGadget(\Carret, \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			ResizeGadget(\Caret, \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 			
 			If \Focus = \Gadget
-				HideGadget(\Carret, #False)
-				\CarretVisible = #True
+				HideGadget(\Caret, #False)
+				\CaretVisible = #True
 				RemoveGadgetTimer(\Timer)
-				\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+				\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 			EndIf
 		EndWith
 		
@@ -3794,9 +3794,9 @@ Module UITK
 			Else
 				VectorFont(\TextBlock\FontID)
 			EndIf
-			\CarretHeight = Ceil( VectorTextHeight("Oh!"))
-			\TextPositionY = \OriginY + Round((\Height - \CarretHeight) * 0.5, #PB_Round_Nearest) - 1
-			ResizeGadget(\Carret, #PB_Ignore, #PB_Ignore, #PB_Ignore, \CarretHeight)
+			\CaretHeight = Ceil( VectorTextHeight("Oh!"))
+			\TextPositionY = \OriginY + Round((\Height - \CaretHeight) * 0.5, #PB_Round_Nearest) - 1
+			ResizeGadget(\Caret, #PB_Ignore, #PB_Ignore, #PB_Ignore, \CaretHeight)
 			StopVectorDrawing()
 		EndWith
 	EndProcedure
@@ -3805,27 +3805,27 @@ Module UITK
 		String_SetFont_Meta(*this\vt, FontID)
 	EndProcedure
 	
-	Procedure StringSetSelection_Meta(*GadgetData.StringData, Position, Lenght)
+	Procedure StringSetSelection_Meta(*GadgetData.StringData, Position, Length)
 		With *GadgetData
 			\SelectionPosition = Position
-			\SelectionLenght = Lenght
-			\CarretPosition = Position + Lenght
+			\SelectionLength = Length
+			\CaretPosition = Position + Length
 			
-			SelectElement(\CharacterData(), \CarretPosition)
-			ResizeGadget(\Carret, \OriginX + \AlignementOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-			HideGadget(\Carret, #False)
-			\CarretVisible = #True
+			SelectElement(\CharacterData(), \CaretPosition)
+			ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			HideGadget(\Caret, #False)
+			\CaretVisible = #True
 			RemoveGadgetTimer(\Timer)
-			\Timer = AddGadgetTimer(*GadgetData, 600, @String_CarretRedraw())
+			\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 			
 			RedrawObject()
 		EndWith
 	EndProcedure
 	
-	Procedure StringSetSelection(Gadget, Position, Lenght)
+	Procedure StringSetSelection(Gadget, Position, Length)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.StringData = *this\vt
 		
-		StringSetSelection_Meta(*GadgetData.StringData, Position, Lenght)
+		StringSetSelection_Meta(*GadgetData.StringData, Position, Length)
 	EndProcedure
 	
 	
@@ -3841,18 +3841,18 @@ Module UITK
 			Else
 				VectorFont(\TextBlock\FontID)
 			EndIf
-			\CarretHeight = Ceil( VectorTextHeight("Oh!"))
+			\CaretHeight = Ceil( VectorTextHeight("Oh!"))
 			
 			StopVectorDrawing()
 			\TextPositionX = \OriginX + BorderMargin * Bool(\TextBlock\HAlign = #HAlignLeft)						
-			\TextPositionY = \OriginY + Round((\Height - \CarretHeight) * 0.5, #PB_Round_Nearest) - 1
+			\TextPositionY = \OriginY + Round((\Height - \CaretHeight) * 0.5, #PB_Round_Nearest) - 1
 			\String = Text
 			\SelectionPosition = -1
 			
-			If \Carret = 0
-				\Carret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, \CarretHeight)
+			If \Caret = 0
+				\Caret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, \CaretHeight)
 				CloseGadgetList()
-				SetGadgetColor(\Carret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]),
+				SetGadgetColor(\Caret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]),
 				                                                  Green(\ThemeData\TextColor[#Cold]),
 				                                                  Blue(\ThemeData\TextColor[#Cold])))
 			EndIf
@@ -3864,7 +3864,7 @@ Module UITK
 				String_ProcessString(*GadgetData)
 			EndIf
 			
-			HideGadget(\Carret, #True)
+			HideGadget(\Caret, #True)
 			
 			\VT\GetGadgetText = @String_GetText()
 			\VT\SetGadgetText = @String_SetText()
@@ -3931,7 +3931,7 @@ Module UITK
 	Structure ScrollBarData Extends GadgetData
 		Min.l
 		Max.l
-		PageLenght.l
+		PageLength.l
 		Vertical.b
 		Position.l
 		BarSize.l
@@ -4031,7 +4031,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure ScrollBar_EventHandler(*GadgetData.ScrollBarData, *Event.Event)
-		Protected Redraw, Mouse, Lenght, Position
+		Protected Redraw, Mouse, Length, Position
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -4039,17 +4039,17 @@ Module UITK
 					If \Drag
 						If \Vertical
 							Mouse = *Event\MouseY - \OriginY
-							Lenght = \Height - \BarSize - \Thickness
+							Length = \Height - \BarSize - \Thickness
 						Else
 							Mouse = *Event\MouseX - \OriginX
-							Lenght = \Width - \BarSize - \Thickness
+							Length = \Width - \BarSize - \Thickness
 						EndIf
 						
-						Position = Clamp(Mouse - \DragOffset, 0, Lenght)
+						Position = Clamp(Mouse - \DragOffset, 0, Length)
 						
 						If Position <> \Position
 							\Position = Position
-							\State = Round(Position / (Lenght) * (\Max - \Min - \PageLenght), #PB_Round_Down)
+							\State = Round(Position / (Length) * (\Max - \Min - \PageLength), #PB_Round_Down)
 							Redraw = #True
 							If \Gadget > -1
 								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
@@ -4083,10 +4083,10 @@ Module UITK
 					If \BarSize >= 0
 						If \Vertical
 							Mouse = *Event\MouseY - \OriginY
-							Lenght = \Height
+							Length = \Height
 						Else
 							Mouse = *Event\MouseX - \OriginX
-							Lenght = \Width
+							Length = \Width
 						EndIf
 						
 						If \MouseState
@@ -4094,17 +4094,17 @@ Module UITK
 							\DragOffset = Mouse - \Position
 						Else
 							If Mouse > \Position
-								\State = Min(\State + \PageLenght, \Max - \PageLenght)
+								\State = Min(\State + \PageLength, \Max - \PageLength)
 								Redraw = #True
 							Else
-								\State = Max(\State - \PageLenght, \Min)
+								\State = Max(\State - \PageLength, \Min)
 								Redraw = #True
 							EndIf
 							
 							If \Gadget > -1
 								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 							EndIf
-							\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+							\Position = Round(\State / (\Max - \Min) * Length, #PB_Round_Nearest)
 						EndIf
 					EndIf
 					;}
@@ -4114,16 +4114,16 @@ Module UITK
 				Case #MouseWheel ;{
 					If \Vertical
 						Mouse = *Event\MouseY
-						Lenght = \Height
+						Length = \Height
 					Else
 						Mouse = *Event\MouseX
-						Lenght = \Width
+						Length = \Width
 					EndIf
 					
-					Position = Clamp(\State - *Event\Param * \ScrollStep, \Min, \Max - \PageLenght)
+					Position = Clamp(\State - *Event\Param * \ScrollStep, \Min, \Max - \PageLength)
 					If Position <> \State
 						\State = Position
-						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+						\Position = Round(\State / (\Max - \Min) * Length, #PB_Round_Nearest)
 						If \Gadget > -1
 							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 						EndIf
@@ -4150,7 +4150,7 @@ Module UITK
 			Case #ScrollBar_Maximum
 				Result = *GadgetData\Max
 			Case #ScrollBar_PageLength
-				Result = *GadgetData\PageLenght
+				Result = *GadgetData\PageLength
 			Case #ScrollBar_ScrollStep
 				Result = *GadgetData\ScrollStep
 			Default
@@ -4161,7 +4161,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure ScrollBar_SetAttribute_Meta(*GadgetData.ScrollBarData, Attribute, Value)
-		Protected Lenght
+		Protected Length
 		
 		With *GadgetData
 			Select Attribute
@@ -4173,23 +4173,23 @@ Module UITK
 							\State = \Min
 						EndIf
 						
-						If \PageLenght >= (\Max - \Min)
+						If \PageLength >= (\Max - \Min)
 							\BarSize = -1
 						EndIf
 						
 						If \Vertical
-							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
+							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
 						Else
-							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
+							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
 						EndIf
 						
-						\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
+						\State = Clamp(\State, \Min, Max(\Max - \PageLength, \Min))
 						If \Vertical
-							Lenght = \Height
+							Length = \Height
 						Else
-							Lenght = \Width
+							Length = \Width
 						EndIf
-						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+						\Position = Round(\State / (\Max - \Min) * Length, #PB_Round_Nearest)
 						
 						RedrawObject()
 					EndIf
@@ -4198,46 +4198,46 @@ Module UITK
 					If Value > \Min
 						\Max = Value
 						
-						If \PageLenght >= (\Max - \Min)
+						If \PageLength >= (\Max - \Min)
 							\BarSize = -1
 						EndIf
 						
 						If \Vertical
-							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
+							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
 						Else
-							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
+							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
 						EndIf
 						
-						\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
+						\State = Clamp(\State, \Min, Max(\Max - \PageLength, \Min))
 						If \Vertical
-							Lenght = \Height
+							Length = \Height
 						Else
-							Lenght = \Width
+							Length = \Width
 						EndIf
-						\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+						\Position = Round(\State / (\Max - \Min) * Length, #PB_Round_Nearest)
 						
 						RedrawObject()
 					EndIf
 					;}
 				Case #ScrollBar_PageLength ;{
-					\PageLenght = Value
-					If \PageLenght >= (\Max - \Min)
+					\PageLength = Value
+					If \PageLength >= (\Max - \Min)
 						\BarSize = -1
 					Else
 						If \Vertical
-							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
+							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
 						Else
-							\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
+							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
 						EndIf
 					EndIf
 					
-					\State = Clamp(\State, \Min, Max(\Max - \PageLenght, \Min))
+					\State = Clamp(\State, \Min, Max(\Max - \PageLength, \Min))
 					If \Vertical
-						Lenght = \Height
+						Length = \Height
 					Else
-						Lenght = \Width
+						Length = \Width
 					EndIf
-					\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+					\Position = Round(\State / (\Max - \Min) * Length, #PB_Round_Nearest)
 					
 					RedrawObject()
 					;}
@@ -4254,19 +4254,19 @@ Module UITK
 	EndProcedure
 	
 	Procedure ScrollBar_SetState_Meta(*GadgetData.ScrollBarData, State)
-		Protected Lenght
+		Protected Length
 		
 		With *GadgetData
-			State = Clamp(State, \Min, \Max - \PageLenght)
+			State = Clamp(State, \Min, \Max - \PageLength)
 			If State <> \State
 				\State = State
 				If \Vertical
-					Lenght = \Height
+					Length = \Height
 				Else
-					Lenght = \Width
+					Length = \Width
 				EndIf
 				
-				\Position = Round(\State / (\Max - \Min) * Lenght, #PB_Round_Nearest)
+				\Position = Round(\State / (\Max - \Min) * Length, #PB_Round_Nearest)
 				RedrawObject()
 			EndIf
 		EndWith
@@ -4285,13 +4285,13 @@ Module UITK
 			
 			If \Vertical
 				\Thickness = \Width
-				\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
+				\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
 			Else
 				\Thickness = \Height
-				\BarSize = Clamp(Round(\PageLenght / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
+				\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
 			EndIf
 			
-			If \PageLenght >= (\Max - \Min)
+			If \PageLength >= (\Max - \Min)
 				\BarSize = -1
 			EndIf
 			
@@ -4309,25 +4309,25 @@ Module UITK
 		Scrollbar_ResizeMeta(*GadgetData, 0, 0, GadgetWidth(*GadgetData\Gadget), GadgetHeight(*GadgetData\Gadget))
 	EndProcedure
 	
-	Procedure Scrollbar_Meta(*GadgetData.ScrollBarData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
+	Procedure Scrollbar_Meta(*GadgetData.ScrollBarData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLength, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(ScrollBar)
 		
 		With *GadgetData
 			\Max = Max
 			\Min = Min
-			\PageLenght = PageLenght
+			\PageLength = PageLength
 			
 			If Flags & #Gadget_Vertical
 				\Vertical = #True
 				\Thickness = \Width
-				\BarSize = Clamp(Round(PageLenght / (max - min) * Height, #PB_Round_Nearest) - \Thickness, 0, Height - \Thickness)
+				\BarSize = Clamp(Round(PageLength / (max - min) * Height, #PB_Round_Nearest) - \Thickness, 0, Height - \Thickness)
 			Else
 				\Thickness = \Height
-				\BarSize = Clamp(Round(PageLenght / (max - min) * Width, #PB_Round_Nearest) - \Thickness, 0, Width - \Thickness)
+				\BarSize = Clamp(Round(PageLength / (max - min) * Width, #PB_Round_Nearest) - \Thickness, 0, Width - \Thickness)
 			EndIf
 			
-			If \PageLenght >= (\Max - \Min)
+			If \PageLength >= (\Max - \Min)
 				\BarSize = -1
 			EndIf
 			
@@ -4349,11 +4349,11 @@ Module UITK
 		ProcedureReturn *GadgetData
 	EndProcedure
 	
-	Procedure ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags = #Default)
+	Procedure ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLength, Flags = #Default)
 		Protected Result, *GadgetData.ScrollBarData, *this.PB_Gadget, *ThemeData
 		
 		If AccessibilityMode
-			Result = ScrollBarGadget(Gadget, x, y, Width, Height, Min, Max, PageLenght, Bool( #Gadget_Vertical) * #PB_ScrollBar_Vertical)
+			Result = ScrollBarGadget(Gadget, x, y, Width, Height, Min, Max, PageLength, Bool( #Gadget_Vertical) * #PB_ScrollBar_Vertical)
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
@@ -4386,7 +4386,7 @@ Module UITK
 				
 				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
 				GadgetHandler() = Gadget
-				Scrollbar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLenght, Flags)
+				Scrollbar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLength, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -4891,7 +4891,7 @@ Module UITK
 					VerticalList_EventHandler(*GadgetData, @Event)
 				EndIf
 			Else
-				If \ScrollBar\State < \ScrollBar\Max - \ScrollBar\PageLenght
+				If \ScrollBar\State < \ScrollBar\Max - \ScrollBar\PageLength
 					Event\EventType = #MouseMove
 					Event\MouseX = WindowX(\ReorderWindow) - \DragOriginX
 					Event\MouseY = WindowY(\ReorderWindow) - \DragOriginY
@@ -4976,7 +4976,7 @@ Module UITK
 								If Not \ReorderTimer
 									\ReorderTimer = AddGadgetTimer(*GadgetData, 400, @VerticalList_ReorderTimer())
 									\ReorderDirection = 1
-									ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight + (\ItemHeight - \ScrollBar\PageLenght % \ItemHeight))
+									ScrollBar_SetState_Meta(\ScrollBar, Max(0, Floor(\ScrollBar\State / \ItemHeight)) * \ItemHeight + (\ItemHeight - \ScrollBar\PageLength % \ItemHeight))
 									Redraw = #True
 								EndIf
 								*Event\MouseY = \Height
@@ -6580,8 +6580,8 @@ Module UITK
 				\VMargin = 20
 			EndIf
 			
-			\TextBlock\RequieredHeight = \VMargin * 2
-			\TextBlock\RequieredWidth = \HMargin * 2
+			\TextBlock\RequiredHeight = \VMargin * 2
+			\TextBlock\RequiredWidth = \HMargin * 2
 			\TextBlock\FontID = BoldFont
 			
 			\VT\AddGadgetItem2 = @Trackbar_AddGadgetItem()
@@ -8260,7 +8260,7 @@ Module UITK
 						Else
 							ResetPath()
 						EndIf
-						AddPathBox(X + \Items()\Level * \BranchWidth - 2, Y + 1, \Items()\Text\RequieredWidth + 2, \ItemHeight - 1)
+						AddPathBox(X + \Items()\Level * \BranchWidth - 2, Y + 1, \Items()\Text\RequiredWidth + 2, \ItemHeight - 1)
 						VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 						FillPath()
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
@@ -8285,7 +8285,7 @@ Module UITK
 						Else
 							ResetPath()
 						EndIf
-						AddPathBox(X + \Items()\Level * \BranchWidth - 2, Y + 1, \Items()\Text\RequieredWidth + 2, \ItemHeight - 1)
+						AddPathBox(X + \Items()\Level * \BranchWidth - 2, Y + 1, \Items()\Text\RequiredWidth + 2, \ItemHeight - 1)
 						VectorSourceColor(SetAlpha(\ThemeData\TextColor[#Cold],40))
 						FillPath()
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
@@ -8409,7 +8409,7 @@ Module UITK
 					If \ScrollBar\MouseState
 						Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
 					ElseIf SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
-						If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequieredWidth)
+						If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
 							If \State <> ListIndex(\Items())
 								\State = ListIndex(\Items())
 								Redraw = #True
@@ -8440,7 +8440,7 @@ Module UITK
 					
 					If Not \ScrollBar\MouseState
 						If SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
-							If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequieredWidth)
+							If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
 								If \State <> ListIndex(\Items())
 									\State = ListIndex(\Items())
 									Redraw = #True
@@ -8467,7 +8467,7 @@ Module UITK
 					;}	
 				Case #LeftDoubleClick ;{
 					If (Not \ScrollBar\MouseState) And SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
-						If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequieredWidth)
+						If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
 							If \State <> ListIndex(\Items())
 								\State = ListIndex(\Items())
 								Redraw = #True
@@ -8694,7 +8694,7 @@ Module UITK
 			Select State
 				Case #PB_Drag_Enter, #PB_Drag_Update
 					If SelectElement(\Items(), Floor((y + \ScrollBar\State) / \ItemHeight))
-						If (x > \Border + \BranchWidth * (\Items()\Level + 1)) And (x < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequieredWidth)
+						If (x > \Border + \BranchWidth * (\Items()\Level + 1)) And (x < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
 							Hover = ListIndex(\Items())
 						EndIf
 					EndIf
@@ -9110,8 +9110,8 @@ Module UITK
 			\Height + \ItemHeight
 			PrepareVectorTextBlock(@\Item()\Text)
 			
-			If \Item()\Text\RequieredWidth + #MenuMargin + #MenuItemLeftMargin > \Width 
-				\Width  = \Item()\Text\RequieredWidth + #MenuMargin + #MenuItemLeftMargin
+			If \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin > \Width 
+				\Width  = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin
 			EndIf
 			
 			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
@@ -9918,8 +9918,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.30 (Windows - x64)
-; CursorPosition = 386
+; IDE Options = PureBasic 6.40 (Windows - x64)
+; CursorPosition = 858
 ; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware

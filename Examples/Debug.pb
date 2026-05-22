@@ -7,7 +7,7 @@ Define Width = DesktopWidth(0)
 Define Height = DesktopHeight(0)
 
 Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), LibraryImageID = ImageID(LoadImage(#PB_Any, "Tiled.png"))
-Global TitleFont = FontID(LoadFont(#PB_Any, "Calibry", 9, #PB_Font_HighQuality | #PB_Font_Bold))
+Global TitleFont = FontID(LoadFont(#PB_Any, "Calibri", 9, #PB_Font_HighQuality | #PB_Font_Bold))
 
 Window1 =  UITK::Window(#PB_Any, 0, 0, 1000, 600, "UI Toolkit : it's fixin' time!", UITK::#Window_ScreenCentered | UITK::#HAlignLeft | UITK::#Window_CloseButton | UITK::#DarkMode)
 
