@@ -1,7 +1,7 @@
 ﻿DeclareModule UITK
 	;{ Public variables, structures and constants
 	EnumerationBinary ; Gadget flags
-		; General
+					  ; General
 		#Default
 		#HAlignCenter									; Center text
 		#HAlignLeft										; Align text left
@@ -309,9 +309,9 @@
 	; Setters
 	Declare SetCurrentTheme(*Theme.Theme)
 	Declare SetDarkMode(State)								; Enable or disable the dark theme
-	Declare SetAccessibilityMode(State) 					; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
+	Declare SetAccessibilityMode(State)						; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
 	Declare SetGadgetColorScheme(Gadget, ThemeJson.s)		; Apply a complete color scheme at once
-	Declare SubClassFunction(Gadget, Function, *Address)		; Subclass any gadget function (Works with native pb gadgets too)
+	Declare SubClassFunction(Gadget, Function, *Address)	; Subclass any gadget function (Works with native pb gadgets too)
 	
 	; Getters
 	Declare GetAccessibilityMode()							; Returns the current accessibility state.
@@ -657,7 +657,7 @@ Module UITK
 			CompilerError "PLEASE SEND HELP ! AU SECOUR! TASEKETE KUDASAI!"
 			;}
 	CompilerEndSelect
-		
+	
 	Enumeration ;DragState
 		#Drag_None
 		#Drag_Init
@@ -1865,20 +1865,32 @@ Module UITK
 	EndStructure
 	
 	Global DWMEnabled = -1
+	Global DWMLibrary = 0
+	
+	Structure UITK_MARGINS
+		cxLeftWidth.l
+		cxRightWidth.l
+		cyTopHeight.l
+		cyBottomHeight.l
+	EndStructure
 	
 	Procedure Window_Init()
-		Protected Margin.RECT, Window
-		
-		Window = OpenWindow(#PB_Any, 0, 0, 100, 100, "", #PB_Window_Invisible)
-		
-		SetRect_(@Margin.RECT, 0, 0, 1, 0)
-		If OpenLibrary(0, "dwmapi.dll")
-			CallFunction(0, "DwmExtendFrameIntoClientArea", WindowID(Window), @Margin)
-			CallFunction(0, "DwmIsCompositionEnabled", @DWMEnabled)
-			CloseLibrary(0)
+		; Detect DWM and keep dwmapi.dll loaded for the lifetime of the program so per-window calls are cheap.
+		DWMLibrary = OpenLibrary(#PB_Any, "dwmapi.dll")
+		If DWMLibrary
+			CallFunction(DWMLibrary, "DwmIsCompositionEnabled", @DWMEnabled)
+		Else
+			DWMEnabled = 0
 		EndIf
-		
-		CloseWindow(Window)
+	EndProcedure
+	
+	Procedure ExtendFrameIntoClient(WindowID)
+		; Tells DWM "this is a custom-chrome window" so Snap/Shadow/animations stay alive after we hide the system title bar via WM_NCCALCSIZE. A 1px top margin is the standard incantation used by Windows Terminal, Firefox, modern Win apps.
+		Protected Margins.UITK_MARGINS
+		Margins\cyTopHeight = 1
+		If DWMLibrary
+			CallFunction(DWMLibrary, "DwmExtendFrameIntoClientArea", WindowID, @Margins)
+		EndIf
 	EndProcedure
 	
 	Procedure CloseButton_Handler()
@@ -1886,7 +1898,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Window_Handler(hWnd, Msg, wParam, lParam)
-		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UITK_WindowData"), cursor.POINT, OffsetX, OriginalProc
+		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UITK_WindowData"), OffsetX, OriginalProc
 		
 		Select Msg
 			Case #WM_GETMINMAXINFO ;{
@@ -1914,7 +1926,52 @@ Module UITK
 				ProcedureReturn 0
 				;}
 			Case #WM_NCCALCSIZE ;{
-				ProcedureReturn 0
+				If wParam
+					Protected *rect.RECT = lParam ; rgrc[0] of NCCALCSIZE_PARAMS
+					If IsZoomed_(hWnd)
+						Protected borderW = GetSystemMetrics_(#SM_CXSIZEFRAME) + GetSystemMetrics_(#SM_CXPADDEDBORDER)
+						Protected borderH = GetSystemMetrics_(#SM_CYSIZEFRAME) + GetSystemMetrics_(#SM_CXPADDEDBORDER)
+						*rect\left + borderW
+						*rect\top + borderH
+						*rect\right - borderW
+						*rect\bottom - borderH
+					EndIf
+					ProcedureReturn 0
+				EndIf
+				;}
+			Case #WM_NCHITTEST ;{
+				Protected ptX = lParam & $FFFF
+				Protected ptY = (lParam >> 16) & $FFFF
+				
+				If ptX & $8000 : ptX | $FFFF0000 : EndIf
+				If ptY & $8000 : ptY | $FFFF0000 : EndIf
+				Protected wRect.RECT
+				GetWindowRect_(hWnd, @wRect)
+				Protected x = ptX - wRect\left
+				Protected y = ptY - wRect\top
+				Protected w = wRect\right - wRect\left
+				Protected h = wRect\bottom - wRect\top
+				
+				If *WindowData\Sizable And IsZoomed_(hWnd) = 0
+					If y < #SizableBorder
+						If x < #SizableBorder  : ProcedureReturn #HTTOPLEFT  : EndIf
+						If x >= w - #SizableBorder : ProcedureReturn #HTTOPRIGHT : EndIf
+						ProcedureReturn #HTTOP
+					EndIf
+					If y >= h - #SizableBorder
+						If x < #SizableBorder  : ProcedureReturn #HTBOTTOMLEFT  : EndIf
+						If x >= w - #SizableBorder : ProcedureReturn #HTBOTTOMRIGHT : EndIf
+						ProcedureReturn #HTBOTTOM
+					EndIf
+					If x < #SizableBorder  : ProcedureReturn #HTLEFT  : EndIf
+					If x >= w - #SizableBorder : ProcedureReturn #HTRIGHT : EndIf
+				EndIf
+				
+				If y < #WindowBarHeight
+					ProcedureReturn #HTCAPTION
+				EndIf
+				
+				ProcedureReturn #HTCLIENT
 				;}
 			Case #WM_CTLCOLORSTATIC, #WM_CTLCOLORBTN ;{
 				SetBkMode_(wParam, #TRANSPARENT)
@@ -1950,75 +2007,6 @@ Module UITK
 			Case #WM_NCACTIVATE ;{
 				ProcedureReturn 1
 				;}
-			Case #WM_MOUSEMOVE ;{
-				Protected posX = lParam & $FFFF
-				Protected posY = (lParam >> 16) & $FFFF
-				*WindowData\sizeCursor = 0
-				
-				If *WindowData\Sizable And IsZoomed_(hWnd) = 0
-					If posX <= #SizableBorder And posY <= #SizableBorder
-						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
-						*WindowData\sizeCursor = #HTTOPLEFT
-					ElseIf posX > #SizableBorder And posX <= *WindowData\Width - #SizableBorder And posY <= #SizableBorder
-						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-						*WindowData\sizeCursor = #HTTOP
-					ElseIf posX > *WindowData\Width - #SizableBorder And posY <= #SizableBorder
-						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
-						*WindowData\sizeCursor = #HTTOPRIGHT
-					ElseIf posX > *WindowData\Width - #SizableBorder And posY > #SizableBorder And posY <= *WindowData\Height - #SizableBorder
-						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-						*WindowData\sizeCursor = #HTRIGHT
-					ElseIf posX <= #SizableBorder And posY > #SizableBorder And posY <= *WindowData\Height - #SizableBorder
-						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-						*WindowData\sizeCursor = #HTLEFT
-					EndIf
-				EndIf
-				;}
-			Case #WM_LBUTTONDBLCLK ;{
-				If cursor\y <= #WindowBarHeight And *WindowData\sizeCursor = 0 And *WindowData\Sizable
-					If IsZoomed_(hWnd)
-						ShowWindow_(hWnd, #SW_RESTORE)
-					Else
-						ShowWindow_(hWnd, #SW_MAXIMIZE)
-					EndIf
-				EndIf
-				
-				;}
-			Case #WM_LBUTTONDOWN ;{
-				GetCursorPos_(cursor.POINT)
-				MapWindowPoints_(0, hWnd, cursor, 1)
-				
-				If cursor\y <= #WindowBarHeight And *WindowData\sizeCursor = 0
-					SendMessage_(hWnd, #WM_NCLBUTTONDOWN, #HTCAPTION, 0)
-				EndIf
-				
-				Select *WindowData\sizeCursor
-					Case #HTTOPLEFT, #HTBOTTOMRIGHT
-						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
-						SendMessage_(hWnd, #WM_NCLBUTTONDOWN, *WindowData\sizeCursor, 0)
-					Case #HTTOP, #HTBOTTOM
-						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-						SendMessage_(hWnd, #WM_NCLBUTTONDOWN, *WindowData\sizeCursor, 0)
-					Case #HTTOPRIGHT, #HTBOTTOMLEFT
-						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
-						SendMessage_(hWnd, #WM_NCLBUTTONDOWN, *WindowData\sizeCursor, 0)
-					Case #HTLEFT, #HTRIGHT
-						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-						SendMessage_(hWnd, #WM_NCLBUTTONDOWN, *WindowData\sizeCursor, 0)
-				EndSelect
-				;}
-			Case #WM_LBUTTONUP ;{
-				Select *WindowData\sizeCursor
-					Case #HTTOPLEFT, #HTBOTTOMRIGHT
-						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
-					Case #HTTOP, #HTBOTTOM
-						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-					Case #HTTOPRIGHT, #HTBOTTOMLEFT
-						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
-					Case #HTLEFT, #HTRIGHT
-						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-				EndSelect
-				;}
 			Case #WM_NCDESTROY ;{
 				If *WindowData\ButtonClose And IsGadget(*WindowData\ButtonClose)
 					UnbindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
@@ -2036,90 +2024,39 @@ Module UITK
 	EndProcedure
 	
 	Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
-		Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData"), *WindowData.ThemedWindow, posX, posY
+		Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData"), *WindowData.ThemedWindow
 		
-		Select Msg
-			Case #WM_MOUSEMOVE ;{
-				*WindowData.ThemedWindow = GetProp_(*ContainerData\Parent, "UITK_WindowData")
-				
-				posX = lParam & $FFFF
-				posY = (lParam >> 16) & $FFFF
-				*ContainerData\sizeCursor = 0
-				
-				If *WindowData\Sizable
-					If posY > *WindowData\Height - #SizableBorder - #WindowBarHeight
-						If posX <= #SizableBorder
-							SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
-							*ContainerData\sizeCursor = #HTBOTTOMLEFT
-						ElseIf posX > *WindowData\Width - #SizableBorder 
-							SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
-							*ContainerData\sizeCursor = #HTBOTTOMRIGHT
-						Else
-							SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-							*ContainerData\sizeCursor = #HTBOTTOM
-						EndIf
-					ElseIf posX <= #SizableBorder
-						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-						*ContainerData\sizeCursor = #HTLEFT
-					ElseIf posX > *WindowData\Width - #SizableBorder 
-						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-						*ContainerData\sizeCursor = #HTRIGHT
-					EndIf
+		; The container sits below the title bar and covers the resize border on the bottom/left/right.
+		; We return HTTRANSPARENT in those bands so the parent's WM_NCHITTEST gets the chance to return HTLEFT/HTRIGHT/HTBOTTOM/etc; without which the OS-driven resize and Aero Snap would never see the click.
+		If Msg = #WM_NCHITTEST
+			*WindowData = GetProp_(*ContainerData\Parent, "UITK_WindowData")
+			If *WindowData\Sizable And IsZoomed_(*ContainerData\Parent) = 0
+				Protected ptX = lParam & $FFFF
+				Protected ptY = (lParam >> 16) & $FFFF
+				If ptX & $8000 : ptX | $FFFF0000 : EndIf
+				If ptY & $8000 : ptY | $FFFF0000 : EndIf
+				Protected wRect.RECT
+				GetWindowRect_(*ContainerData\Parent, @wRect)
+				Protected localY = ptY - wRect\top
+				Protected localX = ptX - wRect\left
+				Protected w = wRect\right - wRect\left
+				Protected h = wRect\bottom - wRect\top
+				If localY >= h - #SizableBorder Or localX < #SizableBorder Or localX >= w - #SizableBorder
+					ProcedureReturn #HTTRANSPARENT
 				EndIf
-				;}
-			Case #WM_LBUTTONDOWN ;{
-				Select *ContainerData\sizeCursor
-					Case #HTBOTTOMRIGHT
-						SetCursor_(LoadCursor_(0, #IDC_SIZENWSE))
-						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
-					Case #HTBOTTOM
-						SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
-					Case #HTBOTTOMLEFT
-						SetCursor_(LoadCursor_(0, #IDC_SIZENESW))
-						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
-					Case #HTLEFT, #HTRIGHT
-						SetCursor_(LoadCursor_(0, #IDC_SIZEWE))
-						SendMessage_(*ContainerData\Parent, #WM_NCLBUTTONDOWN, *ContainerData\sizeCursor, 0)
-				EndSelect
-				;}
-		EndSelect
+			EndIf
+		EndIf
 		
 		ProcedureReturn CallWindowProc_(*ContainerData\OriginalProc, hWnd, Msg, wParam, lParam)
 	EndProcedure
 	
 	Procedure WindowBar_Handler(hWnd, Msg, wParam, lParam)
-		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UITK_WindowBarData"), *WindowData.ThemedWindow, posX, posY
-		If msg = #WM_LBUTTONDBLCLK
-			*WindowData.ThemedWindow = GetProp_(*WindowBarData\Parent, "UITK_WindowData")
-			If *WindowData\Sizable
-				If IsZoomed_(*WindowBarData\Parent)
-					ShowWindow_(*WindowBarData\Parent, #SW_RESTORE)
-				Else
-					ShowWindow_(*WindowBarData\Parent, #SW_MAXIMIZE)
-				EndIf
-			EndIf
-		ElseIf msg = #WM_LBUTTONDOWN
-			If *WindowBarData\sizeCursor = 0
-				SendMessage_(*WindowBarData\Parent, #WM_NCLBUTTONDOWN, #HTCAPTION, 0)
-			Else
-				SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-				SendMessage_(*WindowBarData\Parent, #WM_NCLBUTTONDOWN, *WindowBarData\sizeCursor, 0)
-			EndIf
-		ElseIf  msg = #WM_MOUSEMOVE
-			*WindowData.ThemedWindow = GetProp_(*WindowBarData\Parent, "UITK_WindowData")
-			
-			If *WindowData\Sizable
-				posX = lParam & $FFFF
-				posY = (lParam >> 16) & $FFFF
-				*WindowBarData\sizeCursor = 0
-				
-				If posY < #SizableBorder
-					SetCursor_(LoadCursor_(0, #IDC_SIZENS))
-					*WindowBarData\sizeCursor = #HTTOP
-				EndIf
-			EndIf
-			
+		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UITK_WindowBarData")
+		; The Label that paints the title text covers most of the title-bar strip.
+		; Returning HTTRANSPARENT lets the parent's WM_NCHITTEST claim this area as HTCAPTION, so DWM handles drag, double-click maximize, snap, and Aero Shake.
+		; The min/max/close buttons are separate child gadgets. They keep their own HTCLIENT hit-test and continue to receive normal clicks.
+		If Msg = #WM_NCHITTEST
+			ProcedureReturn #HTTRANSPARENT
 		EndIf
 		
 		ProcedureReturn CallWindowProc_(*WindowBarData\OriginalProc, hWnd, Msg, wParam, lParam)
@@ -2176,6 +2113,8 @@ Module UITK
 			SetProp_(WindowID, "UITK_WindowData", *WindowData)
 			
 			*WindowData\OriginalProc = SetWindowLongPtr_(WindowID, #GWL_WNDPROC, @Window_Handler())
+			
+			ExtendFrameIntoClient(WindowID)
 			
 			If Flags & #Window_CloseButton
 				OffsetX + #WindowButtonWidth
@@ -3198,7 +3137,7 @@ Module UITK
 			Else
 				VectorFont(\TextBlock\FontID)
 			EndIf
-		
+			
 			For Loop = 1 To CharacterCount
 				AddElement(\CharacterData())
 				\CharacterData()\Char = Mid(\String, Loop, 1)
@@ -3853,8 +3792,8 @@ Module UITK
 				\Caret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, \CaretHeight)
 				CloseGadgetList()
 				SetGadgetColor(\Caret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]),
-				                                                  Green(\ThemeData\TextColor[#Cold]),
-				                                                  Blue(\ThemeData\TextColor[#Cold])))
+				                                                 Green(\ThemeData\TextColor[#Cold]),
+				                                                 Blue(\ThemeData\TextColor[#Cold])))
 			EndIf
 			
 			If Flags & #Gadget_Meta
@@ -3882,8 +3821,8 @@ Module UITK
 		
 		If AccessibilityMode
 			Result = StringGadget(Gadget, x, y, Width, Height, Text, (Bool(Flags & #HAlignRight) * #PB_Text_Right) |
-			                                                       (Bool(Flags & #HAlignCenter) * #PB_Text_Center) |
-			                                                       (Bool(Flags & #Border) * #PB_Text_Border))
+			                                                         (Bool(Flags & #HAlignCenter) * #PB_Text_Center) |
+			                                                         (Bool(Flags & #Border) * #PB_Text_Border))
 		Else
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | #PB_Canvas_Container)
 			
@@ -4823,7 +4762,7 @@ Module UITK
 					;	
 					;	VectorSourceColor(\ThemeData\TextColor[State])
 					;EndIf
-		
+					
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
 					\ItemRedraw(@\Items(), \Border, Y, Width, \ItemHeight, State, \ThemeData)
@@ -5028,7 +4967,7 @@ Module UITK
 							\ItemState = -1
 						EndIf
 					EndIf ;}
-					;}
+						  ;}
 				Case #LeftButtonDown ;{
 					If \EditCursor
 						*Event\MouseX - \String\OriginX
@@ -5683,7 +5622,7 @@ Module UITK
 				Else
 					FirstElement(\Items())
 				EndIf
-					
+				
 				Repeat
 					If ListIndex(\Items()) = \State
 						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Hot, \ThemeData)
@@ -5888,7 +5827,7 @@ Module UITK
 					;}
 				Case #LeftDoubleClick ;{
 					If \MouseState > -1
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
 					EndIf
 					;}
 				Case #KeyDown ;{
@@ -5924,10 +5863,10 @@ Module UITK
 								StringSetSelection_Meta(\String, 0, Len(\String\String))
 							EndIf ;}
 						Case #PB_Shortcut_Escape ;{
-								\Editing = #False
-								*Event\EventType = #LostFocus
-								\String\EventHandler(\String, *Event)
-								Redraw = #True
+							\Editing = #False
+							*Event\EventType = #LostFocus
+							\String\EventHandler(\String, *Event)
+							Redraw = #True
 							;}
 						Case #PB_Shortcut_Return ;{
 							If \Editing
@@ -6742,7 +6681,7 @@ Module UITK
 	
 	Procedure Combo_CountItems(*this.PB_Gadget)
 		Protected *GadgetData.ComboData = *this\vt
- 		ProcedureReturn *GadgetData\ItemCount
+		ProcedureReturn *GadgetData\ItemCount
 	EndProcedure
 	
 	Procedure Combo_SetItemData(*this.PB_Gadget, Position, *Data)
@@ -7391,7 +7330,7 @@ Module UITK
 		With *Item
 			MovePathCursor(X + \ImageX, Y + \ImageY)
 			DrawVectorImage(\ImageID)
-						
+			
 			DrawVectorTextBlock(@\Text, X, Y + TextHeight + 2)
 			
 			If \HoverState
@@ -7605,8 +7544,8 @@ Module UITK
 					\DragState = #Drag_None
 					;}
 				Case #LeftDoubleClick ;{
-					;}
-				Case #MouseWheel ;{
+									  ;}
+				Case #MouseWheel	  ;{
 					If \VisibleScrollBar
 						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
 						*Event\EventType = #MouseMove
@@ -8649,7 +8588,7 @@ Module UITK
 					\State - 1
 				ElseIf Position = \State
 					\State - 1
- 					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 				EndIf
 				
 				\InternalHeight - \ItemHeight
@@ -8975,7 +8914,7 @@ Module UITK
 							EndIf
 						EndIf
 					Next
-						
+					
 					If State <> \State
 						\State = State
 						FlatMenu_Redraw(*MenuData)
@@ -9123,7 +9062,7 @@ Module UITK
 	
 	Procedure AddFlatMenuSeparator(Menu, Position)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
-
+		
 		With *MenuData
 			If Position < 0 Or Position >= ListSize(\Item())
 				LastElement(\Item())
@@ -9231,7 +9170,7 @@ Module UITK
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				
 				FirstElement(\Items())
-					
+				
 				Repeat
 					If ListIndex(\Items()) = \State
 						Tab_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Hot, \ThemeData)
@@ -9761,7 +9700,7 @@ Module UITK
 			
 			Max = MaxF(MaxF(Red, Green),Blue)
 			Min = MinF(MinF(Red, Green),Blue)
-	
+			
 			\Brightness = Max * 100
 			Delta = Max - Min
 			
@@ -10164,7 +10103,7 @@ Module UITK
 						MovePathCursor(X + 40, Y + 8)
 						DrawVectorParagraph(\Lines()\MediaBlocks()\Text, Duration, 20)
 					EndIf
-				
+					
 					EndVectorLayer()
 				EndIf
 			EndWith
@@ -10467,7 +10406,7 @@ Module UITK
 									EndIf
 									
 									;}
-								Else ;{ Header action
+								Else;{ Header action
 									*Event\MouseX - #TimeLine_List_Width
 									
 								EndIf;}
@@ -10628,7 +10567,7 @@ Module UITK
 									\RedrawList = \String\EventHandler(\String, *Event)
 								EndIf
 						EndSelect
-					;}
+						;}
 					Case #LeftButtonDown ;{
 						If \VScrollBar\MouseState
 							\RedrawBody + ScrollBar_EventHandler(\VScrollBar, *Event)
@@ -10737,15 +10676,15 @@ Module UITK
 						EndIf
 						;}
 					Case #RightButtonDown ;{
-						;}
-					Case #MouseWheel ;{
+										  ;}
+					Case #MouseWheel	  ;{
 						If \Editing
 							\Editing = #False
 							*Event\EventType = #LostFocus
 							\String\EventHandler(\String, *Event)
 							\RedrawList = #True
 						EndIf
-								
+						
 						If \VisibleVerticalScrollBar
 							ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State - *Event\Param * #TimeLine_List_LineHeight * 0.5)
 							ForEach \Lines()
@@ -11076,7 +11015,7 @@ Module UITK
 			
 			ProcedureReturn Result
 		EndProcedure
-
+		
 	CompilerEndIf
 	;}
 	
@@ -11103,7 +11042,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 858
-; Folding = RAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
+; CursorPosition = 1818
+; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware

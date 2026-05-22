@@ -41,8 +41,8 @@ Repeat
 		End
 	EndIf
 ForEver
-; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 20
+; IDE Options = PureBasic 6.40 (Windows - x64)
+; CursorPosition = 42
 ; Folding = -
 ; EnableXP
 ; DPIAware

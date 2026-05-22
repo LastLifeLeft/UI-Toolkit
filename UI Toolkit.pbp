@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-05-22 02:44" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-05-22 03:47" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -17,7 +17,7 @@
     </file>
     <file name="Editor\Includes\MainWindow.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+++"/>
-      <fingerprint md5="b22520082cbde5661e63049f09bb61ec"/>
+      <fingerprint md5="b58f373cb0fc106f6872ec8593f5b29a"/>
     </file>
     <file name="Editor\Includes\Project.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="3" panelstate="+++"/>
@@ -37,15 +37,19 @@
     </file>
     <file name="Examples\Example 3 - Timeline.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="7" panelstate="++"/>
-      <fingerprint md5="27ecdbfbbfc79534f319cf7a6b2d2cab"/>
+      <fingerprint md5="0ed400e09587cff02225feb02bb8020f"/>
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="8" panelstate="++"/>
-      <fingerprint md5="10a6560789d85e39024c0d0c05c23ca9"/>
+      <fingerprint md5="ecc3c2cab5a83120eb1b9a8e89ff46c0"/>
+    </file>
+    <file name="Examples\AeroSnapTest.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="9" panelstate="++"/>
+      <fingerprint md5="2e268a24a95a16fd2246f8f1c8911366"/>
     </file>
     <file name="Examples\Example 1 - Gadget Example 1.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="++"/>
-      <fingerprint md5="95414377dfb5a24bb0dc71d53a043469"/>
+      <fingerprint md5="3f8e4dd20165a156dce00a65a12bd295"/>
     </file>
   </section>
   <section name="targets">
@@ -58,7 +62,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 1" enabled="1" default="1">
+    <target name="Example 1" enabled="1" default="0">
       <inputfile value="Examples\Example 1 - Gadget Example 1.pbi"/>
       <outputfile value="Examples\Example 1.exe"/>
       <compiler version="PureBasic 6.20 - C Backend (Windows - x64)"/>
@@ -67,7 +71,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 2" enabled="1" default="0">
+    <target name="Example 2" enabled="1" default="1">
       <inputfile value="Examples\Example 2 - Gadget Example 2.pbi"/>
       <outputfile value="Examples\Example 2.exe"/>
       <compiler version="PureBasic 6.00 LTS (Windows - x64)"/>
