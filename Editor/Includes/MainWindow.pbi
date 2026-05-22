@@ -482,11 +482,11 @@
 				AddGadgetItem(PropertyBox, -1, "Theme", 0, UITK::#PropertyBox_Combo)
 				
 				AddGadgetItem(PropertyBox, -1, "Settings", 0, UITK::#PropertyBox_Title)
-				AddGadgetItem(PropertyBox, -1, "Screen Centered", 0, UITK::#PropertyBox_Checkbox)
-				AddGadgetItem(PropertyBox, -1, "Maximize Gadget", 0, UITK::#PropertyBox_Checkbox)
-				AddGadgetItem(PropertyBox, -1, "Minimize Gadget", 0, UITK::#PropertyBox_Checkbox)
-				AddGadgetItem(PropertyBox, -1, "Close Gadget", 0, UITK::#PropertyBox_Checkbox)
-				AddGadgetItem(PropertyBox, -1, "Size Gadget", 0, UITK::#PropertyBox_Checkbox)
+				AddGadgetItem(PropertyBox, -1, "Screen Centered", 0, UITK::#PropertyBox_CheckBox)
+				AddGadgetItem(PropertyBox, -1, "Maximize Gadget", 0, UITK::#PropertyBox_CheckBox)
+				AddGadgetItem(PropertyBox, -1, "Minimize Gadget", 0, UITK::#PropertyBox_CheckBox)
+				AddGadgetItem(PropertyBox, -1, "Close Gadget", 0, UITK::#PropertyBox_CheckBox)
+				AddGadgetItem(PropertyBox, -1, "Size Gadget", 0, UITK::#PropertyBox_CheckBox)
 				
 				
 		EndSelect

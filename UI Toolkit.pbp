@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.30 (Windows - x64)">
+<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.40 (Windows - x64)">
   <section name="config">
     <options closefiles="1" openmode="0" name="UI Toolkit"/>
     <comment>My set of tools to create decent looking PB gadgets quickly.</comment>
@@ -8,20 +8,20 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-01-14 13:10" user="lastlife" host="MONSTRO"/>
+    <lastopen date="2026-05-22 02:44" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+++"/>
-      <fingerprint md5="b20cad52cba79c00e73fc7dc7cb7f281"/>
+      <fingerprint md5="a339eab1eb30b9b88f253db74b22a0c9"/>
     </file>
     <file name="Editor\Includes\MainWindow.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+++"/>
-      <fingerprint md5="df4236add4bba63f313611a9862537a5"/>
+      <fingerprint md5="b22520082cbde5661e63049f09bb61ec"/>
     </file>
     <file name="Editor\Includes\Project.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="3" panelstate="+++"/>
-      <fingerprint md5="7cab16ca1c72af804e783e78fa59f1bd"/>
+      <fingerprint md5="2860a6cdc57fde134073903b5e59f7a7"/>
     </file>
     <file name="Editor\UITK Edit.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="4" panelstate="++"/>
@@ -29,7 +29,7 @@
     </file>
     <file name="Examples\Debug.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="5" panelstate="++"/>
-      <fingerprint md5="daffb78ebfb942492009b8e924c86311"/>
+      <fingerprint md5="ac50841698bb5bd35bab33eb24d6b811"/>
     </file>
     <file name="Examples\Example 2 - Gadget Example 2.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="6" panelstate="++"/>
@@ -41,11 +41,11 @@
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="8" panelstate="++"/>
-      <fingerprint md5="610ed697b78f0ffef1bd03a162179ca3"/>
+      <fingerprint md5="10a6560789d85e39024c0d0c05c23ca9"/>
     </file>
     <file name="Examples\Example 1 - Gadget Example 1.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="++"/>
-      <fingerprint md5="b8a248098104f6f1bb39c8642fa39503"/>
+      <fingerprint md5="95414377dfb5a24bb0dc71d53a043469"/>
     </file>
   </section>
   <section name="targets">
