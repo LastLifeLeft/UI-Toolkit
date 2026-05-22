@@ -382,6 +382,12 @@
 		Declare TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
 		Declare AddMediaBlock(Gadget, Line, Position, Duration, Type, Text.s, *Data)
 	CompilerEndIf
+
+	; Linux-only verification hook (Phase 3 GTK destroy cleanup). Reports current
+	; size of the per-widget property map; tests use it to assert cleanup ran.
+	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
+		Declare _Linux_PropMapSize()
+	CompilerEndIf
 	;}
 EndDeclareModule
 
@@ -393,14 +399,44 @@ Module UITK
 		Structure ThemedWindow
 			Theme.Theme
 		EndStructure
-		; Win32-API placeholders so per-gadget theme-inheritance code compiles.
-		; All return 0; the call sites all fall through to the "use default theme" branch.
-		; Per-window key/value storage. On Windows the Win32 GetProp_/SetProp_ store on
+		; Per-widget key/value storage. On Windows the Win32 GetProp_/SetProp_ store on
 		; the HWND itself; on Linux we back it with a process-wide PB Map keyed on
-		; "<hwnd>:<name>". Functionally equivalent for UITK's needs (lookups by name on
-		; a specific window). Memory leaks when a window closes — fix when we add a real
-		; window-destroy hook on Linux.
+		; "<widget>:<name>". A GTK "destroy" signal handler walks the map and removes
+		; the matching entries when the widget goes away, so accumulated state doesn't
+		; leak for the lifetime of the process. UITK_CleanupRegistered tracks which
+		; widgets we've already wired the destroy signal on so we only do it once each.
 		Global NewMap UITK_PropMap.i()
+		Global NewMap UITK_CleanupRegistered.b()
+
+		ImportC ""
+			; Minimal GTK signal-connect surface, used to install our cleanup handler.
+			g_signal_connect_data(instance.i, detailed_signal.p-ascii, c_handler.i, user_data.i, destroy_data.i, connect_flags.l)
+		EndImport
+
+		ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
+			Protected prefix.s = Hex(*widget) + ":"
+			Protected prefixLen = Len(prefix)
+			; Collect keys first; deleting while iterating ForEach a Map is unsafe in PB.
+			NewList toDrop.s()
+			ForEach UITK_PropMap()
+				If Left(MapKey(UITK_PropMap()), prefixLen) = prefix
+					AddElement(toDrop()) : toDrop() = MapKey(UITK_PropMap())
+				EndIf
+			Next
+			ForEach toDrop()
+				DeleteMapElement(UITK_PropMap(), toDrop())
+			Next
+			DeleteMapElement(UITK_CleanupRegistered(), Hex(*widget))
+		EndProcedure
+
+		Procedure UITK_EnsureCleanupHook(hWnd)
+			; Connect "destroy" once per widget; subsequent SetProp_ calls on the same
+			; widget find it in the registry and skip the (idempotent but wasteful) work.
+			If hWnd And Not FindMapElement(UITK_CleanupRegistered(), Hex(hWnd))
+				UITK_CleanupRegistered(Hex(hWnd)) = #True
+				g_signal_connect_data(hWnd, "destroy", @UITK_PropCleanup_Handler(), 0, 0, 0)
+			EndIf
+		EndProcedure
 
 		Procedure GetProp_(hWnd, name.s)
 			Protected key.s = Hex(hWnd) + ":" + name
@@ -412,6 +448,7 @@ Module UITK
 
 		Procedure SetProp_(hWnd, name.s, value)
 			UITK_PropMap(Hex(hWnd) + ":" + name) = value
+			UITK_EnsureCleanupHook(hWnd)
 			ProcedureReturn 1
 		EndProcedure
 
@@ -423,6 +460,13 @@ Module UITK
 				DeleteMapElement(UITK_PropMap())
 			EndIf
 			ProcedureReturn old
+		EndProcedure
+
+		Procedure _Linux_PropMapSize()
+			; Internal: verification hook for the Phase-3 cleanup test. Reports the
+			; current size of UITK_PropMap so tests can assert it drops to zero after
+			; the GTK destroy signal fires. Not part of the public API.
+			ProcedureReturn MapSize(UITK_PropMap())
 		EndProcedure
 		Procedure SetWindowLongPtr_(hWnd, idx, val) : ProcedureReturn 0 : EndProcedure
 		Procedure GetWindowLongPtr_(hWnd, idx)      : ProcedureReturn 0 : EndProcedure
