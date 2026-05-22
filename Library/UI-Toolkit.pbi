@@ -387,7 +387,89 @@ EndDeclareModule
 
 Module UITK
 	EnableExplicit
-	
+
+	;{ Cross-platform stubs (recon scaffold — replace with real impls during the Linux port)
+	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
+		Structure ThemedWindow
+			Theme.Theme
+		EndStructure
+		; Win32-API placeholders so per-gadget theme-inheritance code compiles.
+		; All return 0; the call sites all fall through to the "use default theme" branch.
+		Procedure GetProp_(hWnd, name.s)            : ProcedureReturn 0 : EndProcedure
+		Procedure SetProp_(hWnd, name.s, value)     : ProcedureReturn 0 : EndProcedure
+		Procedure RemoveProp_(hWnd, name.s)         : ProcedureReturn 0 : EndProcedure
+		Procedure SetWindowLongPtr_(hWnd, idx, val) : ProcedureReturn 0 : EndProcedure
+		Procedure GetWindowLongPtr_(hWnd, idx)      : ProcedureReturn 0 : EndProcedure
+		Procedure CallWindowProc_(*proc, hWnd, msg, wp, lp) : ProcedureReturn 0 : EndProcedure
+		Procedure SendMessage_(hWnd, msg, wp, lp)   : ProcedureReturn 0 : EndProcedure
+		Procedure PostMessage_(hWnd, msg, wp, lp)   : ProcedureReturn 0 : EndProcedure
+		Procedure IsZoomed_(hWnd)                   : ProcedureReturn 0 : EndProcedure
+		Procedure SetWindowPos_(hWnd, after, x, y, w, h, flags) : ProcedureReturn 0 : EndProcedure
+		Procedure GetWindowRect_(hWnd, *rect)       : ProcedureReturn 0 : EndProcedure
+		Procedure SetClassLongPtr_(hWnd, idx, val)  : ProcedureReturn 0 : EndProcedure
+		Procedure GetSystemMetrics_(idx)            : ProcedureReturn 0 : EndProcedure
+		Procedure MonitorFromWindow_(hWnd, flag)    : ProcedureReturn 0 : EndProcedure
+		Procedure GetMonitorInfo_(hMon, *mi)        : ProcedureReturn 0 : EndProcedure
+		Procedure GetModuleHandle_(name.s)          : ProcedureReturn 0 : EndProcedure
+		Procedure SetBkMode_(hdc, mode)             : ProcedureReturn 0 : EndProcedure
+		Procedure CreatePatternBrush_(hbm)          : ProcedureReturn 0 : EndProcedure
+		Procedure DeleteObject_(h)                  : ProcedureReturn 0 : EndProcedure
+		Procedure SetWindowsHookEx_(t, *fn, h, tid) : ProcedureReturn 0 : EndProcedure
+		Procedure UnhookWindowsHookEx_(h)           : ProcedureReturn 0 : EndProcedure
+		Procedure CallNextHookEx_(h, code, wp, lp)  : ProcedureReturn 0 : EndProcedure
+		Procedure SetLayeredWindowAttributes_(hWnd, key, alpha, flags) : ProcedureReturn 0 : EndProcedure
+		Procedure GetObject_(h, size, *out)         : ProcedureReturn 0 : EndProcedure
+		; Win32 constants used across the module — all zero on Linux (the call sites no-op anyway).
+		#SWP_NOSIZE        = 0
+		#SWP_NOMOVE        = 0
+		#SWP_NOZORDER      = 0
+		#SWP_NOREDRAW      = 0
+		#SWP_FRAMECHANGED  = 0
+		#GWL_WNDPROC       = 0
+		#GWL_EXSTYLE       = 0
+		#GCL_HBRBACKGROUND = 0
+		#WS_EX_LAYERED     = 0
+		#WS_OVERLAPPEDWINDOW = 0
+		#WS_SYSMENU        = 0
+		#LWA_ALPHA         = 0
+		#SM_CXSIZEFRAME    = 0
+		#SM_CYSIZEFRAME    = 0
+		#SM_CXPADDEDBORDER = 0
+		#WM_NCHITTEST      = 0
+		#WM_NCCALCSIZE     = 0
+		#WM_NCACTIVATE     = 0
+		#WM_NCDESTROY      = 0
+		#WM_CTLCOLORSTATIC = 0
+		#WM_CTLCOLORBTN    = 0
+		#WM_GETMINMAXINFO  = 0
+		#WM_SIZE           = 0
+		#HTCAPTION         = 0
+		#HTCLIENT          = 0
+		#HTTRANSPARENT     = 0
+		#HTTOP             = 0
+		#HTLEFT            = 0
+		#HTRIGHT           = 0
+		#HTBOTTOM          = 0
+		#HTTOPLEFT         = 0
+		#HTTOPRIGHT        = 0
+		#HTBOTTOMLEFT      = 0
+		#HTBOTTOMRIGHT     = 0
+		#WH_MOUSE_LL       = 0
+		#NUL               = 0
+		#MONITOR_DEFAULTTONEAREST = 0
+		; BITMAP stub so existing per-gadget code that declares `HBitmap.BITMAP` still compiles.
+		Structure BITMAP
+			bmType.l
+			bmWidth.l
+			bmHeight.l
+			bmWidthBytes.l
+			bmPlanes.w
+			bmBitsPixel.w
+			bmBits.i
+		EndStructure
+	CompilerEndIf
+	;}
+
 	;{ Macro
 	Macro InitializeObject(GadgetType)
 		*GadgetData\Gadget = Gadget
@@ -605,6 +687,8 @@ Module UITK
 			EndStructure
 			;}
 		CompilerCase #PB_OS_Linux   ;{
+			Prototype GetAttribute(*This, Attribute)
+			Prototype SetAttribute(*This, Attribute, Value)
 			Structure GadgetVT
 				SizeOf.l
 				GadgetType.l
@@ -627,8 +711,8 @@ Module UITK
 				*SetGadgetFont
 				*OpenGadgetList2
 				*AddGadgetColumn
-				*GetGadgetAttribute
-				*SetGadgetAttribute
+				*GetGadgetAttribute.GetAttribute
+				*SetGadgetAttribute.SetAttribute
 				*GetGadgetItemAttribute2
 				*SetGadgetItemAttribute2
 				*RemoveGadgetColumn
@@ -641,6 +725,10 @@ Module UITK
 				*GetGadgetFont
 				*SetGadgetItemImage
 				*HideGadget
+				; UITK extensions (not part of PB's vtable; only used by UITK's own subclasses)
+				*GetRequiredSize  ; PB exposes this on Windows but not on Linux — UITK still needs the slot for its own bookkeeping
+				*GetGadgetItemImage
+				*DropHandler
 			EndStructure
 			
 			Structure PB_Gadget
@@ -1014,8 +1102,15 @@ Module UITK
 		EndSelect
 	EndProcedure
 	
+	; Tiny cross-platform shim so we don't lean on BITMAP/GetObject_ (Win32-only).
+	; On Linux we'll need to populate bmWidth/bmHeight via PB image queries or GTK; stubbed for recon.
+	Structure UITK_BitmapInfo
+		bmWidth.l
+		bmHeight.l
+	EndStructure
+
 	Procedure PrepareVectorTextBlock(*TextData.Text)
-		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.BITMAP
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.UITK_BitmapInfo
 		
 		*TextData\RequiredHeight = 0
 		*TextData\RequiredWidth = 0
@@ -1048,7 +1143,14 @@ Module UITK
 		Next
 		
 		If *TextData\Image
-			GetObject_(*TextData\Image, SizeOf(BITMAP), @HBitmap.BITMAP)
+			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+				Protected WinBmp.BITMAP
+				GetObject_(*TextData\Image, SizeOf(BITMAP), @WinBmp)
+				HBitmap\bmWidth = WinBmp\bmWidth
+				HBitmap\bmHeight = WinBmp\bmHeight
+			CompilerElse
+				; TODO Linux: read image dimensions via PB ImageWidth/ImageHeight or GdkPixbuf
+			CompilerEndIf
 			HBitmap\bmWidth + #TextBlock_ImageMargin
 			*TextData\RequiredWidth + HBitmap\bmWidth
 		EndIf
@@ -1533,6 +1635,11 @@ Module UITK
 	
 	Procedure SubClassFunction(Gadget, Function, *Address) ; Advanced functionality! Probably too much of a niche usage, move it to the private branch of UITK?
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt, *Result
+		CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
+			; TODO Linux: rewrite this whole switch using the Linux GadgetVT field set
+			; (no GadgetCallback / GadgetX/Y/W/H / SetActiveGadget / GetRequiredSize).
+			ProcedureReturn 0
+		CompilerElse
 		
 		Select Function
 			Case #SubClass_EventHandler
@@ -1659,8 +1766,9 @@ Module UITK
 				*Result = *this\vt\DropHandler
 				If *Address : *this\vt\DropHandler = *Address : EndIf
 		EndSelect
-		
+
 		ProcedureReturn *Result
+		CompilerEndIf
 	EndProcedure
 	
 	Procedure Default_SetAttribute(*This.PB_Gadget, Attribute, Value)
@@ -1817,11 +1925,18 @@ Module UITK
 	;}
 	
 	;{ Window
+	; ============================================================
+	; The themed window is Win32-only (subclassed wndproc + DwmExtendFrameIntoClientArea).
+	; On Linux we'll need a separate implementation (likely gtk_window_set_decorated FALSE
+	; + gtk_window_begin_move_drag, or accept native decorations). Stubbed for now so the
+	; module compiles cross-platform.
+	; ============================================================
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 	#WM_SYSMENU = $313
 	#SizableBorder = 8
 	#WindowButtonWidth = 45
 	#WindowBarHeight = 30
-	
+
 	Structure ThemedWindow
 		*Brush
 		*OriginalProc
@@ -2443,12 +2558,43 @@ Module UITK
 			Case #Color_WindowBorder
 				Result = *WindowData\Theme\WindowTitle
 		EndSelect
-		
+
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
 	EndProcedure
+	CompilerElse
+		; ---- Linux/Mac stubs for the Window API surface ----
+		; These let the rest of the module compile. They fall back to bare PB windows
+		; with native decorations. Custom titlebar / Aero-Snap-equivalent comes later.
+		#WindowBarHeight = 0
+		#SizableBorder = 0
+
+		Procedure Window_Init() : EndProcedure
+		Procedure ExtendFrameIntoClient(WindowID) : EndProcedure
+
+		Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
+			ProcedureReturn OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title,
+			                           (Bool(Flags & #Window_CloseButton)    * #PB_Window_SystemMenu) |
+			                           (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize)   |
+			                           (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize)   |
+			                           (Bool(Flags & #Window_Sizable)        * #PB_Window_SizeGadget) |
+			                           (Bool(Flags & #Window_Invisible)      * #PB_Window_Invisible)  |
+			                           (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+		EndProcedure
+
+		Procedure OpenWindowGadgetList(Window)        : ProcedureReturn OpenWindowGadgetList(WindowID(Window)) : EndProcedure
+		Procedure AddWindowMenu(Window, Menu, Title.s) : EndProcedure
+		Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight) : WindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight) : EndProcedure
+		Procedure SetWindowIcon(Window, Image)        : EndProcedure
+		Procedure GetWindowIcon(Window)               : ProcedureReturn 0 : EndProcedure
+		Procedure WindowSetColor(Window, ColorType, Color) : EndProcedure
+		Procedure WindowGetColor(Window, ColorType)   : ProcedureReturn 0 : EndProcedure
+	CompilerEndIf
 	;}
-	
+
 	;{ Advanced drag & drop
+	; Win32 only: uses a layered window + low-level mouse hook to position a follow-cursor image during drag.
+	; Linux/Mac equivalent would use a GTK drag icon or X11 cursor image — out of scope for now.
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 	Global ADNDWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(TimerWindow)) ; Timer window? Shouldn't there be an universal hidden window for UITK rather than piggy backing this one?
 	SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
 	SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
@@ -2553,8 +2699,16 @@ Module UITK
 	Procedure RegisterDropCallback(*Callback)
 		*DropCallback = *Callback
 	EndProcedure
-	
+
 	SetDropCallback(@DropCallback())
+	CompilerElse
+		; ---- Linux/Mac stubs for advanced drag & drop ----
+		Procedure AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragFiles(File.s, ImageID, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)  : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)         : ProcedureReturn 0 : EndProcedure
+		Procedure RegisterDropCallback(*Callback) : EndProcedure
+	CompilerEndIf
 	;}
 	
 	
