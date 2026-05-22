@@ -395,9 +395,35 @@ Module UITK
 		EndStructure
 		; Win32-API placeholders so per-gadget theme-inheritance code compiles.
 		; All return 0; the call sites all fall through to the "use default theme" branch.
-		Procedure GetProp_(hWnd, name.s)            : ProcedureReturn 0 : EndProcedure
-		Procedure SetProp_(hWnd, name.s, value)     : ProcedureReturn 0 : EndProcedure
-		Procedure RemoveProp_(hWnd, name.s)         : ProcedureReturn 0 : EndProcedure
+		; Per-window key/value storage. On Windows the Win32 GetProp_/SetProp_ store on
+		; the HWND itself; on Linux we back it with a process-wide PB Map keyed on
+		; "<hwnd>:<name>". Functionally equivalent for UITK's needs (lookups by name on
+		; a specific window). Memory leaks when a window closes — fix when we add a real
+		; window-destroy hook on Linux.
+		Global NewMap UITK_PropMap.i()
+
+		Procedure GetProp_(hWnd, name.s)
+			Protected key.s = Hex(hWnd) + ":" + name
+			If FindMapElement(UITK_PropMap(), key)
+				ProcedureReturn UITK_PropMap()
+			EndIf
+			ProcedureReturn 0
+		EndProcedure
+
+		Procedure SetProp_(hWnd, name.s, value)
+			UITK_PropMap(Hex(hWnd) + ":" + name) = value
+			ProcedureReturn 1
+		EndProcedure
+
+		Procedure RemoveProp_(hWnd, name.s)
+			Protected key.s = Hex(hWnd) + ":" + name
+			Protected old = 0
+			If FindMapElement(UITK_PropMap(), key)
+				old = UITK_PropMap()
+				DeleteMapElement(UITK_PropMap())
+			EndIf
+			ProcedureReturn old
+		EndProcedure
 		Procedure SetWindowLongPtr_(hWnd, idx, val) : ProcedureReturn 0 : EndProcedure
 		Procedure GetWindowLongPtr_(hWnd, idx)      : ProcedureReturn 0 : EndProcedure
 		Procedure CallWindowProc_(*proc, hWnd, msg, wp, lp) : ProcedureReturn 0 : EndProcedure
@@ -689,6 +715,9 @@ Module UITK
 		CompilerCase #PB_OS_Linux   ;{
 			Prototype GetAttribute(*This, Attribute)
 			Prototype SetAttribute(*This, Attribute, Value)
+			; Mirrors PB 6.40's PB_GadgetVT (sdk/c/PureLibraries/Gadget/Gadget.h).
+			; Field order MUST match; PB dispatches by offset, not by name.
+			; UITK extensions go strictly AFTER PB's last field.
 			Structure GadgetVT
 				SizeOf.l
 				GadgetType.l
@@ -701,7 +730,7 @@ Module UITK
 				*AddGadgetItem2
 				*AddGadgetItem3
 				*RemoveGadgetItem
-				*ClearGadgetItemList
+				*ClearGadgetItemList    ; PB header calls this ClearGadgetItems; name diverges from PB but offset is correct
 				*ResizeGadget
 				*CountGadgetItems
 				*GetGadgetItemState
@@ -724,19 +753,24 @@ Module UITK
 				*GetGadgetItemData
 				*GetGadgetFont
 				*SetGadgetItemImage
+				; ---- UITK private extensions, never dispatched by PB ----
+				; HideGadget is NOT in PB's Linux vtable (PB calls gtk_widget_hide directly).
+				; The other three are needed by InitializeObject() and SubClassFunction shared code.
 				*HideGadget
-				; UITK extensions (not part of PB's vtable; only used by UITK's own subclasses)
-				*GetRequiredSize  ; PB exposes this on Windows but not on Linux — UITK still needs the slot for its own bookkeeping
+				*GetRequiredSize
 				*GetGadgetItemImage
 				*DropHandler
 			EndStructure
-			
+
+			; Mirrors PB 6.40's PB_GadgetStructure. Adding RootWindowID and the full Data[6]
+			; so any future cast through *this\UserData or *this\Daten reads the right bytes.
 			Structure PB_Gadget
 				*Gadget
 				*GadgetContainer
 				*vt.GadgetVT
+				RootWindowID.i
 				UserData.i
-				Daten.i[4]
+				Daten.i[6]
 			EndStructure ;}
 		CompilerCase #PB_OS_MacOS   ;{
 			Structure PB_Gadget
@@ -1102,12 +1136,38 @@ Module UITK
 		EndSelect
 	EndProcedure
 	
-	; Tiny cross-platform shim so we don't lean on BITMAP/GetObject_ (Win32-only).
-	; On Linux we'll need to populate bmWidth/bmHeight via PB image queries or GTK; stubbed for recon.
+	; Cross-platform image-dimension lookup. Replaces the Win32 BITMAP+GetObject_ pattern.
+	; ImageID is whatever PB returns from ImageID(): HBITMAP on Windows, GdkPixbuf* on Linux.
 	Structure UITK_BitmapInfo
 		bmWidth.l
 		bmHeight.l
 	EndStructure
+
+	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
+		; PB doesn't auto-import GdkPixbuf; pull in the two accessors we need.
+		; PB's Image library already pulls libgdk-pixbuf-2.0 as a transitive dep, so the
+		; symbols resolve at link time without us asking for an extra .so.
+		ImportC ""
+			gdk_pixbuf_get_width(pixbuf.i)
+			gdk_pixbuf_get_height(pixbuf.i)
+		EndImport
+	CompilerEndIf
+
+	Procedure UITK_GetImageSize(ImageHandle, *bmp.UITK_BitmapInfo)
+		*bmp\bmWidth  = 0
+		*bmp\bmHeight = 0
+		If Not ImageHandle : ProcedureReturn : EndIf
+		CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+			Protected wbmp.BITMAP
+			GetObject_(ImageHandle, SizeOf(BITMAP), @wbmp)
+			*bmp\bmWidth  = wbmp\bmWidth
+			*bmp\bmHeight = wbmp\bmHeight
+		CompilerElse
+			; ImageID on Linux is a GdkPixbuf*
+			*bmp\bmWidth  = gdk_pixbuf_get_width(ImageHandle)
+			*bmp\bmHeight = gdk_pixbuf_get_height(ImageHandle)
+		CompilerEndIf
+	EndProcedure
 
 	Procedure PrepareVectorTextBlock(*TextData.Text)
 		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.UITK_BitmapInfo
@@ -1143,14 +1203,7 @@ Module UITK
 		Next
 		
 		If *TextData\Image
-			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-				Protected WinBmp.BITMAP
-				GetObject_(*TextData\Image, SizeOf(BITMAP), @WinBmp)
-				HBitmap\bmWidth = WinBmp\bmWidth
-				HBitmap\bmHeight = WinBmp\bmHeight
-			CompilerElse
-				; TODO Linux: read image dimensions via PB ImageWidth/ImageHeight or GdkPixbuf
-			CompilerEndIf
+			UITK_GetImageSize(*TextData\Image, @HBitmap)
 			HBitmap\bmWidth + #TextBlock_ImageMargin
 			*TextData\RequiredWidth + HBitmap\bmWidth
 		EndIf
@@ -6076,7 +6129,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure HorizontalList_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
-		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.BITMAP
+		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.UITK_BitmapInfo
 		With *GadgetData
 			
 			If Position > -1 And Position < ListSize(\Items())
@@ -6100,11 +6153,11 @@ Module UITK
 			*NewItem\imageID = ImageID
 			
 			If *NewItem\imageID
-				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+				UITK_GetImageSize(*NewItem\imageID, @HBitmap)
 				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
 				*NewItem\ImageY = (\Height - 20 - HBitmap\bmHeight) * 0.5
 			EndIf
-			
+
 			\InternalWidth = ListSize(\Items()) * \ItemWidth
 			
 			If \InternalWidth > \Width
@@ -7536,7 +7589,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Library_AddItem(*This.PB_Gadget, Position.w, *Text, ImageID, Flags.i)
-		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.BITMAP
+		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.UITK_BitmapInfo
 		
 		With *GadgetData
 			LastElement(\Items())
@@ -7552,9 +7605,9 @@ Module UITK
 			*NewItem\Text\HAlign = #HAlignLeft
 			
 			PrepareVectorTextBlock(@*NewItem\Text)
-			
-			GetObject_(*NewItem\ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
-			
+
+			UITK_GetImageSize(*NewItem\ImageID, @HBitmap)
+
 			*NewItem\ImageWidth = HBitmap\bmWidth
 			*NewItem\ImageHeight = HBitmap\bmHeight
 			*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
@@ -9421,7 +9474,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tab_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
-		Protected *GadgetData.TabData = *this\vt, *NewItem.Tab_Item, HBitmap.BITMAP
+		Protected *GadgetData.TabData = *this\vt, *NewItem.Tab_Item, HBitmap.UITK_BitmapInfo
 		With *GadgetData
 			
 			If Position > -1 And Position < ListSize(\Items())
@@ -9446,11 +9499,11 @@ Module UITK
 			*NewItem\Color = \ThemeData\Special3[#Warm]
 			
 			If *NewItem\imageID
-				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+				UITK_GetImageSize(*NewItem\imageID, @HBitmap)
 				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
 				*NewItem\ImageY = (\Height - 10 - HBitmap\bmHeight) * 0.5
 			EndIf
-			
+
 			\InternalWidth = ListSize(\Items()) * \ItemWidth
 			
 			ChangeCurrentElement(\Items(), *NewItem)
