@@ -225,10 +225,6 @@ UITK::AddWindowMenu(Window1, Menu, "File")
 
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
-		Result = 0
-		
-		phandle = OpenProcess_(#PROCESS_TERMINATE, #False, GetCurrentProcessId_()) ;< I clearly have issues with my windows, but killing the process is a valid workaround for my own ineptitude.
-		TerminateProcess_(phandle, @Result)
 		End
 	EndIf
 ForEver
