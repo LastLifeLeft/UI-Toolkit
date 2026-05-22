@@ -576,17 +576,22 @@ Module UITK
 		#WM_CTLCOLORBTN    = 0
 		#WM_GETMINMAXINFO  = 0
 		#WM_SIZE           = 0
-		#HTCAPTION         = 0
-		#HTCLIENT          = 0
-		#HTTRANSPARENT     = 0
-		#HTTOP             = 0
-		#HTLEFT            = 0
-		#HTRIGHT           = 0
-		#HTBOTTOM          = 0
-		#HTTOPLEFT         = 0
-		#HTTOPRIGHT        = 0
-		#HTBOTTOMLEFT      = 0
-		#HTBOTTOMRIGHT     = 0
+		; HT* values mirror the Win32 ones. They never reach a real Win32 API on Linux
+		; (every consumer is a stubbed function), but UITK uses them as its own internal
+		; edge identifiers, so they MUST be distinct and non-zero — otherwise
+		; Linux_HTToPBCursor's Select picks the first case for everything and
+		; Linux_TitleBar_LeftButtonDown's `If *WindowData\CurrentEdge` is always false.
+		#HTTRANSPARENT     = -1
+		#HTCLIENT          = 1
+		#HTCAPTION         = 2
+		#HTLEFT            = 10
+		#HTRIGHT           = 11
+		#HTTOP             = 12
+		#HTTOPLEFT         = 13
+		#HTTOPRIGHT        = 14
+		#HTBOTTOM          = 15
+		#HTBOTTOMLEFT      = 16
+		#HTBOTTOMRIGHT     = 17
 		#WH_MOUSE_LL       = 0
 		#NUL               = 0
 		#MONITOR_DEFAULTTONEAREST = 0
