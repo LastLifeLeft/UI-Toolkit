@@ -382,12 +382,180 @@
 		Declare TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
 		Declare AddMediaBlock(Gadget, Line, Position, Duration, Type, Text.s, *Data)
 	CompilerEndIf
+
+	; Linux-only verification hook (Phase 3 GTK destroy cleanup). Reports current
+	; size of the per-widget property map; tests use it to assert cleanup ran.
+	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
+		Declare _Linux_PropMapSize()
+	CompilerEndIf
 	;}
 EndDeclareModule
 
 Module UITK
 	EnableExplicit
-	
+
+	;{ Cross-platform stubs — make the Win32-heavy parts of the module compile on Linux.
+	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
+		; ThemedWindow is referenced by shared per-gadget theme-inheritance code that
+		; does `Protected *WindowData.ThemedWindow = GetProp_(...)` and then reads
+		; \Theme. On Linux UITK::Window uses native chrome (Phase 4-final) so we
+		; never populate this struct — callers see a NULL pointer and fall through
+		; to *DefaultTheme. The Theme field is kept so the struct shape stays valid
+		; if a future enhancement decides to attach per-window theme overrides.
+		Structure ThemedWindow
+			Theme.Theme
+		EndStructure
+		; Per-widget key/value storage. On Windows the Win32 GetProp_/SetProp_ store on
+		; the HWND itself; on Linux we back it with a process-wide PB Map keyed on
+		; "<widget>:<name>". A GTK "destroy" signal handler walks the map and removes
+		; the matching entries when the widget goes away, so accumulated state doesn't
+		; leak for the lifetime of the process. UITK_CleanupRegistered tracks which
+		; widgets we've already wired the destroy signal on so we only do it once each.
+		Global NewMap UITK_PropMap.i()
+		Global NewMap UITK_CleanupRegistered.b()
+
+		ImportC ""
+			; Minimal GTK surface — signal connection for our destroy hook and the
+			; two GdkPixbuf accessors used by UITK_GetImageSize. PB already links
+			; libgtk-3 / libgdk-3 / libgobject-2 / libgdk_pixbuf-2.0 transitively,
+			; so we don't need to name a .so.
+			g_signal_connect_data(instance.i, detailed_signal.p-ascii, c_handler.i, user_data.i, destroy_data.i, connect_flags.l)
+			gdk_pixbuf_get_width(pixbuf.i)
+			gdk_pixbuf_get_height(pixbuf.i)
+		EndImport
+
+		ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
+			Protected prefix.s = Hex(*widget) + ":"
+			Protected prefixLen = Len(prefix)
+			; Collect keys first; deleting while iterating ForEach a Map is unsafe in PB.
+			NewList toDrop.s()
+			ForEach UITK_PropMap()
+				If Left(MapKey(UITK_PropMap()), prefixLen) = prefix
+					AddElement(toDrop()) : toDrop() = MapKey(UITK_PropMap())
+				EndIf
+			Next
+			ForEach toDrop()
+				DeleteMapElement(UITK_PropMap(), toDrop())
+			Next
+			DeleteMapElement(UITK_CleanupRegistered(), Hex(*widget))
+		EndProcedure
+
+		Procedure UITK_EnsureCleanupHook(hWnd)
+			; Connect "destroy" once per widget; subsequent SetProp_ calls on the same
+			; widget find it in the registry and skip the (idempotent but wasteful) work.
+			If hWnd And Not FindMapElement(UITK_CleanupRegistered(), Hex(hWnd))
+				UITK_CleanupRegistered(Hex(hWnd)) = #True
+				g_signal_connect_data(hWnd, "destroy", @UITK_PropCleanup_Handler(), 0, 0, 0)
+			EndIf
+		EndProcedure
+
+		Procedure GetProp_(hWnd, name.s)
+			Protected key.s = Hex(hWnd) + ":" + name
+			If FindMapElement(UITK_PropMap(), key)
+				ProcedureReturn UITK_PropMap()
+			EndIf
+			ProcedureReturn 0
+		EndProcedure
+
+		Procedure SetProp_(hWnd, name.s, value)
+			UITK_PropMap(Hex(hWnd) + ":" + name) = value
+			UITK_EnsureCleanupHook(hWnd)
+			ProcedureReturn 1
+		EndProcedure
+
+		Procedure RemoveProp_(hWnd, name.s)
+			Protected key.s = Hex(hWnd) + ":" + name
+			Protected old = 0
+			If FindMapElement(UITK_PropMap(), key)
+				old = UITK_PropMap()
+				DeleteMapElement(UITK_PropMap())
+			EndIf
+			ProcedureReturn old
+		EndProcedure
+
+		Procedure _Linux_PropMapSize()
+			; Internal: verification hook for the Phase-3 cleanup test. Reports the
+			; current size of UITK_PropMap so tests can assert it drops to zero after
+			; the GTK destroy signal fires. Not part of the public API.
+			ProcedureReturn MapSize(UITK_PropMap())
+		EndProcedure
+		Procedure SetWindowLongPtr_(hWnd, idx, val) : ProcedureReturn 0 : EndProcedure
+		Procedure GetWindowLongPtr_(hWnd, idx)      : ProcedureReturn 0 : EndProcedure
+		Procedure CallWindowProc_(*proc, hWnd, msg, wp, lp) : ProcedureReturn 0 : EndProcedure
+		Procedure SendMessage_(hWnd, msg, wp, lp)   : ProcedureReturn 0 : EndProcedure
+		Procedure PostMessage_(hWnd, msg, wp, lp)   : ProcedureReturn 0 : EndProcedure
+		Procedure IsZoomed_(hWnd)                   : ProcedureReturn 0 : EndProcedure
+		Procedure SetWindowPos_(hWnd, after, x, y, w, h, flags) : ProcedureReturn 0 : EndProcedure
+		Procedure GetWindowRect_(hWnd, *rect)       : ProcedureReturn 0 : EndProcedure
+		Procedure SetClassLongPtr_(hWnd, idx, val)  : ProcedureReturn 0 : EndProcedure
+		Procedure GetSystemMetrics_(idx)            : ProcedureReturn 0 : EndProcedure
+		Procedure MonitorFromWindow_(hWnd, flag)    : ProcedureReturn 0 : EndProcedure
+		Procedure GetMonitorInfo_(hMon, *mi)        : ProcedureReturn 0 : EndProcedure
+		Procedure GetModuleHandle_(name.s)          : ProcedureReturn 0 : EndProcedure
+		Procedure SetBkMode_(hdc, mode)             : ProcedureReturn 0 : EndProcedure
+		Procedure CreatePatternBrush_(hbm)          : ProcedureReturn 0 : EndProcedure
+		Procedure DeleteObject_(h)                  : ProcedureReturn 0 : EndProcedure
+		Procedure SetWindowsHookEx_(t, *fn, h, tid) : ProcedureReturn 0 : EndProcedure
+		Procedure UnhookWindowsHookEx_(h)           : ProcedureReturn 0 : EndProcedure
+		Procedure CallNextHookEx_(h, code, wp, lp)  : ProcedureReturn 0 : EndProcedure
+		Procedure SetLayeredWindowAttributes_(hWnd, key, alpha, flags) : ProcedureReturn 0 : EndProcedure
+		Procedure GetObject_(h, size, *out)         : ProcedureReturn 0 : EndProcedure
+		; Win32 constants used across the module — all zero on Linux (the call sites no-op anyway).
+		#SWP_NOSIZE        = 0
+		#SWP_NOMOVE        = 0
+		#SWP_NOZORDER      = 0
+		#SWP_NOREDRAW      = 0
+		#SWP_FRAMECHANGED  = 0
+		#GWL_WNDPROC       = 0
+		#GWL_EXSTYLE       = 0
+		#GCL_HBRBACKGROUND = 0
+		#WS_EX_LAYERED     = 0
+		#WS_OVERLAPPEDWINDOW = 0
+		#WS_SYSMENU        = 0
+		#LWA_ALPHA         = 0
+		#SM_CXSIZEFRAME    = 0
+		#SM_CYSIZEFRAME    = 0
+		#SM_CXPADDEDBORDER = 0
+		#WM_NCHITTEST      = 0
+		#WM_NCCALCSIZE     = 0
+		#WM_NCACTIVATE     = 0
+		#WM_NCDESTROY      = 0
+		#WM_CTLCOLORSTATIC = 0
+		#WM_CTLCOLORBTN    = 0
+		#WM_GETMINMAXINFO  = 0
+		#WM_SIZE           = 0
+		; HT* values mirror the Win32 ones. They never reach a real Win32 API on Linux
+		; (every consumer is a stubbed function), but UITK uses them as its own internal
+		; edge identifiers, so they MUST be distinct and non-zero — otherwise
+		; Linux_HTToPBCursor's Select picks the first case for everything and
+		; Linux_TitleBar_LeftButtonDown's `If *WindowData\CurrentEdge` is always false.
+		#HTTRANSPARENT     = -1
+		#HTCLIENT          = 1
+		#HTCAPTION         = 2
+		#HTLEFT            = 10
+		#HTRIGHT           = 11
+		#HTTOP             = 12
+		#HTTOPLEFT         = 13
+		#HTTOPRIGHT        = 14
+		#HTBOTTOM          = 15
+		#HTBOTTOMLEFT      = 16
+		#HTBOTTOMRIGHT     = 17
+		#WH_MOUSE_LL       = 0
+		#NUL               = 0
+		#MONITOR_DEFAULTTONEAREST = 0
+		; BITMAP stub so existing per-gadget code that declares `HBitmap.BITMAP` still compiles.
+		Structure BITMAP
+			bmType.l
+			bmWidth.l
+			bmHeight.l
+			bmWidthBytes.l
+			bmPlanes.w
+			bmBitsPixel.w
+			bmBits.i
+		EndStructure
+	CompilerEndIf
+	;}
+
 	;{ Macro
 	Macro InitializeObject(GadgetType)
 		*GadgetData\Gadget = Gadget
@@ -480,15 +648,15 @@ Module UITK
 		EndMacro
 	CompilerEndIf
 	
-	CompilerIf #PB_Compiler_OS = #PB_OS_Windows ; Set Alpha
-		Macro SetAlpha(Color, Alpha)
-			Alpha << 24 + Color
-		EndMacro
-	CompilerElse
-		Macro SetAlpha(Color, Alpha) ; Not tested...
-			Color << 8 + Alpha
-		EndMacro
-	CompilerEndIf
+	; SetAlpha — pack a 24-bit RGB color and an 8-bit alpha into PB's 32-bit ARGB
+	; format (alpha in the high byte). PB's Red/Green/Blue/Alpha accessors and
+	; RGB/RGBA constructors use the same byte order across Windows and Linux, so
+	; we use the same macro on both platforms. The old Linux branch produced
+	; RRGGBBAA instead of AABBGGRR — every theme color round-tripped to garbage,
+	; which is what made the container render bright red on the Linux port.
+	Macro SetAlpha(Color, Alpha)
+		(Alpha << 24) + Color
+	EndMacro
 	
 	Macro Floor(Number)
 		Round(Number, #PB_Round_Down)
@@ -605,6 +773,11 @@ Module UITK
 			EndStructure
 			;}
 		CompilerCase #PB_OS_Linux   ;{
+			Prototype GetAttribute(*This, Attribute)
+			Prototype SetAttribute(*This, Attribute, Value)
+			; Mirrors PB 6.40's PB_GadgetVT (sdk/c/PureLibraries/Gadget/Gadget.h).
+			; Field order MUST match; PB dispatches by offset, not by name.
+			; UITK extensions go strictly AFTER PB's last field.
 			Structure GadgetVT
 				SizeOf.l
 				GadgetType.l
@@ -617,7 +790,7 @@ Module UITK
 				*AddGadgetItem2
 				*AddGadgetItem3
 				*RemoveGadgetItem
-				*ClearGadgetItemList
+				*ClearGadgetItemList    ; PB header calls this ClearGadgetItems; name diverges from PB but offset is correct
 				*ResizeGadget
 				*CountGadgetItems
 				*GetGadgetItemState
@@ -627,8 +800,8 @@ Module UITK
 				*SetGadgetFont
 				*OpenGadgetList2
 				*AddGadgetColumn
-				*GetGadgetAttribute
-				*SetGadgetAttribute
+				*GetGadgetAttribute.GetAttribute
+				*SetGadgetAttribute.SetAttribute
 				*GetGadgetItemAttribute2
 				*SetGadgetItemAttribute2
 				*RemoveGadgetColumn
@@ -640,15 +813,24 @@ Module UITK
 				*GetGadgetItemData
 				*GetGadgetFont
 				*SetGadgetItemImage
+				; ---- UITK private extensions, never dispatched by PB ----
+				; HideGadget is NOT in PB's Linux vtable (PB calls gtk_widget_hide directly).
+				; The other three are needed by InitializeObject() and SubClassFunction shared code.
 				*HideGadget
+				*GetRequiredSize
+				*GetGadgetItemImage
+				*DropHandler
 			EndStructure
-			
+
+			; Mirrors PB 6.40's PB_GadgetStructure. Adding RootWindowID and the full Data[6]
+			; so any future cast through *this\UserData or *this\Daten reads the right bytes.
 			Structure PB_Gadget
 				*Gadget
 				*GadgetContainer
 				*vt.GadgetVT
+				RootWindowID.i
 				UserData.i
-				Daten.i[4]
+				Daten.i[6]
 			EndStructure ;}
 		CompilerCase #PB_OS_MacOS   ;{
 			Structure PB_Gadget
@@ -1014,8 +1196,34 @@ Module UITK
 		EndSelect
 	EndProcedure
 	
+	; Cross-platform image-dimension lookup. Replaces the Win32 BITMAP+GetObject_ pattern.
+	; ImageID is whatever PB returns from ImageID(): HBITMAP on Windows, GdkPixbuf* on Linux.
+	Structure UITK_BitmapInfo
+		bmWidth.l
+		bmHeight.l
+	EndStructure
+
+	; gdk_pixbuf_get_width/height moved into the consolidated Linux ImportC at the top
+	; of Module UITK (alongside g_signal_connect_data and the Phase-4 GTK surface).
+
+	Procedure UITK_GetImageSize(ImageHandle, *bmp.UITK_BitmapInfo)
+		*bmp\bmWidth  = 0
+		*bmp\bmHeight = 0
+		If Not ImageHandle : ProcedureReturn : EndIf
+		CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+			Protected wbmp.BITMAP
+			GetObject_(ImageHandle, SizeOf(BITMAP), @wbmp)
+			*bmp\bmWidth  = wbmp\bmWidth
+			*bmp\bmHeight = wbmp\bmHeight
+		CompilerElse
+			; ImageID on Linux is a GdkPixbuf*
+			*bmp\bmWidth  = gdk_pixbuf_get_width(ImageHandle)
+			*bmp\bmHeight = gdk_pixbuf_get_height(ImageHandle)
+		CompilerEndIf
+	EndProcedure
+
 	Procedure PrepareVectorTextBlock(*TextData.Text)
-		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.BITMAP
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.UITK_BitmapInfo
 		
 		*TextData\RequiredHeight = 0
 		*TextData\RequiredWidth = 0
@@ -1048,7 +1256,7 @@ Module UITK
 		Next
 		
 		If *TextData\Image
-			GetObject_(*TextData\Image, SizeOf(BITMAP), @HBitmap.BITMAP)
+			UITK_GetImageSize(*TextData\Image, @HBitmap)
 			HBitmap\bmWidth + #TextBlock_ImageMargin
 			*TextData\RequiredWidth + HBitmap\bmWidth
 		EndIf
@@ -1533,6 +1741,11 @@ Module UITK
 	
 	Procedure SubClassFunction(Gadget, Function, *Address) ; Advanced functionality! Probably too much of a niche usage, move it to the private branch of UITK?
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt, *Result
+		CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
+			; TODO Linux: rewrite this whole switch using the Linux GadgetVT field set
+			; (no GadgetCallback / GadgetX/Y/W/H / SetActiveGadget / GetRequiredSize).
+			ProcedureReturn 0
+		CompilerElse
 		
 		Select Function
 			Case #SubClass_EventHandler
@@ -1659,8 +1872,9 @@ Module UITK
 				*Result = *this\vt\DropHandler
 				If *Address : *this\vt\DropHandler = *Address : EndIf
 		EndSelect
-		
+
 		ProcedureReturn *Result
+		CompilerEndIf
 	EndProcedure
 	
 	Procedure Default_SetAttribute(*This.PB_Gadget, Attribute, Value)
@@ -1817,11 +2031,18 @@ Module UITK
 	;}
 	
 	;{ Window
+	; ============================================================
+	; The themed window is Win32-only (subclassed wndproc + DwmExtendFrameIntoClientArea).
+	; On Linux we'll need a separate implementation (likely gtk_window_set_decorated FALSE
+	; + gtk_window_begin_move_drag, or accept native decorations). Stubbed for now so the
+	; module compiles cross-platform.
+	; ============================================================
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 	#WM_SYSMENU = $313
 	#SizableBorder = 8
 	#WindowButtonWidth = 45
 	#WindowBarHeight = 30
-	
+
 	Structure ThemedWindow
 		*Brush
 		*OriginalProc
@@ -2443,12 +2664,121 @@ Module UITK
 			Case #Color_WindowBorder
 				Result = *WindowData\Theme\WindowTitle
 		EndSelect
-		
+
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
 	EndProcedure
-	;}
-	
+	CompilerElse
+		; ============================================================
+		; Linux native window — Phase 4 (final architecture)
+		; ============================================================
+		; Wayland made the Phase-4a custom-titlebar approach untenable: Mutter
+		; silently refuses gtk_window_maximize / begin_resize_drag on borderless
+		; windows, and fighting the compositor accumulated more code than it was
+		; worth. On Linux we let PB open a fully WM-managed window with its native
+		; chrome (title bar, borders, all owned by Mutter / KWin / etc.). The look
+		; loses the UITK dark theme on the title bar — but everything else just
+		; works: snap, resize, max/min/close buttons, Win+arrow, position tracking.
+		; GIMP / Inkscape / etc. take the same per-platform-divergence approach.
+
+		Procedure Window_Init() : EndProcedure
+		Procedure ExtendFrameIntoClient(WindowID) : EndProcedure
+
+		Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
+			Protected Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title,
+			                              (Bool(Flags & #Window_CloseButton)    * #PB_Window_SystemMenu) |
+			                              (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize)   |
+			                              (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize)   |
+			                              (Bool(Flags & #Window_Sizable)        * #PB_Window_SizeGadget) |
+			                              (Bool(Flags & #Window_Invisible)      * #PB_Window_Invisible)  |
+			                              (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+			If Window = #PB_Any : Window = Result : EndIf
+
+			; Allocate a ThemedWindow so UITK gadgets created inside this window pick
+			; up the right palette via the standard GetProp_("UITK_WindowData") path
+			; (per-gadget theme-inheritance is unchanged from Windows). Also set the
+			; PB window background color to match — without it, GTK's default (light)
+			; background shows through and clashes with DarkMode gadgets.
+			;
+			; NB: small per-window leak — the struct lives in UITK_PropMap and gets
+			; orphaned when the GTK destroy hook removes its map entry on close. The
+			; allocation is one Theme-sized chunk per window, so it's negligible
+			; outside of programs that open and close UITK windows in a tight loop.
+			; Eventually wire FreeStructure into UITK_PropCleanup_Handler for keyed
+			; allocations.
+			Protected *WindowData.ThemedWindow
+			AllocateStructureX(*WindowData, ThemedWindow)
+			If Flags & #DarkMode
+				CopyStructure(@DarkTheme, @*WindowData\Theme, Theme)
+			ElseIf Flags & #LightMode
+				CopyStructure(@LightTheme, @*WindowData\Theme, Theme)
+			Else
+				CopyStructure(*DefaultTheme, @*WindowData\Theme, Theme)
+			EndIf
+			SetProp_(WindowID(Window), "UITK_WindowData", *WindowData)
+			SetWindowColor(Window, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
+
+			ProcedureReturn Result
+		EndProcedure
+
+		Procedure OpenWindowGadgetList(Window)
+			; Linux native windows have no Container under the chrome — gadgets go
+			; into the window's own gadget list. Forward to PB's gadget-list machinery
+			; via UseGadgetList (calling PB's OpenWindowGadgetList from inside a same-
+			; named procedure would recurse).
+			ProcedureReturn UseGadgetList(WindowID(Window))
+		EndProcedure
+
+		Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
+			WindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
+		EndProcedure
+
+		Procedure SetWindowIcon(Window, Image)
+			; Most Linux DEs derive the window icon from a .desktop entry, not from a
+			; runtime call. Leave as a no-op for now; can wire gdk_window_set_icon
+			; later if a use case appears.
+		EndProcedure
+
+		Procedure GetWindowIcon(Window)                    : ProcedureReturn 0 : EndProcedure
+		Procedure WindowSetColor(Window, ColorType, Color) : EndProcedure
+		Procedure WindowGetColor(Window, ColorType)        : ProcedureReturn 0 : EndProcedure
+
+		; AddWindowMenu — translate a UITK FlatMenu into a native PB menubar attached
+		; to the window. The FlatMenu remains usable as a popup via UITK::ShowFlatMenu;
+		; this just gives the WM-drawn menubar a representation of its items so users
+		; get a real menu on Linux. Each item is re-emitted via MenuItem with the same
+		; numeric ID the FlatMenu was created with, so the user's existing
+		; #PB_Event_Menu / EventMenu() handlers wire up identically. The PB menu is
+		; created lazily on first call and cached on the window via UITK_PropMap.
+		Procedure AddWindowMenu(Window, Menu, Title.s)
+			Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+			If Not *MenuData : ProcedureReturn : EndIf
+
+			Protected pbMenu = GetProp_(WindowID(Window), "UITK_PBMenu")
+			If pbMenu = 0
+				pbMenu = CreateMenu(#PB_Any, WindowID(Window))
+				SetProp_(WindowID(Window), "UITK_PBMenu", pbMenu)
+			EndIf
+			; PB has no cross-platform UseMenu, so subsequent MenuTitle/MenuItem calls
+			; go into whatever PB menu was created most recently. That's fine for the
+			; common case where AddWindowMenu is called in sequence right after Window().
+			; If the user creates other PB menus between AddWindowMenu calls, items
+			; would land in the wrong menu — caveat documented here for the future.
+
+			MenuTitle(Title)
+			ForEach *MenuData\Item()
+				If *MenuData\Item()\Type = #Separator
+					MenuBar()
+				Else
+					MenuItem(*MenuData\Item()\ID, *MenuData\Item()\Text\OriginalText)
+				EndIf
+			Next
+		EndProcedure
+	CompilerEndIf	;}
+
 	;{ Advanced drag & drop
+	; Win32 only: uses a layered window + low-level mouse hook to position a follow-cursor image during drag.
+	; Linux/Mac equivalent would use a GTK drag icon or X11 cursor image — out of scope for now.
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 	Global ADNDWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(TimerWindow)) ; Timer window? Shouldn't there be an universal hidden window for UITK rather than piggy backing this one?
 	SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
 	SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
@@ -2553,8 +2883,16 @@ Module UITK
 	Procedure RegisterDropCallback(*Callback)
 		*DropCallback = *Callback
 	EndProcedure
-	
+
 	SetDropCallback(@DropCallback())
+	CompilerElse
+		; ---- Linux/Mac stubs for advanced drag & drop ----
+		Procedure AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragFiles(File.s, ImageID, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)  : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)         : ProcedureReturn 0 : EndProcedure
+		Procedure RegisterDropCallback(*Callback) : EndProcedure
+	CompilerEndIf
 	;}
 	
 	
@@ -5922,7 +6260,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure HorizontalList_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
-		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.BITMAP
+		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.UITK_BitmapInfo
 		With *GadgetData
 			
 			If Position > -1 And Position < ListSize(\Items())
@@ -5946,11 +6284,11 @@ Module UITK
 			*NewItem\imageID = ImageID
 			
 			If *NewItem\imageID
-				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+				UITK_GetImageSize(*NewItem\imageID, @HBitmap)
 				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
 				*NewItem\ImageY = (\Height - 20 - HBitmap\bmHeight) * 0.5
 			EndIf
-			
+
 			\InternalWidth = ListSize(\Items()) * \ItemWidth
 			
 			If \InternalWidth > \Width
@@ -7382,7 +7720,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Library_AddItem(*This.PB_Gadget, Position.w, *Text, ImageID, Flags.i)
-		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.BITMAP
+		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.UITK_BitmapInfo
 		
 		With *GadgetData
 			LastElement(\Items())
@@ -7398,9 +7736,9 @@ Module UITK
 			*NewItem\Text\HAlign = #HAlignLeft
 			
 			PrepareVectorTextBlock(@*NewItem\Text)
-			
-			GetObject_(*NewItem\ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
-			
+
+			UITK_GetImageSize(*NewItem\ImageID, @HBitmap)
+
 			*NewItem\ImageWidth = HBitmap\bmWidth
 			*NewItem\ImageHeight = HBitmap\bmHeight
 			*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
@@ -9267,7 +9605,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tab_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
-		Protected *GadgetData.TabData = *this\vt, *NewItem.Tab_Item, HBitmap.BITMAP
+		Protected *GadgetData.TabData = *this\vt, *NewItem.Tab_Item, HBitmap.UITK_BitmapInfo
 		With *GadgetData
 			
 			If Position > -1 And Position < ListSize(\Items())
@@ -9292,11 +9630,11 @@ Module UITK
 			*NewItem\Color = \ThemeData\Special3[#Warm]
 			
 			If *NewItem\imageID
-				GetObject_(*NewItem\imageID, SizeOf(BITMAP), @HBitmap.BITMAP)
+				UITK_GetImageSize(*NewItem\imageID, @HBitmap)
 				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
 				*NewItem\ImageY = (\Height - 10 - HBitmap\bmHeight) * 0.5
 			EndIf
-			
+
 			\InternalWidth = ListSize(\Items()) * \ItemWidth
 			
 			ChangeCurrentElement(\Items(), *NewItem)
@@ -11040,9 +11378,9 @@ EndModule
 
 
 
-
-; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 1818
-; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; IDE Options = PureBasic 6.40 (Linux - x64)
+; CursorPosition = 2908
+; FirstLine = 375
+; Folding = wA9--fAAAQAAAAAAAAIAGAYAGI6DAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA----------
 ; EnableXP
 ; DPIAware

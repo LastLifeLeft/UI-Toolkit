@@ -1,55 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.40 (Windows - x64)">
+<project xmlns="http://www.purebasic.com/namespace" version="1.0" creator="PureBasic 6.40 (Linux - x64)">
   <section name="config">
     <options closefiles="1" openmode="0" name="UI Toolkit"/>
     <comment>My set of tools to create decent looking PB gadgets quickly.</comment>
   </section>
   <section name="data">
-    <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
+    <explorer view="C:/ProgramData/PureBasic/Examples/" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-05-22 03:47" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-05-23 00:41" user="LastLife" host="ubuntu-vm"/>
   </section>
   <section name="files">
-    <file name="Editor\Includes\General.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+++"/>
+    <file name="Editor/Includes/General.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+--"/>
       <fingerprint md5="a339eab1eb30b9b88f253db74b22a0c9"/>
     </file>
-    <file name="Editor\Includes\MainWindow.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+++"/>
+    <file name="Editor/Includes/MainWindow.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+--"/>
       <fingerprint md5="b58f373cb0fc106f6872ec8593f5b29a"/>
     </file>
-    <file name="Editor\Includes\Project.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="3" panelstate="+++"/>
+    <file name="Editor/Includes/Project.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="3" panelstate="+--"/>
       <fingerprint md5="2860a6cdc57fde134073903b5e59f7a7"/>
     </file>
-    <file name="Editor\UITK Edit.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="4" panelstate="++"/>
+    <file name="Editor/UITK Edit.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="4" panelstate="+-"/>
       <fingerprint md5="bfa70189e3c20d895fd1e4d6f5ba0529"/>
     </file>
-    <file name="Examples\Debug.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="5" panelstate="++"/>
+    <file name="Examples/Debug.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="5" panelstate="+-"/>
       <fingerprint md5="ac50841698bb5bd35bab33eb24d6b811"/>
     </file>
-    <file name="Examples\Example 2 - Gadget Example 2.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="6" panelstate="++"/>
+    <file name="Examples/Example 2 - Gadget Example 2.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="6" panelstate="+-"/>
       <fingerprint md5="1b33ef310b0e7c8a90e1634119ef0980"/>
     </file>
-    <file name="Examples\Example 3 - Timeline.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="7" panelstate="++"/>
+    <file name="Examples/Example 3 - Timeline.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="7" panelstate="+-"/>
       <fingerprint md5="0ed400e09587cff02225feb02bb8020f"/>
     </file>
-    <file name="Library\UI-Toolkit.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="8" panelstate="++"/>
-      <fingerprint md5="ecc3c2cab5a83120eb1b9a8e89ff46c0"/>
+    <file name="Library/UI-Toolkit.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="8" panelstate="+-"/>
+      <fingerprint md5="a9667b77730810beb86a7cfcdb06c046"/>
     </file>
-    <file name="Examples\AeroSnapTest.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="9" panelstate="++"/>
-      <fingerprint md5="2e268a24a95a16fd2246f8f1c8911366"/>
+    <file name="Examples/AeroSnapTest.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="9" panelstate="+-"/>
+      <fingerprint md5="16c88f02259af09f6b5ee57dddb5f0e2"/>
     </file>
-    <file name="Examples\Example 1 - Gadget Example 1.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="++"/>
-      <fingerprint md5="3f8e4dd20165a156dce00a65a12bd295"/>
+    <file name="Examples/Example 1 - Gadget Example 1.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
+      <fingerprint md5="7a9a79f83f9c2bebc9a0e6f7a4cd84e3"/>
     </file>
   </section>
   <section name="targets">
@@ -57,7 +57,7 @@
       <inputfile value="Editor\UITK Edit.pb"/>
       <outputfile value="UITK Edit.exe"/>
       <compiler version="PureBasic 6.00 LTS (Windows - x64)"/>
-      <executable value="Examples\Example 1.exe"/>
+      <executable value="Examples/Example 1.exe"/>
       <options xpskin="1" debug="1" optimizer="1"/>
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
@@ -65,17 +65,17 @@
     <target name="Example 1" enabled="1" default="0">
       <inputfile value="Examples\Example 1 - Gadget Example 1.pbi"/>
       <outputfile value="Examples\Example 1.exe"/>
-      <compiler version="PureBasic 6.20 - C Backend (Windows - x64)"/>
-      <executable value="Examples\Example 1.exe"/>
+      <compiler version="PureBasic 6.40 - C Backend (Windows - x64)"/>
+      <executable value="Examples/Example 1.exe"/>
       <options xpskin="1" debug="1" optimizer="1"/>
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 2" enabled="1" default="1">
+    <target name="Example 2" enabled="1" default="0">
       <inputfile value="Examples\Example 2 - Gadget Example 2.pbi"/>
       <outputfile value="Examples\Example 2.exe"/>
       <compiler version="PureBasic 6.00 LTS (Windows - x64)"/>
-      <executable value="Examples\Example 2.exe"/>
+      <executable value="Examples/Example 2.exe"/>
       <options xpskin="1" debug="1" optimizer="1"/>
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
@@ -84,7 +84,7 @@
       <inputfile value="Examples\Example 3 - Timeline.pb"/>
       <outputfile value="Examples\Example 3.exe"/>
       <compiler version="PureBasic 6.00 LTS (Windows - x64)"/>
-      <executable value="Examples\Example 3.exe"/>
+      <executable value="Examples/Example 3.exe"/>
       <options xpskin="1" debug="1" optimizer="1"/>
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
@@ -93,7 +93,7 @@
       <inputfile value="Examples\Example 3 - Timeline.pb"/>
       <outputfile value="Examples\Example 3.exe"/>
       <compiler version="PureBasic 6.00 LTS - C Backend (Windows - x64)"/>
-      <executable value="Examples\Example 3.exe"/>
+      <executable value="Examples/Example 3.exe"/>
       <options xpskin="1" debug="1" optimizer="1"/>
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
@@ -102,7 +102,15 @@
       <inputfile value="Examples\Debug.pb"/>
       <outputfile value="Examples\Example 1.exe"/>
       <compiler version="PureBasic 6.00 LTS (Windows - x64)"/>
-      <executable value="Examples\Example 1.exe"/>
+      <executable value="Examples/Example 1.exe"/>
+      <options xpskin="1" debug="1" optimizer="1"/>
+      <temporaryexe value="source"/>
+      <format exe="default" cpu="5"/>
+    </target>
+    <target name="AeroSnapTest" enabled="1" default="1">
+      <inputfile value="Examples\AeroSnapTest.pb"/>
+      <outputfile value="Examples\Example 1.exe"/>
+      <executable value="Examples/Example 1.exe"/>
       <options xpskin="1" debug="1" optimizer="1"/>
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
