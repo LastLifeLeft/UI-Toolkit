@@ -1,2 +1,13 @@
 
 *.exe
+
+# PureBasic build artifacts
+*.out
+PureBasic_Compilation*
+purebasic_compilation*
+
+# Linux example binaries (named *_linux by convention) plus extensionless
+# test binaries built out of Examples/.
+Examples/*_linux
+Examples/LinuxMinimal
+Examples/_phase3_cleanup_test

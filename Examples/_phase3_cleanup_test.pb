@@ -1,6 +1,11 @@
-; Phase 3 verification: confirm GTK destroy hook actually clears UITK_PropMap.
+; Linux cleanup-hook verification:
+;   - Phase 3 path: the per-gadget UITK_PropMap entries get dropped when the
+;     widget is destroyed via the GTK "destroy" signal.
+;   - Phase 4-final path: the per-window ThemedWindow we AllocateStructureX in
+;     UITK::Window is registered as an OWNED allocation via SetOwnedProp_, so
+;     destroy-hook cleanup ALSO FreeStructure's it (no leak).
 ; Build:  pbcompiler _phase3_cleanup_test.pb --output _phase3_cleanup_test
-; Run:    ./_phase3_cleanup_test  (prints map size at three checkpoints, then exits)
+; Run:    ./_phase3_cleanup_test  (prints map size at each checkpoint, then exits)
 
 IncludeFile "../Library/UI-Toolkit.pbi"
 
@@ -38,6 +43,14 @@ CloseWindow(0)
 While WindowEvent() : Wend
 
 ReportMapSize("3. after CloseWindow + pump")
+
+; ---- Phase 4-final: UITK::Window allocates a ThemedWindow via SetOwnedProp_.
+; Cleanup hook should both DROP the map entry AND FreeStructure the allocation.
+themedWin = UITK::Window(#PB_Any, 200, 200, 400, 200, "Owned-alloc Test", UITK::#DarkMode | UITK::#Window_CloseButton)
+ReportMapSize("4. after creating a UITK::Window")
+CloseWindow(themedWin)
+While WindowEvent() : Wend
+ReportMapSize("5. after CloseWindow + pump (no double-free, no leak)")
 
 PrintN("done — press Enter to exit")
 Input()
