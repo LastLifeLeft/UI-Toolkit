@@ -413,6 +413,12 @@ Module UITK
 		; widgets we've already wired the destroy signal on so we only do it once each.
 		Global NewMap UITK_PropMap.i()
 		Global NewMap UITK_CleanupRegistered.b()
+		; Marks UITK_PropMap entries whose value is an allocation we own and must
+		; FreeStructure when the owning widget is destroyed. Most SetProp_ callers
+		; just store opaque pointers (PB cleans up the targets via the gadget vtable);
+		; only a handful of places allocate cross-widget state — UITK::Window's
+		; per-window ThemedWindow being the canonical example.
+		Global NewMap UITK_PropOwned.b()
 
 		ImportC ""
 			; Minimal GTK surface — signal connection for our destroy hook and the
@@ -427,11 +433,19 @@ Module UITK
 		ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
 			Protected prefix.s = Hex(*widget) + ":"
 			Protected prefixLen = Len(prefix)
+			Protected key.s, ptr.i
 			; Collect keys first; deleting while iterating ForEach a Map is unsafe in PB.
 			NewList toDrop.s()
 			ForEach UITK_PropMap()
-				If Left(MapKey(UITK_PropMap()), prefixLen) = prefix
-					AddElement(toDrop()) : toDrop() = MapKey(UITK_PropMap())
+				key = MapKey(UITK_PropMap())
+				If Left(key, prefixLen) = prefix
+					; FreeStructure any value we own before removing the map entry.
+					If FindMapElement(UITK_PropOwned(), key)
+						ptr = UITK_PropMap()
+						If ptr : FreeStructure(ptr) : EndIf
+						DeleteMapElement(UITK_PropOwned())
+					EndIf
+					AddElement(toDrop()) : toDrop() = key
 				EndIf
 			Next
 			ForEach toDrop()
@@ -459,6 +473,18 @@ Module UITK
 
 		Procedure SetProp_(hWnd, name.s, value)
 			UITK_PropMap(Hex(hWnd) + ":" + name) = value
+			UITK_EnsureCleanupHook(hWnd)
+			ProcedureReturn 1
+		EndProcedure
+
+		; SetOwnedProp_: same as SetProp_ but also marks the value as a UITK
+		; AllocateStructureX-allocated pointer. When the widget's destroy signal
+		; fires, UITK_PropCleanup_Handler will FreeStructure the pointer before
+		; dropping the map entry — fixing what would otherwise be a per-widget leak.
+		Procedure SetOwnedProp_(hWnd, name.s, *ptr)
+			Protected key.s = Hex(hWnd) + ":" + name
+			UITK_PropMap(key)  = *ptr
+			UITK_PropOwned(key) = #True
 			UITK_EnsureCleanupHook(hWnd)
 			ProcedureReturn 1
 		EndProcedure
@@ -2699,12 +2725,8 @@ Module UITK
 			; PB window background color to match — without it, GTK's default (light)
 			; background shows through and clashes with DarkMode gadgets.
 			;
-			; NB: small per-window leak — the struct lives in UITK_PropMap and gets
-			; orphaned when the GTK destroy hook removes its map entry on close. The
-			; allocation is one Theme-sized chunk per window, so it's negligible
-			; outside of programs that open and close UITK windows in a tight loop.
-			; Eventually wire FreeStructure into UITK_PropCleanup_Handler for keyed
-			; allocations.
+			; SetOwnedProp_ registers the allocation with UITK_PropOwned so the GTK
+			; destroy hook FreeStructure's it when the window goes away — no leak.
 			Protected *WindowData.ThemedWindow
 			AllocateStructureX(*WindowData, ThemedWindow)
 			If Flags & #DarkMode
@@ -2714,7 +2736,7 @@ Module UITK
 			Else
 				CopyStructure(*DefaultTheme, @*WindowData\Theme, Theme)
 			EndIf
-			SetProp_(WindowID(Window), "UITK_WindowData", *WindowData)
+			SetOwnedProp_(WindowID(Window), "UITK_WindowData", *WindowData)
 			SetWindowColor(Window, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
 
 			ProcedureReturn Result

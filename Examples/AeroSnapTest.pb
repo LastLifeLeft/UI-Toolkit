@@ -1,8 +1,10 @@
-; Smoke test for Aero Snap on a sizable UITK window.
-; Drag the title bar to a screen edge, should show snap preview and snap on release.
-; Double-click the title bar, it should toggle maximize/restore.
-; Win+Left/Right/Up/Down, it should snap natively.
-; Drag from the resize edges, it should resize natively.
+; Smoke test for a sizable UITK window.
+;   - Windows: exercises the Phase-4a custom-titlebar path (WM_NCHITTEST +
+;     DwmExtendFrameIntoClientArea give us real Aero Snap behavior).
+;   - Linux:   exercises the native-chrome path (WM owns titlebar / borders /
+;     buttons / snap / resize). Look should match GIMP / Inkscape / etc.
+; In either case the window should support: drag-to-edge snap, double-click
+; maximize, Win+arrow snap, and edge resize.
 
 UsePNGImageDecoder()
 
