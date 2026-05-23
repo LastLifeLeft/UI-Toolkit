@@ -394,38 +394,15 @@ EndDeclareModule
 Module UITK
 	EnableExplicit
 
-	;{ Cross-platform stubs (recon scaffold — replace with real impls during the Linux port)
+	;{ Cross-platform stubs — make the Win32-heavy parts of the module compile on Linux.
 	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
-		; ThemedWindow mirrors enough of the Windows-side struct that shared code
-		; accessing \Theme / \Container / \Sizable / \Width / \Height etc. still works.
+		; ThemedWindow is referenced by shared per-gadget theme-inheritance code that
+		; does `Protected *WindowData.ThemedWindow = GetProp_(...)` and then reads
+		; \Theme. On Linux UITK::Window uses native chrome (Phase 4-final) so we
+		; never populate this struct — callers see a NULL pointer and fall through
+		; to *DefaultTheme. The Theme field is kept so the struct shape stays valid
+		; if a future enhancement decides to attach per-window theme overrides.
 		Structure ThemedWindow
-			Width.l
-			Height.l
-			MinWidth.l
-			MinHeight.l
-			MaxWidth.l
-			MaxHeight.l
-
-			Sizable.l
-
-			ButtonClose.i
-			ButtonMinimize.i
-			ButtonMaximize.i
-
-			Container.i
-
-			Label.i
-			LabelWidth.l
-			LabelAlign.b
-
-			; Phase 4b — last resize edge the cursor was over (HTTOP / HTLEFT / …
-			; or 0 = none). Set by motion handlers, read by button-press handlers
-			; to decide whether to begin a resize-drag vs a move-drag.
-			CurrentEdge.l
-			; Cached GtkWindow* so signal handlers can call gtk_window_begin_resize_drag
-			; without going back through PB's WindowID() / EventWindow().
-			WindowID.i
-
 			Theme.Theme
 		EndStructure
 		; Per-widget key/value storage. On Windows the Win32 GetProp_/SetProp_ store on
@@ -438,43 +415,14 @@ Module UITK
 		Global NewMap UITK_CleanupRegistered.b()
 
 		ImportC ""
-			; GLib / GTK / GDK surface used by the Linux Window port. PB's GTK runtime
-			; already links libgtk-3, libgdk-3, libgobject-2, etc., so naming the symbols
-			; without specifying a .so is enough.
+			; Minimal GTK surface — signal connection for our destroy hook and the
+			; two GdkPixbuf accessors used by UITK_GetImageSize. PB already links
+			; libgtk-3 / libgdk-3 / libgobject-2 / libgdk_pixbuf-2.0 transitively,
+			; so we don't need to name a .so.
 			g_signal_connect_data(instance.i, detailed_signal.p-ascii, c_handler.i, user_data.i, destroy_data.i, connect_flags.l)
-			gtk_window_set_decorated(window.i, setting.l)
-			gtk_window_begin_move_drag(window.i, button.l, root_x.l, root_y.l, timestamp.l)
-			gtk_window_begin_resize_drag(window.i, edge.l, button.l, root_x.l, root_y.l, timestamp.l)
-			gtk_window_maximize(window.i)
-			gtk_window_unmaximize(window.i)
-			gtk_window_is_maximized.l(window.i)
-			gtk_window_iconify(window.i)
-			gtk_widget_add_events(widget.i, events.l)
-			gtk_widget_get_window.i(widget.i)
-			gtk_widget_get_display.i(widget.i)
-			gtk_get_current_event_time.l()
-			gdk_window_set_cursor(gdk_window.i, cursor.i)
-			gdk_cursor_new_from_name.i(display.i, name.p-ascii)
 			gdk_pixbuf_get_width(pixbuf.i)
 			gdk_pixbuf_get_height(pixbuf.i)
 		EndImport
-
-		; Pinned GDK / GTK constants.
-		; GdkWindowEdge — used by gtk_window_begin_resize_drag.
-		#GDK_WINDOW_EDGE_NORTH_WEST = 0
-		#GDK_WINDOW_EDGE_NORTH       = 1
-		#GDK_WINDOW_EDGE_NORTH_EAST  = 2
-		#GDK_WINDOW_EDGE_WEST        = 3
-		#GDK_WINDOW_EDGE_EAST        = 4
-		#GDK_WINDOW_EDGE_SOUTH_WEST  = 5
-		#GDK_WINDOW_EDGE_SOUTH       = 6
-		#GDK_WINDOW_EDGE_SOUTH_EAST  = 7
-		; GdkEventType — only the few we care about
-		#GDK_BUTTON_PRESS   = 4
-		#GDK_2BUTTON_PRESS  = 5
-
-		; GdkEventButton is already provided by PB as a resident structure;
-		; we just rely on that built-in.
 
 		ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
 			Protected prefix.s = Hex(*widget) + ":"
@@ -2721,403 +2669,111 @@ Module UITK
 	EndProcedure
 	CompilerElse
 		; ============================================================
-		; Linux themed window — Phase 4a
+		; Linux native window — Phase 4 (final architecture)
 		; ============================================================
-		; Builds a borderless GtkWindow then layers UITK's Label + 3 Button gadgets
-		; as a custom title bar on top. Drag (with WM snap support) goes through
-		; gtk_window_begin_move_drag — the WM (Mutter / KWin / etc.) handles snap
-		; previews, snap-on-drag-to-edge, Win+Arrow, all of it. Double-click on the
-		; title bar toggles maximize via gtk_window_maximize/unmaximize.
-		;
-		; Resize edges, min/max/close button wiring, menus and icons are TODO for
-		; Phase 4b+ — for now a sizable window is resizable via the WM's own
-		; resize affordances (some WMs grant a few invisible pixels of resize
-		; border around borderless windows). Min/max/close buttons render but
-		; are no-ops, same as Windows pre-cleanup.
-		;
-		; Linux/Mac dimensions of the title bar — same as Windows so shared code
-		; that does `#WindowBarHeight` arithmetic stays consistent.
-		#WindowBarHeight    = 30
-		#SizableBorder      = 8
-		#WindowButtonWidth  = 45
+		; Wayland made the Phase-4a custom-titlebar approach untenable: Mutter
+		; silently refuses gtk_window_maximize / begin_resize_drag on borderless
+		; windows, and fighting the compositor accumulated more code than it was
+		; worth. On Linux we let PB open a fully WM-managed window with its native
+		; chrome (title bar, borders, all owned by Mutter / KWin / etc.). The look
+		; loses the UITK dark theme on the title bar — but everything else just
+		; works: snap, resize, max/min/close buttons, Win+arrow, position tracking.
+		; GIMP / Inkscape / etc. take the same per-platform-divergence approach.
 
 		Procedure Window_Init() : EndProcedure
 		Procedure ExtendFrameIntoClient(WindowID) : EndProcedure
 
-		; Forward declarations of signal handlers so the constructor can take their address.
-		Declare CloseButton_Handler()
-
-		; Track double-click ourselves: PB's #PB_EventType_LeftButtonDown event doesn't
-		; distinguish single from double, so we time the gap between presses.
-		Global Linux_TitleBar_LastClickTime.q = 0
-		Global Linux_TitleBar_LastClickWindow = 0
-		#Linux_DoubleClickGap = 400  ; ms
-
-		; Map our HT* edge codes to GdkWindowEdge constants for gtk_window_begin_resize_drag.
-		Procedure Linux_HTToGdkEdge(ht)
-			Select ht
-				Case #HTTOPLEFT     : ProcedureReturn #GDK_WINDOW_EDGE_NORTH_WEST
-				Case #HTTOP         : ProcedureReturn #GDK_WINDOW_EDGE_NORTH
-				Case #HTTOPRIGHT    : ProcedureReturn #GDK_WINDOW_EDGE_NORTH_EAST
-				Case #HTLEFT        : ProcedureReturn #GDK_WINDOW_EDGE_WEST
-				Case #HTRIGHT       : ProcedureReturn #GDK_WINDOW_EDGE_EAST
-				Case #HTBOTTOMLEFT  : ProcedureReturn #GDK_WINDOW_EDGE_SOUTH_WEST
-				Case #HTBOTTOM      : ProcedureReturn #GDK_WINDOW_EDGE_SOUTH
-				Case #HTBOTTOMRIGHT : ProcedureReturn #GDK_WINDOW_EDGE_SOUTH_EAST
-				Default             : ProcedureReturn -1
-			EndSelect
-		EndProcedure
-
-		; PB cursor codes for the title-bar Canvas. Container uses gdk cursors instead
-		; (ContainerGadget doesn't support #PB_Canvas_Cursor).
-		Procedure Linux_HTToPBCursor(ht)
-			Select ht
-				Case #HTTOP, #HTBOTTOM                : ProcedureReturn #PB_Cursor_UpDown
-				Case #HTLEFT, #HTRIGHT                : ProcedureReturn #PB_Cursor_LeftRight
-				Case #HTTOPLEFT, #HTBOTTOMRIGHT       : ProcedureReturn #PB_Cursor_LeftUpRightDown
-				Case #HTTOPRIGHT, #HTBOTTOMLEFT       : ProcedureReturn #PB_Cursor_LeftDownRightUp
-				Default                               : ProcedureReturn #PB_Cursor_Default
-			EndSelect
-		EndProcedure
-
-		Procedure Linux_HTToCursorName(ht)
-			Protected name.s
-			Select ht
-				Case #HTTOP, #HTBOTTOM                : name = "ns-resize"
-				Case #HTLEFT, #HTRIGHT                : name = "ew-resize"
-				Case #HTTOPLEFT, #HTBOTTOMRIGHT       : name = "nwse-resize"
-				Case #HTTOPRIGHT, #HTBOTTOMLEFT       : name = "nesw-resize"
-				Default                               : name = "default"
-			EndSelect
-			ProcedureReturn @name
-		EndProcedure
-
-		; Apply the matching GdkCursor to a widget's GdkWindow. Used for the Container
-		; where PB's #PB_Canvas_Cursor attribute isn't available.
-		Procedure Linux_SetWidgetEdgeCursor(*widget, ht)
-			Protected gdkwin = gtk_widget_get_window(*widget)
-			If Not gdkwin : ProcedureReturn : EndIf
-			Protected display = gtk_widget_get_display(*widget)
-			Protected name.s
-			Select ht
-				Case #HTTOP, #HTBOTTOM           : name = "ns-resize"
-				Case #HTLEFT, #HTRIGHT           : name = "ew-resize"
-				Case #HTTOPLEFT, #HTBOTTOMRIGHT  : name = "nwse-resize"
-				Case #HTTOPRIGHT, #HTBOTTOMLEFT  : name = "nesw-resize"
-				Default                          : name = "default"
-			EndSelect
-			gdk_window_set_cursor(gdkwin, gdk_cursor_new_from_name(display, name))
-		EndProcedure
-
-		Procedure Linux_Window_Resize()
-			; PB fires #PB_Event_SizeWindow on every size change (drag-resize, maximize,
-			; unmaximize, programmatic). Equivalent of WM_SIZE on Windows — keep the
-			; custom title bar gadgets and Container glued to the new window dimensions.
-			Protected window = EventWindow()
-			Protected *WindowData.ThemedWindow = GetProp_(WindowID(window), "UITK_WindowData")
-			If Not *WindowData : ProcedureReturn : EndIf
-
-			Protected newWidth  = WindowWidth(window)
-			Protected newHeight = WindowHeight(window)
-			*WindowData\Width  = newWidth
-			*WindowData\Height = newHeight
-
-			Protected OffsetX = 0
-			If *WindowData\ButtonClose
-				OffsetX + #WindowButtonWidth
-				ResizeGadget(*WindowData\ButtonClose, newWidth - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-			EndIf
-			If *WindowData\ButtonMaximize
-				OffsetX + #WindowButtonWidth
-				ResizeGadget(*WindowData\ButtonMaximize, newWidth - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-			EndIf
-			If *WindowData\ButtonMinimize
-				OffsetX + #WindowButtonWidth
-				ResizeGadget(*WindowData\ButtonMinimize, newWidth - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-			EndIf
-
-			*WindowData\LabelWidth = newWidth - OffsetX
-			ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
-
-			ResizeGadget(*WindowData\Container, #PB_Ignore, #PB_Ignore, newWidth, newHeight - #WindowBarHeight)
-		EndProcedure
-
-		Procedure Linux_TitleBar_MouseMove()
-			; PB delivers #PB_EventType_MouseMove on the title-bar Canvas. Used to
-			; detect the top resize zones (HTTOP / HTTOPLEFT) and set the matching cursor.
-			; Cached edge is then picked up by Linux_TitleBar_LeftButtonDown.
-			;
-			; Read cursor position from the desktop and subtract the window origin —
-			; the more obvious GetGadgetAttribute(label, #PB_Canvas_MouseX/Y) returns 0
-			; after UITK's canvas vtable swap, and WindowMouseX/Y inside a Canvas event
-			; handler is also unreliable (returned 0 in testing). The desktop coordinates
-			; don't depend on any event context so they're safe here.
-			Protected window = EventWindow()
-			Protected *WindowData.ThemedWindow = GetProp_(WindowID(window), "UITK_WindowData")
-			If Not *WindowData : ProcedureReturn : EndIf
-			If Not *WindowData\Sizable Or gtk_window_is_maximized(*WindowData\WindowID)
-				*WindowData\CurrentEdge = 0
-				SetGadgetAttribute(*WindowData\Label, #PB_Canvas_Cursor, #PB_Cursor_Default)
-				ProcedureReturn
-			EndIf
-			Protected x = DesktopMouseX() - WindowX(window)
-			Protected y = DesktopMouseY() - WindowY(window)
-			Protected edge = 0
-			If y < #SizableBorder
-				If x < #SizableBorder
-					edge = #HTTOPLEFT
-				Else
-					edge = #HTTOP
-				EndIf
-			EndIf
-			; HTTOPRIGHT is owned by the close button — users grab the corner via the
-			; button itself, so we don't try to claim that zone here.
-			*WindowData\CurrentEdge = edge
-			SetGadgetAttribute(*WindowData\Label, #PB_Canvas_Cursor, Linux_HTToPBCursor(edge))
-		EndProcedure
-
-		Procedure Linux_TitleBar_LeftButtonDown()
-			; UITK Label is internally a CanvasGadget and PB delivers
-			; #PB_EventType_LeftButtonDown on it. If MouseMove cached a resize edge
-			; we delegate to gtk_window_begin_resize_drag; otherwise fall through to
-			; the move-drag / double-click-maximize logic from Phase 4a.
-			Protected window = EventWindow()
-			Protected *WindowData.ThemedWindow = GetProp_(WindowID(window), "UITK_WindowData")
-			If Not *WindowData : ProcedureReturn : EndIf
-			Protected hWnd = *WindowData\WindowID
-
-			If *WindowData\CurrentEdge And *WindowData\Sizable And gtk_window_is_maximized(hWnd) = 0
-				Protected gdkEdge = Linux_HTToGdkEdge(*WindowData\CurrentEdge)
-				If gdkEdge >= 0
-					gtk_window_begin_resize_drag(hWnd, gdkEdge, 1, DesktopMouseX(), DesktopMouseY(), gtk_get_current_event_time())
-					ProcedureReturn
-				EndIf
-			EndIf
-
-			Protected now.q = ElapsedMilliseconds()
-			If hWnd = Linux_TitleBar_LastClickWindow And (now - Linux_TitleBar_LastClickTime) < #Linux_DoubleClickGap
-				; Double-click: toggle maximize/restore.
-				Linux_TitleBar_LastClickTime = 0
-				If gtk_window_is_maximized(hWnd)
-					gtk_window_unmaximize(hWnd)
-				Else
-					gtk_window_maximize(hWnd)
-				EndIf
-			Else
-				Linux_TitleBar_LastClickTime = now
-				Linux_TitleBar_LastClickWindow = hWnd
-				; Hand the rest of the drag gesture to the WM. Coords are screen-relative
-				; (DesktopMouseX/Y), which is what begin_move_drag expects.
-				gtk_window_begin_move_drag(hWnd, 1, DesktopMouseX(), DesktopMouseY(), gtk_get_current_event_time())
-			EndIf
-		EndProcedure
-
-		; Container signal handlers — for resize edges outside the title bar (left,
-		; right, bottom, plus the two bottom corners). ContainerGadget doesn't fire
-		; PB's #PB_EventType_MouseMove, so we go through GTK signals directly. user_data
-		; is the *WindowData pointer so we can read/write CurrentEdge and start the
-		; resize-drag on the cached GtkWindow handle.
-		ProcedureC Linux_Container_MotionNotify(*widget, *event.GdkEventButton, user_data)
-			Protected *WindowData.ThemedWindow = user_data
-			If Not *WindowData : ProcedureReturn 0 : EndIf
-			If Not *WindowData\Sizable Or gtk_window_is_maximized(*WindowData\WindowID)
-				*WindowData\CurrentEdge = 0
-				Linux_SetWidgetEdgeCursor(*widget, 0)
-				ProcedureReturn 0
-			EndIf
-			; GdkEventMotion shares the x/y/x_root/y_root offsets with GdkEventButton,
-			; so we can reuse the resident GdkEventButton structure to read them.
-			Protected x = *event\x
-			Protected y = *event\y
-			Protected width  = *WindowData\Width
-			Protected height = *WindowData\Height - #WindowBarHeight
-			Protected edge = 0
-			If y > height - #SizableBorder
-				If x < #SizableBorder
-					edge = #HTBOTTOMLEFT
-				ElseIf x > width - #SizableBorder
-					edge = #HTBOTTOMRIGHT
-				Else
-					edge = #HTBOTTOM
-				EndIf
-			ElseIf x < #SizableBorder
-				edge = #HTLEFT
-			ElseIf x > width - #SizableBorder
-				edge = #HTRIGHT
-			EndIf
-			*WindowData\CurrentEdge = edge
-			Linux_SetWidgetEdgeCursor(*widget, edge)
-			ProcedureReturn 0
-		EndProcedure
-
-		ProcedureC Linux_Container_ButtonPress(*widget, *event.GdkEventButton, user_data)
-			Protected *WindowData.ThemedWindow = user_data
-			If Not *WindowData : ProcedureReturn 0 : EndIf
-			If *event\button = 1 And *WindowData\CurrentEdge And *WindowData\Sizable And gtk_window_is_maximized(*WindowData\WindowID) = 0
-				Protected gdkEdge = Linux_HTToGdkEdge(*WindowData\CurrentEdge)
-				If gdkEdge >= 0
-					gtk_window_begin_resize_drag(*WindowData\WindowID, gdkEdge, *event\button, *event\x_root, *event\y_root, *event\time)
-					ProcedureReturn 1
-				EndIf
-			EndIf
-			ProcedureReturn 0
-		EndProcedure
-
 		Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
-			Protected Result, WindowID, OffsetX
-			Protected *WindowData.ThemedWindow
-
-			If AccessibilityMode Or (Flags & #PB_Window_BorderLess)
-				; Fall back to native PB chrome.
-				ProcedureReturn OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title,
-				                           (Bool(Flags & #Window_CloseButton)    * #PB_Window_SystemMenu) |
-				                           (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize)   |
-				                           (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize)   |
-				                           (Bool(Flags & #Window_Sizable)        * #PB_Window_SizeGadget) |
-				                           (Bool(Flags & #Window_Invisible)      * #PB_Window_Invisible)  |
-				                           (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
-			EndIf
-
-			AllocateStructureX(*WindowData, ThemedWindow)
-			*WindowData\Sizable = Bool(Flags & #Window_Sizable)
-
-			; Open BorderLess at PB level, then strip the GTK titlebar via gtk_window_set_decorated.
-			; Expand height to account for the custom title bar we paint on top.
-			InnerHeight + #WindowBarHeight
-			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title,
-			                    #PB_Window_BorderLess | #PB_Window_Invisible |
-			                    (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered) |
-			                    (Bool(Flags & #Window_Sizable)        * #PB_Window_SizeGadget),
-			                    Parent)
-
+			Protected Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title,
+			                              (Bool(Flags & #Window_CloseButton)    * #PB_Window_SystemMenu) |
+			                              (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize)   |
+			                              (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize)   |
+			                              (Bool(Flags & #Window_Sizable)        * #PB_Window_SizeGadget) |
+			                              (Bool(Flags & #Window_Invisible)      * #PB_Window_Invisible)  |
+			                              (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			If Window = #PB_Any : Window = Result : EndIf
-			WindowID = WindowID(Window)
 
-			; Belt-and-braces: ensure GTK actually removed its native decorations.
-			gtk_window_set_decorated(WindowID, 0)
-
-			; Theme selection — same precedence rules as Windows.
+			; Allocate a ThemedWindow so UITK gadgets created inside this window pick
+			; up the right palette via the standard GetProp_("UITK_WindowData") path
+			; (per-gadget theme-inheritance is unchanged from Windows). Also set the
+			; PB window background color to match — without it, GTK's default (light)
+			; background shows through and clashes with DarkMode gadgets.
+			;
+			; NB: small per-window leak — the struct lives in UITK_PropMap and gets
+			; orphaned when the GTK destroy hook removes its map entry on close. The
+			; allocation is one Theme-sized chunk per window, so it's negligible
+			; outside of programs that open and close UITK windows in a tight loop.
+			; Eventually wire FreeStructure into UITK_PropCleanup_Handler for keyed
+			; allocations.
+			Protected *WindowData.ThemedWindow
+			AllocateStructureX(*WindowData, ThemedWindow)
 			If Flags & #DarkMode
-				CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
+				CopyStructure(@DarkTheme, @*WindowData\Theme, Theme)
 			ElseIf Flags & #LightMode
-				CopyStructure(@LightTheme, *WindowData\Theme, Theme)
+				CopyStructure(@LightTheme, @*WindowData\Theme, Theme)
 			Else
-				CopyStructure(*DefaultTheme, *WindowData\Theme, Theme)
+				CopyStructure(*DefaultTheme, @*WindowData\Theme, Theme)
 			EndIf
+			SetProp_(WindowID(Window), "UITK_WindowData", *WindowData)
+			SetWindowColor(Window, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
 
-			*WindowData\Width    = WindowWidth(Window)
-			*WindowData\Height   = WindowHeight(Window)
-			*WindowData\WindowID = WindowID  ; cached for signal handlers (Phase 4b)
-
-			SetProp_(WindowID, "UITK_WindowData", *WindowData)
-
-			; ---- Title bar gadgets (right-to-left for the 3 buttons) ----
-			If Flags & #Window_CloseButton
-				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "", Flags & #DarkMode * #DarkMode)
-				SetGadgetAttribute(*WindowData\ButtonClose, #Attribute_CornerRadius, 0)
-				SetGadgetFont(*WindowData\ButtonClose, IconFont)
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-				BindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Warm, SetAlpha($E81123, 255))
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Hot,  SetAlpha($F1707A, 255))
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Warm, SetAlpha($FFFFFF, 255))
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Hot,  SetAlpha($FFFFFF, 255))
-			EndIf
-
-			If Flags & #Window_MaximizeButton
-				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "", Flags & #DarkMode * #DarkMode)
-				SetGadgetAttribute(*WindowData\ButtonMaximize, #Attribute_CornerRadius, 0)
-				SetGadgetFont(*WindowData\ButtonMaximize, IconFont)
-				SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-			EndIf
-
-			If Flags & #Window_MinimizeButton
-				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "", Flags & #DarkMode * #DarkMode)
-				SetGadgetAttribute(*WindowData\ButtonMinimize, #Attribute_CornerRadius, 0)
-				SetGadgetFont(*WindowData\ButtonMinimize, IconFont)
-				SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-			EndIf
-
-			; ---- Title label ----
-			; Unlike the Windows path (which shrinks the Label to text width and lets the
-			; window class brush paint the surrounding title-bar area), on Linux we let
-			; the Label fill the entire title-bar strip so it both paints the background
-			; itself and serves as the full-width drag target. Two practical reasons:
-			;  - GadgetWidth(label, #PB_Gadget_RequiredSize) returns ~0 here because GTK
-			;    hasn't done a layout pass yet, so the Windows-style shrink-to-fit becomes
-			;    "shrink to a 1-pixel sliver".
-			;  - GtkWindow has no equivalent to SetClassLongPtr_(GCL_HBRBACKGROUND); empty
-			;    title-bar area would otherwise show GTK's default (white) background.
-			Protected labelAlign = #HAlignLeft
-			If Flags & #HAlignRight  : labelAlign = #HAlignRight  : EndIf
-			If Flags & #HAlignCenter : labelAlign = #HAlignCenter : EndIf
-			*WindowData\LabelAlign = labelAlign
-			; Span x=0..Width-OffsetX so the Label paints the entire title-bar strip
-			; (no SizableBorder gap on the left — the WM handles resize on Linux without
-			; us reserving a hit zone here).
-			*WindowData\Label = Label(#PB_Any, 0, 0,
-			                          *WindowData\Width - OffsetX,
-			                          #WindowBarHeight, Title,
-			                          (Flags & #DarkMode * #DarkMode) | labelAlign | #VAlignCenter)
-			SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
-			*WindowData\LabelWidth = *WindowData\Width - OffsetX
-
-			; Use PB's #PB_EventType_LeftButtonDown rather than a raw GTK signal — PB's
-			; Canvas widget consumes raw button-press-events for its own bookkeeping and
-			; suppresses competing handlers. MouseMove is needed for resize-edge cursor
-			; feedback in the title-bar zone (HTTOP / HTTOPLEFT).
-			BindGadgetEvent(*WindowData\Label, @Linux_TitleBar_MouseMove(),       #PB_EventType_MouseMove)
-			BindGadgetEvent(*WindowData\Label, @Linux_TitleBar_LeftButtonDown(),  #PB_EventType_LeftButtonDown)
-
-			; ---- Container for child gadgets, below the title bar ----
-			*WindowData\Container = ContainerGadget(#PB_Any, 0, #WindowBarHeight, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #PB_Container_BorderLess)
-			SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
-
-			; Phase 4b — wire GTK signals on the container for resize edges that aren't
-			; covered by the title-bar Label (left, right, bottom, bottom corners).
-			; ContainerGadget doesn't relay PB's #PB_EventType_MouseMove, so we listen
-			; at the GTK level. GDK_POINTER_MOTION_MASK = 4 ensures the motion signal fires.
-			gtk_widget_add_events(GadgetID(*WindowData\Container), 4 | 256)  ; motion + button-press
-			g_signal_connect_data(GadgetID(*WindowData\Container), "motion-notify-event", @Linux_Container_MotionNotify(), *WindowData, 0, 0)
-			g_signal_connect_data(GadgetID(*WindowData\Container), "button-press-event",  @Linux_Container_ButtonPress(),  *WindowData, 0, 0)
-
-			; Hook resize so the title bar + container track the window dimensions
-			; (drag-resize, maximize, unmaximize, programmatic).
-			BindEvent(#PB_Event_SizeWindow, @Linux_Window_Resize(), Window)
-
-			HideWindow(Window, Bool(Flags & #Window_Invisible))
 			ProcedureReturn Result
 		EndProcedure
 
-		Procedure CloseButton_Handler()
-			PostEvent(#PB_Event_CloseWindow, EventWindow(), 0)
-		EndProcedure
-
 		Procedure OpenWindowGadgetList(Window)
-			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
-			If *WindowData And *WindowData\Container
-				ProcedureReturn OpenGadgetList(*WindowData\Container)
-			EndIf
-			ProcedureReturn OpenWindowGadgetList(WindowID(Window))
+			; Linux native windows have no Container under the chrome — gadgets go
+			; into the window's own gadget list. Forward to PB's gadget-list machinery
+			; via UseGadgetList (calling PB's OpenWindowGadgetList from inside a same-
+			; named procedure would recurse).
+			ProcedureReturn UseGadgetList(WindowID(Window))
 		EndProcedure
 
-		Procedure AddWindowMenu(Window, Menu, Title.s) : EndProcedure ; TODO Phase 4c
-		Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight) : WindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight) : EndProcedure
-		Procedure SetWindowIcon(Window, Image)        : EndProcedure ; TODO Phase 4c
-		Procedure GetWindowIcon(Window)               : ProcedureReturn 0 : EndProcedure
-		Procedure WindowSetColor(Window, ColorType, Color) : EndProcedure ; TODO Phase 4c
-		Procedure WindowGetColor(Window, ColorType)
-			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
-			If *WindowData And ColorType = #Color_WindowBorder
-				ProcedureReturn *WindowData\Theme\WindowTitle
-			EndIf
-			ProcedureReturn 0
+		Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
+			WindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 		EndProcedure
-	CompilerEndIf
-	;}
+
+		Procedure SetWindowIcon(Window, Image)
+			; Most Linux DEs derive the window icon from a .desktop entry, not from a
+			; runtime call. Leave as a no-op for now; can wire gdk_window_set_icon
+			; later if a use case appears.
+		EndProcedure
+
+		Procedure GetWindowIcon(Window)                    : ProcedureReturn 0 : EndProcedure
+		Procedure WindowSetColor(Window, ColorType, Color) : EndProcedure
+		Procedure WindowGetColor(Window, ColorType)        : ProcedureReturn 0 : EndProcedure
+
+		; AddWindowMenu — translate a UITK FlatMenu into a native PB menubar attached
+		; to the window. The FlatMenu remains usable as a popup via UITK::ShowFlatMenu;
+		; this just gives the WM-drawn menubar a representation of its items so users
+		; get a real menu on Linux. Each item is re-emitted via MenuItem with the same
+		; numeric ID the FlatMenu was created with, so the user's existing
+		; #PB_Event_Menu / EventMenu() handlers wire up identically. The PB menu is
+		; created lazily on first call and cached on the window via UITK_PropMap.
+		Procedure AddWindowMenu(Window, Menu, Title.s)
+			Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+			If Not *MenuData : ProcedureReturn : EndIf
+
+			Protected pbMenu = GetProp_(WindowID(Window), "UITK_PBMenu")
+			If pbMenu = 0
+				pbMenu = CreateMenu(#PB_Any, WindowID(Window))
+				SetProp_(WindowID(Window), "UITK_PBMenu", pbMenu)
+			EndIf
+			; PB has no cross-platform UseMenu, so subsequent MenuTitle/MenuItem calls
+			; go into whatever PB menu was created most recently. That's fine for the
+			; common case where AddWindowMenu is called in sequence right after Window().
+			; If the user creates other PB menus between AddWindowMenu calls, items
+			; would land in the wrong menu — caveat documented here for the future.
+
+			MenuTitle(Title)
+			ForEach *MenuData\Item()
+				If *MenuData\Item()\Type = #Separator
+					MenuBar()
+				Else
+					MenuItem(*MenuData\Item()\ID, *MenuData\Item()\Text\OriginalText)
+				EndIf
+			Next
+		EndProcedure
+	CompilerEndIf	;}
 
 	;{ Advanced drag & drop
 	; Win32 only: uses a layered window + low-level mouse hook to position a follow-cursor image during drag.
@@ -11722,9 +11378,9 @@ EndModule
 
 
 
-
-; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 1818
-; Folding = QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; IDE Options = PureBasic 6.40 (Linux - x64)
+; CursorPosition = 2908
+; FirstLine = 375
+; Folding = wA9--fAAAQAAAAAAAAIAGAYAGI6DAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA----------
 ; EnableXP
 ; DPIAware
