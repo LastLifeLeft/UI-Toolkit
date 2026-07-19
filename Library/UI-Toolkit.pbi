@@ -8204,11 +8204,15 @@ Module UITK
 	#PropertyBox_MarginWidth = 28
 	#PropertyBox_ColumnWidth = 125
 	#PropertyBox_ItemHeight = 19
-	
+	#PropertyBox_ValueMargin = 4			; horizontal inset of the value cell from the divider and the right edge
+	#PropertyBox_CellInset = 3				; vertical inset of the checkbox / colour swatch inside a row
+
 	Structure PropertyBox_Item
-		Text.Text
-		Type.l
-		
+		Text.Text							; label (left column)
+		Type.l								; #PropertyBox_* row type
+		Value.Text							; prepared display text for the value cell (Text / TextNumerical content, or the selected Combo option)
+		State.q								; CheckBox tri-state / Color (stored the way ColorPicker does) / Combo selected index
+		Options.s							; Combo: newline-delimited option list
 	EndStructure
 	
 	Structure PropertyBoxData Extends GadgetData
@@ -8218,10 +8222,172 @@ Module UITK
 		ColumnWidth.l
 		ContentWidth.l
 		VisibleScrollBar.b
+		Editing.b							; a Text / TextNumerical value is currently being edited inline
+		EditItem.l							; index of the row being edited
+		EditNumeric.b						; that row is a TextNumerical (input is filtered to numbers)
+		EditCursor.b						; last cursor pushed onto the canvas (I-beam over the editor)
+		*String.StringData					; shared inline String editor (meta gadget, repositioned onto the active row)
 		*ScrollBar.ScrollBarData
 		List Items.PropertyBox_Item()
 	EndStructure
-	
+
+	Procedure PropertyBox_ValueWidth(*GadgetData.PropertyBoxData)
+		ProcedureReturn *GadgetData\Width - *GadgetData\ColumnWidth - *GadgetData\MarginWidth - #PropertyBox_ValueMargin * 2 - (Bool(*GadgetData\VisibleScrollBar) * #VerticalList_ToolbarThickness)
+	EndProcedure
+
+	Procedure PropertyBox_PrepareValue(*GadgetData.PropertyBoxData, *Item.PropertyBox_Item)
+		With *Item
+			\Value\FontID = *GadgetData\TextBlock\FontID
+			\Value\Height = *GadgetData\ItemHeight
+			\Value\Width = PropertyBox_ValueWidth(*GadgetData)
+			\Value\VAlign = #VAlignCenter
+			\Value\LineLimit = 1
+
+			; Combo shows the currently selected option; the others display their own text verbatim.
+			If \Type = #PropertyBox_Combo
+				\Value\OriginalText = StringField(\Options, \State + 1, #LF$)
+			EndIf
+
+			PrepareVectorTextBlock(@\Value)
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_DrawValue(*GadgetData.PropertyBoxData, *Item.PropertyBox_Item, ValueX, Y)
+		Protected CellSize = *GadgetData\ItemHeight - #PropertyBox_CellInset * 2, CellY = Y + #PropertyBox_CellInset, Center
+
+		With *GadgetData
+			Select *Item\Type
+				Case #PropertyBox_CheckBox ;{ Same glyph as the standalone CheckBox gadget
+					VectorSourceColor(\ThemeData\FrontColor[#Cold])
+					AddPathBox(ValueX, CellY, CellSize, CellSize)
+					AddPathBox(ValueX + CellSize * 0.1, CellY + CellSize * 0.1, CellSize * 0.8, CellSize * 0.8)
+
+					If *Item\State = #True
+						AddPathBox(ValueX + CellSize, CellY, CellSize * -0.25, CellSize * 0.1)
+						AddPathBox(ValueX + CellSize * 0.9, CellY + CellSize * 0.1, CellSize * 0.1, CellSize * 0.25)
+						FillPath()
+
+						VectorSourceColor(\ThemeData\FrontColor[#Cold])
+						MovePathCursor(ValueX + CellSize * 0.2, CellY + CellSize * 0.4)
+						AddPathLine(CellSize * 0.28, CellSize * 0.28, #PB_Path_Relative)
+						AddPathLine(CellSize * 0.5, -CellSize * 0.7, #PB_Path_Relative)
+						StrokePath(2)
+					Else
+						FillPath()
+						If *Item\State = #PB_Checkbox_Inbetween
+							AddPathBox(ValueX + CellSize * 0.25, CellY + CellSize * 0.25, CellSize * 0.5, CellSize * 0.5)
+							VectorSourceColor(\ThemeData\FrontColor[#Cold])
+							FillPath()
+						EndIf
+					EndIf
+					;}
+				Case #PropertyBox_Color ;{ Swatch filling the value cell
+					AddPathRoundedBox(ValueX, CellY, PropertyBox_ValueWidth(*GadgetData), CellSize, 2)
+					VectorSourceColor(SetAlpha(*Item\State, 255))
+					FillPath(#PB_Path_Preserve)
+					VectorSourceColor(\ThemeData\LineColor[#Cold])
+					StrokePath(1)
+					;}
+				Case #PropertyBox_Combo ;{ Selected option + a downward chevron
+					VectorSourceColor(\ThemeData\TextColor[#Cold])
+					DrawVectorTextBlock(@*Item\Value, ValueX, Y - 2)
+
+					Center = Y + *GadgetData\ItemHeight * 0.5
+					MovePathCursor(ValueX + PropertyBox_ValueWidth(*GadgetData) - 8, Center - 2)
+					AddPathLine(6, 0, #PB_Path_Relative)
+					AddPathLine(-3, 4, #PB_Path_Relative)
+					ClosePath()
+					FillPath()
+					;}
+				Default ;{ Text / TextNumerical
+					VectorSourceColor(\ThemeData\TextColor[#Cold])
+					DrawVectorTextBlock(@*Item\Value, ValueX, Y - 2)
+					;}
+			EndSelect
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_CountItem(*this.PB_Gadget)
+		Protected *GadgetData.PropertyBoxData = *this\vt
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+
+	; Column 0 is the label, column 1 the value. Combo's "value" text is its whole newline-delimited option list.
+	Procedure.s PropertyBox_GetItemText(*this.PB_Gadget, Position, Column)
+		Protected *GadgetData.PropertyBoxData = *this\vt, Result.s
+
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				If Column = 0
+					Result = \Items()\Text\OriginalText
+				ElseIf \Items()\Type = #PropertyBox_Combo
+					Result = \Items()\Options
+				Else
+					Result = \Items()\Value\OriginalText
+				EndIf
+			EndIf
+		EndWith
+
+		ProcedureReturn Result
+	EndProcedure
+
+	Procedure PropertyBox_SetItemText(*this.PB_Gadget, Position, *Text, Column)
+		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
+
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*Item = @\Items()
+
+				If Column = 0
+					*Item\Text\OriginalText = PeekS(*Text)
+					PrepareVectorTextBlock(@*Item\Text)
+				ElseIf *Item\Type = #PropertyBox_Combo
+					*Item\Options = PeekS(*Text)
+					If *Item\State > CountString(*Item\Options, #LF$)
+						*Item\State = 0
+					EndIf
+					PropertyBox_PrepareValue(*GadgetData, *Item)
+				Else
+					*Item\Value\OriginalText = PeekS(*Text)
+					PropertyBox_PrepareValue(*GadgetData, *Item)
+				EndIf
+
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_GetItemState(*this.PB_Gadget, Position)
+		Protected *GadgetData.PropertyBoxData = *this\vt, Result
+
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				Result = \Items()\State
+			EndIf
+		EndWith
+
+		ProcedureReturn Result
+	EndProcedure
+
+	Procedure PropertyBox_SetItemState(*this.PB_Gadget, Position, State)
+		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
+
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*Item = @\Items()
+				*Item\State = State
+				If *Item\Type = #PropertyBox_Combo
+					PropertyBox_PrepareValue(*GadgetData, *Item)
+				EndIf
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+
 	Procedure PropertyBox_Resize(*This.PB_Gadget, x, y, Width, Height)
 		Protected *GadgetData.PropertyBoxData = *this\vt
 		
@@ -8246,13 +8412,17 @@ Module UITK
 				\VisibleScrollBar = #False
 			EndIf
 			
+			ForEach \Items()
+				PropertyBox_PrepareValue(*GadgetData, @\Items())
+			Next
+
 			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			RedrawObject()
 		EndWith
 	EndProcedure
-	
+
 	Procedure PropertyBox_Redraw(*GadgetData.PropertyBoxData)
-		Protected Y, X, FirstElement
+		Protected Y, X, FirstElement, ValueX
 		
 		With *GadgetData
 			If \Border
@@ -8270,7 +8440,8 @@ Module UITK
 			If ListSize(\Items())
 				X = \OriginX + \Border + \MarginWidth + 3
 				Y = *GadgetData\OriginY + \Border
-				
+				ValueX = \OriginX + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
+
 				If \VisibleScrollBar
 					SelectElement(\Items(), Floor(\ScrollBar\State / \ItemHeight))
 					Y - (\ScrollBar\State % \ItemHeight)
@@ -8287,11 +8458,13 @@ Module UITK
 						VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 						AddPathBox(X, Y, \Width, \ItemHeight - 1)
 						FillPath()
-						
+
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
 						DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 2)
+
+						PropertyBox_DrawValue(*GadgetData, @\Items(), ValueX, Y)
 					EndIf
-					
+
 					Y + \ItemHeight
 				Until Not NextElement(\Items()) Or Y > \Height
 				
@@ -8305,6 +8478,12 @@ Module UITK
 					AddPathBox(X, Y, \Width, \Height - Y)
 					FillPath()
 				EndIf
+
+				If \Editing
+					SaveVectorState()
+					\String\Redraw(\String)
+					RestoreVectorState()
+				EndIf
 				
 				If \VisibleScrollBar
 					\ScrollBar\Redraw(\ScrollBar)
@@ -8314,10 +8493,70 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure PropertyBox_EventHandler(*GadgetData.PropertyBoxData, *Event.Event)
-		Protected Redraw, Y, NewItem = -1, ItemRow
-		
+	Procedure PropertyBox_StartEdit(*GadgetData.PropertyBoxData, ItemRow)
+		Protected Event.Event, ScrollOffset
+
 		With *GadgetData
+			If ItemRow < 0 Or ItemRow >= ListSize(\Items()) : ProcedureReturn : EndIf
+			SelectElement(\Items(), ItemRow)
+
+			\Editing = #True
+			\EditItem = ItemRow
+			\EditNumeric = Bool(\Items()\Type = #PropertyBox_TextNumerical)
+			\State = ItemRow
+
+			; Prime the shared editor with the current value and drop it onto the row.
+			\String\String = \Items()\Value\OriginalText
+			\String\TextBlock\FontID = \TextBlock\FontID
+			String_ProcessString(\String)
+
+			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
+			\String\OriginX = \OriginX + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
+			\String\OriginY = \OriginY + \Border + ItemRow * \ItemHeight - ScrollOffset
+			\String\Width = PropertyBox_ValueWidth(*GadgetData)
+
+			Event\EventType = #Focus
+			\String\EventHandler(\String, Event)
+			StringSetSelection_Meta(\String, 0, Len(\String\String))
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_CommitEdit(*GadgetData.PropertyBoxData)
+		Protected Event.Event
+
+		With *GadgetData
+			If \Editing
+				\Editing = #False
+
+				SelectElement(\Items(), \EditItem)
+				\Items()\Value\OriginalText = \String\String
+				PropertyBox_PrepareValue(*GadgetData, @\Items())
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+
+				Event\EventType = #LostFocus
+				\String\EventHandler(\String, Event)
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_CancelEdit(*GadgetData.PropertyBoxData)
+		Protected Event.Event
+
+		With *GadgetData
+			If \Editing
+				\Editing = #False
+				Event\EventType = #LostFocus
+				\String\EventHandler(\String, Event)
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_EventHandler(*GadgetData.PropertyBoxData, *Event.Event)
+		Protected Redraw, ItemRow, ScrollOffset, Cursor = #PB_Cursor_Default, c
+
+		With *GadgetData
+			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
+
 			Select *Event\EventType
 				Case #MouseMove ;{
 					If \VisibleScrollBar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
@@ -8325,6 +8564,17 @@ Module UITK
 					ElseIf \ScrollBar\MouseState
 						\ScrollBar\MouseState = #False
 						Redraw = #True
+					EndIf
+
+					If \Editing
+						If *Event\MouseX >= \String\OriginX And *Event\MouseX < \String\OriginX + \String\Width And *Event\MouseY >= \String\OriginY And *Event\MouseY < \String\OriginY + \ItemHeight
+							Cursor = #PB_Cursor_IBeam
+						EndIf
+						If \String\Selecting
+							*Event\MouseX - \String\OriginX
+							*Event\MouseY - \String\OriginY
+							If \String\EventHandler(\String, *Event) : Redraw = #True : EndIf
+						EndIf
 					EndIf
 					;}
 				Case #MouseLeave ;{
@@ -8335,21 +8585,107 @@ Module UITK
 				Case #LeftButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \Editing And *Event\MouseX >= \String\OriginX And *Event\MouseX < \String\OriginX + \String\Width And *Event\MouseY >= \String\OriginY And *Event\MouseY < \String\OriginY + \ItemHeight
+						; Click inside the active editor: place the caret / start a selection.
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					Else
+						; Any other click commits an edit in progress first.
+						If \Editing
+							PropertyBox_CommitEdit(*GadgetData)
+							Redraw = #True
+						EndIf
+
+						If *Event\MouseX >= \OriginX + \MarginWidth + \ColumnWidth
+							ItemRow = Floor((*Event\MouseY - \OriginY - \Border + ScrollOffset) / \ItemHeight)
+
+							If ItemRow >= 0 And ItemRow < ListSize(\Items())
+								SelectElement(\Items(), ItemRow)
+								\State = ItemRow
+
+								Select \Items()\Type
+									Case #PropertyBox_CheckBox
+										If \Items()\State = #True
+											\Items()\State = #False
+										Else
+											\Items()\State = #True
+										EndIf
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+										Redraw = #True
+									Case #PropertyBox_Text, #PropertyBox_TextNumerical
+										PropertyBox_StartEdit(*GadgetData, ItemRow)
+										Redraw = #True
+								EndSelect
+							EndIf
+						EndIf
 					EndIf
 					;}
 				Case #LeftButtonUp ;{
-					If \ScrollBar\Drag 
+					If \ScrollBar\Drag
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+					ElseIf \Editing And \String\Selecting
+						*Event\MouseX - \String\OriginX
+						*Event\MouseY - \String\OriginY
+						Redraw = \String\EventHandler(\String, *Event)
+					EndIf
+					;}
+				Case #KeyDown ;{
+					If \Editing
+						Select *Event\Param
+							Case #PB_Shortcut_Return
+								PropertyBox_CommitEdit(*GadgetData)
+								Redraw = #True
+							Case #PB_Shortcut_Escape
+								PropertyBox_CancelEdit(*GadgetData)
+								Redraw = #True
+							Default
+								Redraw = \String\EventHandler(\String, *Event)
+						EndSelect
+					EndIf
+					;}
+				Case #KeyUp ;{
+					If \Editing
+						Redraw = \String\EventHandler(\String, *Event)
+					EndIf
+					;}
+				Case #Input ;{
+					If \Editing
+						If \EditNumeric
+							c = *Event\Param
+							If (c >= '0' And c <= '9') Or c = '-' Or c = '.' Or c = ','
+								Redraw = \String\EventHandler(\String, *Event)
+							EndIf
+						Else
+							Redraw = \String\EventHandler(\String, *Event)
+						EndIf
+					EndIf
+					;}
+				Case #LostFocus ;{
+					If \Editing
+						PropertyBox_CommitEdit(*GadgetData)
+						Redraw = #True
 					EndIf
 					;}
 				Case #MouseWheel ;{
+					If \Editing
+						PropertyBox_CommitEdit(*GadgetData)
+						Redraw = #True
+					EndIf
+
 					If \VisibleScrollBar
 						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 1.5)
 						*Event\EventType = #MouseMove
 						Redraw = Bool(Not PropertyBox_EventHandler(*GadgetData, *Event))
 					EndIf
-					;}		
+					;}
 			EndSelect
+
+			If Cursor <> \EditCursor
+				\EditCursor = Cursor
+				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
+			EndIf
+
 			If Redraw
 				RedrawObject()
 			EndIf
@@ -8381,17 +8717,27 @@ Module UITK
 			*NewItem\Text\Width = \ColumnWidth
 			*NewItem\Text\Height = \ItemHeight
 			*NewItem\Text\VAlign = #VAlignCenter
-			
+
 			PrepareVectorTextBlock(@*NewItem\Text)
 			\InternalHeight + \ItemHeight
-			
+
+			Protected WasScrollBarVisible = \VisibleScrollBar
 			If \InternalHeight > \Height
 				\VisibleScrollBar = #True
 				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
 			Else
 				\VisibleScrollBar = #False
 			EndIf
-			
+
+			If \VisibleScrollBar <> WasScrollBarVisible
+				; The scrollbar appearing / disappearing changes every row's value-cell width.
+				ForEach \Items()
+					PropertyBox_PrepareValue(*GadgetData, @\Items())
+				Next
+			Else
+				PropertyBox_PrepareValue(*GadgetData, *NewItem)
+			EndIf
+
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
 			RedrawObject()
@@ -8414,7 +8760,12 @@ Module UITK
 			
 			\VT\AddGadgetItem3 = @PropertyBox_AddItem()
 			\VT\ResizeGadget = @PropertyBox_Resize()
-			
+			\VT\CountGadgetItems = @PropertyBox_CountItem()
+			\VT\GetGadgetItemText = @PropertyBox_GetItemText()
+			\VT\SetGadgetItemText = @PropertyBox_SetItemText()
+			\VT\GetGadgetItemState = @PropertyBox_GetItemState()
+			\VT\SetGadgetItemState = @PropertyBox_SetItemState()
+
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
 			\SupportedEvent[#MouseLeave] = #True
@@ -8422,20 +8773,34 @@ Module UITK
 			\SupportedEvent[#LeftButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
 			\SupportedEvent[#LeftDoubleClick] = #True
-			
+
+			; Shared inline String editor for Text / TextNumerical value cells. Created as
+			; a meta gadget (drawn and driven by us), repositioned onto whichever row is
+			; being edited — same approach VerticalList uses for its editable items.
+			; String_SupportedEvents() enables the keyboard / focus events on THIS gadget
+			; so the parent canvas forwards them to the editor.
+			\EditCursor = #PB_Cursor_Default
+			Protected *SourceTheme.Theme = *ThemeData
+			Protected *StringThemeData.Theme = AllocateMemory(SizeOf(Theme))
+			CopyMemory(*ThemeData, *StringThemeData, SizeOf(Theme))
+			*StringThemeData\CornerRadius = 0
+			*StringThemeData\ShadeColor[#Cold] = *SourceTheme\ShadeColor[#Hot]
+			AllocateStructureX(\String, StringData)
+			String_Meta(\String, *StringThemeData, Gadget, 0, 0, \Width, \ItemHeight, "", #HAlignLeft | #Gadget_Meta)
+			String_SupportedEvents()
 		EndWith
 	EndProcedure
-	
+
 	Procedure PropertyBox(Gadget, x, y, Width, Height, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.PropertyBoxData, *ThemeData
 		
-		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container)
-		
+		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container | #PB_Canvas_Keyboard)
+
 		If Result
 			If Gadget = #PB_Any
 				Gadget = Result
 			EndIf
-			
+
 			*this = IsGadget(Gadget)
 			AllocateStructureX(*GadgetData, PropertyBoxData)
 			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
