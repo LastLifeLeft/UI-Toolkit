@@ -88,9 +88,6 @@ UITK::StringSetSelection(String, 1, 3)
 Repeat
 	Select WaitWindowEvent()
 		Case #PB_Event_CloseWindow
-			Result = 0
-			phandle = OpenProcess_(#PROCESS_TERMINATE, #False, GetCurrentProcessId_()) ;< I clearly have issues with my windows, but killing the process is a valid workaround for my own ineptitude.
-			TerminateProcess_(phandle, @Result)
 			End
 		Case #PB_Event_GadgetDrop
 			; this is a bad example : you can drag from a gadget to itself, resulting in an empty item. Can't figure how to get the ID of the source of the drag through PB api.

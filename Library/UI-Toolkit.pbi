@@ -8227,6 +8227,11 @@ Module UITK
 		EditNumeric.b						; that row is a TextNumerical (input is filtered to numbers)
 		EditCursor.b						; last cursor pushed onto the canvas (I-beam over the editor)
 		*String.StringData					; shared inline String editor (meta gadget, repositioned onto the active row)
+		ComboPopupWindow.i					; shared dropdown popup for Combo cells (borderless window + VerticalList)
+		ComboPopupList.i
+		ColorPopupWindow.i					; shared popup for Color cells (borderless window + ColorPicker)
+		ColorPopupPicker.i
+		PopupItem.l							; row a popup is currently editing
 		*ScrollBar.ScrollBarData
 		List Items.PropertyBox_Item()
 	EndStructure
@@ -8551,6 +8556,180 @@ Module UITK
 		EndWith
 	EndProcedure
 
+	Procedure PropertyBox_ComboPopup_Select()
+		Protected Gadget = EventGadget(), *GadgetData.PropertyBoxData = GetProp_(GadgetID(Gadget), "UITK_PropertyData")
+
+		With *GadgetData
+			If \PopupItem >= 0 And \PopupItem < ListSize(\Items())
+				SelectElement(\Items(), \PopupItem)
+				\Items()\State = GetGadgetState(\ComboPopupList)
+				PropertyBox_PrepareValue(*GadgetData, @\Items())
+				\State = \PopupItem
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+			EndIf
+			HideWindow(\ComboPopupWindow, #True)
+			RedrawObject()
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_ComboPopup_Deactivate()
+		Protected *GadgetData.PropertyBoxData = GetProp_(WindowID(EventWindow()), "UITK_PropertyData")
+		If *GadgetData : HideWindow(*GadgetData\ComboPopupWindow, #True) : EndIf
+	EndProcedure
+
+	Procedure PropertyBox_ColorPopup_Change()
+		Protected Gadget = EventGadget(), *GadgetData.PropertyBoxData = GetProp_(GadgetID(Gadget), "UITK_PropertyData")
+
+		With *GadgetData
+			If \PopupItem >= 0 And \PopupItem < ListSize(\Items())
+				SelectElement(\Items(), \PopupItem)
+				\Items()\State = GetGadgetState(\ColorPopupPicker)
+				\State = \PopupItem
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_ColorPopup_Deactivate()
+		Protected *GadgetData.PropertyBoxData = GetProp_(WindowID(EventWindow()), "UITK_PropertyData")
+		If *GadgetData : HideWindow(*GadgetData\ColorPopupWindow, #True) : EndIf
+	EndProcedure
+
+	Procedure PropertyBox_OpenComboPopup(*GadgetData.PropertyBoxData, ItemRow)
+		Protected Count, Loop, ScrollOffset, ScreenX, ScreenY, PopupWidth, PopupHeight
+		Protected *SubGadget.PB_Gadget, *ListData.VerticalListData
+
+		With *GadgetData
+			SelectElement(\Items(), ItemRow)
+			\PopupItem = ItemRow
+
+			; Clear the selection before emptying the list: VerticalList_RemoveItem posts a
+			; spurious #PB_EventType_Change when it deletes the *selected* item, which would
+			; be queued and then immediately close the popup we are about to open.
+			*SubGadget = IsGadget(\ComboPopupList)
+			*ListData = *SubGadget\vt
+			*ListData\State = -1
+
+			; Rebuild the list from this row's options.
+			While CountGadgetItems(\ComboPopupList) > 0
+				RemoveGadgetItem(\ComboPopupList, 0)
+			Wend
+
+			If \Items()\Options = ""
+				ProcedureReturn
+			EndIf
+
+			Count = CountString(\Items()\Options, #LF$) + 1
+			For Loop = 1 To Count
+				AddGadgetItem(\ComboPopupList, -1, StringField(\Items()\Options, Loop, #LF$))
+			Next
+
+			If \Items()\State >= 0 And \Items()\State < Count
+				SetGadgetState(\ComboPopupList, \Items()\State)
+			EndIf
+
+			PopupWidth = PropertyBox_ValueWidth(*GadgetData) + #PropertyBox_ValueMargin * 2
+			PopupHeight = Count * 22
+			If PopupHeight > 22 * 8 : PopupHeight = 22 * 8 : EndIf
+
+			ResizeGadget(\ComboPopupList, 0, 0, PopupWidth - \Border * 2, PopupHeight)
+			ResizeWindow(\ComboPopupWindow, #PB_Ignore, #PB_Ignore, PopupWidth, PopupHeight + \Border)
+
+			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
+			ScreenX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
+			ScreenY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Border + ItemRow * \ItemHeight - ScrollOffset + \ItemHeight
+			SetWindowPos_(WindowID(\ComboPopupWindow), 0, ScreenX, ScreenY, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
+			HideWindow(\ComboPopupWindow, #False)
+			SetActiveGadget(\ComboPopupList)
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_OpenColorPopup(*GadgetData.PropertyBoxData, ItemRow)
+		Protected ScrollOffset, ScreenX, ScreenY
+
+		With *GadgetData
+			SelectElement(\Items(), ItemRow)
+			\PopupItem = ItemRow
+			SetGadgetState(\ColorPopupPicker, \Items()\State)
+
+			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
+			ScreenX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) + \Width - WindowWidth(\ColorPopupWindow) - \Border
+			ScreenY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Border + ItemRow * \ItemHeight - ScrollOffset + \ItemHeight
+			SetWindowPos_(WindowID(\ColorPopupWindow), 0, ScreenX, ScreenY, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
+			HideWindow(\ColorPopupWindow, #False)
+			SetActiveGadget(\ColorPopupPicker)
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_CreatePopups(*GadgetData.PropertyBoxData, Gadget, Flags)
+		Protected SavedList = UseGadgetList(0), ParentWindow = WindowID(CurrentWindow())
+
+		With *GadgetData
+			; Combo dropdown: a borderless window hosting a compact VerticalList.
+			\ComboPopupWindow = OpenWindow(#PB_Any, 0, 0, 100, 22, "", #PB_Window_BorderLess | #PB_Window_Invisible, ParentWindow)
+			SetProp_(WindowID(\ComboPopupWindow), "UITK_PropertyData", *GadgetData)
+			BindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ComboPopup_Deactivate(), \ComboPopupWindow)
+			SetWindowColor(\ComboPopupWindow, RGB(Red(\ThemeData\LineColor[#Warm]), Green(\ThemeData\LineColor[#Warm]), Blue(\ThemeData\LineColor[#Warm])))
+
+			\ComboPopupList = VerticalList(#PB_Any, \Border, 0, 100 - \Border * 2, 22)
+			SetGadgetAttribute(\ComboPopupList, #Attribute_CornerRadius, 0)
+			SetGadgetAttribute(\ComboPopupList, #Attribute_ItemHeight, 22)
+			SetProp_(GadgetID(\ComboPopupList), "UITK_PropertyData", *GadgetData)
+			BindGadgetEvent(\ComboPopupList, @PropertyBox_ComboPopup_Select(), #PB_EventType_Change)
+			SetGadgetColor(\ComboPopupList, #Color_Shade_Cold, \ThemeData\BackColor[#Warm])
+			SetGadgetColor(\ComboPopupList, #Color_Shade_Warm, \ThemeData\BackColor[#Hot])
+			SetGadgetColor(\ComboPopupList, #Color_Shade_Hot, \ThemeData\BackColor[#Hot])
+			SetGadgetColor(\ComboPopupList, #Color_Text_Cold, \ThemeData\TextColor[#Cold])
+			SetGadgetColor(\ComboPopupList, #Color_Text_Warm, \ThemeData\TextColor[#Warm])
+			SetGadgetColor(\ComboPopupList, #Color_Text_Hot, \ThemeData\TextColor[#Hot])
+
+			; Colour picker popup.
+			\ColorPopupWindow = OpenWindow(#PB_Any, 0, 0, 200, 250, "", #PB_Window_BorderLess | #PB_Window_Invisible, ParentWindow)
+			SetProp_(WindowID(\ColorPopupWindow), "UITK_PropertyData", *GadgetData)
+			BindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ColorPopup_Deactivate(), \ColorPopupWindow)
+			SetWindowColor(\ColorPopupWindow, RGB(Red(\ThemeData\WindowColor), Green(\ThemeData\WindowColor), Blue(\ThemeData\WindowColor)))
+
+			\ColorPopupPicker = ColorPicker(#PB_Any, \Border, \Border, 200 - \Border * 2, 250 - \Border * 2, Flags & (#DarkMode | #LightMode))
+			SetGadgetColor(\ColorPopupPicker, #Color_Parent, \ThemeData\WindowColor)
+			SetProp_(GadgetID(\ColorPopupPicker), "UITK_PropertyData", *GadgetData)
+			BindGadgetEvent(\ColorPopupPicker, @PropertyBox_ColorPopup_Change(), #PB_EventType_Change)
+		EndWith
+
+		UseGadgetList(SavedList)
+	EndProcedure
+
+	Procedure PropertyBox_Free(*this.PB_Gadget)
+		Protected *GadgetData.PropertyBoxData = *this\vt
+
+		With *GadgetData
+			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
+
+			UnbindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ComboPopup_Deactivate(), \ComboPopupWindow)
+			UnbindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ColorPopup_Deactivate(), \ColorPopupWindow)
+			UnbindGadgetEvent(\ComboPopupList, @PropertyBox_ComboPopup_Select(), #PB_EventType_Change)
+			UnbindGadgetEvent(\ColorPopupPicker, @PropertyBox_ColorPopup_Change(), #PB_EventType_Change)
+			FreeGadget(\ComboPopupList)
+			FreeGadget(\ColorPopupPicker)
+			CloseWindow(\ComboPopupWindow)
+			CloseWindow(\ColorPopupWindow)
+
+			If \String : FreeStructure(\String) : EndIf
+			If \ScrollBar : FreeStructure(\ScrollBar) : EndIf
+
+			If \DefaultEventHandler
+				UnbindGadgetEvent(\Gadget, \DefaultEventHandler)
+			EndIf
+
+			*this\vt = \OriginalVT
+		EndWith
+
+		FreeStructure(*GadgetData)
+
+		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
+	EndProcedure
+
+
 	Procedure PropertyBox_EventHandler(*GadgetData.PropertyBoxData, *Event.Event)
 		Protected Redraw, ItemRow, ScrollOffset, Cursor = #PB_Cursor_Default, c
 
@@ -8616,6 +8795,10 @@ Module UITK
 									Case #PropertyBox_Text, #PropertyBox_TextNumerical
 										PropertyBox_StartEdit(*GadgetData, ItemRow)
 										Redraw = #True
+									Case #PropertyBox_Combo
+										PropertyBox_OpenComboPopup(*GadgetData, ItemRow)
+									Case #PropertyBox_Color
+										PropertyBox_OpenColorPopup(*GadgetData, ItemRow)
 								EndSelect
 							EndIf
 						EndIf
@@ -8788,6 +8971,10 @@ Module UITK
 			AllocateStructureX(\String, StringData)
 			String_Meta(\String, *StringThemeData, Gadget, 0, 0, \Width, \ItemHeight, "", #HAlignLeft | #Gadget_Meta)
 			String_SupportedEvents()
+
+			; Shared Combo dropdown / Colour picker popups, and cleanup for all of the above.
+			\VT\FreeGadget = @PropertyBox_Free()
+			PropertyBox_CreatePopups(*GadgetData, Gadget, Flags)
 		EndWith
 	EndProcedure
 
@@ -11765,9 +11952,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.40 (Linux - x64)
-; CursorPosition = 2908
-; FirstLine = 375
-; Folding = wA9--fAAAQAAAAAAAAIAGAYAGI6DAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA----------
+; IDE Options = PureBasic 6.40 (Windows - x64)
+; CursorPosition = 2063
+; Folding = wA9---AAAQAAAAAAAAIAGAYAOcy8DRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+--v-n-------
 ; EnableXP
 ; DPIAware
