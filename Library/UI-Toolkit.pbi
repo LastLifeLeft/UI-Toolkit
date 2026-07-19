@@ -10471,7 +10471,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure ColorPicker_DrawWheel(*GadgetData.ColorPickerData)
-		Protected LoopX, LoopY, TotalDistance.f, PointDistance.f
+		Protected LoopX, LoopY, TotalDistance.f, PointDistance.f, Hue.f
 		With *GadgetData
 			If \WheelImg 
 				FreeImage(\WheelImg)
@@ -10484,8 +10484,9 @@ Module UITK
 				For LoopY = - \WheelRadius To \WheelRadius
 					PointDistance = Sqr(LoopX * LoopX + LoopY * LoopY)
 					If PointDistance <= \WheelRadius + 1
-						;\WheelRadius * 2 - 
-						Plot((LoopX + \WheelRadius), (LoopY + \WheelRadius), HSBToRGB(180 + Degree(ATan2(LoopX / PointDistance, LoopY / PointDistance)), PointDistance / TotalDistance, 100))
+						Hue = Degree(ATan2(LoopX / PointDistance, LoopY / PointDistance))
+						If Hue < 0 : Hue + 360 : EndIf
+						Plot((LoopX + \WheelRadius), (LoopY + \WheelRadius), HSBToRGB(Hue, PointDistance / TotalDistance, 100))
 					EndIf
 				Next LoopY	
 			Next LoopX
@@ -10543,7 +10544,8 @@ Module UITK
 						Case #ColorPicker_Drag_Hue
 							PointDistance = MinF(Sqr(Pow(*Event\MouseX - (\WheelX + \WheelRadius), 2) + Pow(*Event\MouseY - (\WheelY + \WheelRadius), 2)), \WheelRadius + 1)
 							Angle = ATan2((*Event\MouseX - (\WheelX + \WheelRadius)) / PointDistance, (*Event\MouseY - (\WheelY + \WheelRadius)) / PointDistance)
-							Hue = 180 + Degree(Angle)
+							Hue = Degree(Angle)
+							If Hue < 0 : Hue + 360 : EndIf
 							Saturation = PointDistance / (\WheelRadius + 1) * 100
 							
 							If Hue <> \Hue Or Saturation <> \Saturation
@@ -10638,8 +10640,8 @@ Module UITK
 			EndIf
 			
 			\Color = HSBToRGB(\Hue, \Saturation, 100)
-			\HueX = \WheelX	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Cos(Radian(\Hue + 180)), #PB_Round_Nearest)
-			\HueY = \WheelY	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Sin(Radian(\Hue + 180)), #PB_Round_Nearest)
+			\HueX = \WheelX	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Cos(Radian(\Hue)), #PB_Round_Nearest)
+			\HueY = \WheelY	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Sin(Radian(\Hue)), #PB_Round_Nearest)
 			\BrightnessX = \BarX + Round(\Brightness * 0.01 * \BarWidth, #PB_Round_Nearest)
 			RedrawObject()
 		EndWith
