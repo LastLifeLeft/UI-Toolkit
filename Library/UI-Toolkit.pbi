@@ -56,6 +56,9 @@
 		#PropertyBox_Combo
 		#PropertyBox_Color
 		#PropertyBox_CheckBox
+
+		#ToolBar_Toggle									; ToolBar item: a sticky toggle button (passed as the AddGadgetItem flag)
+		#ToolBar_Separator								; ToolBar item: a separator line
 		
 		#Attribute_ItemHeight
 		#Attribute_ItemWidth
@@ -233,6 +236,13 @@
 		#Event_FirstAvailableCustomValue
 	EndEnumeration
 	
+	Enumeration ;Gadget Item State
+		#Item_State_Untoggled
+		#Item_State_Toggled
+		#Item_State_Enabled
+		#Item_State_Disabled
+	EndEnumeration
+	
 	Structure Event
 		EventType.l
 		MouseX.l
@@ -361,6 +371,7 @@
 	Declare Tab(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ColorPicker(Gadget, x, y, Width, Height, Flags = #Default)
+	Declare ToolBar(Gadget, x, y, Width, Height, Flags = #Default)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -10809,6 +10820,397 @@ Module UITK
 	
 	;}
 	
+	;{ ToolBar
+	#ToolBar_SeparatorSize = 9			; span, along the bar's axis, taken by a separator
+	#ToolBar_Margin = 3					; inset of a button's box within its square cell
+
+	Structure ToolBar_Item
+		Separator.b						; a separator line rather than a button
+		Toggle.b						; a sticky toggle button
+		State.b							; toggle on / off
+		Enabled.b
+		imageID.i
+		ImageX.l						; centered icon offset within the button cell
+		ImageY.l
+		Text.s							; reserved for zoned tooltips (later)
+	EndStructure
+
+	Structure ToolBarData Extends GadgetData
+		Vertical.b
+		ButtonSize.l					; square cell size = the bar's cross-axis thickness
+		MouseItem.l					; hovered item, or -1
+		PressedItem.l					; item with the mouse held on it, or -1
+		List Items.ToolBar_Item()
+	EndStructure
+
+	; The item under main-axis position P (a mouse coordinate); -1 on empty space or a separator.
+	Procedure ToolBar_ItemAt(*GadgetData.ToolBarData, P)
+		Protected Offset = *GadgetData\Border, Size
+		With *GadgetData
+			ForEach \Items()
+				If \Items()\Separator
+					Size = #ToolBar_SeparatorSize
+				Else
+					Size = \ButtonSize
+				EndIf
+				If P >= Offset And P < Offset + Size
+					If \Items()\Separator
+						ProcedureReturn -1
+					EndIf
+					ProcedureReturn ListIndex(\Items())
+				EndIf
+				Offset + Size
+			Next
+		EndWith
+		ProcedureReturn -1
+	EndProcedure
+
+	Procedure ToolBar_Redraw(*GadgetData.ToolBarData)
+		Protected Offset, State, CellX, CellY, BoxSize
+
+		With *GadgetData
+			If \Border
+				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+				VectorSourceColor(\ThemeData\LineColor[#Cold])
+				StrokePath(2)
+			EndIf
+
+			Offset = \Border
+			BoxSize = \ButtonSize - #ToolBar_Margin * 2
+
+			ForEach \Items()
+				If \Vertical
+					CellX = \OriginX + \Border
+					CellY = \OriginY + Offset
+				Else
+					CellX = \OriginX + Offset
+					CellY = \OriginY + \Border
+				EndIf
+
+				If \Items()\Separator ;{
+					If \Vertical
+						MovePathCursor(CellX + #ToolBar_Margin * 2, CellY + #ToolBar_SeparatorSize * 0.5)
+						AddPathLine(\ButtonSize - #ToolBar_Margin * 4, 0, #PB_Path_Relative)
+					Else
+						MovePathCursor(CellX + #ToolBar_SeparatorSize * 0.5, CellY + #ToolBar_Margin * 2)
+						AddPathLine(0, \ButtonSize - #ToolBar_Margin * 4, #PB_Path_Relative)
+					EndIf
+					VectorSourceColor(\ThemeData\LineColor[#Cold])
+					StrokePath(1)
+					Offset + #ToolBar_SeparatorSize
+					;}
+				Else ;{ Button
+					If Not \Items()\Enabled
+						State = #Disabled
+					ElseIf \PressedItem = ListIndex(\Items()) Or \Items()\State
+						State = #Hot
+					ElseIf \MouseItem = ListIndex(\Items())
+						State = #Warm
+					Else
+						State = #Cold
+					EndIf
+
+					If State <> #Cold
+						AddPathRoundedBox(CellX + #ToolBar_Margin, CellY + #ToolBar_Margin, BoxSize, BoxSize, \ThemeData\CornerRadius, #Corner_All)
+						VectorSourceColor(\ThemeData\ShadeColor[State])
+						FillPath()
+					EndIf
+
+					If \Items()\imageID
+						MovePathCursor(CellX + \Items()\ImageX, CellY + \Items()\ImageY)
+						DrawVectorImage(\Items()\imageID, 145 + Bool(State <> #Disabled) * 110)
+					EndIf
+
+					Offset + \ButtonSize
+					;}
+				EndIf
+			Next
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_EventHandler(*GadgetData.ToolBarData, *Event.Event)
+		Protected Redraw, Item, P
+
+		With *GadgetData
+			If \Vertical
+				P = *Event\MouseY
+			Else
+				P = *Event\MouseX
+			EndIf
+
+			Select *Event\EventType
+				Case #MouseMove ;{
+					Item = ToolBar_ItemAt(*GadgetData, P)
+					If Item <> \MouseItem
+						\MouseItem = Item
+						Redraw = #True
+					EndIf
+					;}
+				Case #MouseLeave ;{
+					If \MouseItem <> -1 Or \PressedItem <> -1
+						\MouseItem = -1
+						\PressedItem = -1
+						Redraw = #True
+					EndIf
+					;}
+				Case #LeftButtonDown ;{
+					Item = ToolBar_ItemAt(*GadgetData, P)
+					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Enabled
+						\PressedItem = Item
+						Redraw = #True
+					EndIf
+					;}
+				Case #LeftButtonUp ;{
+					If \PressedItem <> -1
+						\PressedItem = -1
+						Redraw = #True
+					EndIf
+					;}
+				Case #LeftClick ;{
+					Item = ToolBar_ItemAt(*GadgetData, P)
+					\PressedItem = -1
+					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Enabled
+						If \Items()\Toggle
+							\Items()\State = Bool(Not \Items()\State)
+						EndIf
+						\State = Item
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+					EndIf
+					Redraw = #True
+					;}
+			EndSelect
+
+			If Redraw
+				RedrawObject()
+			EndIf
+		EndWith
+
+		ProcedureReturn Redraw
+	EndProcedure
+
+	Procedure ToolBar_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+		Protected *GadgetData.ToolBarData = *this\vt, *NewItem.ToolBar_Item, HBitmap.UITK_BitmapInfo
+
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*NewItem = InsertElement(\Items())
+			Else
+				LastElement(\Items())
+				*NewItem = AddElement(\Items())
+			EndIf
+
+			*NewItem\Text = PeekS(*Text)
+			*NewItem\Enabled = #True
+
+			If Flags = #ToolBar_Separator
+				*NewItem\Separator = #True
+			ElseIf Flags = #ToolBar_Toggle
+				*NewItem\Toggle = #True
+			EndIf
+
+			*NewItem\imageID = ImageID
+			If *NewItem\imageID
+				UITK_GetImageSize(*NewItem\imageID, @HBitmap)
+				*NewItem\ImageX = (\ButtonSize - HBitmap\bmWidth) * 0.5
+				*NewItem\ImageY = (\ButtonSize - HBitmap\bmHeight) * 0.5
+			EndIf
+
+			ChangeCurrentElement(\Items(), *NewItem)
+			Position = ListIndex(\Items())
+			RedrawObject()
+		EndWith
+
+		ProcedureReturn Position
+	EndProcedure
+
+	Procedure ToolBar_RemoveItem(*This.PB_Gadget, Position)
+		Protected *GadgetData.ToolBarData = *this\vt
+		With *GadgetData
+			If Position > -1 And SelectElement(\Items(), Position)
+				DeleteElement(\Items())
+				If Position <= \State
+					\State - 1
+				EndIf
+				\MouseItem = -1
+				\PressedItem = -1
+				RedrawObject()
+				ProcedureReturn #True
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_ClearItems(*This.PB_Gadget)
+		Protected *GadgetData.ToolBarData = *this\vt
+		With *GadgetData
+			ClearList(\Items())
+			\State = -1
+			\MouseItem = -1
+			\PressedItem = -1
+			RedrawObject()
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_CountItem(*This.PB_Gadget)
+		Protected *GadgetData.ToolBarData = *this\vt
+		ProcedureReturn ListSize(*GadgetData\Items())
+	EndProcedure
+
+	Procedure ToolBar_GetItemState(*This.PB_Gadget, Position)
+		Protected *GadgetData.ToolBarData = *this\vt, Result
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				; Disabled is the dominant state; otherwise report the toggle.
+				If Not \Items()\Enabled
+					Result = #Item_State_Disabled
+				ElseIf \Items()\State
+					Result = #Item_State_Toggled
+				Else
+					Result = #Item_State_Untoggled
+				EndIf
+			EndIf
+		EndWith
+		ProcedureReturn Result
+	EndProcedure
+
+	Procedure ToolBar_SetItemState(*This.PB_Gadget, Position, State)
+		Protected *GadgetData.ToolBarData = *this\vt
+		With *GadgetData
+			If Position > -1 And SelectElement(\Items(), Position) And Not \Items()\Separator
+				Select State
+					Case #Item_State_Untoggled		; also matches #False
+						If \Items()\Toggle
+							\Items()\State = #False
+						EndIf
+					Case #Item_State_Toggled		; also matches #True
+						If \Items()\Toggle
+							\Items()\State = #True
+						EndIf
+					Case #Item_State_Enabled
+						\Items()\Enabled = #True
+					Case #Item_State_Disabled
+						\Items()\Enabled = #False
+				EndSelect
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_GetItemImage(*This.PB_Gadget, Position)
+		Protected *GadgetData.ToolBarData = *this\vt
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				ProcedureReturn \Items()\imageID
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_Resize(*This.PB_Gadget, x, y, Width, Height)
+		Protected *GadgetData.ToolBarData = *this\vt, HBitmap.UITK_BitmapInfo
+
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+
+		With *GadgetData
+			\Width = GadgetWidth(\Gadget)
+			\Height = GadgetHeight(\Gadget)
+			If \Vertical
+				\ButtonSize = \Width - \Border * 2
+			Else
+				\ButtonSize = \Height - \Border * 2
+			EndIf
+
+			ForEach \Items()
+				If \Items()\imageID
+					UITK_GetImageSize(\Items()\imageID, @HBitmap)
+					\Items()\ImageX = (\ButtonSize - HBitmap\bmWidth) * 0.5
+					\Items()\ImageY = (\ButtonSize - HBitmap\bmHeight) * 0.5
+				EndIf
+			Next
+
+			RedrawObject()
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_Meta(*GadgetData.ToolBarData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(ToolBar)
+
+		With *GadgetData
+			\Vertical = Bool(Flags & #Gadget_Vertical)
+			If \Vertical
+				\ButtonSize = \Width - \Border * 2
+			Else
+				\ButtonSize = \Height - \Border * 2
+			EndIf
+			\State = -1
+			\MouseItem = -1
+			\PressedItem = -1
+
+			\VT\AddGadgetItem3 = @ToolBar_AddItem()
+			\VT\RemoveGadgetItem = @ToolBar_RemoveItem()
+			\VT\ClearGadgetItemList = @ToolBar_ClearItems()
+			\VT\ResizeGadget = @ToolBar_Resize()
+			\VT\CountGadgetItems = @ToolBar_CountItem()
+			\VT\GetGadgetItemState = @ToolBar_GetItemState()
+			\VT\SetGadgetItemState = @ToolBar_SetItemState()
+			\VT\GetGadgetItemImage = @ToolBar_GetItemImage()
+
+			; Enable only the needed events
+			\SupportedEvent[#MouseMove] = #True
+			\SupportedEvent[#MouseLeave] = #True
+			\SupportedEvent[#LeftButtonDown] = #True
+			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#LeftClick] = #True
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar(Gadget, x, y, Width, Height, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.ToolBarData, *ThemeData
+
+		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+
+		If Result
+			If Gadget = #PB_Any
+				Gadget = Result
+			EndIf
+
+			*this = IsGadget(Gadget)
+			AllocateStructureX(*GadgetData, ToolBarData)
+			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+			*GadgetData\OriginalVT = *this\VT
+			*this\VT = *GadgetData
+
+			AllocateStructureX(*ThemeData, Theme)
+
+			If Flags & #DarkMode
+				CopyStructure(@DarkTheme, *ThemeData, Theme)
+			ElseIf Flags & #LightMode
+				CopyStructure(@LightTheme, *ThemeData, Theme)
+			Else
+				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+				If *WindowData
+					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+				Else
+					CopyStructure(*DefaultTheme, *ThemeData, Theme)
+				EndIf
+			EndIf
+
+			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+			GadgetHandler() = Gadget
+			ToolBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+
+			RedrawObject()
+		EndIf
+
+		ProcedureReturn Result
+	EndProcedure
+	;}
+
+
 	;{ TimeLine
 	; This is a big chunk of code, and it's totally useless for anything but a sequence editor, it's disabled by default to avoid your programme getting chonkier for nothing. Declare EnableTimeline module before including the source to enable it.
 	
@@ -12015,7 +12417,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 2063
-; Folding = wA9---AAAQAAAAAAAAIAGAYAOcy8DRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+--v-n-------
+; CursorPosition = 403
+; Folding = gA5---AAAAAAAAAAAAAAAAAAMcA5DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware

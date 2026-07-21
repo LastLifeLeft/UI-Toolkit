@@ -8,6 +8,21 @@ Define Height = DesktopHeight(0)
 
 Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), SquaredImage = ImageID(LoadImage(#PB_Any, "Squared.png"))
 
+; Builds a small, distinct icon on the fly so the ToolBar demo needs no extra asset files.
+Procedure ToolIcon(r, g, b, shape)
+	Protected img = CreateImage(#PB_Any, 22, 22, 32, #PB_Image_Transparent)
+	StartDrawing(ImageOutput(img))
+	DrawingMode(#PB_2DDrawing_AlphaBlend)
+	Select shape
+		Case 0 : Box(3, 3, 16, 16, RGBA(r, g, b, 255))
+		Case 1 : Circle(11, 11, 9, RGBA(r, g, b, 255))
+		Case 2 : LineXY(3, 19, 19, 3, RGBA(r, g, b, 255)) : LineXY(3, 3, 19, 19, RGBA(r, g, b, 255))
+		Case 3 : Box(3, 9, 16, 4, RGBA(r, g, b, 255)) : Box(9, 3, 4, 16, RGBA(r, g, b, 255))
+	EndSelect
+	StopDrawing()
+	ProcedureReturn img
+EndProcedure
+
 Window = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : Dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_Invisible)
 UITK::SetWindowIcon(Window, ImageID(Image))
 Gadget = UITK::PropertyBox(#PB_Any, 20, 20, 280, 280, UITK::#Border)
@@ -79,6 +94,26 @@ String = UITK::String(#PB_Any, 541, 280, 400, 20, "Editable Text", UITK::#Border
 ColorPicker = UITK::ColorPicker(#PB_Any, 320, 320, 199, 270)
 SetGadgetState(ColorPicker, $AA00AA)
 SetGadgetState(ColorPicker, $FFFFFF)
+
+; ToolBars : horizontal (top) and vertical (side), with icon buttons, a separator and sticky toggles.
+HToolBar = UITK::ToolBar(#PB_Any, 540, 320, 401, 32, UITK::#Border)
+AddGadgetItem(HToolBar, -1, "New",       ImageID(ToolIcon(120, 200, 255, 0)), 0)
+AddGadgetItem(HToolBar, -1, "Open",      ImageID(ToolIcon(255, 210, 100, 1)), 0)
+AddGadgetItem(HToolBar, -1, "Save",      ImageID(ToolIcon(140, 230, 150, 3)), 0)
+AddGadgetItem(HToolBar, -1, "",          0,                                    UITK::#ToolBar_Separator)
+AddGadgetItem(HToolBar, -1, "Bold",      ImageID(ToolIcon(240, 240, 240, 0)), UITK::#ToolBar_Toggle)
+AddGadgetItem(HToolBar, -1, "Italic",    ImageID(ToolIcon(240, 240, 240, 1)), UITK::#ToolBar_Toggle)
+AddGadgetItem(HToolBar, -1, "Underline", ImageID(ToolIcon(240, 240, 240, 2)), UITK::#ToolBar_Toggle)
+SetGadgetItemState(HToolBar, 4, #True)                          ; start with Bold toggled on
+SetGadgetItemState(HToolBar, 2, UITK::#Item_State_Disabled)     ; "Save" greyed out (nothing to save yet)
+
+VToolBar = UITK::ToolBar(#PB_Any, 540, 362, 32, 228, UITK::#Border | UITK::#Gadget_Vertical)
+AddGadgetItem(VToolBar, -1, "Select", ImageID(ToolIcon(120, 200, 255, 1)), 0)
+AddGadgetItem(VToolBar, -1, "Move",   ImageID(ToolIcon(255, 160, 160, 3)), 0)
+AddGadgetItem(VToolBar, -1, "",       0,                                 UITK::#ToolBar_Separator)
+AddGadgetItem(VToolBar, -1, "Grid",   ImageID(ToolIcon(200, 180, 255, 2)), UITK::#ToolBar_Toggle)
+AddGadgetItem(VToolBar, -1, "Snap",   ImageID(ToolIcon(180, 255, 220, 0)), UITK::#ToolBar_Toggle)
+SetGadgetItemState(VToolBar, 1, UITK::#Item_State_Disabled)     ; "Move" greyed out
 
 HideWindow(Window, #False)
 
