@@ -8929,6 +8929,64 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
+	Procedure PropertyBox_RemoveItem(*This.PB_Gadget, Position)
+		Protected *GadgetData.PropertyBoxData = *this\vt, WasScrollBarVisible
+
+		With *GadgetData
+			If Position > -1 And SelectElement(\Items(), Position)
+				; Removing a row can pull the ground out from under an open editor / popup.
+				PropertyBox_CancelEdit(*GadgetData)
+				HideWindow(\ComboPopupWindow, #True)
+				HideWindow(\ColorPopupWindow, #True)
+
+				DeleteElement(\Items())
+
+				If Position <= \State
+					\State - 1
+				EndIf
+
+				\InternalHeight - \ItemHeight
+
+				WasScrollBarVisible = \VisibleScrollBar
+				If \InternalHeight > \Height
+					\VisibleScrollBar = #True
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+				Else
+					\VisibleScrollBar = #False
+				EndIf
+
+				; The scrollbar (dis)appearing changes every value cell's width.
+				If \VisibleScrollBar <> WasScrollBarVisible
+					ForEach \Items()
+						PropertyBox_PrepareValue(*GadgetData, @\Items())
+					Next
+				EndIf
+
+				RedrawObject()
+				ProcedureReturn #True
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_ClearItems(*This.PB_Gadget)
+		Protected *GadgetData.PropertyBoxData = *this\vt
+
+		With *GadgetData
+			PropertyBox_CancelEdit(*GadgetData)
+			HideWindow(\ComboPopupWindow, #True)
+			HideWindow(\ColorPopupWindow, #True)
+
+			ClearList(\Items())
+			\State = -1
+			\InternalHeight = 0
+			\ScrollBar\State = 0
+			\VisibleScrollBar = #False
+
+			RedrawObject()
+		EndWith
+	EndProcedure
+
+
 	Procedure PropertyBox_Meta(*GadgetData.PropertyBoxData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(PropertyBox)
@@ -8942,6 +9000,8 @@ Module UITK
 			ScrollBar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \InternalHeight, Height , #Gadget_Vertical)
 			
 			\VT\AddGadgetItem3 = @PropertyBox_AddItem()
+			\VT\RemoveGadgetItem = @PropertyBox_RemoveItem()
+			\VT\ClearGadgetItemList = @PropertyBox_ClearItems()
 			\VT\ResizeGadget = @PropertyBox_Resize()
 			\VT\CountGadgetItems = @PropertyBox_CountItem()
 			\VT\GetGadgetItemText = @PropertyBox_GetItemText()
