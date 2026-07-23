@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-07-21 19:48" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-07-23 08:36" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -33,7 +33,7 @@
     </file>
     <file name="Examples\Example 2 - Gadget Example 2.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="6" panelstate="+-"/>
-      <fingerprint md5="bcf9e6f9581801241d77d9a15ca5dcff"/>
+      <fingerprint md5="73799443e7291658b5f944e0a5078f3b"/>
     </file>
     <file name="Examples\Example 3 - Timeline.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="7" panelstate="+-"/>
@@ -49,7 +49,11 @@
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="10" panelstate="+-"/>
-      <fingerprint md5="33027eb2acd4b06e9e14d1f6aebd231a"/>
+      <fingerprint md5="43cf3c08b450a7134d272ed8f7499022"/>
+    </file>
+    <file name="Examples\Example 4 - SVG Icons.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="11" panelstate="+-"/>
+      <fingerprint md5="234fa4eff375fff930e2db72f7782185"/>
     </file>
   </section>
   <section name="targets">
@@ -71,7 +75,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 2" enabled="1" default="1">
+    <target name="Example 2" enabled="1" default="0">
       <inputfile value="Examples\Example 2 - Gadget Example 2.pbi"/>
       <outputfile value="Examples\Example 2.exe"/>
       <compiler version="PureBasic 6.00 LTS (Windows - x64)"/>
@@ -83,7 +87,16 @@
     <target name="Example 3" enabled="1" default="0">
       <inputfile value="Examples\Example 3 - Timeline.pb"/>
       <outputfile value="Examples\Example 3.exe"/>
-      <compiler version="PureBasic 6.00 LTS (Windows - x64)"/>
+      <compiler version="PureBasic 6.40 (Windows - x64)"/>
+      <executable value="Examples\Example 3.exe"/>
+      <options xpskin="1" debug="1" optimizer="1"/>
+      <temporaryexe value="source"/>
+      <format exe="default" cpu="5"/>
+    </target>
+    <target name="Example 4" enabled="1" default="1">
+      <inputfile value="Examples\Example 4 - SVG Icons.pb"/>
+      <outputfile value="Examples\Example 4.exe"/>
+      <compiler version="PureBasic 6.40 (Windows - x64)"/>
       <executable value="Examples\Example 3.exe"/>
       <options xpskin="1" debug="1" optimizer="1"/>
       <temporaryexe value="source"/>

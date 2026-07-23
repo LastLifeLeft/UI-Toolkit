@@ -139,8 +139,9 @@ Repeat
 	EndSelect
 ForEver
 
-; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 80
-; FirstLine = 44
+; IDE Options = PureBasic 6.40 (Windows - x64)
+; CursorPosition = 98
+; FirstLine = 53
+; Folding = -
 ; EnableXP
 ; DPIAware

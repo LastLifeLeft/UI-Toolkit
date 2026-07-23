@@ -379,6 +379,8 @@
 	Declare Disable(Gadget, State)
 	Declare Freeze(Gadget, State)
 	Declare AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
+	Declare LoadSvgIcon(FileName.s, Size, Color)
+	Declare CatchSvgIcon(*Buffer, BufferLength, Size, Color)
 	Declare EditGadgetItemText(Gadget)
 	
 	; Drag & drop
@@ -1257,6 +1259,68 @@ Module UITK
 			*bmp\bmWidth  = gdk_pixbuf_get_width(ImageHandle)
 			*bmp\bmHeight = gdk_pixbuf_get_height(ImageHandle)
 		CompilerEndIf
+	EndProcedure
+	
+	Procedure RenderSvgIcon(Svg.s, Size, Color)
+		Protected Result, Pos, ViewBox.s, Path.s
+		Protected VbX.f, VbY.f, VbW.f = 24, VbH.f = 24
+
+		If Svg
+			; viewBox="minX minY width height" - Material Symbols use "0 -960 960 960", older Material Icons "0 0 24 24".
+			Pos = FindString(Svg, "viewBox=" + Chr(34))
+			If Pos
+				ViewBox = ReplaceString(StringField(Mid(Svg, Pos + 9), 1, Chr(34)), ",", " ")
+				VbX = ValF(StringField(ViewBox, 1, " "))
+				VbY = ValF(StringField(ViewBox, 2, " "))
+				VbW = ValF(StringField(ViewBox, 3, " "))
+				VbH = ValF(StringField(ViewBox, 4, " "))
+			EndIf
+
+			If VbW > 0 And VbH > 0
+				If Alpha(Color) = 0
+					Color = SetAlpha(Color, 255)
+				EndIf
+
+				Result = CreateImage(#PB_Any, Size, Size, 32, #PB_Image_Transparent)
+				If Result And StartVectorDrawing(ImageVectorOutput(Result))
+					ScaleCoordinates(Size / VbW, Size / VbH)
+					TranslateCoordinates(-VbX, -VbY)
+
+					Pos = FindString(Svg, " d=" + Chr(34))
+					While Pos
+						Path = StringField(Mid(Svg, Pos + 4), 1, Chr(34))
+						AddPathSegments(Path)
+						Pos = FindString(Svg, " d=" + Chr(34), Pos + Len(Path) + 4)
+					Wend
+
+					VectorSourceColor(Color)
+					FillPath(#PB_Path_Winding)
+					StopVectorDrawing()
+				ElseIf Result
+					FreeImage(Result)
+					Result = 0
+				EndIf
+			EndIf
+		EndIf
+
+		ProcedureReturn Result
+	EndProcedure
+
+	Procedure LoadSvgIcon(FileName.s, Size, Color)
+		Protected File = ReadFile(#PB_Any, FileName), Svg.s
+
+		If File
+			Svg = ReadString(File, #PB_UTF8 | #PB_File_IgnoreEOL)
+			CloseFile(File)
+		EndIf
+
+		ProcedureReturn RenderSvgIcon(Svg, Size, Color)
+	EndProcedure
+
+	Procedure CatchSvgIcon(*Buffer, BufferLength, Size, Color)
+		If *Buffer
+			ProcedureReturn RenderSvgIcon(PeekS(*Buffer, BufferLength, #PB_UTF8 | #PB_ByteLength), Size, Color)
+		EndIf
 	EndProcedure
 
 	Procedure PrepareVectorTextBlock(*TextData.Text)
@@ -8718,12 +8782,18 @@ Module UITK
 
 			UnbindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ComboPopup_Deactivate(), \ComboPopupWindow)
 			UnbindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ColorPopup_Deactivate(), \ColorPopupWindow)
-			UnbindGadgetEvent(\ComboPopupList, @PropertyBox_ComboPopup_Select(), #PB_EventType_Change)
-			UnbindGadgetEvent(\ColorPopupPicker, @PropertyBox_ColorPopup_Change(), #PB_EventType_Change)
-			FreeGadget(\ComboPopupList)
-			FreeGadget(\ColorPopupPicker)
-			CloseWindow(\ComboPopupWindow)
-			CloseWindow(\ColorPopupWindow)
+			
+			If IsWindow(\ComboPopupWindow)
+				UnbindGadgetEvent(\ComboPopupList, @PropertyBox_ComboPopup_Select(), #PB_EventType_Change)
+				FreeGadget(\ComboPopupList)
+				CloseWindow(\ComboPopupWindow)
+			EndIf
+			
+			If IsWindow(\ColorPopupWindow)
+				UnbindGadgetEvent(\ColorPopupPicker, @PropertyBox_ColorPopup_Change(), #PB_EventType_Change)
+				FreeGadget(\ColorPopupPicker)
+				CloseWindow(\ColorPopupWindow)
+			EndIf
 
 			If \String : FreeStructure(\String) : EndIf
 			If \ScrollBar : FreeStructure(\ScrollBar) : EndIf
@@ -8739,7 +8809,6 @@ Module UITK
 
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
-
 
 	Procedure PropertyBox_EventHandler(*GadgetData.PropertyBoxData, *Event.Event)
 		Protected Redraw, ItemRow, ScrollOffset, Cursor = #PB_Cursor_Default, c
@@ -8996,7 +9065,6 @@ Module UITK
 			RedrawObject()
 		EndWith
 	EndProcedure
-
 
 	Procedure PropertyBox_Meta(*GadgetData.PropertyBoxData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
@@ -10872,7 +10940,9 @@ Module UITK
 			If \Border
 				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
 				VectorSourceColor(\ThemeData\LineColor[#Cold])
-				StrokePath(2)
+				StrokePath(2, #PB_Path_Preserve)
+				VectorSourceColor(\ThemeData\BackColor[#Cold])
+				FillPath()
 			EndIf
 
 			Offset = \Border
@@ -12417,7 +12487,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 403
-; Folding = gA5---AAAAAAAAAAAAAAAAAAMcA5DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
+; CursorPosition = 1262
+; FirstLine = 28
+; Folding = hA5---AAAgAEw------fAAAA90D5fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5-
 ; EnableXP
 ; DPIAware
