@@ -7864,7 +7864,7 @@ Module UITK
 			
 			\Sections()\Items() = *NewItem
 			
-			If ListSize(\Sections()\Items()) % \ItemPerLine = 1
+			If (ListSize(\Sections()\Items()) - 1) % \ItemPerLine = 0
 				If ListSize(\Sections()\Items()) = 1
 					\Sections()\Height + \SectionHeight
 					\InternalHeight + \SectionHeight
@@ -11248,7 +11248,7 @@ Module UITK
 	Procedure ToolBar(Gadget, x, y, Width, Height, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ToolBarData, *ThemeData
 
-		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+		Result = CanvasGadget(Gadget, x, y, Width, Height)
 
 		If Result
 			If Gadget = #PB_Any
@@ -12494,7 +12494,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 406
-; Folding = iA5---AAAAAAAAAAAAAAAAAAghDAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 12494
+; Folding = gA5---AAAAAAAAAAAAAAAAAAghDAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
