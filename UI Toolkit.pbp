@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-07-23 08:36" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-07-23 18:47" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -45,14 +45,14 @@
     </file>
     <file name="Examples\Example 1 - Gadget Example 1.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="9" panelstate="+-"/>
-      <fingerprint md5="7a9a79f83f9c2bebc9a0e6f7a4cd84e3"/>
+      <fingerprint md5="fac741b409eb747b550f19c1c2aba758"/>
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="10" panelstate="+-"/>
-      <fingerprint md5="43cf3c08b450a7134d272ed8f7499022"/>
+      <fingerprint md5="cd0b5ca6a30ce49fe09a352f4edb89c4"/>
     </file>
     <file name="Examples\Example 4 - SVG Icons.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="11" panelstate="+-"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
       <fingerprint md5="234fa4eff375fff930e2db72f7782185"/>
     </file>
   </section>
@@ -66,7 +66,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 1" enabled="1" default="0">
+    <target name="Example 1" enabled="1" default="1">
       <inputfile value="Examples\Example 1 - Gadget Example 1.pbi"/>
       <outputfile value="Examples\Example 1.exe"/>
       <compiler version="PureBasic 6.40 - C Backend (Windows - x64)"/>
@@ -93,7 +93,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 4" enabled="1" default="1">
+    <target name="Example 4" enabled="1" default="0">
       <inputfile value="Examples\Example 4 - SVG Icons.pb"/>
       <outputfile value="Examples\Example 4.exe"/>
       <compiler version="PureBasic 6.40 (Windows - x64)"/>

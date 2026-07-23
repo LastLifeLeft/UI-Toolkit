@@ -229,8 +229,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.00 LTS (Windows - x64)
-; CursorPosition = 230
-; FirstLine = 188
+; IDE Options = PureBasic 6.40 (Windows - x64)
+; CursorPosition = 192
+; FirstLine = 152
 ; EnableXP
 ; DPIAware

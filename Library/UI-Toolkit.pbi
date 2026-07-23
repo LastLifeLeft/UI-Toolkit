@@ -77,6 +77,7 @@
 		#TrackBar_Scale
 		
 		#Attribute_Library_SectionHeight
+		#Attribute_Library_ItemWidth
 		#Attribute_Tree_ItemDepth
 	EndEnumeration
 	
@@ -5722,7 +5723,7 @@ Module UITK
 	
 	Procedure VerticalList_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
-		If *GadgetData\Reorder
+		If *GadgetData\Reorder And IsWindow(*GadgetData\ReorderWindow)
 			CloseWindow(*GadgetData\ReorderWindow)
 		EndIf
 		DeleteMapElement(GadgetHandler(), Str(GadgetID(*GadgetData\Gadget)))
@@ -7167,10 +7168,15 @@ Module UITK
 		
 		With *GadgetData
 			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
-			UnbindEvent(#PB_Event_DeactivateWindow, @Combo_WindowHandler(), \MenuWindow)
-			UnbindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
-			FreeGadget(\MenuCanvas)
-			CloseWindow(\MenuWindow)
+			If IsGadget(\MenuCanvas)
+				UnbindGadgetEvent(\MenuCanvas, @Combo_VListHandler(), #PB_EventType_Change)
+				FreeGadget(\MenuCanvas)
+			EndIf
+			
+			If IsWindow(\MenuWindow)
+				UnbindEvent(#PB_Event_DeactivateWindow, @Combo_WindowHandler(), \MenuWindow)
+				CloseWindow(\MenuWindow)
+			EndIf
 			
 			If \DefaultEventHandler
 				UnbindGadgetEvent(\Gadget, \DefaultEventHandler)
@@ -7769,14 +7775,14 @@ Module UITK
 			DrawVectorTextBlock(@\Text, X, Y + TextHeight + 2)
 			
 			If \HoverState
-				AddPathBox(X, Y, #Library_ItemWidth, TextHeight)
+				AddPathBox(X, Y, Width, TextHeight)
 				VectorSourceColor(SetAlpha($FFFFFF, 35))
 				FillPath()
 				VectorSourceColor(*Theme\TextColor[#Cold])
 			EndIf
 			
 			If \Selected
-				AddPathBox(X - 0.5, Y - 0.5, #Library_ItemWidth + 1, TextHeight + 1)
+				AddPathBox(X - 0.5, Y - 0.5, Width + 1, TextHeight + 1)
 				VectorSourceColor(*Theme\Special3[#Cold])
 				StrokePath(3)
 				VectorSourceColor(*Theme\TextColor[#Cold])
@@ -8149,7 +8155,8 @@ Module UITK
 					Next
 					
 					\SectionHeight = Value
-					
+				Case #Attribute_Library_ItemWidth
+					\ItemWidth = Value
 				Default	
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
 			EndSelect
@@ -12487,8 +12494,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 1262
-; FirstLine = 28
-; Folding = hA5---AAAgAEw------fAAAA90D5fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5-
+; CursorPosition = 406
+; Folding = iA5---AAAAAAAAAAAAAAAAAAghDAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
