@@ -385,10 +385,10 @@
 	Declare EditGadgetItemText(Gadget)
 	
 	; Drag & drop
-	Declare AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy)
-	Declare AdvancedDragFiles(File.s, ImageID, Action = #PB_Drag_Copy)
-	Declare AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)
-	Declare AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)
+	Declare AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+	Declare AdvancedDragFiles(File.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+	Declare AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+	Declare AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
 	Declare RegisterDropCallback(*Callback)
 	
 	; TimeLine
@@ -2874,98 +2874,88 @@ Module UITK
 	CompilerEndIf	;}
 
 	;{ Advanced drag & drop
-	; Win32 only: uses a layered window + low-level mouse hook to position a follow-cursor image during drag.
-	; Linux/Mac equivalent would use a GTK drag icon or X11 cursor image — out of scope for now.
+	; A long note, to not attempt to reinvent the wheel in 3 year when I'll have forgotten why I did this:
+	; Why a *low-level* (WH_MOUSE_LL) hook, and not something lighter? During DragPrivate() the OS runs
+	; a modal DoDragDrop loop. Inside it, two lighter options both go blind while the cursor is over our
+	; own CanvasGadgets (which take the mouse capture): PB's SetDragCallback / IDropSource::GiveFeedback
+	; stalls, and a thread-scoped WH_MOUSE hook never sees the moves (they don't pass through our queue).
+	; WH_MOUSE_LL fires on raw input below all of that, so the preview keeps up everywhere. It is live
+	; only between ShowPreview and HidePreview, so the system-wide reach lasts just the drag.
+	; Linux/Mac equivalent would use a GTK drag icon or X11 cursor image : out of scope for now.
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-	Global ADNDWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(TimerWindow)) ; Timer window? Shouldn't there be an universal hidden window for UITK rather than piggy backing this one?
-	SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
+	Global ADNDWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(TimerWindow)) ; Piggy-backs the timer window; a dedicated hidden UITK window would be cleaner.
+	SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED | #WS_EX_TRANSPARENT)
 	SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
 	Global ADNDGadget = ImageGadget(#PB_Any, 0, 0, 1, 1, 0)
 	Global ADNDHook, *DropCallback
-	
-	#ADND_OffsetX = 8
-	#ADND_OffsetY = 8
-	
-	Procedure ADND_Hook(nCode, wParam, *p.MOUSEHOOKSTRUCT)
-		SetWindowPos_(WindowID(ADNDWindow), 0, *p\pt\x + #ADND_OffsetX, *p\pt\y + #ADND_OffsetY, 0, 0, #SWP_NOSIZE|#SWP_NOREDRAW)
+	Global ADND_OffsetX, ADND_OffsetY
+
+	; Fires for every raw mouse move while installed; MSLLHOOKSTRUCT\pt (aliased here) is in screen coordinates.
+	Procedure ADND_Hook(nCode, wParam, *p.POINT)
+		If nCode >= 0
+			SetWindowPos_(WindowID(ADNDWindow), 0, *p\x + ADND_OffsetX, *p\y + ADND_OffsetY, 0, 0, #SWP_NOSIZE | #SWP_NOACTIVATE | #SWP_NOREDRAW)
+		EndIf
 		ProcedureReturn CallNextHookEx_(#NUL, nCode, wParam, *p)
 	EndProcedure
-	
-	Procedure AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy)
+
+	Procedure ADND_ShowPreview(ImageID)
 		Protected HBitmap.BITMAP
 		
 		ExamineDesktops()
-		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
-		ResizeWindow(ADNDWindow, DesktopMouseX() + #ADND_OffsetX, DesktopMouseY() + #ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
-		SetGadgetState(ADNDGadget, ImageID)
+		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap)
+		ResizeWindow(ADNDWindow, DesktopMouseX() + ADND_OffsetX, DesktopMouseY() + ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
+		SetGadgetState(ADNDGadget, ImageID)	
 		HideWindow(ADNDWindow, #False)
-		
 		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
-		
+	EndProcedure
+
+	Procedure ADND_HidePreview()
+		If ADNDHook
+			UnhookWindowsHookEx_(ADNDHook)
+			ADNDHook = 0
+		EndIf
+		HideWindow(ADNDWindow, #True)
+	EndProcedure
+
+	Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+		ADND_OffsetX = OffsetX
+		ADND_OffsetY = OffsetY
+		ADND_ShowPreview(ImageID)
 		DragPrivate(Type, Action)
-		
-		HideWindow(ADNDWindow, #True)
-		UnhookWindowsHookEx_(ADNDHook)
+		ADND_HidePreview()
 	EndProcedure
-	
-	Procedure AdvancedDragFiles(File.s, ImageID, Action = #PB_Drag_Copy)
-		Protected HBitmap.BITMAP
-		
-		ExamineDesktops()
-		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
-		ResizeWindow(ADNDWindow, DesktopMouseX() + #ADND_OffsetX, DesktopMouseY() + #ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
-		SetGadgetState(ADNDGadget, ImageID)
-		HideWindow(ADNDWindow, #False)
-		
-		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
-		
+
+	Procedure AdvancedDragFiles(File.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+		ADND_OffsetX = OffsetX
+		ADND_OffsetY = OffsetY
+		ADND_ShowPreview(ImageID)
 		DragFiles(File, Action)
-		
-		HideWindow(ADNDWindow, #True)
-		UnhookWindowsHookEx_(ADNDHook)
+		ADND_HidePreview()
 	EndProcedure
-	
-	Procedure AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)
-		Protected HBitmap.BITMAP
-		
-		ExamineDesktops()
-		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
-		ResizeWindow(ADNDWindow, DesktopMouseX() + #ADND_OffsetX, DesktopMouseY() + #ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
-		SetGadgetState(ADNDGadget, ImageID)
-		HideWindow(ADNDWindow, #False)
-		
-		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
-		
+
+	Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+		ADND_OffsetX = OffsetX
+		ADND_OffsetY = OffsetY
+		ADND_ShowPreview(ImageID)
 		DragText(Text, Action)
-		
-		HideWindow(ADNDWindow, #True)
-		UnhookWindowsHookEx_(ADNDHook)
+		ADND_HidePreview()
 	EndProcedure
-	
-	Procedure AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)
-		Protected HBitmap.BITMAP
-		
-		ExamineDesktops()
-		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap.BITMAP)
-		ResizeWindow(ADNDWindow, DesktopMouseX() + #ADND_OffsetX, DesktopMouseY() + #ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
-		SetGadgetState(ADNDGadget, ImageID)
-		HideWindow(ADNDWindow, #False)
-		
-		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
-		
+
+	Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+		ADND_OffsetX = OffsetX
+		ADND_OffsetY = OffsetY
+		ADND_ShowPreview(ImageID)
 		DragImage(ImageID, Action)
-		
-		HideWindow(ADNDWindow, #True)
-		UnhookWindowsHookEx_(ADNDHook)
+		ADND_HidePreview()
 	EndProcedure
-	
+
 	Procedure DropCallback(TargetHandle, State, Format, Action, x, y)
 		Protected *this.PB_Gadget, *GadgetData.GadgetData, Result = #True
-		
+
 		If FindMapElement(GadgetHandler(), Str(TargetHandle))
 			*this = IsGadget(GadgetHandler())
 			*GadgetData = *this\vt
-			
+
 			If *this\vt\DropHandler
 				Result = CallFunctionFast(*this\vt\DropHandler, *GadgetData, State, Format, Action, x, y)
 			ElseIf *DropCallback
@@ -2974,10 +2964,10 @@ Module UITK
 		ElseIf *DropCallback
 			Result = CallFunctionFast(*DropCallback, TargetHandle, State, Format, Action, x, y)
 		EndIf
-		
+
 		ProcedureReturn Result
 	EndProcedure
-	
+
 	Procedure RegisterDropCallback(*Callback)
 		*DropCallback = *Callback
 	EndProcedure
@@ -2985,10 +2975,10 @@ Module UITK
 	SetDropCallback(@DropCallback())
 	CompilerElse
 		; ---- Linux/Mac stubs for advanced drag & drop ----
-		Procedure AdvancedDragPrivate(Type, ImageID, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
-		Procedure AdvancedDragFiles(File.s, ImageID, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
-		Procedure AdvancedDragText(Text.s, ImageID, Action = #PB_Drag_Copy)  : ProcedureReturn 0 : EndProcedure
-		Procedure AdvancedDragImage(ImageID, Action = #PB_Drag_Copy)         : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragFiles(File.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)  : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)         : ProcedureReturn 0 : EndProcedure
 		Procedure RegisterDropCallback(*Callback) : EndProcedure
 	CompilerEndIf
 	;}
@@ -5299,7 +5289,8 @@ Module UITK
 								\ItemRedraw(@\Items(), \Border + #VerticalList_Margin, 0, \Width, \ItemHeight, #Hot, \ThemeData)
 								StopVectorDrawing()
 								
-								AdvancedDragPrivate(#Drag_VListItem, ImageID(Image))
+								; Offset the preview so the grabbed point of the row stays under the cursor.
+								AdvancedDragPrivate(#Drag_VListItem, ImageID(Image), -\DragOriginX, \State * \ItemHeight - \ScrollBar\State - \DragOriginY)
 								\DragState = #Drag_None
 								FreeImage(Image)
 								\DragState = #Drag_None
@@ -6196,7 +6187,8 @@ Module UITK
 								SelectElement(\Items(),\State)
 								HorizontalList_ItemRedraw(@\Items(), 0, 0, \ItemWidth, \Height, #Hot, \ThemeData)
 								StopVectorDrawing()
-								AdvancedDragPrivate(#Drag_HListItem, ImageID(Image))
+								; Offset the preview so the grabbed point of the item stays under the cursor.
+								AdvancedDragPrivate(#Drag_HListItem, ImageID(Image), \Border + \State * \ItemWidth - \ScrollBar\State - \DragOriginX, -\DragOriginY)
 								\DragState = #Drag_None
 								FreeImage(Image)
 							EndIf
@@ -7892,7 +7884,8 @@ Module UITK
 	
 	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
 		Protected Redraw, NewItem = -1, ItemRow, Image
-		
+		Protected *DraggedItem.Library_Item, *DragSection.Library_Section, InSection, SectionY, CellX, CellY
+
 		With *GadgetData
 			Select *Event\EventType
 				Case #MouseMove ;{
@@ -7940,7 +7933,31 @@ Module UITK
 					ElseIf \DragState = #Drag_Init
 						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
 							SelectElement(\Items(), \State)
-							AdvancedDragPrivate(#Drag_LibraryItem, \Items()\ImageID)
+
+							; Resolve the dragged item's on-screen cell so the preview keeps the grabbed point under the cursor.
+							*DraggedItem = @\Items()
+							*DragSection = \Items()\Section
+							SectionY = -\ScrollBar\State
+							ForEach \Sections()
+								If @\Sections() = *DragSection
+									Break
+								EndIf
+								SectionY + \Sections()\Height
+							Next
+
+							InSection = 0
+							ForEach *DragSection\Items()
+								If *DragSection\Items() = *DraggedItem
+									Break
+								EndIf
+								InSection + 1
+							Next
+
+							ItemRow = InSection / \ItemPerLine
+							CellX = \ItemHMargin + (InSection % \ItemPerLine) * (\ItemHMargin + \ItemWidth)
+							CellY = SectionY + \SectionHeight + ItemRow * (\ItemHeight + \ItemVMargin)
+
+							AdvancedDragPrivate(#Drag_LibraryItem, \Items()\ImageID, CellX + \Items()\ImageX - \DragOriginX, CellY + \Items()\ImageY - \DragOriginY)
 							\DragState = #Drag_None
 						EndIf
 					EndIf
@@ -12494,7 +12511,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 12494
-; Folding = gA5---AAAAAAAAAAAAAAAAAAghDAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 2985
+; FirstLine = 90
+; Folding = lA5---AAAAAAAAAAAAAAAAAAghT0+BAAAAAAAAAAAAAAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
