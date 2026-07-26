@@ -2274,6 +2274,7 @@ Module UITK
 	
 	Procedure ExtendFrameIntoClient(WindowID)
 		; Tells DWM "this is a custom-chrome window" so Snap/Shadow/animations stay alive after we hide the system title bar via WM_NCCALCSIZE. A 1px top margin is the standard incantation used by Windows Terminal, Firefox, modern Win apps.
+		; Note: this extended top row is composited by DWM and shows its frame line wherever a gadget paints it (GDI leaves that row alpha 0). That's why every title-bar gadget below is created at y = 1, not 0 — the top row stays pure background, so no line appears.
 		Protected Margins.UITK_MARGINS
 		Margins\cyTopHeight = 1
 		If DWMLibrary
@@ -2385,9 +2386,9 @@ Module UITK
 				EndIf
 				
 				If *WindowData\LabelAlign = #HAlignRight
-					SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, 0, 0, 0, #SWP_NOSIZE)
+					SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, 1, 0, 0, #SWP_NOSIZE)
 				ElseIf *WindowData\LabelAlign = #HAlignCenter
-					SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 0, 0, 0, #SWP_NOSIZE)
+					SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
 				EndIf
 				
 				SetWindowPos_(GadgetID(*WindowData\Container), 0, 0, 0, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #SWP_NOMOVE | #SWP_NOZORDER)
@@ -2506,7 +2507,7 @@ Module UITK
 			
 			If Flags & #Window_CloseButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "", Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonClose, #Attribute_CornerRadius, 0)
 				
@@ -2525,7 +2526,7 @@ Module UITK
 			
 			If Flags & #Window_MaximizeButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "", Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonMaximize, #Attribute_CornerRadius, 0)
 				
@@ -2536,7 +2537,7 @@ Module UITK
 			
 			If Flags & #Window_MinimizeButton
 				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 0, #WindowButtonWidth, #WindowBarHeight, "",Flags & #DarkMode * #DarkMode)
+				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "",Flags & #DarkMode * #DarkMode)
 				
 				SetGadgetAttribute(*WindowData\ButtonMinimize, #Attribute_CornerRadius, 0)
 				
@@ -2545,7 +2546,7 @@ Module UITK
 				SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 			EndIf
 			
-			*WindowData\Label = Label(#PB_Any, #SizableBorder, 0, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
+			*WindowData\Label = Label(#PB_Any, #SizableBorder, 1, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
 			SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
 			*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
 			ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
@@ -2606,7 +2607,7 @@ Module UITK
 			
 			UseGadgetList(WindowID(Window))
 			
-			\MenuList() = Button(#PB_Any, \MenuOffset, 0, 100, #WindowBarHeight, Title, #Button_Toggle)
+			\MenuList() = Button(#PB_Any, \MenuOffset, 1, 100, #WindowBarHeight - 1, Title, #Button_Toggle)
 			SetGadgetAttribute(\MenuList(), #Attribute_CornerRadius, 0)
 			SetGadgetColor(\MenuList(), #Color_Back_Cold, \Theme\WindowTitle)
 			SetGadgetColor(\MenuList(), #Color_Back_Warm, \Theme\ShadeColor[#Warm])
@@ -2661,9 +2662,9 @@ Module UITK
 		ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
 		
 		If *WindowData\LabelAlign = #HAlignRight
-			SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - (*WindowData\ButtonClose + *WindowData\ButtonMaximize + *WindowData\ButtonMinimize) * #WindowButtonWidth, 0, 0, 0, #SWP_NOSIZE)
+			SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - (*WindowData\ButtonClose + *WindowData\ButtonMaximize + *WindowData\ButtonMinimize) * #WindowButtonWidth, 1, 0, 0, #SWP_NOSIZE)
 		ElseIf *WindowData\LabelAlign = #HAlignCenter
-			SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 0, 0, 0, #SWP_NOSIZE)
+			SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
 		EndIf
 	EndProcedure
 	
@@ -12673,8 +12674,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 3065
-; FirstLine = 11
+; CursorPosition = 3067
 ; Folding = gA5---AAAAAAAAAAAAAAAAAAAwwBA9DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
