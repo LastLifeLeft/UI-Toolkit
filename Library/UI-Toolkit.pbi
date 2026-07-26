@@ -37,6 +37,8 @@
 	EndEnumeration
 	
 	#Tree_DotLine = 0
+
+	#WindowBarHeight = 30
 	
 	Enumeration 5000 ; Gadget attributes
 		#ScrollBar_Minimum
@@ -340,6 +342,8 @@
 	Declare WindowGetColor(Window, ColorType)
 	
 	; Menu
+	Declare GetWindowContainer(Window)						; The themed window's client container gadget (-1 on the plain fallback)
+	Declare SetWindowLabel(Window, Text.s)					; Title text, menu-aware; also sets the OS caption
 	Declare FlatMenu(Flags = #Default)
 	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0, Flag = 0)
 	Declare RemoveFlatMenuItem(Menu, Position)
@@ -382,7 +386,7 @@
 	Declare AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
 	Declare LoadSvgIcon(FileName.s, Size, Color)
 	Declare CatchSvgIcon(*Buffer, BufferLength, Size, Color)
-	Declare DragPreviewVisible(State)	; Show/hide the floating drag preview mid-drag (in-place preview takes over)
+	Declare DragPreviewVisible(State)						; Show/hide the floating drag preview mid-drag (in-place preview takes over)
 	Declare EditGadgetItemText(Gadget)
 	
 	; Drag & drop
@@ -2208,7 +2212,6 @@ Module UITK
 	#WM_SYSMENU = $313
 	#SizableBorder = 8
 	#WindowButtonWidth = 45
-	#WindowBarHeight = 30
 
 	Structure ThemedWindow
 		*Brush
@@ -2591,11 +2594,12 @@ Module UITK
 		
 		With *WindowData
 			If ListSize(\MenuList()) = 0
-				SetGadgetText(\Label, "")
-				\LabelWidth = GadgetWidth(\Label, #PB_Gadget_RequiredSize)
+				; The bar reads Icon · Title · Menus: the title KEEPS its text and
+				; the menus line up after it. Centered/right titles can't share
+				; the row with menus, so the first menu pins the label left.
 				\LabelAlign = #HAlignLeft
 				ResizeGadget(\Label, #SizableBorder, #PB_Ignore, \LabelWidth, #PB_Ignore)
-				\MenuOffset = \LabelWidth + #SizableBorder
+				\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
 			EndIf
 			
 			AddElement(\MenuList())
@@ -2636,11 +2640,35 @@ Module UITK
 	
 	Procedure OpenWindowGadgetList(Window)
 		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
-		
+
 		OpenGadgetList(*WindowData\Container)
 	EndProcedure
 	
 	; Setters
+	
+	Procedure SetWindowLabel(Window, Text.s)
+		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+
+		SetWindowTitle(Window, Text)	; Taskbar / Alt-Tab caption (and the whole
+		If *WindowData = 0				; job, on the plain-window fallback)
+			ProcedureReturn
+		EndIf
+		With *WindowData
+			SetGadgetText(\Label, Text)
+			\LabelWidth = GadgetWidth(\Label, #PB_Gadget_RequiredSize)
+			If ListSize(\MenuList())
+				\LabelAlign = #HAlignLeft
+				ResizeGadget(\Label, #SizableBorder, #PB_Ignore, \LabelWidth, #PB_Ignore)
+				\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
+				ForEach \MenuList()
+					ResizeGadget(\MenuList(), \MenuOffset, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					\MenuOffset + GadgetWidth(\MenuList())
+				Next
+			Else
+				ResizeGadget(\Label, #PB_Ignore, #PB_Ignore, \LabelWidth, #PB_Ignore)
+			EndIf
+		EndWith
+	EndProcedure
 	
 	Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 		Protected *WindowData.ThemedWindow
@@ -2655,16 +2683,25 @@ Module UITK
 	
 	Procedure SetWindowIcon(Window, Image)
 		Protected *WindowData.ThemedWindow
-		
+
 		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
 		SetGadgetImage(*WindowData\Label, Image)
 		*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
 		ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
-		
+
 		If *WindowData\LabelAlign = #HAlignRight
 			SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - (*WindowData\ButtonClose + *WindowData\ButtonMaximize + *WindowData\ButtonMinimize) * #WindowButtonWidth, 1, 0, 0, #SWP_NOSIZE)
 		ElseIf *WindowData\LabelAlign = #HAlignCenter
 			SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
+		ElseIf ListSize(*WindowData\MenuList())
+			; Icon · Title · Menus: the wider label pushes the menu row along
+			With *WindowData
+				\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
+				ForEach \MenuList()
+					ResizeGadget(\MenuList(), \MenuOffset, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					\MenuOffset + GadgetWidth(\MenuList())
+				Next
+			EndWith
 		EndIf
 	EndProcedure
 	
@@ -2758,6 +2795,15 @@ Module UITK
 	EndProcedure
 	
 	; Getters
+	Procedure GetWindowContainer(Window)
+		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+
+		If *WindowData
+			ProcedureReturn *WindowData\Container
+		EndIf
+		ProcedureReturn -1
+	EndProcedure
+ 
 	Procedure GetWindowIcon(Window)
 		Protected *WindowData.ThemedWindow
 		
@@ -12674,7 +12720,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 3067
-; Folding = gA5---AAAAAAAAAAAAAAAAAAAwwBA9DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 3113
+; Folding = hA5---AAAAAAAAAAAAAAAAAAAADHA0PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware

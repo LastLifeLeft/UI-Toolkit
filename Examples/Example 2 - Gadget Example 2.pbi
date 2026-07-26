@@ -23,7 +23,7 @@ Procedure ToolIcon(r, g, b, shape)
 	ProcedureReturn img
 EndProcedure
 
-Window = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : Dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_Invisible)
+Window = UITK::Window(#PB_Any, (Width - 1024) * 0.5, (Height - 600) * 0.5, 961, 609, "UI Toolkit : Dark theme", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter | #PB_Window_Invisible | UITK::#Window_MaximizeButton | UITK::#Window_MinimizeButton | UITK::#Window_Sizable)
 UITK::SetWindowIcon(Window, ImageID(Image))
 Gadget = UITK::PropertyBox(#PB_Any, 20, 20, 280, 280, UITK::#Border)
 AddGadgetItem(Gadget, -1, "Appearance", 0, UITK::#PropertyBox_Title)
@@ -140,8 +140,7 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 98
-; FirstLine = 53
+; CursorPosition = 25
 ; Folding = -
 ; EnableXP
 ; DPIAware
