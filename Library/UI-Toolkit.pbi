@@ -382,6 +382,7 @@
 	Declare AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
 	Declare LoadSvgIcon(FileName.s, Size, Color)
 	Declare CatchSvgIcon(*Buffer, BufferLength, Size, Color)
+	Declare DragPreviewVisible(State)	; Show/hide the floating drag preview mid-drag (in-place preview takes over)
 	Declare EditGadgetItemText(Gadget)
 	
 	; Drag & drop
@@ -2131,6 +2132,70 @@ Module UITK
 		DeleteMapElement(Timers(), Hex(Timer))
 	EndProcedure
 	;}
+
+	;{ Tooltip — one shared floating bubble, shown by any gadget that wants one
+	; (the ToolBar's hover tips use it). Three properties keep it out of
+	; trouble: NON-ACTIVATING (it never steals focus from the app window),
+	; CLICK-THROUGH (no click can land on it), and TOPMOST (it clears the
+	; caller's window without needing its ownership). Whoever shows it is
+	; responsible for hiding it — on leave, press, or item change.
+	Global TooltipWindow = -1
+	Global TooltipCanvas
+
+	Procedure HideTooltip()
+		If TooltipWindow <> -1
+			HideWindow(TooltipWindow, #True)
+		EndIf
+	EndProcedure
+
+	Procedure ShowTooltip(Text.s, X, Y, *ThemeData.Theme)
+		Protected Width, Height, PreviousList
+
+		If Text = ""
+			HideTooltip()
+			ProcedureReturn
+		EndIf
+		If TooltipWindow = -1	; Lazily built: piggy-backs the timer window like ADND
+			TooltipWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(TimerWindow))
+			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+				SetWindowLongPtr_(WindowID(TooltipWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(TooltipWindow), #GWL_EXSTYLE) | #WS_EX_NOACTIVATE | #WS_EX_TOOLWINDOW | #WS_EX_TRANSPARENT)
+			CompilerEndIf
+			PreviousList = UseGadgetList(WindowID(TooltipWindow))
+			TooltipCanvas = CanvasGadget(#PB_Any, 0, 0, 10, 10)
+			UseGadgetList(PreviousList)
+		EndIf
+
+		If StartVectorDrawing(CanvasVectorOutput(TooltipCanvas))	; Measure first...
+			VectorFont(DefaultFont)
+			Width = VectorTextWidth(Text) + 16
+			Height = VectorTextHeight(Text) + 8
+			StopVectorDrawing()
+		EndIf
+		ExamineDesktops()	; ...keep it on screen...
+		If X + Width > DesktopX(0) + DesktopWidth(0)
+			X = DesktopX(0) + DesktopWidth(0) - Width
+		EndIf
+		ResizeWindow(TooltipWindow, X, Y, Width, Height)
+		ResizeGadget(TooltipCanvas, 0, 0, Width, Height)
+		If StartVectorDrawing(CanvasVectorOutput(TooltipCanvas))	; ...then draw
+			VectorFont(DefaultFont)
+			AddPathBox(0, 0, Width, Height)
+			VectorSourceColor(*ThemeData\BackColor[#Cold])
+			FillPath()
+			AddPathBox(0.5, 0.5, Width - 1, Height - 1)
+			VectorSourceColor(*ThemeData\LineColor[#Cold])
+			StrokePath(1)
+			VectorSourceColor(*ThemeData\TextColor[#Cold])
+			MovePathCursor(8, 4)
+			DrawVectorText(Text)
+			StopVectorDrawing()
+		EndIf
+		HideWindow(TooltipWindow, #False, #PB_Window_NoActivate)
+		CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+			SetWindowPos_(WindowID(TooltipWindow), #HWND_TOPMOST, 0, 0, 0, 0, #SWP_NOMOVE | #SWP_NOSIZE | #SWP_NOACTIVATE)
+		CompilerEndIf
+	EndProcedure
+	;}
 	
 	;{ Window
 	; ============================================================
@@ -2972,6 +3037,21 @@ Module UITK
 		*DropCallback = *Callback
 	EndProcedure
 
+	; Show/hide the floating drag preview mid-drag. A drop target that renders its
+	; own in-place preview (a 3D ghost, say) hides the card while the cursor is
+	; over it. We drive the LAYER ALPHA, not window visibility: HideWindow/ShowWindow
+	; race the WH_MOUSE_LL hook's per-move SetWindowPos and can get stuck, whereas
+	; the alpha the hook never touches — 0 = invisible, 128 = the drag's own alpha.
+	Procedure DragPreviewVisible(State)
+		If ADNDHook	; Only meaningful during an active AdvancedDrag
+			If State
+				SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
+			Else
+				SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 0, #LWA_ALPHA)
+			EndIf
+		EndIf
+	EndProcedure
+
 	SetDropCallback(@DropCallback())
 	CompilerElse
 		; ---- Linux/Mac stubs for advanced drag & drop ----
@@ -2980,6 +3060,7 @@ Module UITK
 		Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)  : ProcedureReturn 0 : EndProcedure
 		Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)         : ProcedureReturn 0 : EndProcedure
 		Procedure RegisterDropCallback(*Callback) : EndProcedure
+		Procedure DragPreviewVisible(State) : EndProcedure
 	CompilerEndIf
 	;}
 	
@@ -7996,10 +8077,20 @@ Module UITK
 					EndIf
 					;}
 				Case #LeftButtonUp ;{
-					If \ScrollBar\Drag 
+					If \ScrollBar\Drag
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 					EndIf
 					\DragState = #Drag_None
+					;}
+				Case #LeftClick ;{
+					; A completed click confirms the press-time selection: post Change
+					; like Tab/ToolBar. Posting at PRESS time instead made every drag
+					; start fire the event too (the press arms the drag); after a real
+					; drag the OS consumes the release, so no click ever arrives here —
+					; the event is click-only by construction.
+					If \ItemState > -1
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+					EndIf
 					;}
 				Case #LeftDoubleClick ;{
 									  ;}
@@ -8252,11 +8343,12 @@ Module UITK
 			\SupportedEvent[#MouseMove] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
+			\SupportedEvent[#LeftClick] = #True
 			\SupportedEvent[#LeftDoubleClick] = #True
 			\SupportedEvent[#KeyDown] = #True
 		EndWith
 	EndProcedure
-	
+
 	Procedure Library(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 		Protected Result, *this.PB_Gadget, *GadgetData.LibraryData, *ThemeData
 		
@@ -10915,6 +11007,7 @@ Module UITK
 	;{ ToolBar
 	#ToolBar_SeparatorSize = 9			; span, along the bar's axis, taken by a separator
 	#ToolBar_Margin = 3					; inset of a button's box within its square cell
+	#ToolBar_TipDelay = 600				; ms of steady hover before an item's tooltip shows
 
 	Structure ToolBar_Item
 		Separator.b						; a separator line rather than a button
@@ -10932,6 +11025,8 @@ Module UITK
 		ButtonSize.l					; square cell size = the bar's cross-axis thickness
 		MouseItem.l					; hovered item, or -1
 		PressedItem.l					; item with the mouse held on it, or -1
+		TipTimer.i						; pending hover-delay timer; 0 = none
+		TipItem.l						; the item the timer was armed for
 		List Items.ToolBar_Item()
 	EndStructure
 
@@ -11022,6 +11117,49 @@ Module UITK
 		EndWith
 	EndProcedure
 
+	; Main-axis offset of an item's cell start — where its tooltip anchors
+	Procedure ToolBar_ItemOffset(*GadgetData.ToolBarData, Index)
+		Protected Offset = *GadgetData\Border
+		With *GadgetData
+			ForEach \Items()
+				If ListIndex(\Items()) = Index
+					Break
+				EndIf
+				If \Items()\Separator
+					Offset + #ToolBar_SeparatorSize
+				Else
+					Offset + \ButtonSize
+				EndIf
+			Next
+		EndWith
+		ProcedureReturn Offset
+	EndProcedure
+
+	; The hover delay elapsed: if the cursor still rests on the item the timer
+	; was armed for, show its text under the cell (beside it on a vertical bar).
+	; Disabled items tip too — a greyed button is exactly when you wonder what
+	; it would do.
+	Procedure ToolBar_TipShow(*GadgetData.ToolBarData, Timer)
+		Protected X, Y
+
+		RemoveGadgetTimer(Timer)
+		With *GadgetData
+			\TipTimer = 0
+			If \MouseItem = \TipItem And \TipItem > -1 And SelectElement(\Items(), \TipItem) And \Items()\Text <> ""
+				X = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate)
+				Y = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate)
+				If \Vertical
+					X + \Width + 4
+					Y + ToolBar_ItemOffset(*GadgetData, \TipItem)
+				Else
+					X + ToolBar_ItemOffset(*GadgetData, \TipItem)
+					Y + \Height + 4
+				EndIf
+				ShowTooltip(\Items()\Text, X, Y, \ThemeData)
+			EndIf
+		EndWith
+	EndProcedure
+
 	Procedure ToolBar_EventHandler(*GadgetData.ToolBarData, *Event.Event)
 		Protected Redraw, Item, P
 
@@ -11038,9 +11176,24 @@ Module UITK
 					If Item <> \MouseItem
 						\MouseItem = Item
 						Redraw = #True
+						; Any showing or pending tip is stale; arm a fresh delay
+						HideTooltip()
+						If \TipTimer
+							RemoveGadgetTimer(\TipTimer)
+							\TipTimer = 0
+						EndIf
+						If Item > -1
+							\TipItem = Item
+							\TipTimer = AddGadgetTimer(*GadgetData, #ToolBar_TipDelay, @ToolBar_TipShow())
+						EndIf
 					EndIf
 					;}
 				Case #MouseLeave ;{
+					HideTooltip()
+					If \TipTimer
+						RemoveGadgetTimer(\TipTimer)
+						\TipTimer = 0
+					EndIf
 					If \MouseItem <> -1 Or \PressedItem <> -1
 						\MouseItem = -1
 						\PressedItem = -1
@@ -11048,6 +11201,11 @@ Module UITK
 					EndIf
 					;}
 				Case #LeftButtonDown ;{
+					HideTooltip()	; A press means the user knows what they want
+					If \TipTimer
+						RemoveGadgetTimer(\TipTimer)
+						\TipTimer = 0
+					EndIf
 					Item = ToolBar_ItemAt(*GadgetData, P)
 					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Enabled
 						\PressedItem = Item
@@ -12511,8 +12669,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 2985
-; FirstLine = 90
-; Folding = lA5---AAAAAAAAAAAAAAAAAAghT0+BAAAAAAAAAAAAAAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 408
+; Folding = gA5---AAAAAAAAAAAAAAAAAAAwwBA9DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware

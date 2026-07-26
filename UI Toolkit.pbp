@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-07-24 13:33" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-07-26 10:58" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
     <file name="Editor\Includes\General.pbi">
@@ -49,7 +49,7 @@
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="10" panelstate="+-"/>
-      <fingerprint md5="0c84c609f5296954b95d215ab95ee87a"/>
+      <fingerprint md5="b6b5ad7eb745af579d9ae6385adbd5aa"/>
     </file>
     <file name="Examples\Example 4 - SVG Icons.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
