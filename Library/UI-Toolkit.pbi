@@ -5940,6 +5940,10 @@ Module UITK
 		With *GadgetData
 			\TextBlock\Width = Width - #VerticalList_Margin
 			
+			If Not (Flags & (#VAlignCenter | #VAlignBottom))
+				\TextBlock\VAlign = #VAlignCenter
+			EndIf
+
 			If *CustomItem
 				\ItemRedraw = *CustomItem 
 			Else
@@ -12669,7 +12673,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 408
+; CursorPosition = 3065
+; FirstLine = 11
 ; Folding = gA5---AAAAAAAAAAAAAAAAAAAwwBA9DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
