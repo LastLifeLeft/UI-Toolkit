@@ -2212,6 +2212,8 @@ Module UITK
 	#WM_SYSMENU = $313
 	#SizableBorder = 8
 	#WindowButtonWidth = 45
+	#Icon_ChromeMaximize = $E922			; Segoe MDL2 Assets : maximize glyph (window normal)
+	#Icon_ChromeRestore  = $E923			; ...restore glyph (window maximized)
 
 	Structure ThemedWindow
 		*Brush
@@ -2288,6 +2290,19 @@ Module UITK
 	Procedure CloseButton_Handler()
 		PostEvent(#PB_Event_CloseWindow, EventWindow(), 0)
 	EndProcedure
+
+	Procedure MaximizeButton_Handler()
+		Protected hWnd = WindowID(EventWindow())
+		If IsZoomed_(hWnd)
+			ShowWindow_(hWnd, #SW_RESTORE)
+		Else
+			ShowWindow_(hWnd, #SW_MAXIMIZE)
+		EndIf
+	EndProcedure
+
+	Procedure MinimizeButton_Handler()
+		ShowWindow_(WindowID(EventWindow()), #SW_MINIMIZE)
+	EndProcedure
 	
 	Procedure Window_Handler(hWnd, Msg, wParam, lParam)
 		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UITK_WindowData"), OffsetX, OriginalProc
@@ -2319,15 +2334,9 @@ Module UITK
 				;}
 			Case #WM_NCCALCSIZE ;{
 				If wParam
-					Protected *rect.RECT = lParam ; rgrc[0] of NCCALCSIZE_PARAMS
-					If IsZoomed_(hWnd)
-						Protected borderW = GetSystemMetrics_(#SM_CXSIZEFRAME) + GetSystemMetrics_(#SM_CXPADDEDBORDER)
-						Protected borderH = GetSystemMetrics_(#SM_CYSIZEFRAME) + GetSystemMetrics_(#SM_CXPADDEDBORDER)
-						*rect\left + borderW
-						*rect\top + borderH
-						*rect\right - borderW
-						*rect\bottom - borderH
-					EndIf
+					; Returning 0 makes the client fill the whole window rect (custom chrome, no OS frame).
+					; When maximised, WM_GETMINMAXINFO already sizes the window to the monitor work area, so no
+					; border inset is wanted here : insetting left a ~frame-wide margin around the content.
 					ProcedureReturn 0
 				EndIf
 				;}
@@ -2381,6 +2390,14 @@ Module UITK
 				If *WindowData\ButtonMaximize
 					OffsetX + #WindowButtonWidth
 					ResizeGadget(*WindowData\ButtonMaximize, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					; Reflect maximised/restored state. WM_SIZE fires for every maximise path (button, title-bar
+					; double-click, Win+arrow, OS), so this one spot keeps the glyph right. Guarded so a plain
+					; resize-drag doesn't redraw the button on every frame.
+					Protected MaxGlyph.s = Chr(#Icon_ChromeMaximize)
+					If IsZoomed_(hWnd) : MaxGlyph = Chr(#Icon_ChromeRestore) : EndIf
+					If GetGadgetText(*WindowData\ButtonMaximize) <> MaxGlyph
+						SetGadgetText(*WindowData\ButtonMaximize, MaxGlyph)
+					EndIf
 				EndIf
 				
 				If *WindowData\ButtonMinimize
@@ -2536,6 +2553,8 @@ Module UITK
 				SetGadgetFont(*WindowData\ButtonMaximize, IconFont)
 				
 				SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+				
+				BindGadgetEvent(*WindowData\ButtonMaximize, @MaximizeButton_Handler(), #PB_EventType_Change)
 			EndIf
 			
 			If Flags & #Window_MinimizeButton
@@ -2547,6 +2566,8 @@ Module UITK
 				SetGadgetFont(*WindowData\ButtonMinimize, IconFont)
 				
 				SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+				
+				BindGadgetEvent(*WindowData\ButtonMinimize, @MinimizeButton_Handler(), #PB_EventType_Change)
 			EndIf
 			
 			*WindowData\Label = Label(#PB_Any, #SizableBorder, 1, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
@@ -2896,6 +2917,8 @@ Module UITK
 
 		Procedure Window_Init() : EndProcedure
 		Procedure ExtendFrameIntoClient(WindowID) : EndProcedure
+		Procedure GetWindowContainer(Window) : ProcedureReturn -1 : EndProcedure
+		Procedure SetWindowLabel(Window, Text.s) : SetWindowTitle(Window, Text) : EndProcedure
 
 		Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
 			Protected Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title,
