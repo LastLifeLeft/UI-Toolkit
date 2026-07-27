@@ -5273,6 +5273,13 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_ItemRedraw(*Item.VerticalListItem, X, Y, Width, Height, State, *Theme.Theme)
+		If State > #Cold		; hover (Warm) and selection (Hot) shade — otherwise the combo list is hard to read
+			AddPathBox(X, Y, Width, Height)
+			VectorSourceColor(*Theme\ShadeColor[State])
+			FillPath()
+			VectorSourceColor(*Theme\TextColor[State])
+		EndIf
+		
 		DrawVectorTextBlock(@*Item\Text, X + #VerticalList_Margin, Y)
 		
 		If State = #Hot
@@ -5330,15 +5337,6 @@ Module UITK
 					Else
 						State = #Cold
 					EndIf
-					
-					; This should be handled by the Item redraw, not here.
-					;If State > #Cold
-					;	AddPathBox(\Border, Y, Width, \ItemHeight)
-					;	VectorSourceColor(\ThemeData\ShadeColor[State])
-					;	FillPath()
-					;	
-					;	VectorSourceColor(\ThemeData\TextColor[State])
-					;EndIf
 					
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
@@ -12743,7 +12741,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 3113
-; Folding = hA5---AAAAAAAAAAAAAAAAAAAADHA0PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 411
+; Folding = gA5---AAAAAAAAAAAAAAAAAAAA9wBA9DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
