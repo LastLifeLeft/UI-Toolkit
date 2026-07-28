@@ -100,20 +100,20 @@ HToolBar = UITK::ToolBar(#PB_Any, 540, 320, 401, 32, UITK::#Border)
 AddGadgetItem(HToolBar, -1, "New",       ImageID(ToolIcon(120, 200, 255, 0)), 0)
 AddGadgetItem(HToolBar, -1, "Open",      ImageID(ToolIcon(255, 210, 100, 1)), 0)
 AddGadgetItem(HToolBar, -1, "Save",      ImageID(ToolIcon(140, 230, 150, 3)), 0)
-AddGadgetItem(HToolBar, -1, "",          0,                                    UITK::#ToolBar_Separator)
+AddGadgetItem(HToolBar, -1, "",          0, UITK::#ToolBar_Separator)
 AddGadgetItem(HToolBar, -1, "Bold",      ImageID(ToolIcon(240, 240, 240, 0)), UITK::#ToolBar_Toggle)
 AddGadgetItem(HToolBar, -1, "Italic",    ImageID(ToolIcon(240, 240, 240, 1)), UITK::#ToolBar_Toggle)
 AddGadgetItem(HToolBar, -1, "Underline", ImageID(ToolIcon(240, 240, 240, 2)), UITK::#ToolBar_Toggle)
-SetGadgetItemState(HToolBar, 4, #True)                          ; start with Bold toggled on
-SetGadgetItemState(HToolBar, 2, UITK::#Item_State_Disabled)     ; "Save" greyed out (nothing to save yet)
+SetGadgetItemState(HToolBar, 4, #True)
+SetGadgetItemState(HToolBar, 2, UITK::#Item_State_Disabled)
 
 VToolBar = UITK::ToolBar(#PB_Any, 540, 362, 32, 228, UITK::#Border | UITK::#Gadget_Vertical)
 AddGadgetItem(VToolBar, -1, "Select", ImageID(ToolIcon(120, 200, 255, 1)), 0)
 AddGadgetItem(VToolBar, -1, "Move",   ImageID(ToolIcon(255, 160, 160, 3)), 0)
-AddGadgetItem(VToolBar, -1, "",       0,                                 UITK::#ToolBar_Separator)
+AddGadgetItem(VToolBar, -1, "",       0, UITK::#ToolBar_Separator)
 AddGadgetItem(VToolBar, -1, "Grid",   ImageID(ToolIcon(200, 180, 255, 2)), UITK::#ToolBar_Toggle)
 AddGadgetItem(VToolBar, -1, "Snap",   ImageID(ToolIcon(180, 255, 220, 0)), UITK::#ToolBar_Toggle)
-SetGadgetItemState(VToolBar, 1, UITK::#Item_State_Disabled)     ; "Move" greyed out
+SetGadgetItemState(VToolBar, 1, UITK::#Item_State_Disabled)
 
 HideWindow(Window, #False)
 
@@ -140,7 +140,8 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 25
+; CursorPosition = 115
+; FirstLine = 62
 ; Folding = -
 ; EnableXP
 ; DPIAware

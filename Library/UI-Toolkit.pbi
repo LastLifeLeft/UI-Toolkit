@@ -37,7 +37,7 @@
 	EndEnumeration
 	
 	#Tree_DotLine = 0
-
+	
 	#WindowBarHeight = 30
 	
 	Enumeration 5000 ; Gadget attributes
@@ -58,9 +58,11 @@
 		#PropertyBox_Combo
 		#PropertyBox_Color
 		#PropertyBox_CheckBox
-
+		
 		#ToolBar_Toggle									; ToolBar item: a sticky toggle button (passed as the AddGadgetItem flag)
 		#ToolBar_Separator								; ToolBar item: a separator line
+		#ToolBar_DropDown
+		
 		
 		#Attribute_ItemHeight
 		#Attribute_ItemWidth
@@ -401,7 +403,7 @@
 		Declare TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
 		Declare AddMediaBlock(Gadget, Line, Position, Duration, Type, Text.s, *Data)
 	CompilerEndIf
-
+	
 	; Linux-only verification hook (Phase 3 GTK destroy cleanup). Reports current
 	; size of the per-widget property map; tests use it to assert cleanup ran.
 	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
@@ -412,7 +414,7 @@ EndDeclareModule
 
 Module UITK
 	EnableExplicit
-
+	
 	;{ Cross-platform stubs — make the Win32-heavy parts of the module compile on Linux.
 	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
 		; ThemedWindow is referenced by shared per-gadget theme-inheritance code that
@@ -438,7 +440,7 @@ Module UITK
 		; only a handful of places allocate cross-widget state — UITK::Window's
 		; per-window ThemedWindow being the canonical example.
 		Global NewMap UITK_PropOwned.b()
-
+		
 		ImportC ""
 			; Minimal GTK surface — signal connection for our destroy hook and the
 			; two GdkPixbuf accessors used by UITK_GetImageSize. PB already links
@@ -448,7 +450,7 @@ Module UITK
 			gdk_pixbuf_get_width(pixbuf.i)
 			gdk_pixbuf_get_height(pixbuf.i)
 		EndImport
-
+		
 		ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
 			Protected prefix.s = Hex(*widget) + ":"
 			Protected prefixLen = Len(prefix)
@@ -472,7 +474,7 @@ Module UITK
 			Next
 			DeleteMapElement(UITK_CleanupRegistered(), Hex(*widget))
 		EndProcedure
-
+		
 		Procedure UITK_EnsureCleanupHook(hWnd)
 			; Connect "destroy" once per widget; subsequent SetProp_ calls on the same
 			; widget find it in the registry and skip the (idempotent but wasteful) work.
@@ -481,7 +483,7 @@ Module UITK
 				g_signal_connect_data(hWnd, "destroy", @UITK_PropCleanup_Handler(), 0, 0, 0)
 			EndIf
 		EndProcedure
-
+		
 		Procedure GetProp_(hWnd, name.s)
 			Protected key.s = Hex(hWnd) + ":" + name
 			If FindMapElement(UITK_PropMap(), key)
@@ -489,13 +491,13 @@ Module UITK
 			EndIf
 			ProcedureReturn 0
 		EndProcedure
-
+		
 		Procedure SetProp_(hWnd, name.s, value)
 			UITK_PropMap(Hex(hWnd) + ":" + name) = value
 			UITK_EnsureCleanupHook(hWnd)
 			ProcedureReturn 1
 		EndProcedure
-
+		
 		; SetOwnedProp_: same as SetProp_ but also marks the value as a UITK
 		; AllocateStructureX-allocated pointer. When the widget's destroy signal
 		; fires, UITK_PropCleanup_Handler will FreeStructure the pointer before
@@ -507,7 +509,7 @@ Module UITK
 			UITK_EnsureCleanupHook(hWnd)
 			ProcedureReturn 1
 		EndProcedure
-
+		
 		Procedure RemoveProp_(hWnd, name.s)
 			Protected key.s = Hex(hWnd) + ":" + name
 			Protected old = 0
@@ -517,7 +519,7 @@ Module UITK
 			EndIf
 			ProcedureReturn old
 		EndProcedure
-
+		
 		Procedure _Linux_PropMapSize()
 			; Internal: verification hook for the Phase-3 cleanup test. Reports the
 			; current size of UITK_PropMap so tests can assert it drops to zero after
@@ -600,7 +602,7 @@ Module UITK
 		EndStructure
 	CompilerEndIf
 	;}
-
+	
 	;{ Macro
 	Macro InitializeObject(GadgetType)
 		*GadgetData\Gadget = Gadget
@@ -866,7 +868,7 @@ Module UITK
 				*GetGadgetItemImage
 				*DropHandler
 			EndStructure
-
+			
 			; Mirrors PB 6.40's PB_GadgetStructure. Adding RootWindowID and the full Data[6]
 			; so any future cast through *this\UserData or *this\Daten reads the right bytes.
 			Structure PB_Gadget
@@ -1247,10 +1249,10 @@ Module UITK
 		bmWidth.l
 		bmHeight.l
 	EndStructure
-
+	
 	; gdk_pixbuf_get_width/height moved into the consolidated Linux ImportC at the top
 	; of Module UITK (alongside g_signal_connect_data and the Phase-4 GTK surface).
-
+	
 	Procedure UITK_GetImageSize(ImageHandle, *bmp.UITK_BitmapInfo)
 		*bmp\bmWidth  = 0
 		*bmp\bmHeight = 0
@@ -1270,7 +1272,7 @@ Module UITK
 	Procedure RenderSvgIcon(Svg.s, Size, Color)
 		Protected Result, Pos, ViewBox.s, Path.s
 		Protected VbX.f, VbY.f, VbW.f = 24, VbH.f = 24
-
+		
 		If Svg
 			; viewBox="minX minY width height" - Material Symbols use "0 -960 960 960", older Material Icons "0 0 24 24".
 			Pos = FindString(Svg, "viewBox=" + Chr(34))
@@ -1281,24 +1283,24 @@ Module UITK
 				VbW = ValF(StringField(ViewBox, 3, " "))
 				VbH = ValF(StringField(ViewBox, 4, " "))
 			EndIf
-
+			
 			If VbW > 0 And VbH > 0
 				If Alpha(Color) = 0
 					Color = SetAlpha(Color, 255)
 				EndIf
-
+				
 				Result = CreateImage(#PB_Any, Size, Size, 32, #PB_Image_Transparent)
 				If Result And StartVectorDrawing(ImageVectorOutput(Result))
 					ScaleCoordinates(Size / VbW, Size / VbH)
 					TranslateCoordinates(-VbX, -VbY)
-
+					
 					Pos = FindString(Svg, " d=" + Chr(34))
 					While Pos
 						Path = StringField(Mid(Svg, Pos + 4), 1, Chr(34))
 						AddPathSegments(Path)
 						Pos = FindString(Svg, " d=" + Chr(34), Pos + Len(Path) + 4)
 					Wend
-
+					
 					VectorSourceColor(Color)
 					FillPath(#PB_Path_Winding)
 					StopVectorDrawing()
@@ -1308,27 +1310,27 @@ Module UITK
 				EndIf
 			EndIf
 		EndIf
-
+		
 		ProcedureReturn Result
 	EndProcedure
-
+	
 	Procedure LoadSvgIcon(FileName.s, Size, Color)
 		Protected File = ReadFile(#PB_Any, FileName), Svg.s
-
+		
 		If File
 			Svg = ReadString(File, #PB_UTF8 | #PB_File_IgnoreEOL)
 			CloseFile(File)
 		EndIf
-
+		
 		ProcedureReturn RenderSvgIcon(Svg, Size, Color)
 	EndProcedure
-
+	
 	Procedure CatchSvgIcon(*Buffer, BufferLength, Size, Color)
 		If *Buffer
 			ProcedureReturn RenderSvgIcon(PeekS(*Buffer, BufferLength, #PB_UTF8 | #PB_ByteLength), Size, Color)
 		EndIf
 	EndProcedure
-
+	
 	Procedure PrepareVectorTextBlock(*TextData.Text)
 		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.UITK_BitmapInfo
 		
@@ -1364,7 +1366,9 @@ Module UITK
 		
 		If *TextData\Image
 			UITK_GetImageSize(*TextData\Image, @HBitmap)
-			HBitmap\bmWidth + #TextBlock_ImageMargin
+			If Trim(*TextData\OriginalText) <> ""		; the margin is the gap to the text; an icon-only
+				HBitmap\bmWidth + #TextBlock_ImageMargin	; block has none, so don't let it push the image off-centre
+			EndIf
 			*TextData\RequiredWidth + HBitmap\bmWidth
 		EndIf
 		
@@ -1440,6 +1444,7 @@ Module UITK
 		EndIf
 		
 		If *TextData\HAlign = #HAlignCenter
+			
 			*TextData\ImageX = (Width - FinalWidth) * 0.5
 			*TextData\TextX = HBitmap\bmWidth * 0.5
 			*TextData\VectorAlign = #PB_VectorParagraph_Center
@@ -1853,134 +1858,134 @@ Module UITK
 			; (no GadgetCallback / GadgetX/Y/W/H / SetActiveGadget / GetRequiredSize).
 			ProcedureReturn 0
 		CompilerElse
-		
-		Select Function
-			Case #SubClass_EventHandler
-				*Result = *GadgetData\EventHandler
-				If *Address : *GadgetData\EventHandler = *Address : EndIf
-			Case #SubClass_GadgetCallback
-				*Result = *this\vt\GadgetCallback
-				If *Address : *this\vt\GadgetCallback = *Address : EndIf
-			Case #SubClass_FreeGadget
-				*Result = *this\vt\FreeGadget
-				If *Address : *this\vt\FreeGadget = *Address : EndIf
-			Case #SubClass_GetGadgetState
-				*Result = *this\vt\GetGadgetState
-				If *Address : *this\vt\GetGadgetState = *Address : EndIf
-			Case #SubClass_SetGadgetState
-				*Result = *this\vt\SetGadgetState
-				If *Address : *this\vt\SetGadgetState = *Address : EndIf
-			Case #SubClass_GetGadgetText
-				*Result = *this\vt\GetGadgetText
-				If *Address : *this\vt\GetGadgetText = *Address : EndIf
-			Case #SubClass_SetGadgetText
-				*Result = *this\vt\SetGadgetText
-				If *Address : *this\vt\SetGadgetText = *Address : EndIf
-			Case #SubClass_AddGadgetItem2
-				*Result = *this\vt\AddGadgetItem2
-				If *Address : *this\vt\AddGadgetItem2 = *Address : EndIf
-			Case #SubClass_AddGadgetItem3
-				*Result = *this\vt\AddGadgetItem3
-				If *Address : *this\vt\AddGadgetItem3 = *Address : EndIf
-			Case #SubClass_RemoveGadgetItem
-				*Result = *this\vt\RemoveGadgetItem
-				If *Address : *this\vt\RemoveGadgetItem = *Address : EndIf
-			Case #SubClass_ClearGadgetItemList
-				*Result = *this\vt\ClearGadgetItemList
-				If *Address : *this\vt\ClearGadgetItemList = *Address : EndIf
-			Case #SubClass_ResizeGadget
-				*Result = *this\vt\ResizeGadget
-				If *Address : *this\vt\ResizeGadget = *Address : EndIf
-			Case #SubClass_CountGadgetItems
-				*Result = *this\vt\CountGadgetItems
-				If *Address : *this\vt\CountGadgetItems = *Address : EndIf
-			Case #SubClass_GetGadgetItemState
-				*Result = *this\vt\GetGadgetItemState
-				If *Address : *this\vt\GetGadgetItemState = *Address : EndIf
-			Case #SubClass_SetGadgetItemState
-				*Result = *this\vt\SetGadgetItemState
-				If *Address : *this\vt\SetGadgetItemState = *Address : EndIf
-			Case #SubClass_GetGadgetItemText
-				*Result = *this\vt\GetGadgetItemText
-				If *Address : *this\vt\GetGadgetItemText = *Address : EndIf
-			Case #SubClass_SetGadgetItemText
-				*Result = *this\vt\SetGadgetItemText
-				If *Address : *this\vt\SetGadgetItemText = *Address : EndIf
-			Case #SubClass_OpenGadgetList2
-				*Result = *this\vt\OpenGadgetList2
-				If *Address : *this\vt\OpenGadgetList2 = *Address : EndIf
-			Case #SubClass_GadgetX
-				*Result = *this\vt\GadgetX
-				If *Address : *this\vt\GadgetX = *Address : EndIf
-			Case #SubClass_GadgetY
-				*Result = *this\vt\GadgetY
-				If *Address : *this\vt\GadgetY = *Address : EndIf
-			Case #SubClass_GadgetWidth
-				*Result = *this\vt\GadgetWidth
-				If *Address : *this\vt\GadgetWidth = *Address : EndIf
-			Case #SubClass_GadgetHeight
-				*Result = *this\vt\GadgetHeight
-				If *Address : *this\vt\GadgetHeight = *Address : EndIf
-			Case #SubClass_HideGadget
-				*Result = *this\vt\HideGadget
-				If *Address : *this\vt\HideGadget = *Address : EndIf
-			Case #SubClass_AddGadgetColumn
-				*Result = *this\vt\AddGadgetColumn
-				If *Address : *this\vt\AddGadgetColumn = *Address : EndIf
-			Case #SubClass_RemoveGadgetColumn
-				*Result = *this\vt\RemoveGadgetColumn
-				If *Address : *this\vt\RemoveGadgetColumn = *Address : EndIf
-			Case #SubClass_GetGadgetAttribute
-				*Result = *this\vt\GetGadgetAttribute
-				If *Address : *this\vt\GetGadgetAttribute = *Address : EndIf
-			Case #SubClass_SetGadgetAttribute
-				*Result = *this\vt\SetGadgetAttribute
-				If *Address : *this\vt\SetGadgetAttribute = *Address : EndIf
-			Case #SubClass_GetGadgetItemAttribute2
-				*Result = *this\vt\GetGadgetItemAttribute2
-				If *Address : *this\vt\GetGadgetItemAttribute2 = *Address : EndIf
-			Case #SubClass_SetGadgetItemAttribute2
-				*Result = *this\vt\SetGadgetItemAttribute2
-				If *Address : *this\vt\SetGadgetItemAttribute2 = *Address : EndIf
-			Case #SubClass_SetGadgetColor
-				*Result = *this\vt\SetGadgetColor
-				If *Address : *this\vt\SetGadgetColor = *Address : EndIf
-			Case #SubClass_GetGadgetColor
-				*Result = *this\vt\GetGadgetColor
-				If *Address : *this\vt\GetGadgetColor = *Address : EndIf
-			Case #SubClass_SetGadgetItemColor2
-				*Result = *this\vt\SetGadgetItemColor2
-				If *Address : *this\vt\SetGadgetItemColor2 = *Address : EndIf
-			Case #SubClass_GetGadgetItemColor2
-				*Result = *this\vt\GetGadgetItemColor2
-				If *Address : *this\vt\GetGadgetItemColor2 = *Address : EndIf
-			Case #SubClass_SetGadgetItemData
-				*Result = *this\vt\SetGadgetItemData
-				If *Address : *this\vt\SetGadgetItemData = *Address : EndIf
-			Case #SubClass_GetGadgetItemData
-				*Result = *this\vt\GetGadgetItemData
-				If *Address : *this\vt\GetGadgetItemData = *Address : EndIf
-			Case #SubClass_GetRequiredSize
-				*Result = *this\vt\GetRequiredSize
-				If *Address : *this\vt\GetRequiredSize = *Address : EndIf
-			Case #SubClass_SetActiveGadget
-				*Result = *this\vt\SetActiveGadget
-				If *Address : *this\vt\SetActiveGadget = *Address : EndIf
-			Case #SubClass_GetGadgetFont
-				*Result = *this\vt\GetGadgetFont
-				If *Address : *this\vt\GetGadgetFont = *Address : EndIf
-			Case #SubClass_SetGadgetFont
-				*Result = *this\vt\SetGadgetFont
-				If *Address : *this\vt\SetGadgetFont = *Address : EndIf
-			Case #SubClass_SetGadgetItemImage
-				*Result = *this\vt\SetGadgetItemImage
-				If *Address : *this\vt\SetGadgetItemImage = *Address : EndIf
-			Case #SubClass_DropHandler
-				*Result = *this\vt\DropHandler
-				If *Address : *this\vt\DropHandler = *Address : EndIf
-		EndSelect
-
-		ProcedureReturn *Result
+			
+			Select Function
+				Case #SubClass_EventHandler
+					*Result = *GadgetData\EventHandler
+					If *Address : *GadgetData\EventHandler = *Address : EndIf
+				Case #SubClass_GadgetCallback
+					*Result = *this\vt\GadgetCallback
+					If *Address : *this\vt\GadgetCallback = *Address : EndIf
+				Case #SubClass_FreeGadget
+					*Result = *this\vt\FreeGadget
+					If *Address : *this\vt\FreeGadget = *Address : EndIf
+				Case #SubClass_GetGadgetState
+					*Result = *this\vt\GetGadgetState
+					If *Address : *this\vt\GetGadgetState = *Address : EndIf
+				Case #SubClass_SetGadgetState
+					*Result = *this\vt\SetGadgetState
+					If *Address : *this\vt\SetGadgetState = *Address : EndIf
+				Case #SubClass_GetGadgetText
+					*Result = *this\vt\GetGadgetText
+					If *Address : *this\vt\GetGadgetText = *Address : EndIf
+				Case #SubClass_SetGadgetText
+					*Result = *this\vt\SetGadgetText
+					If *Address : *this\vt\SetGadgetText = *Address : EndIf
+				Case #SubClass_AddGadgetItem2
+					*Result = *this\vt\AddGadgetItem2
+					If *Address : *this\vt\AddGadgetItem2 = *Address : EndIf
+				Case #SubClass_AddGadgetItem3
+					*Result = *this\vt\AddGadgetItem3
+					If *Address : *this\vt\AddGadgetItem3 = *Address : EndIf
+				Case #SubClass_RemoveGadgetItem
+					*Result = *this\vt\RemoveGadgetItem
+					If *Address : *this\vt\RemoveGadgetItem = *Address : EndIf
+				Case #SubClass_ClearGadgetItemList
+					*Result = *this\vt\ClearGadgetItemList
+					If *Address : *this\vt\ClearGadgetItemList = *Address : EndIf
+				Case #SubClass_ResizeGadget
+					*Result = *this\vt\ResizeGadget
+					If *Address : *this\vt\ResizeGadget = *Address : EndIf
+				Case #SubClass_CountGadgetItems
+					*Result = *this\vt\CountGadgetItems
+					If *Address : *this\vt\CountGadgetItems = *Address : EndIf
+				Case #SubClass_GetGadgetItemState
+					*Result = *this\vt\GetGadgetItemState
+					If *Address : *this\vt\GetGadgetItemState = *Address : EndIf
+				Case #SubClass_SetGadgetItemState
+					*Result = *this\vt\SetGadgetItemState
+					If *Address : *this\vt\SetGadgetItemState = *Address : EndIf
+				Case #SubClass_GetGadgetItemText
+					*Result = *this\vt\GetGadgetItemText
+					If *Address : *this\vt\GetGadgetItemText = *Address : EndIf
+				Case #SubClass_SetGadgetItemText
+					*Result = *this\vt\SetGadgetItemText
+					If *Address : *this\vt\SetGadgetItemText = *Address : EndIf
+				Case #SubClass_OpenGadgetList2
+					*Result = *this\vt\OpenGadgetList2
+					If *Address : *this\vt\OpenGadgetList2 = *Address : EndIf
+				Case #SubClass_GadgetX
+					*Result = *this\vt\GadgetX
+					If *Address : *this\vt\GadgetX = *Address : EndIf
+				Case #SubClass_GadgetY
+					*Result = *this\vt\GadgetY
+					If *Address : *this\vt\GadgetY = *Address : EndIf
+				Case #SubClass_GadgetWidth
+					*Result = *this\vt\GadgetWidth
+					If *Address : *this\vt\GadgetWidth = *Address : EndIf
+				Case #SubClass_GadgetHeight
+					*Result = *this\vt\GadgetHeight
+					If *Address : *this\vt\GadgetHeight = *Address : EndIf
+				Case #SubClass_HideGadget
+					*Result = *this\vt\HideGadget
+					If *Address : *this\vt\HideGadget = *Address : EndIf
+				Case #SubClass_AddGadgetColumn
+					*Result = *this\vt\AddGadgetColumn
+					If *Address : *this\vt\AddGadgetColumn = *Address : EndIf
+				Case #SubClass_RemoveGadgetColumn
+					*Result = *this\vt\RemoveGadgetColumn
+					If *Address : *this\vt\RemoveGadgetColumn = *Address : EndIf
+				Case #SubClass_GetGadgetAttribute
+					*Result = *this\vt\GetGadgetAttribute
+					If *Address : *this\vt\GetGadgetAttribute = *Address : EndIf
+				Case #SubClass_SetGadgetAttribute
+					*Result = *this\vt\SetGadgetAttribute
+					If *Address : *this\vt\SetGadgetAttribute = *Address : EndIf
+				Case #SubClass_GetGadgetItemAttribute2
+					*Result = *this\vt\GetGadgetItemAttribute2
+					If *Address : *this\vt\GetGadgetItemAttribute2 = *Address : EndIf
+				Case #SubClass_SetGadgetItemAttribute2
+					*Result = *this\vt\SetGadgetItemAttribute2
+					If *Address : *this\vt\SetGadgetItemAttribute2 = *Address : EndIf
+				Case #SubClass_SetGadgetColor
+					*Result = *this\vt\SetGadgetColor
+					If *Address : *this\vt\SetGadgetColor = *Address : EndIf
+				Case #SubClass_GetGadgetColor
+					*Result = *this\vt\GetGadgetColor
+					If *Address : *this\vt\GetGadgetColor = *Address : EndIf
+				Case #SubClass_SetGadgetItemColor2
+					*Result = *this\vt\SetGadgetItemColor2
+					If *Address : *this\vt\SetGadgetItemColor2 = *Address : EndIf
+				Case #SubClass_GetGadgetItemColor2
+					*Result = *this\vt\GetGadgetItemColor2
+					If *Address : *this\vt\GetGadgetItemColor2 = *Address : EndIf
+				Case #SubClass_SetGadgetItemData
+					*Result = *this\vt\SetGadgetItemData
+					If *Address : *this\vt\SetGadgetItemData = *Address : EndIf
+				Case #SubClass_GetGadgetItemData
+					*Result = *this\vt\GetGadgetItemData
+					If *Address : *this\vt\GetGadgetItemData = *Address : EndIf
+				Case #SubClass_GetRequiredSize
+					*Result = *this\vt\GetRequiredSize
+					If *Address : *this\vt\GetRequiredSize = *Address : EndIf
+				Case #SubClass_SetActiveGadget
+					*Result = *this\vt\SetActiveGadget
+					If *Address : *this\vt\SetActiveGadget = *Address : EndIf
+				Case #SubClass_GetGadgetFont
+					*Result = *this\vt\GetGadgetFont
+					If *Address : *this\vt\GetGadgetFont = *Address : EndIf
+				Case #SubClass_SetGadgetFont
+					*Result = *this\vt\SetGadgetFont
+					If *Address : *this\vt\SetGadgetFont = *Address : EndIf
+				Case #SubClass_SetGadgetItemImage
+					*Result = *this\vt\SetGadgetItemImage
+					If *Address : *this\vt\SetGadgetItemImage = *Address : EndIf
+				Case #SubClass_DropHandler
+					*Result = *this\vt\DropHandler
+					If *Address : *this\vt\DropHandler = *Address : EndIf
+			EndSelect
+			
+			ProcedureReturn *Result
 		CompilerEndIf
 	EndProcedure
 	
@@ -2136,7 +2141,7 @@ Module UITK
 		DeleteMapElement(Timers(), Hex(Timer))
 	EndProcedure
 	;}
-
+	
 	;{ Tooltip — one shared floating bubble, shown by any gadget that wants one
 	; (the ToolBar's hover tips use it). Three properties keep it out of
 	; trouble: NON-ACTIVATING (it never steals focus from the app window),
@@ -2145,16 +2150,16 @@ Module UITK
 	; responsible for hiding it — on leave, press, or item change.
 	Global TooltipWindow = -1
 	Global TooltipCanvas
-
+	
 	Procedure HideTooltip()
-		If TooltipWindow <> -1
+		If TooltipWindow <> -1 And IsWindow(TooltipWindow)
 			HideWindow(TooltipWindow, #True)
 		EndIf
 	EndProcedure
-
+	
 	Procedure ShowTooltip(Text.s, X, Y, *ThemeData.Theme)
 		Protected Width, Height, PreviousList
-
+		
 		If Text = ""
 			HideTooltip()
 			ProcedureReturn
@@ -2168,7 +2173,7 @@ Module UITK
 			TooltipCanvas = CanvasGadget(#PB_Any, 0, 0, 10, 10)
 			UseGadgetList(PreviousList)
 		EndIf
-
+		
 		If StartVectorDrawing(CanvasVectorOutput(TooltipCanvas))	; Measure first...
 			VectorFont(DefaultFont)
 			Width = VectorTextWidth(Text) + 16
@@ -2209,699 +2214,699 @@ Module UITK
 	; module compiles cross-platform.
 	; ============================================================
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-	#WM_SYSMENU = $313
-	#SizableBorder = 8
-	#WindowButtonWidth = 45
-	#Icon_ChromeMaximize = $E922			; Segoe MDL2 Assets : maximize glyph (window normal)
-	#Icon_ChromeRestore  = $E923			; ...restore glyph (window maximized)
-
-	Structure ThemedWindow
-		*Brush
-		*OriginalProc
+		#WM_SYSMENU = $313
+		#SizableBorder = 8
+		#WindowButtonWidth = 45
+		#Icon_ChromeMaximize = $E922			; Segoe MDL2 Assets : maximize glyph (window normal)
+		#Icon_ChromeRestore  = $E923			; ...restore glyph (window maximized)
 		
-		Width.l
-		Height.l
-		MinWidth.l
-		MinHeight.l
-		MaxWidth.l
-		MaxHeight.l
+		Structure ThemedWindow
+			*Brush
+			*OriginalProc
+			
+			Width.l
+			Height.l
+			MinWidth.l
+			MinHeight.l
+			MaxWidth.l
+			MaxHeight.l
+			
+			SizeCursor.l
+			Sizable.l
+			
+			ButtonClose.i
+			ButtonMinimize.i
+			ButtonMaximize.i
+			
+			Container.i
+			
+			Label.i
+			LabelWidth.l
+			LabelAlign.b
+			
+			MenuOffset.l
+			List MenuList.i()
+			
+			Theme.Theme
+		EndStructure
 		
-		SizeCursor.l
-		Sizable.l
+		Structure WindowBar
+			*Parent
+			*OriginalProc
+			sizeCursor.l
+		EndStructure
 		
-		ButtonClose.i
-		ButtonMinimize.i
-		ButtonMaximize.i
+		Structure WindowContainer
+			*Parent
+			*OriginalProc
+			sizeCursor.l
+		EndStructure
 		
-		Container.i
+		Global DWMEnabled = -1
+		Global DWMLibrary = 0
 		
-		Label.i
-		LabelWidth.l
-		LabelAlign.b
+		Structure UITK_MARGINS
+			cxLeftWidth.l
+			cxRightWidth.l
+			cyTopHeight.l
+			cyBottomHeight.l
+		EndStructure
 		
-		MenuOffset.l
-		List MenuList.i()
+		Procedure Window_Init()
+			; Detect DWM and keep dwmapi.dll loaded for the lifetime of the program so per-window calls are cheap.
+			DWMLibrary = OpenLibrary(#PB_Any, "dwmapi.dll")
+			If DWMLibrary
+				CallFunction(DWMLibrary, "DwmIsCompositionEnabled", @DWMEnabled)
+			Else
+				DWMEnabled = 0
+			EndIf
+		EndProcedure
 		
-		Theme.Theme
-	EndStructure
-	
-	Structure WindowBar
-		*Parent
-		*OriginalProc
-		sizeCursor.l
-	EndStructure
-	
-	Structure WindowContainer
-		*Parent
-		*OriginalProc
-		sizeCursor.l
-	EndStructure
-	
-	Global DWMEnabled = -1
-	Global DWMLibrary = 0
-	
-	Structure UITK_MARGINS
-		cxLeftWidth.l
-		cxRightWidth.l
-		cyTopHeight.l
-		cyBottomHeight.l
-	EndStructure
-	
-	Procedure Window_Init()
-		; Detect DWM and keep dwmapi.dll loaded for the lifetime of the program so per-window calls are cheap.
-		DWMLibrary = OpenLibrary(#PB_Any, "dwmapi.dll")
-		If DWMLibrary
-			CallFunction(DWMLibrary, "DwmIsCompositionEnabled", @DWMEnabled)
-		Else
-			DWMEnabled = 0
-		EndIf
-	EndProcedure
-	
-	Procedure ExtendFrameIntoClient(WindowID)
-		; Tells DWM "this is a custom-chrome window" so Snap/Shadow/animations stay alive after we hide the system title bar via WM_NCCALCSIZE. A 1px top margin is the standard incantation used by Windows Terminal, Firefox, modern Win apps.
-		; Note: this extended top row is composited by DWM and shows its frame line wherever a gadget paints it (GDI leaves that row alpha 0). That's why every title-bar gadget below is created at y = 1, not 0 — the top row stays pure background, so no line appears.
-		Protected Margins.UITK_MARGINS
-		Margins\cyTopHeight = 1
-		If DWMLibrary
-			CallFunction(DWMLibrary, "DwmExtendFrameIntoClientArea", WindowID, @Margins)
-		EndIf
-	EndProcedure
-	
-	Procedure CloseButton_Handler()
-		PostEvent(#PB_Event_CloseWindow, EventWindow(), 0)
-	EndProcedure
-
-	Procedure MaximizeButton_Handler()
-		Protected hWnd = WindowID(EventWindow())
-		If IsZoomed_(hWnd)
-			ShowWindow_(hWnd, #SW_RESTORE)
-		Else
-			ShowWindow_(hWnd, #SW_MAXIMIZE)
-		EndIf
-	EndProcedure
-
-	Procedure MinimizeButton_Handler()
-		ShowWindow_(WindowID(EventWindow()), #SW_MINIMIZE)
-	EndProcedure
-	
-	Procedure Window_Handler(hWnd, Msg, wParam, lParam)
-		Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UITK_WindowData"), OffsetX, OriginalProc
+		Procedure ExtendFrameIntoClient(WindowID)
+			; Tells DWM "this is a custom-chrome window" so Snap/Shadow/animations stay alive after we hide the system title bar via WM_NCCALCSIZE. A 1px top margin is the standard incantation used by Windows Terminal, Firefox, modern Win apps.
+			; Note: this extended top row is composited by DWM and shows its frame line wherever a gadget paints it (GDI leaves that row alpha 0). That's why every title-bar gadget below is created at y = 1, not 0 — the top row stays pure background, so no line appears.
+			Protected Margins.UITK_MARGINS
+			Margins\cyTopHeight = 1
+			If DWMLibrary
+				CallFunction(DWMLibrary, "DwmExtendFrameIntoClientArea", WindowID, @Margins)
+			EndIf
+		EndProcedure
 		
-		Select Msg
-			Case #WM_GETMINMAXINFO ;{
-				Protected *mmi.MINMAXINFO = lParam
-				Protected hMon = MonitorFromWindow_(hWnd, #MONITOR_DEFAULTTONEAREST)
-				Protected mie.MONITORINFOEX\cbSize = SizeOf(mie)
-				GetMonitorInfo_(hMon, mie)
-				*mmi\ptMaxPosition\x = Abs(mie\rcWork\left - mie\rcMonitor\left)
-				*mmi\ptMaxPosition\y = Abs(mie\rcWork\top - mie\rcMonitor\top)
-				
-				If *WindowData\MaxWidth > 0
-					*mmi\ptMaxSize\x = *WindowData\MaxWidth
-				Else
-					*mmi\ptMaxSize\x = Abs(mie\rcWork\right - mie\rcWork\left)
-				EndIf
-				
-				If *WindowData\MaxHeight > 0
-					*mmi\ptMaxSize\y = *WindowData\MaxHeight
-				Else
-					*mmi\ptMaxSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) - 1
-				EndIf
-				
-				*mmi\ptMinTrackSize\x = *WindowData\MinWidth
-				*mmi\ptMinTrackSize\y = *WindowData\MinHeight
-				ProcedureReturn 0
-				;}
-			Case #WM_NCCALCSIZE ;{
-				If wParam
-					; Returning 0 makes the client fill the whole window rect (custom chrome, no OS frame).
-					; When maximised, WM_GETMINMAXINFO already sizes the window to the monitor work area, so no
-					; border inset is wanted here : insetting left a ~frame-wide margin around the content.
+		Procedure CloseButton_Handler()
+			PostEvent(#PB_Event_CloseWindow, EventWindow(), 0)
+		EndProcedure
+		
+		Procedure MaximizeButton_Handler()
+			Protected hWnd = WindowID(EventWindow())
+			If IsZoomed_(hWnd)
+				ShowWindow_(hWnd, #SW_RESTORE)
+			Else
+				ShowWindow_(hWnd, #SW_MAXIMIZE)
+			EndIf
+		EndProcedure
+		
+		Procedure MinimizeButton_Handler()
+			ShowWindow_(WindowID(EventWindow()), #SW_MINIMIZE)
+		EndProcedure
+		
+		Procedure Window_Handler(hWnd, Msg, wParam, lParam)
+			Protected *WindowData.ThemedWindow = GetProp_(hWnd, "UITK_WindowData"), OffsetX, OriginalProc
+			
+			Select Msg
+				Case #WM_GETMINMAXINFO ;{
+					Protected *mmi.MINMAXINFO = lParam
+					Protected hMon = MonitorFromWindow_(hWnd, #MONITOR_DEFAULTTONEAREST)
+					Protected mie.MONITORINFOEX\cbSize = SizeOf(mie)
+					GetMonitorInfo_(hMon, mie)
+					*mmi\ptMaxPosition\x = Abs(mie\rcWork\left - mie\rcMonitor\left)
+					*mmi\ptMaxPosition\y = Abs(mie\rcWork\top - mie\rcMonitor\top)
+					
+					If *WindowData\MaxWidth > 0
+						*mmi\ptMaxSize\x = *WindowData\MaxWidth
+					Else
+						*mmi\ptMaxSize\x = Abs(mie\rcWork\right - mie\rcWork\left)
+					EndIf
+					
+					If *WindowData\MaxHeight > 0
+						*mmi\ptMaxSize\y = *WindowData\MaxHeight
+					Else
+						*mmi\ptMaxSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) - 1
+					EndIf
+					
+					*mmi\ptMinTrackSize\x = *WindowData\MinWidth
+					*mmi\ptMinTrackSize\y = *WindowData\MinHeight
 					ProcedureReturn 0
-				EndIf
-				;}
-			Case #WM_NCHITTEST ;{
-				Protected ptX = lParam & $FFFF
-				Protected ptY = (lParam >> 16) & $FFFF
-				
-				If ptX & $8000 : ptX | $FFFF0000 : EndIf
-				If ptY & $8000 : ptY | $FFFF0000 : EndIf
-				Protected wRect.RECT
-				GetWindowRect_(hWnd, @wRect)
-				Protected x = ptX - wRect\left
-				Protected y = ptY - wRect\top
-				Protected w = wRect\right - wRect\left
-				Protected h = wRect\bottom - wRect\top
-				
-				If *WindowData\Sizable And IsZoomed_(hWnd) = 0
-					If y < #SizableBorder
-						If x < #SizableBorder  : ProcedureReturn #HTTOPLEFT  : EndIf
-						If x >= w - #SizableBorder : ProcedureReturn #HTTOPRIGHT : EndIf
-						ProcedureReturn #HTTOP
+					;}
+				Case #WM_NCCALCSIZE ;{
+					If wParam
+						; Returning 0 makes the client fill the whole window rect (custom chrome, no OS frame).
+						; When maximised, WM_GETMINMAXINFO already sizes the window to the monitor work area, so no
+						; border inset is wanted here : insetting left a ~frame-wide margin around the content.
+						ProcedureReturn 0
 					EndIf
-					If y >= h - #SizableBorder
-						If x < #SizableBorder  : ProcedureReturn #HTBOTTOMLEFT  : EndIf
-						If x >= w - #SizableBorder : ProcedureReturn #HTBOTTOMRIGHT : EndIf
-						ProcedureReturn #HTBOTTOM
+					;}
+				Case #WM_NCHITTEST ;{
+					Protected ptX = lParam & $FFFF
+					Protected ptY = (lParam >> 16) & $FFFF
+					
+					If ptX & $8000 : ptX | $FFFF0000 : EndIf
+					If ptY & $8000 : ptY | $FFFF0000 : EndIf
+					Protected wRect.RECT
+					GetWindowRect_(hWnd, @wRect)
+					Protected x = ptX - wRect\left
+					Protected y = ptY - wRect\top
+					Protected w = wRect\right - wRect\left
+					Protected h = wRect\bottom - wRect\top
+					
+					If *WindowData\Sizable And IsZoomed_(hWnd) = 0
+						If y < #SizableBorder
+							If x < #SizableBorder  : ProcedureReturn #HTTOPLEFT  : EndIf
+							If x >= w - #SizableBorder : ProcedureReturn #HTTOPRIGHT : EndIf
+							ProcedureReturn #HTTOP
+						EndIf
+						If y >= h - #SizableBorder
+							If x < #SizableBorder  : ProcedureReturn #HTBOTTOMLEFT  : EndIf
+							If x >= w - #SizableBorder : ProcedureReturn #HTBOTTOMRIGHT : EndIf
+							ProcedureReturn #HTBOTTOM
+						EndIf
+						If x < #SizableBorder  : ProcedureReturn #HTLEFT  : EndIf
+						If x >= w - #SizableBorder : ProcedureReturn #HTRIGHT : EndIf
 					EndIf
-					If x < #SizableBorder  : ProcedureReturn #HTLEFT  : EndIf
-					If x >= w - #SizableBorder : ProcedureReturn #HTRIGHT : EndIf
-				EndIf
-				
-				If y < #WindowBarHeight
-					ProcedureReturn #HTCAPTION
-				EndIf
-				
-				ProcedureReturn #HTCLIENT
-				;}
-			Case #WM_CTLCOLORSTATIC, #WM_CTLCOLORBTN ;{
-				SetBkMode_(wParam, #TRANSPARENT)
-				ProcedureReturn *WindowData\Brush
-				;}
-			Case #WM_SIZE ;{
-				*WindowData\Width = lParam & $FFFF
-				*WindowData\Height = (lParam >> 16) & $FFFF
-				
-				If *WindowData\ButtonClose
-					OffsetX + #WindowButtonWidth
-					ResizeGadget(*WindowData\ButtonClose, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-				EndIf
-				
-				If *WindowData\ButtonMaximize
-					OffsetX + #WindowButtonWidth
-					ResizeGadget(*WindowData\ButtonMaximize, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-					; Reflect maximised/restored state. WM_SIZE fires for every maximise path (button, title-bar
-					; double-click, Win+arrow, OS), so this one spot keeps the glyph right. Guarded so a plain
-					; resize-drag doesn't redraw the button on every frame.
-					Protected MaxGlyph.s = Chr(#Icon_ChromeMaximize)
-					If IsZoomed_(hWnd) : MaxGlyph = Chr(#Icon_ChromeRestore) : EndIf
-					If GetGadgetText(*WindowData\ButtonMaximize) <> MaxGlyph
-						SetGadgetText(*WindowData\ButtonMaximize, MaxGlyph)
+					
+					If y < #WindowBarHeight
+						ProcedureReturn #HTCAPTION
 					EndIf
-				EndIf
-				
-				If *WindowData\ButtonMinimize
-					OffsetX + #WindowButtonWidth
-					ResizeGadget(*WindowData\ButtonMinimize, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-				EndIf
-				
-				If *WindowData\LabelAlign = #HAlignRight
-					SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, 1, 0, 0, #SWP_NOSIZE)
-				ElseIf *WindowData\LabelAlign = #HAlignCenter
-					SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
-				EndIf
-				
-				SetWindowPos_(GadgetID(*WindowData\Container), 0, 0, 0, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #SWP_NOMOVE | #SWP_NOZORDER)
-				;}
-			Case #WM_NCACTIVATE ;{
-				ProcedureReturn 1
-				;}
-			Case #WM_NCDESTROY ;{
-				If *WindowData\ButtonClose And IsGadget(*WindowData\ButtonClose)
-					UnbindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
-				EndIf
-				
-				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, *WindowData\OriginalProc)
-				OriginalProc = *WindowData\OriginalProc
-				FreeStructure(*WindowData)
-				
-				ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
-				;}
-		EndSelect
+					
+					ProcedureReturn #HTCLIENT
+					;}
+				Case #WM_CTLCOLORSTATIC, #WM_CTLCOLORBTN ;{
+					SetBkMode_(wParam, #TRANSPARENT)
+					ProcedureReturn *WindowData\Brush
+					;}
+				Case #WM_SIZE ;{
+					*WindowData\Width = lParam & $FFFF
+					*WindowData\Height = (lParam >> 16) & $FFFF
+					
+					If *WindowData\ButtonClose
+						OffsetX + #WindowButtonWidth
+						ResizeGadget(*WindowData\ButtonClose, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					EndIf
+					
+					If *WindowData\ButtonMaximize
+						OffsetX + #WindowButtonWidth
+						ResizeGadget(*WindowData\ButtonMaximize, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+						; Reflect maximised/restored state. WM_SIZE fires for every maximise path (button, title-bar
+						; double-click, Win+arrow, OS), so this one spot keeps the glyph right. Guarded so a plain
+						; resize-drag doesn't redraw the button on every frame.
+						Protected MaxGlyph.s = Chr(#Icon_ChromeMaximize)
+						If IsZoomed_(hWnd) : MaxGlyph = Chr(#Icon_ChromeRestore) : EndIf
+						If GetGadgetText(*WindowData\ButtonMaximize) <> MaxGlyph
+							SetGadgetText(*WindowData\ButtonMaximize, MaxGlyph)
+						EndIf
+					EndIf
+					
+					If *WindowData\ButtonMinimize
+						OffsetX + #WindowButtonWidth
+						ResizeGadget(*WindowData\ButtonMinimize, *WindowData\Width - OffsetX, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					EndIf
+					
+					If *WindowData\LabelAlign = #HAlignRight
+						SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, 1, 0, 0, #SWP_NOSIZE)
+					ElseIf *WindowData\LabelAlign = #HAlignCenter
+						SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
+					EndIf
+					
+					SetWindowPos_(GadgetID(*WindowData\Container), 0, 0, 0, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #SWP_NOMOVE | #SWP_NOZORDER)
+					;}
+				Case #WM_NCACTIVATE ;{
+					ProcedureReturn 1
+					;}
+				Case #WM_NCDESTROY ;{
+					If *WindowData\ButtonClose And IsGadget(*WindowData\ButtonClose)
+						UnbindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
+					EndIf
+					
+					SetWindowLongPtr_(hWnd, #GWL_WNDPROC, *WindowData\OriginalProc)
+					OriginalProc = *WindowData\OriginalProc
+					FreeStructure(*WindowData)
+					
+					ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
+					;}
+			EndSelect
+			
+			ProcedureReturn CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
+		EndProcedure
 		
-		ProcedureReturn CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
-	EndProcedure
-	
-	Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
-		Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData"), *WindowData.ThemedWindow
-		
-		; The container sits below the title bar and covers the resize border on the bottom/left/right.
-		; We return HTTRANSPARENT in those bands so the parent's WM_NCHITTEST gets the chance to return HTLEFT/HTRIGHT/HTBOTTOM/etc; without which the OS-driven resize and Aero Snap would never see the click.
-		If Msg = #WM_NCHITTEST
-			*WindowData = GetProp_(*ContainerData\Parent, "UITK_WindowData")
-			If *WindowData\Sizable And IsZoomed_(*ContainerData\Parent) = 0
-				Protected ptX = lParam & $FFFF
-				Protected ptY = (lParam >> 16) & $FFFF
-				If ptX & $8000 : ptX | $FFFF0000 : EndIf
-				If ptY & $8000 : ptY | $FFFF0000 : EndIf
-				Protected wRect.RECT
-				GetWindowRect_(*ContainerData\Parent, @wRect)
-				Protected localY = ptY - wRect\top
-				Protected localX = ptX - wRect\left
-				Protected w = wRect\right - wRect\left
-				Protected h = wRect\bottom - wRect\top
-				If localY >= h - #SizableBorder Or localX < #SizableBorder Or localX >= w - #SizableBorder
-					ProcedureReturn #HTTRANSPARENT
+		Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
+			Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData"), *WindowData.ThemedWindow
+			
+			; The container sits below the title bar and covers the resize border on the bottom/left/right.
+			; We return HTTRANSPARENT in those bands so the parent's WM_NCHITTEST gets the chance to return HTLEFT/HTRIGHT/HTBOTTOM/etc; without which the OS-driven resize and Aero Snap would never see the click.
+			If Msg = #WM_NCHITTEST
+				*WindowData = GetProp_(*ContainerData\Parent, "UITK_WindowData")
+				If *WindowData\Sizable And IsZoomed_(*ContainerData\Parent) = 0
+					Protected ptX = lParam & $FFFF
+					Protected ptY = (lParam >> 16) & $FFFF
+					If ptX & $8000 : ptX | $FFFF0000 : EndIf
+					If ptY & $8000 : ptY | $FFFF0000 : EndIf
+					Protected wRect.RECT
+					GetWindowRect_(*ContainerData\Parent, @wRect)
+					Protected localY = ptY - wRect\top
+					Protected localX = ptX - wRect\left
+					Protected w = wRect\right - wRect\left
+					Protected h = wRect\bottom - wRect\top
+					If localY >= h - #SizableBorder Or localX < #SizableBorder Or localX >= w - #SizableBorder
+						ProcedureReturn #HTTRANSPARENT
+					EndIf
 				EndIf
 			EndIf
-		EndIf
-		
-		ProcedureReturn CallWindowProc_(*ContainerData\OriginalProc, hWnd, Msg, wParam, lParam)
-	EndProcedure
-	
-	Procedure WindowBar_Handler(hWnd, Msg, wParam, lParam)
-		Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UITK_WindowBarData")
-		; The Label that paints the title text covers most of the title-bar strip.
-		; Returning HTTRANSPARENT lets the parent's WM_NCHITTEST claim this area as HTCAPTION, so DWM handles drag, double-click maximize, snap, and Aero Shake.
-		; The min/max/close buttons are separate child gadgets. They keep their own HTCLIENT hit-test and continue to receive normal clicks.
-		If Msg = #WM_NCHITTEST
-			ProcedureReturn #HTTRANSPARENT
-		EndIf
-		
-		ProcedureReturn CallWindowProc_(*WindowBarData\OriginalProc, hWnd, Msg, wParam, lParam)
-	EndProcedure
-	
-	Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
-		Protected Result, Image, *WindowData.ThemedWindow, *WindowBarData.WindowBar, *ContainerData.WindowContainer ,WindowID, OffsetX
-		
-		If DWMEnabled = - 1
-			Window_Init()
-		EndIf
-		
-		If AccessibilityMode Or DWMEnabled = #False Or (Flags & #PB_Window_BorderLess)
-			Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (Bool(Flags & #Window_CloseButton) * #PB_Window_SystemMenu) |
-			                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
-			                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize) |
-			                                                                  (Bool(Flags & #Window_Sizable) * #PB_Window_SizeGadget) |
-			                                                                  (Bool(Flags & #Window_Invisible) * #PB_Window_Invisible) |
-			                                                                  (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
-		Else
-			AllocateStructureX(*WindowData, ThemedWindow)
-			*WindowData\Sizable = Bool(Flags & #Window_Sizable)
 			
-			If *WindowData\Sizable
-				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+			ProcedureReturn CallWindowProc_(*ContainerData\OriginalProc, hWnd, Msg, wParam, lParam)
+		EndProcedure
+		
+		Procedure WindowBar_Handler(hWnd, Msg, wParam, lParam)
+			Protected *WindowBarData.WindowBar = GetProp_(hWnd, "UITK_WindowBarData")
+			; The Label that paints the title text covers most of the title-bar strip.
+			; Returning HTTRANSPARENT lets the parent's WM_NCHITTEST claim this area as HTCAPTION, so DWM handles drag, double-click maximize, snap, and Aero Shake.
+			; The min/max/close buttons are separate child gadgets. They keep their own HTCLIENT hit-test and continue to receive normal clicks.
+			If Msg = #WM_NCHITTEST
+				ProcedureReturn #HTTRANSPARENT
+			EndIf
+			
+			ProcedureReturn CallWindowProc_(*WindowBarData\OriginalProc, hWnd, Msg, wParam, lParam)
+		EndProcedure
+		
+		Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
+			Protected Result, Image, *WindowData.ThemedWindow, *WindowBarData.WindowBar, *ContainerData.WindowContainer ,WindowID, OffsetX
+			
+			If DWMEnabled = - 1
+				Window_Init()
+			EndIf
+			
+			If AccessibilityMode Or DWMEnabled = #False Or (Flags & #PB_Window_BorderLess)
+				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (Bool(Flags & #Window_CloseButton) * #PB_Window_SystemMenu) |
+				                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
+				                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize) |
+				                                                                  (Bool(Flags & #Window_Sizable) * #PB_Window_SizeGadget) |
+				                                                                  (Bool(Flags & #Window_Invisible) * #PB_Window_Invisible) |
+				                                                                  (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			Else
-				InnerHeight + #WindowBarHeight
-				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, #PB_Window_BorderLess | #PB_Window_Invisible | (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+				AllocateStructureX(*WindowData, ThemedWindow)
+				*WindowData\Sizable = Bool(Flags & #Window_Sizable)
+				
+				If *WindowData\Sizable
+					Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (#WS_OVERLAPPEDWINDOW&~#WS_SYSMENU) | #PB_Window_Invisible | (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+				Else
+					InnerHeight + #WindowBarHeight
+					Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, #PB_Window_BorderLess | #PB_Window_Invisible | (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
+				EndIf
+				
+				If Window = #PB_Any
+					Window = Result
+				EndIf
+				
+				WindowID = WindowID(Window)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@LightTheme, *WindowData\Theme, Theme)
+				Else
+					CopyStructure(*DefaultTheme, *WindowData\Theme, Theme)
+				EndIf
+				
+				Image = CreateImage(#PB_Any, 8, 8, 32, SetAlpha(*WindowData\Theme\WindowTitle, 255)) ; Removing SetAlpha makes LightTheme goes derp. Can anybody explain?
+				*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
+				*WindowData\Width = WindowWidth(Window)
+				*WindowData\Height = WindowHeight(Window)
+				
+				FreeImage(Image)
+				
+				SetClassLongPtr_(WindowID, #GCL_HBRBACKGROUND, *WindowData\Brush)
+				
+				SetProp_(WindowID, "UITK_WindowData", *WindowData)
+				
+				*WindowData\OriginalProc = SetWindowLongPtr_(WindowID, #GWL_WNDPROC, @Window_Handler())
+				
+				ExtendFrameIntoClient(WindowID)
+				
+				If Flags & #Window_CloseButton
+					OffsetX + #WindowButtonWidth
+					*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode * #DarkMode)
+					
+					SetGadgetAttribute(*WindowData\ButtonClose, #Attribute_CornerRadius, 0)
+					
+					SetGadgetFont(*WindowData\ButtonClose, IconFont)
+					
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+					
+					BindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
+					
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Warm, SetAlpha(FixColor($E81123), 255))
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Hot, SetAlpha(FixColor($F1707A), 255))
+					
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Warm, SetAlpha(FixColor($FFFFFF), 255))
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Hot, SetAlpha(FixColor($FFFFFF), 255))
+				EndIf
+				
+				If Flags & #Window_MaximizeButton
+					OffsetX + #WindowButtonWidth
+					*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode * #DarkMode)
+					
+					SetGadgetAttribute(*WindowData\ButtonMaximize, #Attribute_CornerRadius, 0)
+					
+					SetGadgetFont(*WindowData\ButtonMaximize, IconFont)
+					
+					SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+					
+					BindGadgetEvent(*WindowData\ButtonMaximize, @MaximizeButton_Handler(), #PB_EventType_Change)
+				EndIf
+				
+				If Flags & #Window_MinimizeButton
+					OffsetX + #WindowButtonWidth
+					*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "",Flags & #DarkMode * #DarkMode)
+					
+					SetGadgetAttribute(*WindowData\ButtonMinimize, #Attribute_CornerRadius, 0)
+					
+					SetGadgetFont(*WindowData\ButtonMinimize, IconFont)
+					
+					SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+					
+					BindGadgetEvent(*WindowData\ButtonMinimize, @MinimizeButton_Handler(), #PB_EventType_Change)
+				EndIf
+				
+				*WindowData\Label = Label(#PB_Any, #SizableBorder, 1, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
+				SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
+				*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
+				ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
+				
+				If Flags & #HAlignRight
+					*WindowData\LabelAlign = #HAlignRight
+				ElseIf Flags & #HAlignCenter
+					*WindowData\LabelAlign = #HAlignCenter
+				Else
+					*WindowData\LabelAlign = #HAlignLeft
+				EndIf
+				
+				AllocateStructureX(*WindowBarData, WindowBar)
+				*WindowBarData\Parent = WindowID
+				SetProp_(GadgetID(*WindowData\Label), "UITK_WindowBarData", *WindowBarData)
+				*WindowBarData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Label), #GWL_WNDPROC, @WindowBar_Handler())
+				
+				*WindowData\Container = ContainerGadget(#PB_Any, 0, #WindowBarHeight, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #PB_Container_BorderLess)
+				AllocateStructureX(*ContainerData, WindowContainer)
+				*ContainerData\Parent = WindowID
+				SetProp_(GadgetID(*WindowData\Container), "UITK_ContainerData", *WindowBarData)
+				*ContainerData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Container), #GWL_WNDPROC, @WindowContainer_Handler())
+				SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
+				
+				SetWindowPos_(WindowID, 0, 0, 0, 0, 0, #SWP_NOSIZE|#SWP_NOMOVE|#SWP_FRAMECHANGED)
+				
+				HideWindow(Window, Bool(Flags & #Window_Invisible))
 			EndIf
 			
-			If Window = #PB_Any
-				Window = Result
+			ProcedureReturn Result
+		EndProcedure
+		
+		Procedure Handler_MenuButton()
+			Protected Button = EventGadget()
+			ShowFlatMenu(GetGadgetData(Button), GadgetX(Button, #PB_Gadget_ScreenCoordinate) - 1, GadgetY(Button, #PB_Gadget_ScreenCoordinate) + GadgetHeight(Button))
+		EndProcedure
+		
+		Procedure AddWindowMenu(Window, Menu, Title.s)
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+			Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+			Protected WindowGadgetList
+			
+			With *WindowData
+				If ListSize(\MenuList()) = 0
+					; The bar reads Icon · Title · Menus: the title KEEPS its text and
+					; the menus line up after it. Centered/right titles can't share
+					; the row with menus, so the first menu pins the label left.
+					\LabelAlign = #HAlignLeft
+					ResizeGadget(\Label, #SizableBorder, #PB_Ignore, \LabelWidth, #PB_Ignore)
+					\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
+				EndIf
+				
+				AddElement(\MenuList())
+				If UseGadgetList(0) = WindowID(Window)
+					CloseGadgetList()
+				Else
+					WindowGadgetList = UseGadgetList(WindowID(Window))
+				EndIf
+				
+				UseGadgetList(WindowID(Window))
+				
+				\MenuList() = Button(#PB_Any, \MenuOffset, 1, 100, #WindowBarHeight - 1, Title, #Button_Toggle)
+				SetGadgetAttribute(\MenuList(), #Attribute_CornerRadius, 0)
+				SetGadgetColor(\MenuList(), #Color_Back_Cold, \Theme\WindowTitle)
+				SetGadgetColor(\MenuList(), #Color_Back_Warm, \Theme\ShadeColor[#Warm])
+				SetGadgetColor(\MenuList(), #Color_Back_Hot, \Theme\ShadeColor[#Cold])
+				ResizeGadget(\MenuList(), #PB_Ignore, #PB_Ignore, GadgetWidth(\MenuList(), #PB_Gadget_RequiredSize) + 2 * #SizableBorder, #PB_Ignore)
+				\MenuOffset + GadgetWidth(\MenuList())
+				
+				BindGadgetEvent(\MenuList(), @Handler_MenuButton(), #PB_EventType_Change)
+				SetGadgetData(*MenuData\Canvas, \MenuList())
+				SetGadgetData(\MenuList(), Menu)
+				*MenuData\Border = 1
+				ResizeGadget(*MenuData\Canvas, #PB_Ignore, 0, #PB_Ignore, #PB_Ignore)
+				ResizeWindow(*MenuData\Window, #PB_Ignore, #PB_Ignore, *MenuData\Width + 2, *MenuData\Height + *MenuData\Border)
+				
+				
+				If WindowGadgetList
+					UseGadgetList(WindowGadgetList)
+					*WindowData.ThemedWindow = GetProp_(WindowID(WindowGadgetList), "UITK_WindowData")
+					OpenGadgetList(\Container)
+				Else
+					OpenGadgetList(\Container)
+				EndIf
+				
+			EndWith
+		EndProcedure
+		
+		Procedure OpenWindowGadgetList(Window)
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+			
+			OpenGadgetList(*WindowData\Container)
+		EndProcedure
+		
+		; Setters
+		
+		Procedure SetWindowLabel(Window, Text.s)
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+			
+			SetWindowTitle(Window, Text)	; Taskbar / Alt-Tab caption (and the whole
+			If *WindowData = 0				; job, on the plain-window fallback)
+				ProcedureReturn
 			EndIf
+			With *WindowData
+				SetGadgetText(\Label, Text)
+				\LabelWidth = GadgetWidth(\Label, #PB_Gadget_RequiredSize)
+				If ListSize(\MenuList())
+					\LabelAlign = #HAlignLeft
+					ResizeGadget(\Label, #SizableBorder, #PB_Ignore, \LabelWidth, #PB_Ignore)
+					\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
+					ForEach \MenuList()
+						ResizeGadget(\MenuList(), \MenuOffset, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+						\MenuOffset + GadgetWidth(\MenuList())
+					Next
+				Else
+					ResizeGadget(\Label, #PB_Ignore, #PB_Ignore, \LabelWidth, #PB_Ignore)
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
+			Protected *WindowData.ThemedWindow
 			
-			WindowID = WindowID(Window)
+			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
 			
-			If Flags & #DarkMode
-				CopyStructure(@DarkTheme, *WindowData\Theme, Theme)
-			ElseIf Flags & #LightMode
-				CopyStructure(@LightTheme, *WindowData\Theme, Theme)
-			Else
-				CopyStructure(*DefaultTheme, *WindowData\Theme, Theme)
-			EndIf
+			*WindowData\MinHeight = MinHeight
+			*WindowData\MinWidth = MinWidth
+			*WindowData\MaxWidth = MaxWidth
+			*WindowData\MaxHeight = MaxHeight
+		EndProcedure
+		
+		Procedure SetWindowIcon(Window, Image)
+			Protected *WindowData.ThemedWindow
 			
-			Image = CreateImage(#PB_Any, 8, 8, 32, SetAlpha(*WindowData\Theme\WindowTitle, 255)) ; Removing SetAlpha makes LightTheme goes derp. Can anybody explain?
-			*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
-			*WindowData\Width = WindowWidth(Window)
-			*WindowData\Height = WindowHeight(Window)
-			
-			FreeImage(Image)
-			
-			SetClassLongPtr_(WindowID, #GCL_HBRBACKGROUND, *WindowData\Brush)
-			
-			SetProp_(WindowID, "UITK_WindowData", *WindowData)
-			
-			*WindowData\OriginalProc = SetWindowLongPtr_(WindowID, #GWL_WNDPROC, @Window_Handler())
-			
-			ExtendFrameIntoClient(WindowID)
-			
-			If Flags & #Window_CloseButton
-				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode * #DarkMode)
-				
-				SetGadgetAttribute(*WindowData\ButtonClose, #Attribute_CornerRadius, 0)
-				
-				SetGadgetFont(*WindowData\ButtonClose, IconFont)
-				
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-				
-				BindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
-				
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Warm, SetAlpha(FixColor($E81123), 255))
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Hot, SetAlpha(FixColor($F1707A), 255))
-				
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Warm, SetAlpha(FixColor($FFFFFF), 255))
-				SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Hot, SetAlpha(FixColor($FFFFFF), 255))
-			EndIf
-			
-			If Flags & #Window_MaximizeButton
-				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode * #DarkMode)
-				
-				SetGadgetAttribute(*WindowData\ButtonMaximize, #Attribute_CornerRadius, 0)
-				
-				SetGadgetFont(*WindowData\ButtonMaximize, IconFont)
-				
-				SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-				
-				BindGadgetEvent(*WindowData\ButtonMaximize, @MaximizeButton_Handler(), #PB_EventType_Change)
-			EndIf
-			
-			If Flags & #Window_MinimizeButton
-				OffsetX + #WindowButtonWidth
-				*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "",Flags & #DarkMode * #DarkMode)
-				
-				SetGadgetAttribute(*WindowData\ButtonMinimize, #Attribute_CornerRadius, 0)
-				
-				SetGadgetFont(*WindowData\ButtonMinimize, IconFont)
-				
-				SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-				
-				BindGadgetEvent(*WindowData\ButtonMinimize, @MinimizeButton_Handler(), #PB_EventType_Change)
-			EndIf
-			
-			*WindowData\Label = Label(#PB_Any, #SizableBorder, 1, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
-			SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
+			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+			SetGadgetImage(*WindowData\Label, Image)
 			*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
 			ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
 			
-			If Flags & #HAlignRight
-				*WindowData\LabelAlign = #HAlignRight
-			ElseIf Flags & #HAlignCenter
-				*WindowData\LabelAlign = #HAlignCenter
-			Else
-				*WindowData\LabelAlign = #HAlignLeft
+			If *WindowData\LabelAlign = #HAlignRight
+				SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - (*WindowData\ButtonClose + *WindowData\ButtonMaximize + *WindowData\ButtonMinimize) * #WindowButtonWidth, 1, 0, 0, #SWP_NOSIZE)
+			ElseIf *WindowData\LabelAlign = #HAlignCenter
+				SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
+			ElseIf ListSize(*WindowData\MenuList())
+				; Icon · Title · Menus: the wider label pushes the menu row along
+				With *WindowData
+					\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
+					ForEach \MenuList()
+						ResizeGadget(\MenuList(), \MenuOffset, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+						\MenuOffset + GadgetWidth(\MenuList())
+					Next
+				EndWith
 			EndIf
-			
-			AllocateStructureX(*WindowBarData, WindowBar)
-			*WindowBarData\Parent = WindowID
-			SetProp_(GadgetID(*WindowData\Label), "UITK_WindowBarData", *WindowBarData)
-			*WindowBarData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Label), #GWL_WNDPROC, @WindowBar_Handler())
-			
-			*WindowData\Container = ContainerGadget(#PB_Any, 0, #WindowBarHeight, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #PB_Container_BorderLess)
-			AllocateStructureX(*ContainerData, WindowContainer)
-			*ContainerData\Parent = WindowID
-			SetProp_(GadgetID(*WindowData\Container), "UITK_ContainerData", *WindowBarData)
-			*ContainerData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Container), #GWL_WNDPROC, @WindowContainer_Handler())
-			SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
-			
-			SetWindowPos_(WindowID, 0, 0, 0, 0, 0, #SWP_NOSIZE|#SWP_NOMOVE|#SWP_FRAMECHANGED)
-			
-			HideWindow(Window, Bool(Flags & #Window_Invisible))
-		EndIf
+		EndProcedure
 		
-		ProcedureReturn Result
-	EndProcedure
-	
-	Procedure Handler_MenuButton()
-		Protected Button = EventGadget()
-		ShowFlatMenu(GetGadgetData(Button), GadgetX(Button, #PB_Gadget_ScreenCoordinate) - 1, GadgetY(Button, #PB_Gadget_ScreenCoordinate) + GadgetHeight(Button))
-	EndProcedure
-	
-	Procedure AddWindowMenu(Window, Menu, Title.s)
-		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
-		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
-		Protected WindowGadgetList
+		Procedure WindowSetColor(Window, ColorType, Color)
+			Protected *WindowData.ThemedWindow, Image, *OldBrush
+			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+			
+			Select ColorType
+				Case #Color_Back_Cold
+					*WindowData\Theme\BackColor[#Cold] = Color
+				Case #Color_Back_Warm
+					*WindowData\Theme\BackColor[#Warm] = Color
+				Case #Color_Back_Hot
+					*WindowData\Theme\BackColor[#Hot] = Color
+				Case #Color_Back_Disabled
+					*WindowData\Theme\BackColor[#Disabled] = Color
+				Case #Color_Text_Cold
+					*WindowData\Theme\TextColor[#Cold] = Color
+				Case #Color_Text_Warm
+					*WindowData\Theme\TextColor[#Warm] = Color
+				Case #Color_Text_Hot
+					*WindowData\Theme\TextColor[#Hot] = Color
+				Case #Color_Text_Disabled
+					*WindowData\Theme\TextColor[#Disabled] = Color
+				Case #Color_Parent
+					*WindowData\Theme\WindowColor = Color
+					SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(Color),Green(Color),Blue(Color)))
+				Case #Color_Shade_Cold
+					*WindowData\Theme\ShadeColor[#Cold] = Color
+				Case #Color_Shade_Warm                      
+					*WindowData\Theme\ShadeColor[#Warm] = Color
+				Case #Color_Shade_Hot                       
+					*WindowData\Theme\ShadeColor[#Hot] = Color
+				Case #Color_Shade_Disabled
+					*WindowData\Theme\ShadeColor[#Disabled] = Color
+				Case #Color_Line_Cold
+					*WindowData\Theme\LineColor[#Cold] = Color
+				Case #Color_Line_Warm                   
+					*WindowData\Theme\LineColor[#Warm] = Color
+				Case #Color_Line_Hot                    
+					*WindowData\Theme\LineColor[#Hot] = Color
+				Case #Color_Line_Disabled              
+					*WindowData\Theme\LineColor[#Disabled] = Color
+				Case #Color_Special1_Cold
+					*WindowData\Theme\Special1[#Cold] = Color
+				Case #Color_Special1_Warm
+					*WindowData\Theme\Special1[#Warm] = Color
+				Case #Color_Special1_Hot
+					*WindowData\Theme\Special1[#Hot] = Color
+				Case #Color_Special1_Disabled
+					*WindowData\Theme\Special1[#Disabled] = Color
+				Case #Color_Special2_Cold
+					*WindowData\Theme\Special2[#Cold] = Color
+				Case #Color_Special2_Warm
+					*WindowData\Theme\Special2[#Warm] = Color
+				Case #Color_Special2_Hot
+					*WindowData\Theme\Special2[#Hot] = Color
+				Case #Color_Special2_Disabled
+					*WindowData\Theme\Special2[#Disabled] = Color
+				Case #Color_Special3_Cold
+					*WindowData\Theme\Special3[#Cold] = Color
+				Case #Color_Special3_Warm
+					*WindowData\Theme\Special3[#Warm] = Color
+				Case #Color_Special3_Hot
+					*WindowData\Theme\Special3[#Hot] = Color
+				Case #Color_Special3_Disabled
+					*WindowData\Theme\Special3[#Disabled] = Color
+				Case #Color_WindowBorder
+					*WindowData\Theme\WindowTitle = Color
+					*OldBrush = *WindowData\Brush
+					Image = CreateImage(#PB_Any, 8, 8, 32, SetAlpha(*WindowData\Theme\WindowTitle, 255)) ; Removing SetAlpha makes LightTheme goes derp. Can anybody explain?
+					*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
+					FreeImage(Image)
+					SetClassLongPtr_(WindowID(Window), #GCL_HBRBACKGROUND, *WindowData\Brush)
+					DeleteObject_(*OldBrush)
+					SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
+					
+					If *WindowData\ButtonMinimize
+						SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+					EndIf
+					If *WindowData\ButtonMaximize
+						SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+					EndIf
+					If *WindowData\ButtonClose
+						SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
+					EndIf
+					
+			EndSelect
+			
+			
+		EndProcedure
 		
-		With *WindowData
-			If ListSize(\MenuList()) = 0
-				; The bar reads Icon · Title · Menus: the title KEEPS its text and
-				; the menus line up after it. Centered/right titles can't share
-				; the row with menus, so the first menu pins the label left.
-				\LabelAlign = #HAlignLeft
-				ResizeGadget(\Label, #SizableBorder, #PB_Ignore, \LabelWidth, #PB_Ignore)
-				\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
+		; Getters
+		Procedure GetWindowContainer(Window)
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+			
+			If *WindowData
+				ProcedureReturn *WindowData\Container
 			EndIf
+			ProcedureReturn -1
+		EndProcedure
+		
+		Procedure GetWindowIcon(Window)
+			Protected *WindowData.ThemedWindow
 			
-			AddElement(\MenuList())
-			If UseGadgetList(0) = WindowID(Window)
-				CloseGadgetList()
-			Else
-				WindowGadgetList = UseGadgetList(WindowID(Window))
-			EndIf
+			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+			ProcedureReturn GetGadgetImage(*WindowData\Label)
+		EndProcedure
+		
+		Procedure WindowGetColor(Window, ColorType)
+			Protected *WindowData.ThemedWindow, Result
 			
-			UseGadgetList(WindowID(Window))
+			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
 			
-			\MenuList() = Button(#PB_Any, \MenuOffset, 1, 100, #WindowBarHeight - 1, Title, #Button_Toggle)
-			SetGadgetAttribute(\MenuList(), #Attribute_CornerRadius, 0)
-			SetGadgetColor(\MenuList(), #Color_Back_Cold, \Theme\WindowTitle)
-			SetGadgetColor(\MenuList(), #Color_Back_Warm, \Theme\ShadeColor[#Warm])
-			SetGadgetColor(\MenuList(), #Color_Back_Hot, \Theme\ShadeColor[#Cold])
-			ResizeGadget(\MenuList(), #PB_Ignore, #PB_Ignore, GadgetWidth(\MenuList(), #PB_Gadget_RequiredSize) + 2 * #SizableBorder, #PB_Ignore)
-			\MenuOffset + GadgetWidth(\MenuList())
+			Select ColorType
+				Case #Color_Back_Cold
+					Result = *WindowData\Theme\BackColor[#Cold]
+				Case #Color_Back_Warm
+					Result = *WindowData\Theme\BackColor[#Warm]
+				Case #Color_Back_Hot
+					Result = *WindowData\Theme\BackColor[#Hot]
+				Case #Color_Back_Disabled
+					Result = *WindowData\Theme\BackColor[#Disabled]
+				Case #Color_Text_Cold
+					Result = *WindowData\Theme\TextColor[#Cold]
+				Case #Color_Text_Warm
+					Result = *WindowData\Theme\TextColor[#Warm]
+				Case #Color_Text_Hot
+					Result = *WindowData\Theme\TextColor[#Hot]
+				Case #Color_Text_Disabled
+					Result = *WindowData\Theme\TextColor[#Disabled]
+				Case #Color_Parent
+					Result = *WindowData\Theme\WindowColor
+				Case #Color_Shade_Cold
+					Result = *WindowData\Theme\ShadeColor[#Cold]
+				Case #Color_Shade_Warm                      
+					Result = *WindowData\Theme\ShadeColor[#Warm]
+				Case #Color_Shade_Hot                       
+					Result = *WindowData\Theme\ShadeColor[#Hot]
+				Case #Color_Shade_Disabled
+					Result = *WindowData\Theme\ShadeColor[#Disabled]
+				Case #Color_Line_Cold
+					Result = *WindowData\Theme\LineColor[#Cold]
+				Case #Color_Line_Warm                   
+					Result = *WindowData\Theme\LineColor[#Warm]
+				Case #Color_Line_Hot                    
+					Result = *WindowData\Theme\LineColor[#Hot]
+				Case #Color_Line_Disabled              
+					Result = *WindowData\Theme\LineColor[#Disabled]
+				Case #Color_Special1_Cold
+					Result = *WindowData\Theme\Special1[#Cold]
+				Case #Color_Special1_Warm
+					Result = *WindowData\Theme\Special1[#Warm]
+				Case #Color_Special1_Hot
+					Result = *WindowData\Theme\Special1[#Hot]
+				Case #Color_Special1_Disabled
+					Result = *WindowData\Theme\Special1[#Disabled]
+				Case #Color_Special2_Cold
+					Result = *WindowData\Theme\Special2[#Cold]
+				Case #Color_Special2_Warm
+					Result = *WindowData\Theme\Special2[#Warm]
+				Case #Color_Special2_Hot
+					Result = *WindowData\Theme\Special2[#Hot]
+				Case #Color_Special2_Disabled
+					Result = *WindowData\Theme\Special2[#Disabled]
+				Case #Color_Special3_Cold
+					Result = *WindowData\Theme\Special3[#Cold]
+				Case #Color_Special3_Warm
+					Result = *WindowData\Theme\Special3[#Warm]
+				Case #Color_Special3_Hot
+					Result = *WindowData\Theme\Special3[#Hot]
+				Case #Color_Special3_Disabled
+					Result = *WindowData\Theme\Special3[#Disabled]
+				Case #Color_WindowBorder
+					Result = *WindowData\Theme\WindowTitle
+			EndSelect
 			
-			BindGadgetEvent(\MenuList(), @Handler_MenuButton(), #PB_EventType_Change)
-			SetGadgetData(*MenuData\Canvas, \MenuList())
-			SetGadgetData(\MenuList(), Menu)
-			*MenuData\Border = 1
-			ResizeGadget(*MenuData\Canvas, #PB_Ignore, 0, #PB_Ignore, #PB_Ignore)
-			ResizeWindow(*MenuData\Window, #PB_Ignore, #PB_Ignore, *MenuData\Width + 2, *MenuData\Height + *MenuData\Border)
-			
-			
-			If WindowGadgetList
-				UseGadgetList(WindowGadgetList)
-				*WindowData.ThemedWindow = GetProp_(WindowID(WindowGadgetList), "UITK_WindowData")
-				OpenGadgetList(\Container)
-			Else
-				OpenGadgetList(\Container)
-			EndIf
-			
-		EndWith
-	EndProcedure
-	
-	Procedure OpenWindowGadgetList(Window)
-		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
-
-		OpenGadgetList(*WindowData\Container)
-	EndProcedure
-	
-	; Setters
-	
-	Procedure SetWindowLabel(Window, Text.s)
-		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
-
-		SetWindowTitle(Window, Text)	; Taskbar / Alt-Tab caption (and the whole
-		If *WindowData = 0				; job, on the plain-window fallback)
-			ProcedureReturn
-		EndIf
-		With *WindowData
-			SetGadgetText(\Label, Text)
-			\LabelWidth = GadgetWidth(\Label, #PB_Gadget_RequiredSize)
-			If ListSize(\MenuList())
-				\LabelAlign = #HAlignLeft
-				ResizeGadget(\Label, #SizableBorder, #PB_Ignore, \LabelWidth, #PB_Ignore)
-				\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
-				ForEach \MenuList()
-					ResizeGadget(\MenuList(), \MenuOffset, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-					\MenuOffset + GadgetWidth(\MenuList())
-				Next
-			Else
-				ResizeGadget(\Label, #PB_Ignore, #PB_Ignore, \LabelWidth, #PB_Ignore)
-			EndIf
-		EndWith
-	EndProcedure
-	
-	Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
-		Protected *WindowData.ThemedWindow
-		
-		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
-		
-		*WindowData\MinHeight = MinHeight
-		*WindowData\MinWidth = MinWidth
-		*WindowData\MaxWidth = MaxWidth
-		*WindowData\MaxHeight = MaxHeight
-	EndProcedure
-	
-	Procedure SetWindowIcon(Window, Image)
-		Protected *WindowData.ThemedWindow
-
-		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
-		SetGadgetImage(*WindowData\Label, Image)
-		*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
-		ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
-
-		If *WindowData\LabelAlign = #HAlignRight
-			SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - (*WindowData\ButtonClose + *WindowData\ButtonMaximize + *WindowData\ButtonMinimize) * #WindowButtonWidth, 1, 0, 0, #SWP_NOSIZE)
-		ElseIf *WindowData\LabelAlign = #HAlignCenter
-			SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
-		ElseIf ListSize(*WindowData\MenuList())
-			; Icon · Title · Menus: the wider label pushes the menu row along
-			With *WindowData
-				\MenuOffset = #SizableBorder + \LabelWidth + #SizableBorder
-				ForEach \MenuList()
-					ResizeGadget(\MenuList(), \MenuOffset, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-					\MenuOffset + GadgetWidth(\MenuList())
-				Next
-			EndWith
-		EndIf
-	EndProcedure
-	
-	Procedure WindowSetColor(Window, ColorType, Color)
-		Protected *WindowData.ThemedWindow, Image, *OldBrush
-		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
-		
-		Select ColorType
-			Case #Color_Back_Cold
-				*WindowData\Theme\BackColor[#Cold] = Color
-			Case #Color_Back_Warm
-				*WindowData\Theme\BackColor[#Warm] = Color
-			Case #Color_Back_Hot
-				*WindowData\Theme\BackColor[#Hot] = Color
-			Case #Color_Back_Disabled
-				*WindowData\Theme\BackColor[#Disabled] = Color
-			Case #Color_Text_Cold
-				*WindowData\Theme\TextColor[#Cold] = Color
-			Case #Color_Text_Warm
-				*WindowData\Theme\TextColor[#Warm] = Color
-			Case #Color_Text_Hot
-				*WindowData\Theme\TextColor[#Hot] = Color
-			Case #Color_Text_Disabled
-				*WindowData\Theme\TextColor[#Disabled] = Color
-			Case #Color_Parent
-				*WindowData\Theme\WindowColor = Color
-				SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(Color),Green(Color),Blue(Color)))
-			Case #Color_Shade_Cold
-				*WindowData\Theme\ShadeColor[#Cold] = Color
-			Case #Color_Shade_Warm                      
-				*WindowData\Theme\ShadeColor[#Warm] = Color
-			Case #Color_Shade_Hot                       
-				*WindowData\Theme\ShadeColor[#Hot] = Color
-			Case #Color_Shade_Disabled
-				*WindowData\Theme\ShadeColor[#Disabled] = Color
-			Case #Color_Line_Cold
-				*WindowData\Theme\LineColor[#Cold] = Color
-			Case #Color_Line_Warm                   
-				*WindowData\Theme\LineColor[#Warm] = Color
-			Case #Color_Line_Hot                    
-				*WindowData\Theme\LineColor[#Hot] = Color
-			Case #Color_Line_Disabled              
-				*WindowData\Theme\LineColor[#Disabled] = Color
-			Case #Color_Special1_Cold
-				*WindowData\Theme\Special1[#Cold] = Color
-			Case #Color_Special1_Warm
-				*WindowData\Theme\Special1[#Warm] = Color
-			Case #Color_Special1_Hot
-				*WindowData\Theme\Special1[#Hot] = Color
-			Case #Color_Special1_Disabled
-				*WindowData\Theme\Special1[#Disabled] = Color
-			Case #Color_Special2_Cold
-				*WindowData\Theme\Special2[#Cold] = Color
-			Case #Color_Special2_Warm
-				*WindowData\Theme\Special2[#Warm] = Color
-			Case #Color_Special2_Hot
-				*WindowData\Theme\Special2[#Hot] = Color
-			Case #Color_Special2_Disabled
-				*WindowData\Theme\Special2[#Disabled] = Color
-			Case #Color_Special3_Cold
-				*WindowData\Theme\Special3[#Cold] = Color
-			Case #Color_Special3_Warm
-				*WindowData\Theme\Special3[#Warm] = Color
-			Case #Color_Special3_Hot
-				*WindowData\Theme\Special3[#Hot] = Color
-			Case #Color_Special3_Disabled
-				*WindowData\Theme\Special3[#Disabled] = Color
-			Case #Color_WindowBorder
-				*WindowData\Theme\WindowTitle = Color
-				*OldBrush = *WindowData\Brush
-				Image = CreateImage(#PB_Any, 8, 8, 32, SetAlpha(*WindowData\Theme\WindowTitle, 255)) ; Removing SetAlpha makes LightTheme goes derp. Can anybody explain?
-				*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
-				FreeImage(Image)
-				SetClassLongPtr_(WindowID(Window), #GCL_HBRBACKGROUND, *WindowData\Brush)
-				DeleteObject_(*OldBrush)
-				SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
-				
-				If *WindowData\ButtonMinimize
-					SetGadgetColor(*WindowData\ButtonMinimize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-				EndIf
-				If *WindowData\ButtonMaximize
-					SetGadgetColor(*WindowData\ButtonMaximize, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-				EndIf
-				If *WindowData\ButtonClose
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
-				EndIf
-				
-		EndSelect
-		
-		
-	EndProcedure
-	
-	; Getters
-	Procedure GetWindowContainer(Window)
-		Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
-
-		If *WindowData
-			ProcedureReturn *WindowData\Container
-		EndIf
-		ProcedureReturn -1
-	EndProcedure
- 
-	Procedure GetWindowIcon(Window)
-		Protected *WindowData.ThemedWindow
-		
-		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
-		ProcedureReturn GetGadgetImage(*WindowData\Label)
-	EndProcedure
-	
-	Procedure WindowGetColor(Window, ColorType)
-		Protected *WindowData.ThemedWindow, Result
-		
-		*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
-		
-		Select ColorType
-			Case #Color_Back_Cold
-				Result = *WindowData\Theme\BackColor[#Cold]
-			Case #Color_Back_Warm
-				Result = *WindowData\Theme\BackColor[#Warm]
-			Case #Color_Back_Hot
-				Result = *WindowData\Theme\BackColor[#Hot]
-			Case #Color_Back_Disabled
-				Result = *WindowData\Theme\BackColor[#Disabled]
-			Case #Color_Text_Cold
-				Result = *WindowData\Theme\TextColor[#Cold]
-			Case #Color_Text_Warm
-				Result = *WindowData\Theme\TextColor[#Warm]
-			Case #Color_Text_Hot
-				Result = *WindowData\Theme\TextColor[#Hot]
-			Case #Color_Text_Disabled
-				Result = *WindowData\Theme\TextColor[#Disabled]
-			Case #Color_Parent
-				Result = *WindowData\Theme\WindowColor
-			Case #Color_Shade_Cold
-				Result = *WindowData\Theme\ShadeColor[#Cold]
-			Case #Color_Shade_Warm                      
-				Result = *WindowData\Theme\ShadeColor[#Warm]
-			Case #Color_Shade_Hot                       
-				Result = *WindowData\Theme\ShadeColor[#Hot]
-			Case #Color_Shade_Disabled
-				Result = *WindowData\Theme\ShadeColor[#Disabled]
-			Case #Color_Line_Cold
-				Result = *WindowData\Theme\LineColor[#Cold]
-			Case #Color_Line_Warm                   
-				Result = *WindowData\Theme\LineColor[#Warm]
-			Case #Color_Line_Hot                    
-				Result = *WindowData\Theme\LineColor[#Hot]
-			Case #Color_Line_Disabled              
-				Result = *WindowData\Theme\LineColor[#Disabled]
-			Case #Color_Special1_Cold
-				Result = *WindowData\Theme\Special1[#Cold]
-			Case #Color_Special1_Warm
-				Result = *WindowData\Theme\Special1[#Warm]
-			Case #Color_Special1_Hot
-				Result = *WindowData\Theme\Special1[#Hot]
-			Case #Color_Special1_Disabled
-				Result = *WindowData\Theme\Special1[#Disabled]
-			Case #Color_Special2_Cold
-				Result = *WindowData\Theme\Special2[#Cold]
-			Case #Color_Special2_Warm
-				Result = *WindowData\Theme\Special2[#Warm]
-			Case #Color_Special2_Hot
-				Result = *WindowData\Theme\Special2[#Hot]
-			Case #Color_Special2_Disabled
-				Result = *WindowData\Theme\Special2[#Disabled]
-			Case #Color_Special3_Cold
-				Result = *WindowData\Theme\Special3[#Cold]
-			Case #Color_Special3_Warm
-				Result = *WindowData\Theme\Special3[#Warm]
-			Case #Color_Special3_Hot
-				Result = *WindowData\Theme\Special3[#Hot]
-			Case #Color_Special3_Disabled
-				Result = *WindowData\Theme\Special3[#Disabled]
-			Case #Color_WindowBorder
-				Result = *WindowData\Theme\WindowTitle
-		EndSelect
-
-		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
-	EndProcedure
+			ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
+		EndProcedure
 	CompilerElse
 		; ============================================================
 		; Linux native window — Phase 4 (final architecture)
@@ -2914,12 +2919,12 @@ Module UITK
 		; loses the UITK dark theme on the title bar — but everything else just
 		; works: snap, resize, max/min/close buttons, Win+arrow, position tracking.
 		; GIMP / Inkscape / etc. take the same per-platform-divergence approach.
-
+		
 		Procedure Window_Init() : EndProcedure
 		Procedure ExtendFrameIntoClient(WindowID) : EndProcedure
 		Procedure GetWindowContainer(Window) : ProcedureReturn -1 : EndProcedure
 		Procedure SetWindowLabel(Window, Text.s) : SetWindowTitle(Window, Text) : EndProcedure
-
+		
 		Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
 			Protected Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title,
 			                              (Bool(Flags & #Window_CloseButton)    * #PB_Window_SystemMenu) |
@@ -2929,7 +2934,7 @@ Module UITK
 			                              (Bool(Flags & #Window_Invisible)      * #PB_Window_Invisible)  |
 			                              (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
 			If Window = #PB_Any : Window = Result : EndIf
-
+			
 			; Allocate a ThemedWindow so UITK gadgets created inside this window pick
 			; up the right palette via the standard GetProp_("UITK_WindowData") path
 			; (per-gadget theme-inheritance is unchanged from Windows). Also set the
@@ -2949,10 +2954,10 @@ Module UITK
 			EndIf
 			SetOwnedProp_(WindowID(Window), "UITK_WindowData", *WindowData)
 			SetWindowColor(Window, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
-
+			
 			ProcedureReturn Result
 		EndProcedure
-
+		
 		Procedure OpenWindowGadgetList(Window)
 			; Linux native windows have no Container under the chrome — gadgets go
 			; into the window's own gadget list. Forward to PB's gadget-list machinery
@@ -2960,21 +2965,21 @@ Module UITK
 			; named procedure would recurse).
 			ProcedureReturn UseGadgetList(WindowID(Window))
 		EndProcedure
-
+		
 		Procedure SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 			WindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 		EndProcedure
-
+		
 		Procedure SetWindowIcon(Window, Image)
 			; Most Linux DEs derive the window icon from a .desktop entry, not from a
 			; runtime call. Leave as a no-op for now; can wire gdk_window_set_icon
 			; later if a use case appears.
 		EndProcedure
-
+		
 		Procedure GetWindowIcon(Window)                    : ProcedureReturn 0 : EndProcedure
 		Procedure WindowSetColor(Window, ColorType, Color) : EndProcedure
 		Procedure WindowGetColor(Window, ColorType)        : ProcedureReturn 0 : EndProcedure
-
+		
 		; AddWindowMenu — translate a UITK FlatMenu into a native PB menubar attached
 		; to the window. The FlatMenu remains usable as a popup via UITK::ShowFlatMenu;
 		; this just gives the WM-drawn menubar a representation of its items so users
@@ -2985,7 +2990,7 @@ Module UITK
 		Procedure AddWindowMenu(Window, Menu, Title.s)
 			Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
 			If Not *MenuData : ProcedureReturn : EndIf
-
+			
 			Protected pbMenu = GetProp_(WindowID(Window), "UITK_PBMenu")
 			If pbMenu = 0
 				pbMenu = CreateMenu(#PB_Any, WindowID(Window))
@@ -2996,7 +3001,7 @@ Module UITK
 			; common case where AddWindowMenu is called in sequence right after Window().
 			; If the user creates other PB menus between AddWindowMenu calls, items
 			; would land in the wrong menu — caveat documented here for the future.
-
+			
 			MenuTitle(Title)
 			ForEach *MenuData\Item()
 				If *MenuData\Item()\Type = #Separator
@@ -3007,7 +3012,7 @@ Module UITK
 			Next
 		EndProcedure
 	CompilerEndIf	;}
-
+	
 	;{ Advanced drag & drop
 	; A long note, to not attempt to reinvent the wheel in 3 year when I'll have forgotten why I did this:
 	; Why a *low-level* (WH_MOUSE_LL) hook, and not something lighter? During DragPrivate() the OS runs
@@ -3018,111 +3023,111 @@ Module UITK
 	; only between ShowPreview and HidePreview, so the system-wide reach lasts just the drag.
 	; Linux/Mac equivalent would use a GTK drag icon or X11 cursor image : out of scope for now.
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-	Global ADNDWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(TimerWindow)) ; Piggy-backs the timer window; a dedicated hidden UITK window would be cleaner.
-	SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED | #WS_EX_TRANSPARENT)
-	SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
-	Global ADNDGadget = ImageGadget(#PB_Any, 0, 0, 1, 1, 0)
-	Global ADNDHook, *DropCallback
-	Global ADND_OffsetX, ADND_OffsetY
-
-	; Fires for every raw mouse move while installed; MSLLHOOKSTRUCT\pt (aliased here) is in screen coordinates.
-	Procedure ADND_Hook(nCode, wParam, *p.POINT)
-		If nCode >= 0
-			SetWindowPos_(WindowID(ADNDWindow), 0, *p\x + ADND_OffsetX, *p\y + ADND_OffsetY, 0, 0, #SWP_NOSIZE | #SWP_NOACTIVATE | #SWP_NOREDRAW)
-		EndIf
-		ProcedureReturn CallNextHookEx_(#NUL, nCode, wParam, *p)
-	EndProcedure
-
-	Procedure ADND_ShowPreview(ImageID)
-		Protected HBitmap.BITMAP
+		Global ADNDWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(TimerWindow)) ; Piggy-backs the timer window; a dedicated hidden UITK window would be cleaner.
+		SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED | #WS_EX_TRANSPARENT)
+		SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
+		Global ADNDGadget = ImageGadget(#PB_Any, 0, 0, 1, 1, 0)
+		Global ADNDHook, *DropCallback
+		Global ADND_OffsetX, ADND_OffsetY
 		
-		ExamineDesktops()
-		GetObject_(ImageID, SizeOf(BITMAP), @HBitmap)
-		ResizeWindow(ADNDWindow, DesktopMouseX() + ADND_OffsetX, DesktopMouseY() + ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
-		SetGadgetState(ADNDGadget, ImageID)	
-		HideWindow(ADNDWindow, #False)
-		ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
-	EndProcedure
-
-	Procedure ADND_HidePreview()
-		If ADNDHook
-			UnhookWindowsHookEx_(ADNDHook)
-			ADNDHook = 0
-		EndIf
-		HideWindow(ADNDWindow, #True)
-	EndProcedure
-
-	Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
-		ADND_OffsetX = OffsetX
-		ADND_OffsetY = OffsetY
-		ADND_ShowPreview(ImageID)
-		DragPrivate(Type, Action)
-		ADND_HidePreview()
-	EndProcedure
-
-	Procedure AdvancedDragFiles(File.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
-		ADND_OffsetX = OffsetX
-		ADND_OffsetY = OffsetY
-		ADND_ShowPreview(ImageID)
-		DragFiles(File, Action)
-		ADND_HidePreview()
-	EndProcedure
-
-	Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
-		ADND_OffsetX = OffsetX
-		ADND_OffsetY = OffsetY
-		ADND_ShowPreview(ImageID)
-		DragText(Text, Action)
-		ADND_HidePreview()
-	EndProcedure
-
-	Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
-		ADND_OffsetX = OffsetX
-		ADND_OffsetY = OffsetY
-		ADND_ShowPreview(ImageID)
-		DragImage(ImageID, Action)
-		ADND_HidePreview()
-	EndProcedure
-
-	Procedure DropCallback(TargetHandle, State, Format, Action, x, y)
-		Protected *this.PB_Gadget, *GadgetData.GadgetData, Result = #True
-
-		If FindMapElement(GadgetHandler(), Str(TargetHandle))
-			*this = IsGadget(GadgetHandler())
-			*GadgetData = *this\vt
-
-			If *this\vt\DropHandler
-				Result = CallFunctionFast(*this\vt\DropHandler, *GadgetData, State, Format, Action, x, y)
+		; Fires for every raw mouse move while installed; MSLLHOOKSTRUCT\pt (aliased here) is in screen coordinates.
+		Procedure ADND_Hook(nCode, wParam, *p.POINT)
+			If nCode >= 0
+				SetWindowPos_(WindowID(ADNDWindow), 0, *p\x + ADND_OffsetX, *p\y + ADND_OffsetY, 0, 0, #SWP_NOSIZE | #SWP_NOACTIVATE | #SWP_NOREDRAW)
+			EndIf
+			ProcedureReturn CallNextHookEx_(#NUL, nCode, wParam, *p)
+		EndProcedure
+		
+		Procedure ADND_ShowPreview(ImageID)
+			Protected HBitmap.BITMAP
+			
+			ExamineDesktops()
+			GetObject_(ImageID, SizeOf(BITMAP), @HBitmap)
+			ResizeWindow(ADNDWindow, DesktopMouseX() + ADND_OffsetX, DesktopMouseY() + ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
+			SetGadgetState(ADNDGadget, ImageID)	
+			HideWindow(ADNDWindow, #False)
+			ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
+		EndProcedure
+		
+		Procedure ADND_HidePreview()
+			If ADNDHook
+				UnhookWindowsHookEx_(ADNDHook)
+				ADNDHook = 0
+			EndIf
+			HideWindow(ADNDWindow, #True)
+		EndProcedure
+		
+		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+			ADND_OffsetX = OffsetX
+			ADND_OffsetY = OffsetY
+			ADND_ShowPreview(ImageID)
+			DragPrivate(Type, Action)
+			ADND_HidePreview()
+		EndProcedure
+		
+		Procedure AdvancedDragFiles(File.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+			ADND_OffsetX = OffsetX
+			ADND_OffsetY = OffsetY
+			ADND_ShowPreview(ImageID)
+			DragFiles(File, Action)
+			ADND_HidePreview()
+		EndProcedure
+		
+		Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+			ADND_OffsetX = OffsetX
+			ADND_OffsetY = OffsetY
+			ADND_ShowPreview(ImageID)
+			DragText(Text, Action)
+			ADND_HidePreview()
+		EndProcedure
+		
+		Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+			ADND_OffsetX = OffsetX
+			ADND_OffsetY = OffsetY
+			ADND_ShowPreview(ImageID)
+			DragImage(ImageID, Action)
+			ADND_HidePreview()
+		EndProcedure
+		
+		Procedure DropCallback(TargetHandle, State, Format, Action, x, y)
+			Protected *this.PB_Gadget, *GadgetData.GadgetData, Result = #True
+			
+			If FindMapElement(GadgetHandler(), Str(TargetHandle))
+				*this = IsGadget(GadgetHandler())
+				*GadgetData = *this\vt
+				
+				If *this\vt\DropHandler
+					Result = CallFunctionFast(*this\vt\DropHandler, *GadgetData, State, Format, Action, x, y)
+				ElseIf *DropCallback
+					Result = CallFunctionFast(*DropCallback, TargetHandle, State, Format, Action, x, y)
+				EndIf
 			ElseIf *DropCallback
 				Result = CallFunctionFast(*DropCallback, TargetHandle, State, Format, Action, x, y)
 			EndIf
-		ElseIf *DropCallback
-			Result = CallFunctionFast(*DropCallback, TargetHandle, State, Format, Action, x, y)
-		EndIf
-
-		ProcedureReturn Result
-	EndProcedure
-
-	Procedure RegisterDropCallback(*Callback)
-		*DropCallback = *Callback
-	EndProcedure
-
-	; Show/hide the floating drag preview mid-drag. A drop target that renders its
-	; own in-place preview (a 3D ghost, say) hides the card while the cursor is
-	; over it. We drive the LAYER ALPHA, not window visibility: HideWindow/ShowWindow
-	; race the WH_MOUSE_LL hook's per-move SetWindowPos and can get stuck, whereas
-	; the alpha the hook never touches — 0 = invisible, 128 = the drag's own alpha.
-	Procedure DragPreviewVisible(State)
-		If ADNDHook	; Only meaningful during an active AdvancedDrag
-			If State
-				SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
-			Else
-				SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 0, #LWA_ALPHA)
+			
+			ProcedureReturn Result
+		EndProcedure
+		
+		Procedure RegisterDropCallback(*Callback)
+			*DropCallback = *Callback
+		EndProcedure
+		
+		; Show/hide the floating drag preview mid-drag. A drop target that renders its
+		; own in-place preview (a 3D ghost, say) hides the card while the cursor is
+		; over it. We drive the LAYER ALPHA, not window visibility: HideWindow/ShowWindow
+		; race the WH_MOUSE_LL hook's per-move SetWindowPos and can get stuck, whereas
+		; the alpha the hook never touches — 0 = invisible, 128 = the drag's own alpha.
+		Procedure DragPreviewVisible(State)
+			If ADNDHook	; Only meaningful during an active AdvancedDrag
+				If State
+					SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
+				Else
+					SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 0, #LWA_ALPHA)
+				EndIf
 			EndIf
-		EndIf
-	EndProcedure
-
-	SetDropCallback(@DropCallback())
+		EndProcedure
+		
+		SetDropCallback(@DropCallback())
 	CompilerElse
 		; ---- Linux/Mac stubs for advanced drag & drop ----
 		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
@@ -6011,7 +6016,7 @@ Module UITK
 			If Not (Flags & (#VAlignCenter | #VAlignBottom))
 				\TextBlock\VAlign = #VAlignCenter
 			EndIf
-
+			
 			If *CustomItem
 				\ItemRedraw = *CustomItem 
 			Else
@@ -6531,7 +6536,7 @@ Module UITK
 				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
 				*NewItem\ImageY = (\Height - 20 - HBitmap\bmHeight) * 0.5
 			EndIf
-
+			
 			\InternalWidth = ListSize(\Items()) * \ItemWidth
 			
 			If \InternalWidth > \Width
@@ -7984,9 +7989,9 @@ Module UITK
 			*NewItem\Text\HAlign = #HAlignLeft
 			
 			PrepareVectorTextBlock(@*NewItem\Text)
-
+			
 			UITK_GetImageSize(*NewItem\ImageID, @HBitmap)
-
+			
 			*NewItem\ImageWidth = HBitmap\bmWidth
 			*NewItem\ImageHeight = HBitmap\bmHeight
 			*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
@@ -8038,7 +8043,7 @@ Module UITK
 	Procedure Library_EventHandler(*GadgetData.LibraryData, *Event.Event)
 		Protected Redraw, NewItem = -1, ItemRow, Image
 		Protected *DraggedItem.Library_Item, *DragSection.Library_Section, InSection, SectionY, CellX, CellY
-
+		
 		With *GadgetData
 			Select *Event\EventType
 				Case #MouseMove ;{
@@ -8086,7 +8091,7 @@ Module UITK
 					ElseIf \DragState = #Drag_Init
 						If Abs(\DragOriginX - *Event\MouseX) > 7 Or Abs(\DragOriginY - *Event\MouseY) > 7
 							SelectElement(\Items(), \State)
-
+							
 							; Resolve the dragged item's on-screen cell so the preview keeps the grabbed point under the cursor.
 							*DraggedItem = @\Items()
 							*DragSection = \Items()\Section
@@ -8097,7 +8102,7 @@ Module UITK
 								EndIf
 								SectionY + \Sections()\Height
 							Next
-
+							
 							InSection = 0
 							ForEach *DragSection\Items()
 								If *DragSection\Items() = *DraggedItem
@@ -8105,11 +8110,11 @@ Module UITK
 								EndIf
 								InSection + 1
 							Next
-
+							
 							ItemRow = InSection / \ItemPerLine
 							CellX = \ItemHMargin + (InSection % \ItemPerLine) * (\ItemHMargin + \ItemWidth)
 							CellY = SectionY + \SectionHeight + ItemRow * (\ItemHeight + \ItemVMargin)
-
+							
 							AdvancedDragPrivate(#Drag_LibraryItem, \Items()\ImageID, CellX + \Items()\ImageX - \DragOriginX, CellY + \Items()\ImageY - \DragOriginY)
 							\DragState = #Drag_None
 						EndIf
@@ -8155,11 +8160,11 @@ Module UITK
 					\DragState = #Drag_None
 					;}
 				Case #LeftClick ;{
-					; A completed click confirms the press-time selection: post Change
-					; like Tab/ToolBar. Posting at PRESS time instead made every drag
-					; start fire the event too (the press arms the drag); after a real
-					; drag the OS consumes the release, so no click ever arrives here —
-					; the event is click-only by construction.
+								; A completed click confirms the press-time selection: post Change
+								; like Tab/ToolBar. Posting at PRESS time instead made every drag
+								; start fire the event too (the press arms the drag); after a real
+								; drag the OS consumes the release, so no click ever arrives here —
+								; the event is click-only by construction.
 					If \ItemState > -1
 						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					EndIf
@@ -8420,7 +8425,7 @@ Module UITK
 			\SupportedEvent[#KeyDown] = #True
 		EndWith
 	EndProcedure
-
+	
 	Procedure Library(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 		Protected Result, *this.PB_Gadget, *GadgetData.LibraryData, *ThemeData
 		
@@ -8469,7 +8474,7 @@ Module UITK
 	#PropertyBox_ItemHeight = 19
 	#PropertyBox_ValueMargin = 4			; horizontal inset of the value cell from the divider and the right edge
 	#PropertyBox_CellInset = 3				; vertical inset of the checkbox / colour swatch inside a row
-
+	
 	Structure PropertyBox_Item
 		Text.Text							; label (left column)
 		Type.l								; #PropertyBox_* row type
@@ -8498,11 +8503,11 @@ Module UITK
 		*ScrollBar.ScrollBarData
 		List Items.PropertyBox_Item()
 	EndStructure
-
+	
 	Procedure PropertyBox_ValueWidth(*GadgetData.PropertyBoxData)
 		ProcedureReturn *GadgetData\Width - *GadgetData\ColumnWidth - *GadgetData\MarginWidth - #PropertyBox_ValueMargin * 2 - (Bool(*GadgetData\VisibleScrollBar) * #VerticalList_ToolbarThickness)
 	EndProcedure
-
+	
 	Procedure PropertyBox_PrepareValue(*GadgetData.PropertyBoxData, *Item.PropertyBox_Item)
 		With *Item
 			\Value\FontID = *GadgetData\TextBlock\FontID
@@ -8510,31 +8515,31 @@ Module UITK
 			\Value\Width = PropertyBox_ValueWidth(*GadgetData)
 			\Value\VAlign = #VAlignCenter
 			\Value\LineLimit = 1
-
+			
 			; Combo shows the currently selected option; the others display their own text verbatim.
 			If \Type = #PropertyBox_Combo
 				\Value\OriginalText = StringField(\Options, \State + 1, #LF$)
 			EndIf
-
+			
 			PrepareVectorTextBlock(@\Value)
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_DrawValue(*GadgetData.PropertyBoxData, *Item.PropertyBox_Item, ValueX, Y)
 		Protected CellSize = *GadgetData\ItemHeight - #PropertyBox_CellInset * 2, CellY = Y + #PropertyBox_CellInset, Center
-
+		
 		With *GadgetData
 			Select *Item\Type
 				Case #PropertyBox_CheckBox ;{ Same glyph as the standalone CheckBox gadget
 					VectorSourceColor(\ThemeData\FrontColor[#Cold])
 					AddPathBox(ValueX, CellY, CellSize, CellSize)
 					AddPathBox(ValueX + CellSize * 0.1, CellY + CellSize * 0.1, CellSize * 0.8, CellSize * 0.8)
-
+					
 					If *Item\State = #True
 						AddPathBox(ValueX + CellSize, CellY, CellSize * -0.25, CellSize * 0.1)
 						AddPathBox(ValueX + CellSize * 0.9, CellY + CellSize * 0.1, CellSize * 0.1, CellSize * 0.25)
 						FillPath()
-
+						
 						VectorSourceColor(\ThemeData\FrontColor[#Cold])
 						MovePathCursor(ValueX + CellSize * 0.2, CellY + CellSize * 0.4)
 						AddPathLine(CellSize * 0.28, CellSize * 0.28, #PB_Path_Relative)
@@ -8559,7 +8564,7 @@ Module UITK
 				Case #PropertyBox_Combo ;{ Selected option + a downward chevron
 					VectorSourceColor(\ThemeData\TextColor[#Cold])
 					DrawVectorTextBlock(@*Item\Value, ValueX, Y - 2)
-
+					
 					Center = Y + *GadgetData\ItemHeight * 0.5
 					MovePathCursor(ValueX + PropertyBox_ValueWidth(*GadgetData) - 8, Center - 2)
 					AddPathLine(6, 0, #PB_Path_Relative)
@@ -8574,16 +8579,16 @@ Module UITK
 			EndSelect
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_CountItem(*this.PB_Gadget)
 		Protected *GadgetData.PropertyBoxData = *this\vt
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
-
+	
 	; Column 0 is the label, column 1 the value. Combo's "value" text is its whole newline-delimited option list.
 	Procedure.s PropertyBox_GetItemText(*this.PB_Gadget, Position, Column)
 		Protected *GadgetData.PropertyBoxData = *this\vt, Result.s
-
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -8596,18 +8601,18 @@ Module UITK
 				EndIf
 			EndIf
 		EndWith
-
+		
 		ProcedureReturn Result
 	EndProcedure
-
+	
 	Procedure PropertyBox_SetItemText(*this.PB_Gadget, Position, *Text, Column)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
-
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
 				*Item = @\Items()
-
+				
 				If Column = 0
 					*Item\Text\OriginalText = PeekS(*Text)
 					PrepareVectorTextBlock(@*Item\Text)
@@ -8621,28 +8626,28 @@ Module UITK
 					*Item\Value\OriginalText = PeekS(*Text)
 					PropertyBox_PrepareValue(*GadgetData, *Item)
 				EndIf
-
+				
 				RedrawObject()
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_GetItemState(*this.PB_Gadget, Position)
 		Protected *GadgetData.PropertyBoxData = *this\vt, Result
-
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
 				Result = \Items()\State
 			EndIf
 		EndWith
-
+		
 		ProcedureReturn Result
 	EndProcedure
-
+	
 	Procedure PropertyBox_SetItemState(*this.PB_Gadget, Position, State)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
-
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -8655,7 +8660,7 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_Resize(*This.PB_Gadget, x, y, Width, Height)
 		Protected *GadgetData.PropertyBoxData = *this\vt
 		
@@ -8683,12 +8688,12 @@ Module UITK
 			ForEach \Items()
 				PropertyBox_PrepareValue(*GadgetData, @\Items())
 			Next
-
+			
 			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			RedrawObject()
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_Redraw(*GadgetData.PropertyBoxData)
 		Protected Y, X, FirstElement, ValueX
 		
@@ -8709,7 +8714,7 @@ Module UITK
 				X = \OriginX + \Border + \MarginWidth + 3
 				Y = *GadgetData\OriginY + \Border
 				ValueX = \OriginX + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
-
+				
 				If \VisibleScrollBar
 					SelectElement(\Items(), Floor(\ScrollBar\State / \ItemHeight))
 					Y - (\ScrollBar\State % \ItemHeight)
@@ -8726,13 +8731,13 @@ Module UITK
 						VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 						AddPathBox(X, Y, \Width, \ItemHeight - 1)
 						FillPath()
-
+						
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
 						DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 2)
-
+						
 						PropertyBox_DrawValue(*GadgetData, @\Items(), ValueX, Y)
 					EndIf
-
+					
 					Y + \ItemHeight
 				Until Not NextElement(\Items()) Or Y > \Height
 				
@@ -8746,7 +8751,7 @@ Module UITK
 					AddPathBox(X, Y, \Width, \Height - Y)
 					FillPath()
 				EndIf
-
+				
 				If \Editing
 					SaveVectorState()
 					\String\Redraw(\String)
@@ -8763,53 +8768,53 @@ Module UITK
 	
 	Procedure PropertyBox_StartEdit(*GadgetData.PropertyBoxData, ItemRow)
 		Protected Event.Event, ScrollOffset
-
+		
 		With *GadgetData
 			If ItemRow < 0 Or ItemRow >= ListSize(\Items()) : ProcedureReturn : EndIf
 			SelectElement(\Items(), ItemRow)
-
+			
 			\Editing = #True
 			\EditItem = ItemRow
 			\EditNumeric = Bool(\Items()\Type = #PropertyBox_TextNumerical)
 			\State = ItemRow
-
+			
 			; Prime the shared editor with the current value and drop it onto the row.
 			\String\String = \Items()\Value\OriginalText
 			\String\TextBlock\FontID = \TextBlock\FontID
 			String_ProcessString(\String)
-
+			
 			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
 			\String\OriginX = \OriginX + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
 			\String\OriginY = \OriginY + \Border + ItemRow * \ItemHeight - ScrollOffset
 			\String\Width = PropertyBox_ValueWidth(*GadgetData)
-
+			
 			Event\EventType = #Focus
 			\String\EventHandler(\String, Event)
 			StringSetSelection_Meta(\String, 0, Len(\String\String))
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_CommitEdit(*GadgetData.PropertyBoxData)
 		Protected Event.Event
-
+		
 		With *GadgetData
 			If \Editing
 				\Editing = #False
-
+				
 				SelectElement(\Items(), \EditItem)
 				\Items()\Value\OriginalText = \String\String
 				PropertyBox_PrepareValue(*GadgetData, @\Items())
 				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-
+				
 				Event\EventType = #LostFocus
 				\String\EventHandler(\String, Event)
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_CancelEdit(*GadgetData.PropertyBoxData)
 		Protected Event.Event
-
+		
 		With *GadgetData
 			If \Editing
 				\Editing = #False
@@ -8818,10 +8823,10 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_ComboPopup_Select()
 		Protected Gadget = EventGadget(), *GadgetData.PropertyBoxData = GetProp_(GadgetID(Gadget), "UITK_PropertyData")
-
+		
 		With *GadgetData
 			If \PopupItem >= 0 And \PopupItem < ListSize(\Items())
 				SelectElement(\Items(), \PopupItem)
@@ -8834,15 +8839,15 @@ Module UITK
 			RedrawObject()
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_ComboPopup_Deactivate()
 		Protected *GadgetData.PropertyBoxData = GetProp_(WindowID(EventWindow()), "UITK_PropertyData")
 		If *GadgetData : HideWindow(*GadgetData\ComboPopupWindow, #True) : EndIf
 	EndProcedure
-
+	
 	Procedure PropertyBox_ColorPopup_Change()
 		Protected Gadget = EventGadget(), *GadgetData.PropertyBoxData = GetProp_(GadgetID(Gadget), "UITK_PropertyData")
-
+		
 		With *GadgetData
 			If \PopupItem >= 0 And \PopupItem < ListSize(\Items())
 				SelectElement(\Items(), \PopupItem)
@@ -8853,52 +8858,52 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_ColorPopup_Deactivate()
 		Protected *GadgetData.PropertyBoxData = GetProp_(WindowID(EventWindow()), "UITK_PropertyData")
 		If *GadgetData : HideWindow(*GadgetData\ColorPopupWindow, #True) : EndIf
 	EndProcedure
-
+	
 	Procedure PropertyBox_OpenComboPopup(*GadgetData.PropertyBoxData, ItemRow)
 		Protected Count, Loop, ScrollOffset, ScreenX, ScreenY, PopupWidth, PopupHeight
 		Protected *SubGadget.PB_Gadget, *ListData.VerticalListData
-
+		
 		With *GadgetData
 			SelectElement(\Items(), ItemRow)
 			\PopupItem = ItemRow
-
+			
 			; Clear the selection before emptying the list: VerticalList_RemoveItem posts a
 			; spurious #PB_EventType_Change when it deletes the *selected* item, which would
 			; be queued and then immediately close the popup we are about to open.
 			*SubGadget = IsGadget(\ComboPopupList)
 			*ListData = *SubGadget\vt
 			*ListData\State = -1
-
+			
 			; Rebuild the list from this row's options.
 			While CountGadgetItems(\ComboPopupList) > 0
 				RemoveGadgetItem(\ComboPopupList, 0)
 			Wend
-
+			
 			If \Items()\Options = ""
 				ProcedureReturn
 			EndIf
-
+			
 			Count = CountString(\Items()\Options, #LF$) + 1
 			For Loop = 1 To Count
 				AddGadgetItem(\ComboPopupList, -1, StringField(\Items()\Options, Loop, #LF$))
 			Next
-
+			
 			If \Items()\State >= 0 And \Items()\State < Count
 				SetGadgetState(\ComboPopupList, \Items()\State)
 			EndIf
-
+			
 			PopupWidth = PropertyBox_ValueWidth(*GadgetData) + #PropertyBox_ValueMargin * 2
 			PopupHeight = Count * 22
 			If PopupHeight > 22 * 8 : PopupHeight = 22 * 8 : EndIf
-
+			
 			ResizeGadget(\ComboPopupList, 0, 0, PopupWidth - \Border * 2, PopupHeight)
 			ResizeWindow(\ComboPopupWindow, #PB_Ignore, #PB_Ignore, PopupWidth, PopupHeight + \Border)
-
+			
 			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
 			ScreenX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
 			ScreenY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Border + ItemRow * \ItemHeight - ScrollOffset + \ItemHeight
@@ -8907,15 +8912,15 @@ Module UITK
 			SetActiveGadget(\ComboPopupList)
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_OpenColorPopup(*GadgetData.PropertyBoxData, ItemRow)
 		Protected ScrollOffset, ScreenX, ScreenY
-
+		
 		With *GadgetData
 			SelectElement(\Items(), ItemRow)
 			\PopupItem = ItemRow
 			SetGadgetState(\ColorPopupPicker, \Items()\State)
-
+			
 			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
 			ScreenX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) + \Width - WindowWidth(\ColorPopupWindow) - \Border
 			ScreenY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Border + ItemRow * \ItemHeight - ScrollOffset + \ItemHeight
@@ -8924,17 +8929,17 @@ Module UITK
 			SetActiveGadget(\ColorPopupPicker)
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_CreatePopups(*GadgetData.PropertyBoxData, Gadget, Flags)
 		Protected SavedList = UseGadgetList(0), ParentWindow = WindowID(CurrentWindow())
-
+		
 		With *GadgetData
 			; Combo dropdown: a borderless window hosting a compact VerticalList.
 			\ComboPopupWindow = OpenWindow(#PB_Any, 0, 0, 100, 22, "", #PB_Window_BorderLess | #PB_Window_Invisible, ParentWindow)
 			SetProp_(WindowID(\ComboPopupWindow), "UITK_PropertyData", *GadgetData)
 			BindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ComboPopup_Deactivate(), \ComboPopupWindow)
 			SetWindowColor(\ComboPopupWindow, RGB(Red(\ThemeData\LineColor[#Warm]), Green(\ThemeData\LineColor[#Warm]), Blue(\ThemeData\LineColor[#Warm])))
-
+			
 			\ComboPopupList = VerticalList(#PB_Any, \Border, 0, 100 - \Border * 2, 22)
 			SetGadgetAttribute(\ComboPopupList, #Attribute_CornerRadius, 0)
 			SetGadgetAttribute(\ComboPopupList, #Attribute_ItemHeight, 22)
@@ -8946,28 +8951,28 @@ Module UITK
 			SetGadgetColor(\ComboPopupList, #Color_Text_Cold, \ThemeData\TextColor[#Cold])
 			SetGadgetColor(\ComboPopupList, #Color_Text_Warm, \ThemeData\TextColor[#Warm])
 			SetGadgetColor(\ComboPopupList, #Color_Text_Hot, \ThemeData\TextColor[#Hot])
-
+			
 			; Colour picker popup.
 			\ColorPopupWindow = OpenWindow(#PB_Any, 0, 0, 200, 250, "", #PB_Window_BorderLess | #PB_Window_Invisible, ParentWindow)
 			SetProp_(WindowID(\ColorPopupWindow), "UITK_PropertyData", *GadgetData)
 			BindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ColorPopup_Deactivate(), \ColorPopupWindow)
 			SetWindowColor(\ColorPopupWindow, RGB(Red(\ThemeData\WindowColor), Green(\ThemeData\WindowColor), Blue(\ThemeData\WindowColor)))
-
+			
 			\ColorPopupPicker = ColorPicker(#PB_Any, \Border, \Border, 200 - \Border * 2, 250 - \Border * 2, Flags & (#DarkMode | #LightMode))
 			SetGadgetColor(\ColorPopupPicker, #Color_Parent, \ThemeData\WindowColor)
 			SetProp_(GadgetID(\ColorPopupPicker), "UITK_PropertyData", *GadgetData)
 			BindGadgetEvent(\ColorPopupPicker, @PropertyBox_ColorPopup_Change(), #PB_EventType_Change)
 		EndWith
-
+		
 		UseGadgetList(SavedList)
 	EndProcedure
-
+	
 	Procedure PropertyBox_Free(*this.PB_Gadget)
 		Protected *GadgetData.PropertyBoxData = *this\vt
-
+		
 		With *GadgetData
 			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
-
+			
 			UnbindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ComboPopup_Deactivate(), \ComboPopupWindow)
 			UnbindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ColorPopup_Deactivate(), \ColorPopupWindow)
 			
@@ -8982,28 +8987,28 @@ Module UITK
 				FreeGadget(\ColorPopupPicker)
 				CloseWindow(\ColorPopupWindow)
 			EndIf
-
+			
 			If \String : FreeStructure(\String) : EndIf
 			If \ScrollBar : FreeStructure(\ScrollBar) : EndIf
-
+			
 			If \DefaultEventHandler
 				UnbindGadgetEvent(\Gadget, \DefaultEventHandler)
 			EndIf
-
+			
 			*this\vt = \OriginalVT
 		EndWith
-
+		
 		FreeStructure(*GadgetData)
-
+		
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
-
+	
 	Procedure PropertyBox_EventHandler(*GadgetData.PropertyBoxData, *Event.Event)
 		Protected Redraw, ItemRow, ScrollOffset, Cursor = #PB_Cursor_Default, c
-
+		
 		With *GadgetData
 			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
-
+			
 			Select *Event\EventType
 				Case #MouseMove ;{
 					If \VisibleScrollBar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
@@ -9012,7 +9017,7 @@ Module UITK
 						\ScrollBar\MouseState = #False
 						Redraw = #True
 					EndIf
-
+					
 					If \Editing
 						If *Event\MouseX >= \String\OriginX And *Event\MouseX < \String\OriginX + \String\Width And *Event\MouseY >= \String\OriginY And *Event\MouseY < \String\OriginY + \ItemHeight
 							Cursor = #PB_Cursor_IBeam
@@ -9043,14 +9048,14 @@ Module UITK
 							PropertyBox_CommitEdit(*GadgetData)
 							Redraw = #True
 						EndIf
-
+						
 						If *Event\MouseX >= \OriginX + \MarginWidth + \ColumnWidth
 							ItemRow = Floor((*Event\MouseY - \OriginY - \Border + ScrollOffset) / \ItemHeight)
-
+							
 							If ItemRow >= 0 And ItemRow < ListSize(\Items())
 								SelectElement(\Items(), ItemRow)
 								\State = ItemRow
-
+								
 								Select \Items()\Type
 									Case #PropertyBox_CheckBox
 										If \Items()\State = #True
@@ -9123,7 +9128,7 @@ Module UITK
 						PropertyBox_CommitEdit(*GadgetData)
 						Redraw = #True
 					EndIf
-
+					
 					If \VisibleScrollBar
 						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 1.5)
 						*Event\EventType = #MouseMove
@@ -9131,12 +9136,12 @@ Module UITK
 					EndIf
 					;}
 			EndSelect
-
+			
 			If Cursor <> \EditCursor
 				\EditCursor = Cursor
 				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 			EndIf
-
+			
 			If Redraw
 				RedrawObject()
 			EndIf
@@ -9168,10 +9173,10 @@ Module UITK
 			*NewItem\Text\Width = \ColumnWidth
 			*NewItem\Text\Height = \ItemHeight
 			*NewItem\Text\VAlign = #VAlignCenter
-
+			
 			PrepareVectorTextBlock(@*NewItem\Text)
 			\InternalHeight + \ItemHeight
-
+			
 			Protected WasScrollBarVisible = \VisibleScrollBar
 			If \InternalHeight > \Height
 				\VisibleScrollBar = #True
@@ -9179,7 +9184,7 @@ Module UITK
 			Else
 				\VisibleScrollBar = #False
 			EndIf
-
+			
 			If \VisibleScrollBar <> WasScrollBarVisible
 				; The scrollbar appearing / disappearing changes every row's value-cell width.
 				ForEach \Items()
@@ -9188,7 +9193,7 @@ Module UITK
 			Else
 				PropertyBox_PrepareValue(*GadgetData, *NewItem)
 			EndIf
-
+			
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
 			RedrawObject()
@@ -9199,22 +9204,22 @@ Module UITK
 	
 	Procedure PropertyBox_RemoveItem(*This.PB_Gadget, Position)
 		Protected *GadgetData.PropertyBoxData = *this\vt, WasScrollBarVisible
-
+		
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position)
 				; Removing a row can pull the ground out from under an open editor / popup.
 				PropertyBox_CancelEdit(*GadgetData)
 				HideWindow(\ComboPopupWindow, #True)
 				HideWindow(\ColorPopupWindow, #True)
-
+				
 				DeleteElement(\Items())
-
+				
 				If Position <= \State
 					\State - 1
 				EndIf
-
+				
 				\InternalHeight - \ItemHeight
-
+				
 				WasScrollBarVisible = \VisibleScrollBar
 				If \InternalHeight > \Height
 					\VisibleScrollBar = #True
@@ -9222,38 +9227,38 @@ Module UITK
 				Else
 					\VisibleScrollBar = #False
 				EndIf
-
+				
 				; The scrollbar (dis)appearing changes every value cell's width.
 				If \VisibleScrollBar <> WasScrollBarVisible
 					ForEach \Items()
 						PropertyBox_PrepareValue(*GadgetData, @\Items())
 					Next
 				EndIf
-
+				
 				RedrawObject()
 				ProcedureReturn #True
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_ClearItems(*This.PB_Gadget)
 		Protected *GadgetData.PropertyBoxData = *this\vt
-
+		
 		With *GadgetData
 			PropertyBox_CancelEdit(*GadgetData)
 			HideWindow(\ComboPopupWindow, #True)
 			HideWindow(\ColorPopupWindow, #True)
-
+			
 			ClearList(\Items())
 			\State = -1
 			\InternalHeight = 0
 			\ScrollBar\State = 0
 			\VisibleScrollBar = #False
-
+			
 			RedrawObject()
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_Meta(*GadgetData.PropertyBoxData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(PropertyBox)
@@ -9275,7 +9280,7 @@ Module UITK
 			\VT\SetGadgetItemText = @PropertyBox_SetItemText()
 			\VT\GetGadgetItemState = @PropertyBox_GetItemState()
 			\VT\SetGadgetItemState = @PropertyBox_SetItemState()
-
+			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
 			\SupportedEvent[#MouseLeave] = #True
@@ -9283,7 +9288,7 @@ Module UITK
 			\SupportedEvent[#LeftButtonDown] = #True
 			\SupportedEvent[#LeftButtonUp] = #True
 			\SupportedEvent[#LeftDoubleClick] = #True
-
+			
 			; Shared inline String editor for Text / TextNumerical value cells. Created as
 			; a meta gadget (drawn and driven by us), repositioned onto whichever row is
 			; being edited — same approach VerticalList uses for its editable items.
@@ -9298,23 +9303,23 @@ Module UITK
 			AllocateStructureX(\String, StringData)
 			String_Meta(\String, *StringThemeData, Gadget, 0, 0, \Width, \ItemHeight, "", #HAlignLeft | #Gadget_Meta)
 			String_SupportedEvents()
-
+			
 			; Shared Combo dropdown / Colour picker popups, and cleanup for all of the above.
 			\VT\FreeGadget = @PropertyBox_Free()
 			PropertyBox_CreatePopups(*GadgetData, Gadget, Flags)
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox(Gadget, x, y, Width, Height, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.PropertyBoxData, *ThemeData
 		
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container | #PB_Canvas_Keyboard)
-
+		
 		If Result
 			If Gadget = #PB_Any
 				Gadget = Result
 			EndIf
-
+			
 			*this = IsGadget(Gadget)
 			AllocateStructureX(*GadgetData, PropertyBoxData)
 			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
@@ -10535,7 +10540,7 @@ Module UITK
 				*NewItem\ImageX = (\ItemWidth - HBitmap\bmWidth) * 0.5
 				*NewItem\ImageY = (\Height - 10 - HBitmap\bmHeight) * 0.5
 			EndIf
-
+			
 			\InternalWidth = ListSize(\Items()) * \ItemWidth
 			
 			ChangeCurrentElement(\Items(), *NewItem)
@@ -11080,29 +11085,30 @@ Module UITK
 	#ToolBar_SeparatorSize = 9			; span, along the bar's axis, taken by a separator
 	#ToolBar_Margin = 3					; inset of a button's box within its square cell
 	#ToolBar_TipDelay = 600				; ms of steady hover before an item's tooltip shows
-
+	
 	Structure ToolBar_Item
 		Separator.b						; a separator line rather than a button
-		Toggle.b						; a sticky toggle button
-		State.b							; toggle on / off
-		Enabled.b
-		imageID.i
-		ImageX.l						; centered icon offset within the button cell
-		ImageY.l
-		Text.s							; reserved for zoned tooltips (later)
+		Text.s							; hover-tip text
+		*Button.ButtonData				; the button, embedded as a Button_Meta (0 for separators)
 	EndStructure
-
+	
 	Structure ToolBarData Extends GadgetData
 		Vertical.b
 		ButtonSize.l					; square cell size = the bar's cross-axis thickness
-		MouseItem.l					; hovered item, or -1
+		MouseItem.l						; hovered item, or -1
 		PressedItem.l					; item with the mouse held on it, or -1
 		TipTimer.i						; pending hover-delay timer; 0 = none
 		TipItem.l						; the item the timer was armed for
+		*ButtonTheme.Theme				; shared palette for the button metas: transparent when cold, ShadeColor on hover/press
 		List Items.ToolBar_Item()
 	EndStructure
-
-	; The item under main-axis position P (a mouse coordinate); -1 on empty space or a separator.
+	
+	Procedure ToolBar_Forward(*Button.ButtonData, EventType)
+		Protected Event.Event
+		Event\EventType = EventType
+		ProcedureReturn *Button\EventHandler(*Button, @Event)
+	EndProcedure
+	
 	Procedure ToolBar_ItemAt(*GadgetData.ToolBarData, P)
 		Protected Offset = *GadgetData\Border, Size
 		With *GadgetData
@@ -11123,10 +11129,10 @@ Module UITK
 		EndWith
 		ProcedureReturn -1
 	EndProcedure
-
+	
 	Procedure ToolBar_Redraw(*GadgetData.ToolBarData)
-		Protected Offset, State, CellX, CellY, BoxSize
-
+		Protected Offset, CellX, CellY, *Button.ButtonData
+		
 		With *GadgetData
 			If \Border
 				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
@@ -11135,10 +11141,9 @@ Module UITK
 				VectorSourceColor(\ThemeData\BackColor[#Cold])
 				FillPath()
 			EndIf
-
+			
 			Offset = \Border
-			BoxSize = \ButtonSize - #ToolBar_Margin * 2
-
+			
 			ForEach \Items()
 				If \Vertical
 					CellX = \OriginX + \Border
@@ -11147,7 +11152,7 @@ Module UITK
 					CellX = \OriginX + Offset
 					CellY = \OriginY + \Border
 				EndIf
-
+				
 				If \Items()\Separator ;{
 					If \Vertical
 						MovePathCursor(CellX + #ToolBar_Margin * 2, CellY + #ToolBar_SeparatorSize * 0.5)
@@ -11160,36 +11165,20 @@ Module UITK
 					StrokePath(1)
 					Offset + #ToolBar_SeparatorSize
 					;}
-				Else ;{ Button
-					If Not \Items()\Enabled
-						State = #Disabled
-					ElseIf \PressedItem = ListIndex(\Items()) Or \Items()\State
-						State = #Hot
-					ElseIf \MouseItem = ListIndex(\Items())
-						State = #Warm
-					Else
-						State = #Cold
-					EndIf
-
-					If State <> #Cold
-						AddPathRoundedBox(CellX + #ToolBar_Margin, CellY + #ToolBar_Margin, BoxSize, BoxSize, \ThemeData\CornerRadius, #Corner_All)
-						VectorSourceColor(\ThemeData\ShadeColor[State])
-						FillPath()
-					EndIf
-
-					If \Items()\imageID
-						MovePathCursor(CellX + \Items()\ImageX, CellY + \Items()\ImageY)
-						DrawVectorImage(\Items()\imageID, 145 + Bool(State <> #Disabled) * 110)
-					EndIf
-
+				Else;{ Button meta, drawn inset within the square cell
+					*Button = \Items()\Button
+					*Button\OriginX = CellX + #ToolBar_Margin
+					*Button\OriginY = CellY + #ToolBar_Margin
+					SaveVectorState()			; Button_Redraw clips to its box; isolate so it doesn't shrink the shared clip
+					*Button\Redraw(*Button)
+					RestoreVectorState()
 					Offset + \ButtonSize
 					;}
 				EndIf
 			Next
 		EndWith
 	EndProcedure
-
-	; Main-axis offset of an item's cell start — where its tooltip anchors
+	
 	Procedure ToolBar_ItemOffset(*GadgetData.ToolBarData, Index)
 		Protected Offset = *GadgetData\Border
 		With *GadgetData
@@ -11206,14 +11195,10 @@ Module UITK
 		EndWith
 		ProcedureReturn Offset
 	EndProcedure
-
-	; The hover delay elapsed: if the cursor still rests on the item the timer
-	; was armed for, show its text under the cell (beside it on a vertical bar).
-	; Disabled items tip too — a greyed button is exactly when you wonder what
-	; it would do.
+	
 	Procedure ToolBar_TipShow(*GadgetData.ToolBarData, Timer)
 		Protected X, Y
-
+		
 		RemoveGadgetTimer(Timer)
 		With *GadgetData
 			\TipTimer = 0
@@ -11231,29 +11216,42 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
+	Procedure ToolBar_CancelTip(*GadgetData.ToolBarData)
+		With *GadgetData
+			HideTooltip()
+			If \TipTimer
+				RemoveGadgetTimer(\TipTimer)
+				\TipTimer = 0
+			EndIf
+		EndWith
+	EndProcedure
+	
 	Procedure ToolBar_EventHandler(*GadgetData.ToolBarData, *Event.Event)
 		Protected Redraw, Item, P
-
+		
 		With *GadgetData
 			If \Vertical
 				P = *Event\MouseY
 			Else
 				P = *Event\MouseX
 			EndIf
-
+			
 			Select *Event\EventType
 				Case #MouseMove ;{
 					Item = ToolBar_ItemAt(*GadgetData, P)
 					If Item <> \MouseItem
+						; Move hover from the old button to the new one.
+						If \MouseItem > -1 And SelectElement(\Items(), \MouseItem) And \Items()\Button
+							ToolBar_Forward(\Items()\Button, #MouseLeave)
+						EndIf
+						If Item > -1 And SelectElement(\Items(), Item) And \Items()\Button
+							ToolBar_Forward(\Items()\Button, #MouseEnter)
+						EndIf
 						\MouseItem = Item
 						Redraw = #True
-						; Any showing or pending tip is stale; arm a fresh delay
-						HideTooltip()
-						If \TipTimer
-							RemoveGadgetTimer(\TipTimer)
-							\TipTimer = 0
-						EndIf
+						; Any showing or pending tip is stale; arm a fresh delay.
+						ToolBar_CancelTip(*GadgetData)
 						If Item > -1
 							\TipItem = Item
 							\TipTimer = AddGadgetTimer(*GadgetData, #ToolBar_TipDelay, @ToolBar_TipShow())
@@ -11261,60 +11259,54 @@ Module UITK
 					EndIf
 					;}
 				Case #MouseLeave ;{
-					HideTooltip()
-					If \TipTimer
-						RemoveGadgetTimer(\TipTimer)
-						\TipTimer = 0
+					ToolBar_CancelTip(*GadgetData)
+					If \MouseItem > -1 And SelectElement(\Items(), \MouseItem) And \Items()\Button
+						ToolBar_Forward(\Items()\Button, #MouseLeave)
 					EndIf
-					If \MouseItem <> -1 Or \PressedItem <> -1
+					If \MouseItem <> -1
 						\MouseItem = -1
-						\PressedItem = -1
 						Redraw = #True
 					EndIf
 					;}
 				Case #LeftButtonDown ;{
-					HideTooltip()	; A press means the user knows what they want
-					If \TipTimer
-						RemoveGadgetTimer(\TipTimer)
-						\TipTimer = 0
-					EndIf
+					ToolBar_CancelTip(*GadgetData)	; A press means the user knows what they want
 					Item = ToolBar_ItemAt(*GadgetData, P)
-					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Enabled
-						\PressedItem = Item
-						Redraw = #True
-					EndIf
-					;}
-				Case #LeftButtonUp ;{
-					If \PressedItem <> -1
-						\PressedItem = -1
+					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Button And \Items()\Button\Enabled
+						ToolBar_Forward(\Items()\Button, #LeftButtonDown)
 						Redraw = #True
 					EndIf
 					;}
 				Case #LeftClick ;{
 					Item = ToolBar_ItemAt(*GadgetData, P)
-					\PressedItem = -1
-					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Enabled
-						If \Items()\Toggle
-							\Items()\State = Bool(Not \Items()\State)
-						EndIf
+					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Button And \Items()\Button\Enabled
 						\State = Item
-						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+						ToolBar_Forward(\Items()\Button, #LeftClick)	; toggles + posts Change for the bar
 					EndIf
 					Redraw = #True
 					;}
 			EndSelect
-
+			
 			If Redraw
 				RedrawObject()
 			EndIf
 		EndWith
-
+		
 		ProcedureReturn Redraw
 	EndProcedure
-
+	
+	Procedure ToolBar_MakeButton(*GadgetData.ToolBarData, ImageID, Toggle)
+		Protected *Button.ButtonData, BtnSize = *GadgetData\ButtonSize - #ToolBar_Margin * 2
+		AllocateStructureX(*Button, ButtonData)
+		Button_Meta(*Button, *GadgetData\ButtonTheme, *GadgetData\Gadget, 0, 0, BtnSize, BtnSize, "", (Bool(Toggle) * #Button_Toggle) | #Gadget_Meta)
+		*Button\ParentWindow = *GadgetData\ParentWindow
+		*Button\TextBlock\Image = ImageID
+		PrepareVectorTextBlock(@*Button\TextBlock)
+		ProcedureReturn *Button
+	EndProcedure
+	
 	Procedure ToolBar_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
-		Protected *GadgetData.ToolBarData = *this\vt, *NewItem.ToolBar_Item, HBitmap.UITK_BitmapInfo
-
+		Protected *GadgetData.ToolBarData = *this\vt, *NewItem.ToolBar_Item
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -11323,35 +11315,31 @@ Module UITK
 				LastElement(\Items())
 				*NewItem = AddElement(\Items())
 			EndIf
-
+			
 			*NewItem\Text = PeekS(*Text)
-			*NewItem\Enabled = #True
-
-			If Flags = #ToolBar_Separator
-				*NewItem\Separator = #True
-			ElseIf Flags = #ToolBar_Toggle
-				*NewItem\Toggle = #True
-			EndIf
-
-			*NewItem\imageID = ImageID
-			If *NewItem\imageID
-				UITK_GetImageSize(*NewItem\imageID, @HBitmap)
-				*NewItem\ImageX = (\ButtonSize - HBitmap\bmWidth) * 0.5
-				*NewItem\ImageY = (\ButtonSize - HBitmap\bmHeight) * 0.5
-			EndIf
-
+			
+			Select Flags
+				Case #ToolBar_Separator
+					*NewItem\Separator = #True
+				Default
+					*NewItem\Button = ToolBar_MakeButton(*GadgetData, ImageID, Bool(Flags = #ToolBar_Toggle))
+			EndSelect
+			
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
 			RedrawObject()
 		EndWith
-
+		
 		ProcedureReturn Position
 	EndProcedure
-
+	
 	Procedure ToolBar_RemoveItem(*This.PB_Gadget, Position)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position)
+				If \Items()\Button
+					FreeStructure(\Items()\Button)
+				EndIf
 				DeleteElement(\Items())
 				If Position <= \State
 					\State - 1
@@ -11363,10 +11351,15 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_ClearItems(*This.PB_Gadget)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
+			ForEach \Items()
+				If \Items()\Button
+					FreeStructure(\Items()\Button)
+				EndIf
+			Next
 			ClearList(\Items())
 			\State = -1
 			\MouseItem = -1
@@ -11374,70 +11367,74 @@ Module UITK
 			RedrawObject()
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_CountItem(*This.PB_Gadget)
 		Protected *GadgetData.ToolBarData = *this\vt
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
-
+	
 	Procedure ToolBar_GetItemState(*This.PB_Gadget, Position)
 		Protected *GadgetData.ToolBarData = *this\vt, Result
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
-				; Disabled is the dominant state; otherwise report the toggle.
-				If Not \Items()\Enabled
-					Result = #Item_State_Disabled
-				ElseIf \Items()\State
-					Result = #Item_State_Toggled
-				Else
-					Result = #Item_State_Untoggled
+				If \Items()\Button
+					; Disabled is the dominant state; otherwise report the toggle.
+					If Not \Items()\Button\Enabled
+						Result = #Item_State_Disabled
+					ElseIf \Items()\Button\State
+						Result = #Item_State_Toggled
+					Else
+						Result = #Item_State_Untoggled
+					EndIf
 				EndIf
 			EndIf
 		EndWith
 		ProcedureReturn Result
 	EndProcedure
-
+	
 	Procedure ToolBar_SetItemState(*This.PB_Gadget, Position, State)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
-			If Position > -1 And SelectElement(\Items(), Position) And Not \Items()\Separator
+			If Position > -1 And SelectElement(\Items(), Position) And \Items()\Button
 				Select State
 					Case #Item_State_Untoggled		; also matches #False
-						If \Items()\Toggle
-							\Items()\State = #False
+						If \Items()\Button\Toggle
+							\Items()\Button\State = #False
 						EndIf
 					Case #Item_State_Toggled		; also matches #True
-						If \Items()\Toggle
-							\Items()\State = #True
+						If \Items()\Button\Toggle
+							\Items()\Button\State = #Hot
 						EndIf
 					Case #Item_State_Enabled
-						\Items()\Enabled = #True
+						\Items()\Button\Enabled = #True
 					Case #Item_State_Disabled
-						\Items()\Enabled = #False
+						\Items()\Button\Enabled = #False
 				EndSelect
 				RedrawObject()
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_GetItemImage(*This.PB_Gadget, Position)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
-				ProcedureReturn \Items()\imageID
+				If \Items()\Button
+					ProcedureReturn \Items()\Button\TextBlock\Image
+				EndIf
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_Resize(*This.PB_Gadget, x, y, Width, Height)
-		Protected *GadgetData.ToolBarData = *this\vt, HBitmap.UITK_BitmapInfo
-
+		Protected *GadgetData.ToolBarData = *this\vt, BtnSize
+		
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
 		*this\VT = *GadgetData
-
+		
 		With *GadgetData
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
@@ -11446,23 +11443,50 @@ Module UITK
 			Else
 				\ButtonSize = \Height - \Border * 2
 			EndIf
-
+			BtnSize = \ButtonSize - #ToolBar_Margin * 2
+			
 			ForEach \Items()
-				If \Items()\imageID
-					UITK_GetImageSize(\Items()\imageID, @HBitmap)
-					\Items()\ImageX = (\ButtonSize - HBitmap\bmWidth) * 0.5
-					\Items()\ImageY = (\ButtonSize - HBitmap\bmHeight) * 0.5
+				If \Items()\Button
+					\Items()\Button\Width = BtnSize
+					\Items()\Button\Height = BtnSize
+					\Items()\Button\TextBlock\Width = BtnSize
+					\Items()\Button\TextBlock\Height = BtnSize
+					PrepareVectorTextBlock(@\Items()\Button\TextBlock)
 				EndIf
 			Next
-
+			
 			RedrawObject()
 		EndWith
 	EndProcedure
-
+	
+	Procedure ToolBar_Free(*This.PB_Gadget)
+		Protected *GadgetData.ToolBarData = *this\vt
+		
+		With *GadgetData
+			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
+			ToolBar_CancelTip(*GadgetData)
+			
+			ForEach \Items()
+				If \Items()\Button
+					FreeStructure(\Items()\Button)
+				EndIf
+			Next
+			If \ButtonTheme
+				FreeStructure(\ButtonTheme)
+			EndIf
+			
+			*this\vt = \OriginalVT
+		EndWith
+		
+		FreeStructure(*GadgetData)
+		
+		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
+	EndProcedure
+	
 	Procedure ToolBar_Meta(*GadgetData.ToolBarData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(ToolBar)
-
+		
 		With *GadgetData
 			\Vertical = Bool(Flags & #Gadget_Vertical)
 			If \Vertical
@@ -11473,7 +11497,16 @@ Module UITK
 			\State = -1
 			\MouseItem = -1
 			\PressedItem = -1
-
+			
+			; Shared palette for the button metas: nothing when cold, the bar's ShadeColor on hover/press,
+			; so Button_Redraw reproduces the flat-until-hover ToolBar look.
+			AllocateStructureX(\ButtonTheme, Theme)
+			CopyStructure(\ThemeData, \ButtonTheme, Theme)
+			\ButtonTheme\BackColor[#Cold]		= 0
+			\ButtonTheme\BackColor[#Warm]		= \ThemeData\ShadeColor[#Warm]
+			\ButtonTheme\BackColor[#Hot]		= \ThemeData\ShadeColor[#Hot]
+			\ButtonTheme\BackColor[#Disabled]	= 0
+			
 			\VT\AddGadgetItem3 = @ToolBar_AddItem()
 			\VT\RemoveGadgetItem = @ToolBar_RemoveItem()
 			\VT\ClearGadgetItemList = @ToolBar_ClearItems()
@@ -11482,7 +11515,8 @@ Module UITK
 			\VT\GetGadgetItemState = @ToolBar_GetItemState()
 			\VT\SetGadgetItemState = @ToolBar_SetItemState()
 			\VT\GetGadgetItemImage = @ToolBar_GetItemImage()
-
+			\VT\FreeGadget = @ToolBar_Free()
+			
 			; Enable only the needed events
 			\SupportedEvent[#MouseMove] = #True
 			\SupportedEvent[#MouseLeave] = #True
@@ -11491,25 +11525,25 @@ Module UITK
 			\SupportedEvent[#LeftClick] = #True
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar(Gadget, x, y, Width, Height, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ToolBarData, *ThemeData
-
+		
 		Result = CanvasGadget(Gadget, x, y, Width, Height)
-
+		
 		If Result
 			If Gadget = #PB_Any
 				Gadget = Result
 			EndIf
-
+			
 			*this = IsGadget(Gadget)
 			AllocateStructureX(*GadgetData, ToolBarData)
 			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
 			*GadgetData\OriginalVT = *this\VT
 			*this\VT = *GadgetData
-
+			
 			AllocateStructureX(*ThemeData, Theme)
-
+			
 			If Flags & #DarkMode
 				CopyStructure(@DarkTheme, *ThemeData, Theme)
 			ElseIf Flags & #LightMode
@@ -11522,19 +11556,19 @@ Module UITK
 					CopyStructure(*DefaultTheme, *ThemeData, Theme)
 				EndIf
 			EndIf
-
+			
 			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
 			GadgetHandler() = Gadget
 			ToolBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
-
+			
 			RedrawObject()
 		EndIf
-
+		
 		ProcedureReturn Result
 	EndProcedure
 	;}
-
-
+	
+	
 	;{ TimeLine
 	; This is a big chunk of code, and it's totally useless for anything but a sequence editor, it's disabled by default to avoid your programme getting chonkier for nothing. Declare EnableTimeline module before including the source to enable it.
 	
@@ -12741,7 +12775,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 411
-; Folding = gA5---AAAAAAAAAAAAAAAAAAAA9wBA9DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 2152
+; FirstLine = 240
+; Folding = gA5---AAAgAACAAAAAAAgBAAAA9wBA9nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAhAMAAAAAAAA5
 ; EnableXP
 ; DPIAware
