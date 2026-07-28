@@ -106,6 +106,13 @@ AddGadgetItem(HToolBar, -1, "Italic",    ImageID(ToolIcon(240, 240, 240, 1)), UI
 AddGadgetItem(HToolBar, -1, "Underline", ImageID(ToolIcon(240, 240, 240, 2)), UITK::#ToolBar_Toggle)
 SetGadgetItemState(HToolBar, 4, #True)
 SetGadgetItemState(HToolBar, 2, UITK::#Item_State_Disabled)
+AddGadgetItem(HToolBar, -1, "",          0, UITK::#ToolBar_Separator)
+; Mode button: the icon side cycles through the shapes, the chevron side lists them.
+AddGadgetItem(HToolBar, -1, "Shape",     ImageID(ToolIcon(240, 120, 240, 0)), UITK::#ToolBar_ModeButton)
+UITK::ToolBarAddMode(HToolBar, 8, "Box",    ImageID(ToolIcon(240, 120, 240, 0)))
+UITK::ToolBarAddMode(HToolBar, 8, "Circle", ImageID(ToolIcon(240, 120, 240, 1)))
+UITK::ToolBarAddMode(HToolBar, 8, "Cross",  ImageID(ToolIcon(240, 120, 240, 2)))
+UITK::ToolBarAddMode(HToolBar, 8, "Plus",   ImageID(ToolIcon(240, 120, 240, 3)))
 
 VToolBar = UITK::ToolBar(#PB_Any, 540, 362, 32, 228, UITK::#Border | UITK::#Gadget_Vertical)
 AddGadgetItem(VToolBar, -1, "Select", ImageID(ToolIcon(120, 200, 255, 1)), 0)
@@ -114,6 +121,9 @@ AddGadgetItem(VToolBar, -1, "",       0, UITK::#ToolBar_Separator)
 AddGadgetItem(VToolBar, -1, "Grid",   ImageID(ToolIcon(200, 180, 255, 2)), UITK::#ToolBar_Toggle)
 AddGadgetItem(VToolBar, -1, "Snap",   ImageID(ToolIcon(180, 255, 220, 0)), UITK::#ToolBar_Toggle)
 SetGadgetItemState(VToolBar, 1, UITK::#Item_State_Disabled)
+AddGadgetItem(VToolBar, -1, "Brush",  ImageID(ToolIcon(255, 200, 120, 1)), UITK::#ToolBar_ModeButton)
+UITK::ToolBarAddMode(VToolBar, 5, "Round brush",  ImageID(ToolIcon(255, 200, 120, 1)))
+UITK::ToolBarAddMode(VToolBar, 5, "Square brush", ImageID(ToolIcon(255, 200, 120, 0)))
 
 HideWindow(Window, #False)
 
@@ -140,8 +150,8 @@ Repeat
 ForEver
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 115
-; FirstLine = 62
+; CursorPosition = 109
+; FirstLine = 64
 ; Folding = -
 ; EnableXP
 ; DPIAware

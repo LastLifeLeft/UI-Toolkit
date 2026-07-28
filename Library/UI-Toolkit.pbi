@@ -59,10 +59,10 @@
 		#PropertyBox_Color
 		#PropertyBox_CheckBox
 		
+		#Toolbar_DefaultButton							; ToolBar item: a plain push button (also used when the AddGadgetItem flag is 0)
 		#ToolBar_Toggle									; ToolBar item: a sticky toggle button (passed as the AddGadgetItem flag)
 		#ToolBar_Separator								; ToolBar item: a separator line
-		#ToolBar_DropDown
-		
+		#ToolBar_ModeButton								; ToolBar item: a split button - the icon side cycles through modes, the chevron side lists them (see ToolBarAddMode)
 		
 		#Attribute_ItemHeight
 		#Attribute_ItemWidth
@@ -379,6 +379,9 @@
 	Declare String(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ColorPicker(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare ToolBar(Gadget, x, y, Width, Height, Flags = #Default)
+	Declare ToolBarAddMode(Gadget, Item, Text.s, ImageID = 0)	; Add a mode to a #ToolBar_ModeButton item. Returns the mode index, -1 on failure.
+	Declare ToolBarGetMode(Gadget, Item)						; Active mode index of a mode button item (-1 if it has no mode yet)
+	Declare ToolBarSetMode(Gadget, Item, Mode)					; Set the active mode of a mode button item (does not post a change event)
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -2153,7 +2156,13 @@ Module UITK
 	
 	Procedure HideTooltip()
 		If TooltipWindow <> -1 And IsWindow(TooltipWindow)
-			HideWindow(TooltipWindow, #True)
+			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+				; Raw Win32 hide: PB's HideWindow re-activates the tooltip's owner (the hidden TimerWindow),
+				; which deactivates - and therefore closes - any popup menu currently showing (Combo, ToolBar mode menu).
+				ShowWindow_(WindowID(TooltipWindow), #SW_HIDE)
+			CompilerElse
+				HideWindow(TooltipWindow, #True)
+			CompilerEndIf
 		EndIf
 	EndProcedure
 	
@@ -11085,21 +11094,33 @@ Module UITK
 	#ToolBar_SeparatorSize = 9			; span, along the bar's axis, taken by a separator
 	#ToolBar_Margin = 3					; inset of a button's box within its square cell
 	#ToolBar_TipDelay = 600				; ms of steady hover before an item's tooltip shows
-	
+	#ToolBar_ModeChevron_Size = 8		; extra span, along the bar's axis, taken by a mode button's chevron
+	#ToolBar_ModeMenuWidth = 140		; minimum width of a mode button's dropdown menu
+	#ToolBar_ModeMenuMaxItem = 7		; the dropdown stops growing past this many modes and scrolls instead
+
 	Structure ToolBar_Item
-		Separator.b						; a separator line rather than a button
+		Type.l							; #Toolbar_DefaultButton, #ToolBar_Separator or #ToolBar_ModeButton
 		Text.s							; hover-tip text
-		*Button.ButtonData				; the button, embedded as a Button_Meta (0 for separators)
+		*Button.ButtonData				; the button, embedded as a Button_Meta (0 for separators; the icon side of a mode button)
+		; Mode button only
+		*ModeButton.ButtonData			; the chevron side, opens the mode menu
+		ModeChevronIMG.i				; the little triangle drawn on the chevron side
+		Mode.l							; active mode index (-1 until a mode is added)
+		ModeCount.l
+		ModeWindow.i					; borderless popup window hosting the mode menu
+		ModeList.i						; VerticalList inside ModeWindow listing the modes
 	EndStructure
-	
+
 	Structure ToolBarData Extends GadgetData
 		Vertical.b
 		ButtonSize.l					; square cell size = the bar's cross-axis thickness
 		MouseItem.l						; hovered item, or -1
+		MouseChevron.b					; the hover is on the chevron side of a mode button
 		PressedItem.l					; item with the mouse held on it, or -1
 		TipTimer.i						; pending hover-delay timer; 0 = none
 		TipItem.l						; the item the timer was armed for
 		*ButtonTheme.Theme				; shared palette for the button metas: transparent when cold, ShadeColor on hover/press
+		*ModeOpenItem.ToolBar_Item		; item whose mode menu is showing (cleared shortly after the menu closes, like the Combo's Unfolded flag)
 		List Items.ToolBar_Item()
 	EndStructure
 	
@@ -11111,22 +11132,29 @@ Module UITK
 	
 	Procedure ToolBar_ItemAt(*GadgetData.ToolBarData, P)
 		Protected Offset = *GadgetData\Border, Size
+		
 		With *GadgetData
 			ForEach \Items()
-				If \Items()\Separator
-					Size = #ToolBar_SeparatorSize
-				Else
-					Size = \ButtonSize
-				EndIf
+				Select \Items()\Type
+					Case #ToolBar_Separator
+						Size = #ToolBar_SeparatorSize
+					Case #ToolBar_ModeButton
+						Size = \ButtonSize + #ToolBar_ModeChevron_Size
+					Default
+						Size = \ButtonSize
+				EndSelect
+				
 				If P >= Offset And P < Offset + Size
-					If \Items()\Separator
+					If \Items()\Type = #ToolBar_Separator
 						ProcedureReturn -1
+					Else
+						ProcedureReturn ListIndex(\Items())
 					EndIf
-					ProcedureReturn ListIndex(\Items())
 				EndIf
 				Offset + Size
 			Next
 		EndWith
+		
 		ProcedureReturn -1
 	EndProcedure
 	
@@ -11153,28 +11181,53 @@ Module UITK
 					CellY = \OriginY + \Border
 				EndIf
 				
-				If \Items()\Separator ;{
-					If \Vertical
-						MovePathCursor(CellX + #ToolBar_Margin * 2, CellY + #ToolBar_SeparatorSize * 0.5)
-						AddPathLine(\ButtonSize - #ToolBar_Margin * 4, 0, #PB_Path_Relative)
-					Else
-						MovePathCursor(CellX + #ToolBar_SeparatorSize * 0.5, CellY + #ToolBar_Margin * 2)
-						AddPathLine(0, \ButtonSize - #ToolBar_Margin * 4, #PB_Path_Relative)
-					EndIf
-					VectorSourceColor(\ThemeData\LineColor[#Cold])
-					StrokePath(1)
-					Offset + #ToolBar_SeparatorSize
-					;}
-				Else;{ Button meta, drawn inset within the square cell
-					*Button = \Items()\Button
-					*Button\OriginX = CellX + #ToolBar_Margin
-					*Button\OriginY = CellY + #ToolBar_Margin
-					SaveVectorState()			; Button_Redraw clips to its box; isolate so it doesn't shrink the shared clip
-					*Button\Redraw(*Button)
-					RestoreVectorState()
-					Offset + \ButtonSize
-					;}
-				EndIf
+				
+				Select \Items()\Type
+					Case #ToolBar_Separator ;{
+						If \Vertical
+							MovePathCursor(CellX + #ToolBar_Margin * 2, CellY + #ToolBar_SeparatorSize * 0.5)
+							AddPathLine(\ButtonSize - #ToolBar_Margin * 4, 0, #PB_Path_Relative)
+						Else
+							MovePathCursor(CellX + #ToolBar_SeparatorSize * 0.5, CellY + #ToolBar_Margin * 2)
+							AddPathLine(0, \ButtonSize - #ToolBar_Margin * 4, #PB_Path_Relative)
+						EndIf
+						VectorSourceColor(\ThemeData\LineColor[#Cold])
+						StrokePath(1)
+						Offset + #ToolBar_SeparatorSize
+						;}
+					Case #ToolBar_ModeButton ;{ Mode button: icon side then chevron side, adjacent like a split button
+						*Button = \Items()\Button
+						*Button\OriginX = CellX + #ToolBar_Margin
+						*Button\OriginY = CellY + #ToolBar_Margin
+						SaveVectorState()
+						*Button\Redraw(*Button)
+						RestoreVectorState()
+
+						*Button = \Items()\ModeButton
+						*Button\OriginX = CellX + #ToolBar_Margin
+						*Button\OriginY = CellY + #ToolBar_Margin
+						If \Vertical
+							*Button\OriginY + \ButtonSize - #ToolBar_Margin * 2 + 1
+						Else
+							*Button\OriginX + \ButtonSize - #ToolBar_Margin * 2 + 1
+						EndIf
+
+						SaveVectorState()
+						*Button\Redraw(*Button)
+						RestoreVectorState()
+						Offset + \ButtonSize + #ToolBar_ModeChevron_Size
+						;}
+					Default ;{ Button
+						*Button = \Items()\Button
+						*Button\OriginX = CellX + #ToolBar_Margin
+						*Button\OriginY = CellY + #ToolBar_Margin
+						SaveVectorState()			; Button_Redraw clips to its box; isolate so it doesn't shrink the shared clip
+						*Button\Redraw(*Button)
+						RestoreVectorState()
+						Offset + \ButtonSize
+						;}
+				EndSelect
+				
 			Next
 		EndWith
 	EndProcedure
@@ -11186,11 +11239,14 @@ Module UITK
 				If ListIndex(\Items()) = Index
 					Break
 				EndIf
-				If \Items()\Separator
-					Offset + #ToolBar_SeparatorSize
-				Else
-					Offset + \ButtonSize
-				EndIf
+				Select \Items()\Type
+					Case #ToolBar_Separator
+						Offset + #ToolBar_SeparatorSize
+					Case #ToolBar_ModeButton
+						Offset + \ButtonSize + #ToolBar_ModeChevron_Size
+					Default
+						Offset + \ButtonSize
+				EndSelect
 			Next
 		EndWith
 		ProcedureReturn Offset
@@ -11226,71 +11282,184 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-	
+
+	Procedure ToolBar_ChevronAt(*GadgetData.ToolBarData, Item, P)
+		; #True when P sits on the chevron side of a mode button. Leaves the item list on an undefined element.
+		With *GadgetData
+			If Item > -1 And SelectElement(\Items(), Item) And \Items()\Type = #ToolBar_ModeButton
+				ProcedureReturn Bool(P >= ToolBar_ItemOffset(*GadgetData, Item) + \ButtonSize - #ToolBar_Margin + 1)
+			EndIf
+		EndWith
+		ProcedureReturn #False
+	EndProcedure
+
+	Procedure ToolBar_PartButton(*GadgetData.ToolBarData, Chevron)
+		; The button meta under the cursor for the current item; the item list element must already be selected.
+		With *GadgetData
+			If \Items()\Type = #ToolBar_ModeButton And Chevron
+				ProcedureReturn \Items()\ModeButton
+			Else
+				ProcedureReturn \Items()\Button
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_ModeApply(*GadgetData.ToolBarData, *Item.ToolBar_Item, Mode)
+		; Make Mode the active one: sync the menu's selection and put its icon on the icon side. Doesn't redraw the bar.
+		Protected *SubGadget.PB_Gadget, *VListData.VerticalListData
+
+		With *Item
+			If Mode > -1 And Mode < \ModeCount
+				\Mode = Mode
+				SetGadgetState(\ModeList, Mode)
+				*SubGadget = IsGadget(\ModeList)
+				*VListData = *SubGadget\vt
+				SelectElement(*VListData\Items(), Mode)
+				\Button\TextBlock\Image = *VListData\Items()\Text\Image
+				PrepareVectorTextBlock(@\Button\TextBlock)
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_ModeMenuTimer(*GadgetData.ToolBarData, Timer)
+		RemoveGadgetTimer(Timer)
+		*GadgetData\ModeOpenItem = 0
+	EndProcedure
+
+	Procedure ToolBar_ModeWindowHandler()
+		; The menu window lost activation: hide it. ModeOpenItem lingers 20 ms so a click on the chevron that
+		; caused the deactivation reads as "close" instead of instantly reopening (same dance as the Combo).
+		Protected Window = EventWindow(), *GadgetData.ToolBarData = GetProp_(WindowID(Window), "UITK_ToolBarData")
+
+		AddGadgetTimer(*GadgetData, 20, @ToolBar_ModeMenuTimer())
+		HideWindow(Window, #True)
+	EndProcedure
+
+	Procedure ToolBar_ModeListHandler()
+		; A mode was picked in the dropdown.
+		Protected Gadget = EventGadget()
+		Protected *GadgetData.ToolBarData = GetProp_(GadgetID(Gadget), "UITK_ToolBarData")
+		Protected *Item.ToolBar_Item = GetProp_(GadgetID(Gadget), "UITK_ToolBarItem")
+
+		With *GadgetData
+			ToolBar_ModeApply(*GadgetData, *Item, GetGadgetState(Gadget))
+			HideWindow(*Item\ModeWindow, #True)
+			\ModeOpenItem = 0
+			ChangeCurrentElement(\Items(), *Item)
+			\State = ListIndex(\Items())
+			RedrawObject()
+			PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+		EndWith
+	EndProcedure
+
+	Procedure ToolBar_ModeMenuShow(*GadgetData.ToolBarData, *Item.ToolBar_Item)
+		Protected X, Y, Offset
+
+		With *GadgetData
+			ChangeCurrentElement(\Items(), *Item)
+			Offset = ToolBar_ItemOffset(*GadgetData, ListIndex(\Items()))
+			X = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate)
+			Y = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate)
+			If \Vertical
+				X + \Width + 2
+				Y + Offset
+			Else
+				X + Offset
+				Y + \Height + 2
+			EndIf
+			SetWindowPos_(WindowID(*Item\ModeWindow), 0, X, Y, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
+			HideWindow(*Item\ModeWindow, #False)
+			SetActiveGadget(*Item\ModeList)
+			\ModeOpenItem = *Item
+		EndWith
+	EndProcedure
+
 	Procedure ToolBar_EventHandler(*GadgetData.ToolBarData, *Event.Event)
-		Protected Redraw, Item, P
-		
+		Protected Redraw, Item, P, Chevron
+
 		With *GadgetData
 			If \Vertical
 				P = *Event\MouseY
 			Else
 				P = *Event\MouseX
 			EndIf
-			
+
 			Select *Event\EventType
 				Case #MouseMove ;{
 					Item = ToolBar_ItemAt(*GadgetData, P)
-					If Item <> \MouseItem
-						; Move hover from the old button to the new one.
+					Chevron = ToolBar_ChevronAt(*GadgetData, Item, P)
+					If Item <> \MouseItem Or Chevron <> \MouseChevron
+						; Move hover from the old button to the new one (the two sides of a mode button count as two buttons).
 						If \MouseItem > -1 And SelectElement(\Items(), \MouseItem) And \Items()\Button
-							ToolBar_Forward(\Items()\Button, #MouseLeave)
+							ToolBar_Forward(ToolBar_PartButton(*GadgetData, \MouseChevron), #MouseLeave)
 						EndIf
 						If Item > -1 And SelectElement(\Items(), Item) And \Items()\Button
-							ToolBar_Forward(\Items()\Button, #MouseEnter)
+							ToolBar_Forward(ToolBar_PartButton(*GadgetData, Chevron), #MouseEnter)
+						EndIf
+						If Item <> \MouseItem
+							; Any showing or pending tip is stale; arm a fresh delay.
+							ToolBar_CancelTip(*GadgetData)
+							If Item > -1
+								\TipItem = Item
+								\TipTimer = AddGadgetTimer(*GadgetData, #ToolBar_TipDelay, @ToolBar_TipShow())
+							EndIf
 						EndIf
 						\MouseItem = Item
+						\MouseChevron = Chevron
 						Redraw = #True
-						; Any showing or pending tip is stale; arm a fresh delay.
-						ToolBar_CancelTip(*GadgetData)
-						If Item > -1
-							\TipItem = Item
-							\TipTimer = AddGadgetTimer(*GadgetData, #ToolBar_TipDelay, @ToolBar_TipShow())
-						EndIf
 					EndIf
 					;}
 				Case #MouseLeave ;{
 					ToolBar_CancelTip(*GadgetData)
 					If \MouseItem > -1 And SelectElement(\Items(), \MouseItem) And \Items()\Button
-						ToolBar_Forward(\Items()\Button, #MouseLeave)
+						ToolBar_Forward(ToolBar_PartButton(*GadgetData, \MouseChevron), #MouseLeave)
 					EndIf
 					If \MouseItem <> -1
 						\MouseItem = -1
+						\MouseChevron = #False
 						Redraw = #True
 					EndIf
 					;}
 				Case #LeftButtonDown ;{
 					ToolBar_CancelTip(*GadgetData)	; A press means the user knows what they want
 					Item = ToolBar_ItemAt(*GadgetData, P)
+					Chevron = ToolBar_ChevronAt(*GadgetData, Item, P)
 					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Button And \Items()\Button\Enabled
-						ToolBar_Forward(\Items()\Button, #LeftButtonDown)
+						ToolBar_Forward(ToolBar_PartButton(*GadgetData, Chevron), #LeftButtonDown)
+						If Chevron
+							; The menu opens on press, like the Combo. If it was showing an instant ago, this press closed it.
+							If \ModeOpenItem = @\Items()
+								\ModeOpenItem = 0
+							ElseIf \Items()\ModeCount
+								ToolBar_ModeMenuShow(*GadgetData, @\Items())
+							EndIf
+						EndIf
 						Redraw = #True
 					EndIf
 					;}
 				Case #LeftClick ;{
 					Item = ToolBar_ItemAt(*GadgetData, P)
+					Chevron = ToolBar_ChevronAt(*GadgetData, Item, P)
 					If Item > -1 And SelectElement(\Items(), Item) And \Items()\Button And \Items()\Button\Enabled
-						\State = Item
-						ToolBar_Forward(\Items()\Button, #LeftClick)	; toggles + posts Change for the bar
+						If \Items()\Type = #ToolBar_ModeButton And Chevron
+							\Items()\ModeButton\MouseState = #Warm	; release the press without posting a Change; the menu is already showing
+						Else
+							If \Items()\Type = #ToolBar_ModeButton And \Items()\ModeCount
+								ToolBar_ModeApply(*GadgetData, @\Items(), (\Items()\Mode + 1) % \Items()\ModeCount)
+							EndIf
+							\State = Item
+							ToolBar_Forward(\Items()\Button, #LeftClick)	; toggles + posts Change for the bar
+						EndIf
 					EndIf
 					Redraw = #True
 					;}
 			EndSelect
-			
+
 			If Redraw
 				RedrawObject()
 			EndIf
 		EndWith
-		
+
 		ProcedureReturn Redraw
 	EndProcedure
 	
@@ -11304,8 +11473,86 @@ Module UITK
 		ProcedureReturn *Button
 	EndProcedure
 	
+	Procedure ToolBar_MakeModeButton(*GadgetData.ToolBarData, *NewItem.ToolBar_Item, ImageID)
+		Protected *Button.ButtonData, BtnSize = *GadgetData\ButtonSize - #ToolBar_Margin * 2
+		Protected *ModeButton.ButtonData, GadgetList
+
+		; Icon side: shows the active mode's icon, a click cycles to the next mode
+		AllocateStructureX(*Button, ButtonData)
+		Button_Meta(*Button, *GadgetData\ButtonTheme, *GadgetData\Gadget, 0, 0, BtnSize, BtnSize, "", #Gadget_Meta)
+		*Button\ParentWindow = *GadgetData\ParentWindow
+		*Button\TextBlock\Image = ImageID
+
+		; Chevron side: opens the mode menu. The triangle points along the direction the menu opens.
+		AllocateStructureX(*ModeButton, ButtonData)
+		If *GadgetData\Vertical
+			*NewItem\ModeChevronIMG = CreateImage(#PB_Any, 4, 6, 32, #PB_Image_Transparent)
+			StartVectorDrawing(ImageVectorOutput(*NewItem\ModeChevronIMG))
+			MovePathCursor(0, 0)
+			AddPathLine(4, 3)
+			AddPathLine(0, 6)
+			ClosePath()
+			VectorSourceColor(*GadgetData\ThemeData\TextColor[#Cold])
+			FillPath()
+			StopVectorDrawing()
+			Button_Meta(*ModeButton, *GadgetData\ButtonTheme, *GadgetData\Gadget, 0, 0, BtnSize, #ToolBar_ModeChevron_Size, "", #Gadget_Meta)
+
+			*Button\CornerType = #Corner_Top
+			*ModeButton\CornerType = #Corner_Bottom
+		Else
+			*NewItem\ModeChevronIMG = CreateImage(#PB_Any, 6, 4, 32, #PB_Image_Transparent)
+			StartVectorDrawing(ImageVectorOutput(*NewItem\ModeChevronIMG))
+			MovePathCursor(0, 0)
+			AddPathLine(6, 0)
+			AddPathLine(3, 4)
+			ClosePath()
+			VectorSourceColor(*GadgetData\ThemeData\TextColor[#Cold])
+			FillPath()
+			StopVectorDrawing()
+			Button_Meta(*ModeButton, *GadgetData\ButtonTheme, *GadgetData\Gadget, 0, 0, #ToolBar_ModeChevron_Size, BtnSize, "", #Gadget_Meta)
+
+			*Button\CornerType = #Corner_Left
+			*ModeButton\CornerType = #Corner_Right
+		EndIf
+		*ModeButton\ParentWindow = *GadgetData\ParentWindow
+		*ModeButton\TextBlock\Image = ImageID(*NewItem\ModeChevronIMG)
+
+		PrepareVectorTextBlock(@*Button\TextBlock)
+		PrepareVectorTextBlock(@*ModeButton\TextBlock)
+		*NewItem\Button = *Button
+		*NewItem\ModeButton = *ModeButton
+		*NewItem\Mode = -1
+
+		; Mode menu: borderless popup owning a VerticalList, opened under (or next to) the chevron - same recipe as the Combo.
+		GadgetList = UseGadgetList(0)
+		*NewItem\ModeWindow = OpenWindow(#PB_Any, 0, 0, #ToolBar_ModeMenuWidth, #VerticalList_ItemHeight + 2, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(*GadgetData\ParentWindow))
+		SetWindowColor(*NewItem\ModeWindow, RGB(Red(*GadgetData\ThemeData\LineColor[#Warm]), Green(*GadgetData\ThemeData\LineColor[#Warm]), Blue(*GadgetData\ThemeData\LineColor[#Warm])))
+		*NewItem\ModeList = VerticalList(#PB_Any, 1, 1, #ToolBar_ModeMenuWidth - 2, #VerticalList_ItemHeight)
+		SetGadgetAttribute(*NewItem\ModeList, #Attribute_CornerRadius, 0)
+		UseGadgetList(GadgetList)
+
+		SetProp_(WindowID(*NewItem\ModeWindow), "UITK_ToolBarData", *GadgetData)
+		SetProp_(GadgetID(*NewItem\ModeList), "UITK_ToolBarData", *GadgetData)
+		SetProp_(GadgetID(*NewItem\ModeList), "UITK_ToolBarItem", *NewItem)
+		BindEvent(#PB_Event_DeactivateWindow, @ToolBar_ModeWindowHandler(), *NewItem\ModeWindow)
+		BindGadgetEvent(*NewItem\ModeList, @ToolBar_ModeListHandler(), #PB_EventType_Change)
+
+		SetGadgetColor(*NewItem\ModeList, #Color_Shade_Cold, *GadgetData\ThemeData\BackColor[#Warm])
+		SetGadgetColor(*NewItem\ModeList, #Color_Shade_Warm, *GadgetData\ThemeData\BackColor[#Hot])
+		SetGadgetColor(*NewItem\ModeList, #Color_Shade_Hot, *GadgetData\ThemeData\BackColor[#Hot])
+		SetGadgetColor(*NewItem\ModeList, #Color_Text_Cold, *GadgetData\ThemeData\TextColor[#Cold])
+		SetGadgetColor(*NewItem\ModeList, #Color_Text_Warm, *GadgetData\ThemeData\TextColor[#Warm])
+		SetGadgetColor(*NewItem\ModeList, #Color_Text_Hot, *GadgetData\ThemeData\TextColor[#Hot])
+
+		ProcedureReturn *NewItem
+	EndProcedure
+	
 	Procedure ToolBar_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
 		Protected *GadgetData.ToolBarData = *this\vt, *NewItem.ToolBar_Item
+		
+		If Flags = 0
+			Flags = #Toolbar_DefaultButton
+		EndIf
 		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
@@ -11317,11 +11564,16 @@ Module UITK
 			EndIf
 			
 			*NewItem\Text = PeekS(*Text)
+			*NewItem\Type = Flags
 			
 			Select Flags
 				Case #ToolBar_Separator
-					*NewItem\Separator = #True
+					*NewItem\Type = #ToolBar_Separator
+				Case #ToolBar_ModeButton
+					*NewItem = ToolBar_MakeModeButton(*GadgetData, *NewItem, ImageID)
+					*NewItem\Type = #ToolBar_ModeButton
 				Default
+					*NewItem\Type = #Toolbar_DefaultButton
 					*NewItem\Button = ToolBar_MakeButton(*GadgetData, ImageID, Bool(Flags = #ToolBar_Toggle))
 			EndSelect
 			
@@ -11329,17 +11581,114 @@ Module UITK
 			Position = ListIndex(\Items())
 			RedrawObject()
 		EndWith
-		
+
 		ProcedureReturn Position
 	EndProcedure
-	
+
+	Procedure ToolBarAddMode(Gadget, Item, Text.s, ImageID = 0)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.ToolBarData
+		Protected *SubGadget.PB_Gadget, *VListData.VerticalListData, Mode, MenuWidth
+
+		If *this = 0
+			ProcedureReturn -1
+		EndIf
+		*GadgetData = *this\vt
+
+		With *GadgetData
+			If Item > -1 And SelectElement(\Items(), Item) And \Items()\Type = #ToolBar_ModeButton
+				Mode = \Items()\ModeCount
+				AddGadgetItem(\Items()\ModeList, -1, Text, ImageID)
+				\Items()\ModeCount + 1
+
+				; Grow the popup to fit the widest mode name; past #ToolBar_ModeMenuMaxItem entries the list scrolls instead.
+				*SubGadget = IsGadget(\Items()\ModeList)
+				*VListData = *SubGadget\vt
+				SelectElement(*VListData\Items(), Mode)
+				MenuWidth = GadgetWidth(\Items()\ModeList)
+				If *VListData\Items()\Text\RequiredWidth + #VerticalList_Margin * 2 + #VerticalList_IconWidth > MenuWidth
+					MenuWidth = *VListData\Items()\Text\RequiredWidth + #VerticalList_Margin * 2 + #VerticalList_IconWidth
+				EndIf
+				If \Items()\ModeCount <= #ToolBar_ModeMenuMaxItem
+					ResizeWindow(\Items()\ModeWindow, #PB_Ignore, #PB_Ignore, MenuWidth + 2, \Items()\ModeCount * *VListData\ItemHeight + 2)
+					ResizeGadget(\Items()\ModeList, #PB_Ignore, #PB_Ignore, MenuWidth, \Items()\ModeCount * *VListData\ItemHeight)
+				ElseIf MenuWidth <> GadgetWidth(\Items()\ModeList)
+					ResizeWindow(\Items()\ModeWindow, #PB_Ignore, #PB_Ignore, MenuWidth + 2, #PB_Ignore)
+					ResizeGadget(\Items()\ModeList, #PB_Ignore, #PB_Ignore, MenuWidth, #PB_Ignore)
+				EndIf
+
+				; The first mode becomes the active one and takes over the icon side.
+				If \Items()\ModeCount = 1
+					ToolBar_ModeApply(*GadgetData, @\Items(), 0)
+					RedrawObject()
+				EndIf
+
+				ProcedureReturn Mode
+			EndIf
+		EndWith
+
+		ProcedureReturn -1
+	EndProcedure
+
+	Procedure ToolBarGetMode(Gadget, Item)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.ToolBarData
+
+		If *this
+			*GadgetData = *this\vt
+			If Item > -1 And SelectElement(*GadgetData\Items(), Item) And *GadgetData\Items()\Type = #ToolBar_ModeButton
+				ProcedureReturn *GadgetData\Items()\Mode
+			EndIf
+		EndIf
+
+		ProcedureReturn -1
+	EndProcedure
+
+	Procedure ToolBarSetMode(Gadget, Item, Mode)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.ToolBarData
+
+		If *this
+			*GadgetData = *this\vt
+			With *GadgetData
+				If Item > -1 And SelectElement(\Items(), Item) And \Items()\Type = #ToolBar_ModeButton And Mode > -1 And Mode < \Items()\ModeCount
+					ToolBar_ModeApply(*GadgetData, @\Items(), Mode)
+					RedrawObject()
+					ProcedureReturn #True
+				EndIf
+			EndWith
+		EndIf
+	EndProcedure
+
+	Procedure ToolBar_FreeItem(*GadgetData.ToolBarData, *Item.ToolBar_Item)
+		With *Item
+			If \Button
+				FreeStructure(\Button)
+			EndIf
+			If \Type = #ToolBar_ModeButton
+				If *GadgetData\ModeOpenItem = *Item
+					*GadgetData\ModeOpenItem = 0
+				EndIf
+				If \ModeButton
+					FreeStructure(\ModeButton)
+				EndIf
+				If IsImage(\ModeChevronIMG)
+					FreeImage(\ModeChevronIMG)
+				EndIf
+				If IsGadget(\ModeList)
+					UnbindGadgetEvent(\ModeList, @ToolBar_ModeListHandler(), #PB_EventType_Change)
+					FreeGadget(\ModeList)
+				EndIf
+				If IsWindow(\ModeWindow)
+					UnbindEvent(#PB_Event_DeactivateWindow, @ToolBar_ModeWindowHandler(), \ModeWindow)
+					CloseWindow(\ModeWindow)
+				EndIf
+			EndIf
+		EndWith
+	EndProcedure
+
 	Procedure ToolBar_RemoveItem(*This.PB_Gadget, Position)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position)
-				If \Items()\Button
-					FreeStructure(\Items()\Button)
-				EndIf
+				ToolBar_FreeItem(*GadgetData, @\Items())
 				DeleteElement(\Items())
 				If Position <= \State
 					\State - 1
@@ -11351,14 +11700,12 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-	
+
 	Procedure ToolBar_ClearItems(*This.PB_Gadget)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
 			ForEach \Items()
-				If \Items()\Button
-					FreeStructure(\Items()\Button)
-				EndIf
+				ToolBar_FreeItem(*GadgetData, @\Items())
 			Next
 			ClearList(\Items())
 			\State = -1
@@ -11408,8 +11755,14 @@ Module UITK
 						EndIf
 					Case #Item_State_Enabled
 						\Items()\Button\Enabled = #True
+						If \Items()\Type = #ToolBar_ModeButton
+							\Items()\ModeButton\Enabled = #True
+						EndIf
 					Case #Item_State_Disabled
 						\Items()\Button\Enabled = #False
+						If \Items()\Type = #ToolBar_ModeButton
+							\Items()\ModeButton\Enabled = #False
+						EndIf
 				EndSelect
 				RedrawObject()
 			EndIf
@@ -11453,6 +11806,18 @@ Module UITK
 					\Items()\Button\TextBlock\Height = BtnSize
 					PrepareVectorTextBlock(@\Items()\Button\TextBlock)
 				EndIf
+				If \Items()\Type = #ToolBar_ModeButton And \Items()\ModeButton
+					If \Vertical
+						\Items()\ModeButton\Width = BtnSize
+						\Items()\ModeButton\Height = #ToolBar_ModeChevron_Size
+					Else
+						\Items()\ModeButton\Width = #ToolBar_ModeChevron_Size
+						\Items()\ModeButton\Height = BtnSize
+					EndIf
+					\Items()\ModeButton\TextBlock\Width = \Items()\ModeButton\Width
+					\Items()\ModeButton\TextBlock\Height = \Items()\ModeButton\Height
+					PrepareVectorTextBlock(@\Items()\ModeButton\TextBlock)
+				EndIf
 			Next
 			
 			RedrawObject()
@@ -11465,11 +11830,9 @@ Module UITK
 		With *GadgetData
 			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
 			ToolBar_CancelTip(*GadgetData)
-			
+
 			ForEach \Items()
-				If \Items()\Button
-					FreeStructure(\Items()\Button)
-				EndIf
+				ToolBar_FreeItem(*GadgetData, @\Items())
 			Next
 			If \ButtonTheme
 				FreeStructure(\ButtonTheme)
@@ -12775,8 +13138,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 2152
-; FirstLine = 240
-; Folding = gA5---AAAgAACAAAAAAAgBAAAA9wBA9nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAhAMAAAAAAAA5
+; CursorPosition = 11285
+; FirstLine = 651
+; Folding = jA5---AAIAACAAAAAAAAgBAAAA9wBA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAABAAAAAAAAAAAAAAAAAAAAAAAAAA2xAAAAAAAAAg
 ; EnableXP
 ; DPIAware
