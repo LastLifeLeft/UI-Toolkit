@@ -5711,7 +5711,9 @@ Module UITK
 									
 									*Event\EventType = #Focus
 									\String\OriginX = \Items()\Text\TextX + #VerticalList_Margin + \Border
-									\String\Width = \Items()\Text\Width
+									; TextX (the item icon's share of the row) is already in the origin, so it
+									; has to come off the width too, or the box overruns the row to the right.
+									\String\Width = \Items()\Text\Width - \Items()\Text\TextX
 									\String\OriginY = \State * \ItemHeight - \ScrollBar\State + \Items()\Text\TextY + \Border - 2
 									\String\EventHandler(\String, *Event)
 									StringSetSelection_Meta(\String, 0, Len(\String\String))
@@ -12003,7 +12005,12 @@ Module UITK
 			ReorderDirection.b
 			ReorderWindow.i
 			ReorderCanvas.i
-			
+
+			Editable.l
+			Editing.b
+			EditCursor.b					; the cursor shape in force, and so also "pointer inside the editor"
+
+			*String.StringData				; inline rename editor, only allocated with #Editable
 			*ItemRedraw.ItemRedraw
 			*ScrollBar.ScrollBarData
 			
@@ -12356,6 +12363,12 @@ Module UITK
 					FillPath()
 				EndIf
 				
+				If \Editing
+					SaveVectorState()
+					\String\Redraw(\String)
+					RestoreVectorState()
+				EndIf
+
 				If \VisibleScrollBar
 					\ScrollBar\Redraw(\ScrollBar)
 				EndIf
@@ -12558,15 +12571,84 @@ Module UITK
 			EndWith
 		EndProcedure
 		
+		;- Inline renaming (#Editable)
+
+		Procedure LayerList_BeginEdit(*GadgetData.LayerListData)
+			; Drop the editor over the selected row. Refused when there's nothing to edit, or when
+			; the row can't be seen - editing a row tucked inside a folded group would put the box
+			; nowhere useful.
+			Protected Event.Event, Row
+
+			With *GadgetData
+				If Not \Editable Or \Editing Or \State < 0
+					ProcedureReturn #False
+				EndIf
+
+				Row = LayerList_IndexToRow(*GadgetData, \State)
+				If Row < 0 Or Not SelectElement(\Items(), \State)
+					ProcedureReturn #False
+				EndIf
+
+				\Editing = #True
+				\String\String = \Items()\Text\OriginalText
+				String_ProcessString(\String)
+
+				; Sit exactly where the row's text is drawn: the row's content origin plus the text
+				; block's own offset, which already accounts for the item's icon. That offset has to
+				; come back off the width too, or the box overshoots to the right by the width of the
+				; icon and covers the eye.
+				\String\OriginX = LayerList_TextX(*GadgetData, \Items()\Child) + \Items()\Text\TextX
+				\String\OriginY = \Border + Row * \ItemHeight - LayerList_ScrollOffset(*GadgetData) + \Items()\Text\TextY - 2
+				\String\Width = \Items()\Text\Width - \Items()\Text\TextX
+
+				Event\EventType = #Focus
+				\String\EventHandler(\String, Event)
+				StringSetSelection_Meta(\String, 0, Len(\String\String))
+			EndWith
+
+			ProcedureReturn #True
+		EndProcedure
+
+		Procedure LayerList_EndEdit(*GadgetData.LayerListData, Keep)
+			; Fold the editor away. Keep writes the typed text back into the row and reports it
+			; with #EventType_ItemTextChange; otherwise the row keeps the text it had (Escape, or
+			; the row being removed from under the editor).
+			Protected Event.Event
+
+			With *GadgetData
+				If Not \Editing
+					ProcedureReturn #False
+				EndIf
+
+				\Editing = #False
+
+				If Keep And SelectElement(\Items(), \State)
+					\Items()\Text\OriginalText = \String\String
+					LayerList_PrepareItem(*GadgetData, @\Items())
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+				EndIf
+
+				Event\EventType = #LostFocus
+				\String\EventHandler(\String, Event)
+			EndWith
+
+			ProcedureReturn #True
+		EndProcedure
+
 		;- Events
-		
+
 		Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
-			Protected Redraw, Row, Index, Zone, Rows
-			
+			Protected Redraw, Row, Index, Zone, Rows, Cursor = *GadgetData\EditCursor
+
 			With *GadgetData
 				Select *Event\EventType
 					Case #MouseMove ;{
-						If \DragState = #Drag_Init ;{ waiting to clear the drag threshold
+						If \String And \String\Selecting ;{ dragging out a selection inside the editor
+							*Event\MouseX - \String\OriginX
+							*Event\MouseY - \String\OriginY
+							Redraw = \String\EventHandler(\String, *Event)
+							;}
+						ElseIf \DragState = #Drag_Init ;{ waiting to clear the drag threshold
 							If Abs(\DragOriginX - *Event\MouseX) > #Drag_Distance Or Abs(\DragOriginY - *Event\MouseY) > #Drag_Distance
 								LayerList_StartReorder(*GadgetData, *Event)
 								Redraw = #True
@@ -12601,6 +12683,8 @@ Module UITK
 							EndIf
 							;}
 						Else;{ plain hover
+							Cursor = #PB_Cursor_Default
+
 							If \VisibleScrollBar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
 								Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 							ElseIf \ScrollBar\MouseState
@@ -12627,12 +12711,31 @@ Module UITK
 									\HoverZone = Zone
 									Redraw = #True
 								EndIf
+
+								; Over the open editor the pointer becomes a caret, which is also how
+								; #LeftButtonDown below knows the click belongs to the editor.
+								If \Editing And Index = \State
+									If *Event\MouseX > \String\OriginX And *Event\MouseY > \String\OriginY And *Event\MouseY < \String\OriginY + \String\Height
+										Cursor = #PB_Cursor_IBeam
+									EndIf
+								EndIf
 							EndIf
 						EndIf ;}
 							  ;}
 					Case #LeftButtonDown ;{
-						If \ScrollBar\MouseState
-							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						; A click anywhere but inside the editor commits what was being typed - on a
+						; row, on the scrollbar, or on empty space below the rows.
+						If Not \EditCursor
+							Redraw = LayerList_EndEdit(*GadgetData, #True)
+						EndIf
+
+						If \EditCursor ;{ inside the open editor: the click places the caret
+							*Event\MouseX - \String\OriginX
+							*Event\MouseY - \String\OriginY
+							Redraw = \String\EventHandler(\String, *Event)
+							;}
+						ElseIf \ScrollBar\MouseState
+							Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
 						ElseIf \ItemState > -1
 							Index = \ItemState
 							
@@ -12708,10 +12811,14 @@ Module UITK
 						EndIf
 						;}
 					Case #MouseWheel ;{
+						; Commit first: the editor is placed against a row's screen position, so
+						; scrolling would leave it stranded away from the row it belongs to.
+						Redraw = LayerList_EndEdit(*GadgetData, #True)
+
 						If \VisibleScrollBar
 							ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
 							*Event\EventType = #MouseMove
-							Redraw = Bool(Not LayerList_EventHandler(*GadgetData, *Event))
+							Redraw + Bool(Not LayerList_EventHandler(*GadgetData, *Event))
 						EndIf
 						;}
 					Case #LeftDoubleClick ;{
@@ -12722,7 +12829,17 @@ Module UITK
 						EndIf
 						;}
 					Case #KeyDown ;{
-						If \DragState = #Drag_None
+						If \Editing ;{ the editor owns the keyboard while it's open
+							Select *Event\Param
+								Case #PB_Shortcut_Return
+									Redraw = LayerList_EndEdit(*GadgetData, #True)
+								Case #PB_Shortcut_Escape
+									Redraw = LayerList_EndEdit(*GadgetData, #False)		; keep the old name
+								Default
+									Redraw = \String\EventHandler(\String, *Event)
+							EndSelect
+							;}
+						ElseIf \DragState = #Drag_None
 							Row = LayerList_IndexToRow(*GadgetData, \State)
 							
 							Select *Event\Param
@@ -12772,16 +12889,32 @@ Module UITK
 										Redraw = #True
 									EndIf
 									;}
+								Case #PB_Shortcut_F2 ;{ rename the selected row in place
+									Redraw = LayerList_BeginEdit(*GadgetData)
+									;}
 							EndSelect
 						EndIf
 						;}
+					Case #LostFocus ;{ clicking away from the gadget commits the rename
+						Redraw = LayerList_EndEdit(*GadgetData, #True)
+						;}
+					Default ;{ #Input and the rest belong to the editor while it's open
+						If \Editing
+							Redraw = \String\EventHandler(\String, *Event)
+						EndIf
+						;}
 				EndSelect
-				
+
+				If Cursor <> \EditCursor
+					\EditCursor = Cursor
+					\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
+				EndIf
+
 				If Redraw
 					RedrawObject()
 				EndIf
 			EndWith
-			
+
 			ProcedureReturn Redraw
 		EndProcedure
 		
@@ -12836,8 +12969,11 @@ Module UITK
 		Procedure LayerList_RemoveItem(*this.PB_Gadget, Position)
 			; Removing a group takes its children with it.
 			Protected *GadgetData.LayerListData = *this\vt, Count, Loop
-			
+
 			With *GadgetData
+				; Drop the editor rather than let it commit into whatever lands on this index.
+				LayerList_EndEdit(*GadgetData, #False)
+
 				If Position > -1 And Position < ListSize(\Items())
 					SelectElement(\Items(), Position)
 					
@@ -12873,6 +13009,7 @@ Module UITK
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			With *GadgetData
+				LayerList_EndEdit(*GadgetData, #False)
 				ClearList(\Items())
 				\State = -1
 				\ItemState = -1
@@ -13045,7 +13182,10 @@ Module UITK
 		
 		Procedure LayerList_Resize(*this.PB_Gadget, x, y, Width, Height)
 			Protected *GadgetData.LayerListData = *this\vt
-			
+
+			; The editor is placed against the current geometry, so settle it before moving things.
+			LayerList_EndEdit(*GadgetData, #True)
+
 			*this\VT = *GadgetData\OriginalVT
 			ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
 			*this\VT = *GadgetData
@@ -13087,8 +13227,13 @@ Module UITK
 				
 				DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
 				FreeStructure(\ScrollBar)
+
+				If \String
+					FreeMemory(\String\ThemeData)		; the editor's own copy of the theme
+					FreeStructure(\String)
+				EndIf
 			EndWith
-			
+
 			Default_FreeGadget(*this)
 		EndProcedure
 		
@@ -13154,13 +13299,31 @@ Module UITK
 				\SupportedEvent[#LeftButtonUp] = #True
 				\SupportedEvent[#LeftDoubleClick] = #True
 				\SupportedEvent[#KeyDown] = #True
+
+				; #Editable adds an inline editor: a String meta gadget parked over the row being
+				; renamed. It needs the extra keyboard/focus events, hence String_SupportedEvents.
+				Protected *StringThemeData.Theme
+				\Editable = Bool(Flags & #Editable)
+				\EditCursor = #PB_Cursor_Default
+
+				If \Editable
+					*StringThemeData = AllocateMemory(SizeOf(Theme))
+					CopyMemory(*ThemeData, *StringThemeData, SizeOf(Theme))
+					*StringThemeData\CornerRadius = 0
+					*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
+					AllocateStructureX(\String, StringData)
+					String_Meta(\String, *StringThemeData, Gadget, 0, 0, \Width, \ItemHeight - 2, "", #HAlignLeft | #Gadget_Meta)
+					String_SupportedEvents()
+					CloseGadgetList()
+				EndIf
 			EndWith
 		EndProcedure
 		
 		Procedure LayerList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 			Protected Result, *this.PB_Gadget, *GadgetData.LayerListData, *ThemeData
-			
-			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+
+			; #PB_Canvas_Container is what lets the inline rename editor live inside the canvas.
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Editable) * #PB_Canvas_Container))
 			
 			If Result
 				If Gadget = #PB_Any
@@ -13896,7 +14059,8 @@ Module UITK
 									
 									*Event\EventType = #Focus
 									\String\OriginX = \Lines()\Text\TextX + #TimeLine_List_TextMargin + \Border
-									\String\Width = \Lines()\Text\Width
+									; Same as the VerticalList: TextX is in the origin, so take it off the width.
+									\String\Width = \Lines()\Text\Width - \Lines()\Text\TextX
 									\String\OriginY = #TimeLine_Header_Height + \Lines()\Y + \Lines()\Text\TextY + \Border - \VScrollBar\State
 									\String\EventHandler(\String, *Event)
 									StringSetSelection_Meta(\String, 0, Len(\String\String))

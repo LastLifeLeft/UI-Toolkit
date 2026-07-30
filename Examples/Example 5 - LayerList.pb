@@ -58,11 +58,20 @@ Procedure Handler_List()
 			RefreshStatus("eye clicked")
 		Case UITK::#EventType_LayerFold
 			RefreshStatus("folded/unfolded")
+		Case UITK::#EventType_ItemTextChange
+			RefreshStatus("renamed")
 		Case UITK::#EventType_ForcefulChange
 			RefreshStatus("double-clicked")
 		Default
 			RefreshStatus("selected/reordered")
 	EndSelect
+EndProcedure
+
+; EditGadgetItemText is the library's way in: it just sends F2 to the gadget.
+Procedure Handler_Rename()
+	If GetGadgetState(List) > -1
+		UITK::EditGadgetItemText(List)
+	EndIf
 EndProcedure
 
 Procedure Handler_AddGroup()
@@ -137,7 +146,8 @@ EndProcedure
 Window = UITK::Window(#PB_Any, (Width - 620) * 0.5, (Height - 460) * 0.5, 620, 460, "UI Toolkit : LayerList", UITK::#DarkMode | UITK::#Window_CloseButton | UITK::#HAlignCenter)
 
 ; #ReOrder turns on dragging: a child moves between groups, a group travels with its children.
-List = UITK::LayerList(#PB_Any, 20, 20, 300, 380, UITK::#Border | UITK::#ReOrder)
+; #Editable turns on renaming a row in place with F2.
+List = UITK::LayerList(#PB_Any, 20, 20, 300, 380, UITK::#Border | UITK::#ReOrder | UITK::#Editable)
 
 UITK::Label(#PB_Any, 340, 20, 260, 20, "Drag rows to reorder - a child can be dropped", UITK::#HAlignLeft)
 UITK::Label(#PB_Any, 340, 38, 260, 20, "into any group, a group carries its children.", UITK::#HAlignLeft)
@@ -160,10 +170,14 @@ BindGadgetEvent(Button, @Handler_FoldAll(), #PB_EventType_Change)
 Button = UITK::Button(#PB_Any, 475, 146, 125, 30, "Unfold all", UITK::#Border)
 BindGadgetEvent(Button, @Handler_UnfoldAll(), #PB_EventType_Change)
 
-UITK::Label(#PB_Any, 340, 196, 260, 20, "Keys: up/down select, left folds, right", UITK::#HAlignLeft)
-UITK::Label(#PB_Any, 340, 214, 260, 20, "unfolds, space toggles the eye.", UITK::#HAlignLeft)
+Button = UITK::Button(#PB_Any, 340, 184, 125, 30, "Rename", UITK::#Border)
+BindGadgetEvent(Button, @Handler_Rename(), #PB_EventType_Change)
 
-Status = UITK::Label(#PB_Any, 340, 250, 260, 100, "", UITK::#HAlignLeft | UITK::#VAlignTop)
+UITK::Label(#PB_Any, 340, 228, 260, 20, "Keys: up/down select, left folds, right", UITK::#HAlignLeft)
+UITK::Label(#PB_Any, 340, 246, 260, 20, "unfolds, space toggles the eye, F2 renames", UITK::#HAlignLeft)
+UITK::Label(#PB_Any, 340, 264, 260, 20, "(Enter keeps it, Escape drops it).", UITK::#HAlignLeft)
+
+Status = UITK::Label(#PB_Any, 340, 300, 260, 100, "", UITK::#HAlignLeft | UITK::#VAlignTop)
 
 ; The fifth AddGadgetItem argument is the level: 0 makes a group, 1 a child of the group above it.
 AddGadgetItem(List, -1, "Background", ImageID(LayerIcon(90, 140, 230, 0)), 0)
@@ -190,6 +204,7 @@ RefreshStatus("ready")
 BindGadgetEvent(List, @Handler_List(), #PB_EventType_Change)
 BindGadgetEvent(List, @Handler_List(), UITK::#EventType_LayerVisibility)
 BindGadgetEvent(List, @Handler_List(), UITK::#EventType_LayerFold)
+BindGadgetEvent(List, @Handler_List(), UITK::#EventType_ItemTextChange)
 BindGadgetEvent(List, @Handler_List(), UITK::#EventType_ForcefulChange)
 
 Repeat
