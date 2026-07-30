@@ -15,6 +15,7 @@
 		#ReOrder										; Allow user to reorder items by dragging them around the gadget. Mutually exclusive with #Drag.
 		#Drag											; Enable drag from this gadget. Mutually exclusive with #ReOrder.
 		#Editable										; 
+		#MultiSelect									; Allow several items to be selected at once (ctrl / shift click), like #PB_ListView_Multiselect
 		#Container										; The gadget will behave as a container
 		
 		; Window flags
@@ -11985,6 +11986,7 @@ Module UITK
 			Child.b								; #False = parent group, #True = child of the group above it
 			Folded.b							; parents only: children are in the list but take no row
 			Visible.b							; this row's own eye state
+			Selected.b							; part of the current selection (#MultiSelect)
 			*Data
 		EndStructure
 		
@@ -11992,6 +11994,9 @@ Module UITK
 			ItemHeight.l
 			VisibleScrollBar.b
 			ItemState.i							; hovered row, as a list index, or -1
+			MultiSelect.l
+			SelectAnchor.l						; where a shift-click range starts
+			PendingSelect.l						; row to collapse the selection onto when a press turns out not to be a drag
 			HoverZone.b							; which part of the hovered row (#LayerList_Zone_*)
 			
 			Reorder.i
@@ -12149,6 +12154,165 @@ Module UITK
 			ProcedureReturn Result
 		EndProcedure
 		
+		;- Selection
+		; \State is the focus row and what GetGadgetState reports, exactly like a single-select
+		; list. With #MultiSelect the per-item Selected flag rides alongside it, and Get/SetGadgetItemState
+		; speak that flag - the same contract as PureBasic's #PB_ListView_Multiselect ListViewGadget.
+
+		Procedure LayerList_ClearSelection(*GadgetData.LayerListData)
+			With *GadgetData
+				ForEach \Items()
+					\Items()\Selected = #False
+				Next
+			EndWith
+		EndProcedure
+
+		Procedure LayerList_SelectOnly(*GadgetData.LayerListData, Index)
+			; Collapse the selection onto one row and make it the focus.
+			With *GadgetData
+				LayerList_ClearSelection(*GadgetData)
+
+				If Index > -1 And SelectElement(\Items(), Index)
+					\Items()\Selected = #True
+				EndIf
+
+				\State = Index
+				\SelectAnchor = Index
+			EndWith
+		EndProcedure
+
+		Procedure LayerList_SelectRange(*GadgetData.LayerListData, FromIndex, ToIndex)
+			; Select every row on screen between two items. Ranges run over visible rows, so children
+			; folded away inside a group are passed over rather than silently swept in.
+			Protected FromRow, ToRow, Row
+
+			With *GadgetData
+				FromRow = LayerList_IndexToRow(*GadgetData, FromIndex)
+				ToRow = LayerList_IndexToRow(*GadgetData, ToIndex)
+
+				If FromRow < 0 Or ToRow < 0
+					LayerList_SelectOnly(*GadgetData, ToIndex)
+					ProcedureReturn
+				EndIf
+
+				If FromRow > ToRow
+					Swap FromRow, ToRow
+				EndIf
+
+				LayerList_ClearSelection(*GadgetData)
+
+				For Row = FromRow To ToRow
+					If SelectElement(\Items(), LayerList_RowToIndex(*GadgetData, Row))
+						\Items()\Selected = #True
+					EndIf
+				Next
+
+				\State = ToIndex
+			EndWith
+		EndProcedure
+
+		Procedure LayerList_SelectedCount(*GadgetData.LayerListData)
+			Protected Count
+
+			With *GadgetData
+				ForEach \Items()
+					If \Items()\Selected
+						Count + 1
+					EndIf
+				Next
+			EndWith
+
+			ProcedureReturn Count
+		EndProcedure
+
+
+		Procedure LayerList_IsSelected(*GadgetData.LayerListData, Index)
+			If Index > -1 And SelectElement(*GadgetData\Items(), Index)
+				ProcedureReturn *GadgetData\Items()\Selected
+			EndIf
+
+			ProcedureReturn #False
+		EndProcedure
+
+		Procedure LayerList_MoveFocus(*GadgetData.LayerListData, Index)
+			; Arrow-key move. Shift drags the selection along from the anchor, otherwise the
+			; selection collapses onto the row we land on.
+			With *GadgetData
+				If \MultiSelect And (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift) And \SelectAnchor > -1
+					LayerList_SelectRange(*GadgetData, \SelectAnchor, Index)
+				Else
+					LayerList_SelectOnly(*GadgetData, Index)
+				EndIf
+			EndWith
+		EndProcedure
+
+		Procedure LayerList_ToggleVisibility(*GadgetData.LayerListData, Index)
+			; Flip a row's eye. When that row is part of a multi-row selection the whole selection
+			; follows it, so switching a batch of layers off is one click rather than N.
+			Protected NewState
+
+			With *GadgetData
+				If Not SelectElement(\Items(), Index)
+					ProcedureReturn
+				EndIf
+
+				NewState = Bool(Not \Items()\Visible)
+
+				If \MultiSelect And \Items()\Selected And LayerList_SelectedCount(*GadgetData) > 1
+					ForEach \Items()
+						If \Items()\Selected
+							\Items()\Visible = NewState
+						EndIf
+					Next
+				Else
+					\Items()\Visible = NewState
+				EndIf
+			EndWith
+		EndProcedure
+
+		Procedure LayerList_ClickSelect(*GadgetData.LayerListData, Index, Modifiers)
+			; Work out what a press on a row's body does to the selection. Returns #True when
+			; anything changed.
+			;
+			; Pressing an already-selected row with no modifier deliberately leaves the selection
+			; alone and only notes what to collapse to on release: otherwise grabbing a multi-row
+			; selection to drag it would throw that selection away on the way down.
+			With *GadgetData
+				\PendingSelect = -1
+
+				If Not \MultiSelect
+					If Index = \State
+						ProcedureReturn #False
+					EndIf
+					LayerList_SelectOnly(*GadgetData, Index)
+					ProcedureReturn #True
+				EndIf
+
+				If Modifiers & #PB_Canvas_Control
+					If SelectElement(\Items(), Index)
+						\Items()\Selected = Bool(Not \Items()\Selected)
+					EndIf
+					\State = Index
+					\SelectAnchor = Index
+					ProcedureReturn #True
+				EndIf
+
+				If (Modifiers & #PB_Canvas_Shift) And \SelectAnchor > -1
+					LayerList_SelectRange(*GadgetData, \SelectAnchor, Index)
+					ProcedureReturn #True
+				EndIf
+
+				If LayerList_IsSelected(*GadgetData, Index)
+					\PendingSelect = Index		; settled on release, if this doesn't become a drag
+					\State = Index
+					ProcedureReturn #False
+				EndIf
+
+				LayerList_SelectOnly(*GadgetData, Index)
+				ProcedureReturn #True
+			EndWith
+		EndProcedure
+
 		;- Geometry
 		
 		Procedure LayerList_TextWidth(*GadgetData.LayerListData, Child)
@@ -12305,7 +12469,7 @@ Module UITK
 					
 					SelectElement(\Items(), Index)
 					
-					If Index = \State
+					If Index = \State Or \Items()\Selected
 						ShadeState = #Hot
 					ElseIf Index = \ItemState
 						ShadeState = #Warm
@@ -12440,46 +12604,104 @@ Module UITK
 			ProcedureReturn Row
 		EndProcedure
 		
+		Procedure LayerList_DragSetKind(*GadgetData.LayerListData)
+			; What a drag is carrying: 0 = just the row that was grabbed, 1 = every selected row and
+			; they're all children, 2 = every selected row and they're all groups.
+			;
+			; Only those two homogeneous shapes move as a set. A selection mixing groups with loose
+			; children has no one sensible landing place - dropping it somewhere would have to invent
+			; an answer - so it falls back to dragging the single grabbed row.
+			Protected Children, Groups
+
+			With *GadgetData
+				If Not \MultiSelect Or Not LayerList_IsSelected(*GadgetData, \DragIndex)
+					ProcedureReturn 0
+				EndIf
+
+				ForEach \Items()
+					If \Items()\Selected
+						If \Items()\Child
+							Children + 1
+						Else
+							Groups + 1
+						EndIf
+					EndIf
+				Next
+
+				If Children + Groups < 2
+					ProcedureReturn 0
+				ElseIf Groups = 0
+					ProcedureReturn 1
+				ElseIf Children = 0
+					ProcedureReturn 2
+				EndIf
+			EndWith
+
+			ProcedureReturn 0
+		EndProcedure
+
 		Procedure LayerList_ApplyDrop(*GadgetData.LayerListData)
-			; Move what's in flight to \ReorderRow. Linked-list element addresses survive
-			; MoveElement, so a group travels by re-inserting its block in order before the
-			; destination element — which also covers "insert before the next group", the
-			; position that means "append to the group above".
+			; Move what's in flight to \ReorderRow. Linked-list element addresses survive MoveElement,
+			; so everything travels by re-inserting its elements, in order, before the destination
+			; element - which also covers "insert before the next group", the position that means
+			; "append to the group above".
+			;
+			; A homogeneous multi-selection moves as a set: several children collapse into the target
+			; group in list order, several groups reorder as a run with their own children in tow.
 			Protected *Destination, *Dragged, DestinationIndex, Parent
+			Protected NewList Roots.i()
 			Protected NewList Block.i()
-			
+
 			With *GadgetData
 				If \ReorderRow < 0
 					ProcedureReturn
 				EndIf
-				
+
 				DestinationIndex = LayerList_RowToIndex(*GadgetData, \ReorderRow)
 				If DestinationIndex > -1 And SelectElement(\Items(), DestinationIndex)
 					*Destination = @\Items()
 				EndIf
-				
+
 				If Not SelectElement(\Items(), \DragIndex)
 					ProcedureReturn
 				EndIf
 				*Dragged = @\Items()
-				
-				AddElement(Block())
-				Block() = *Dragged
-				
-				If Not \DragChild
-					While NextElement(\Items()) And \Items()\Child
-						AddElement(Block())
-						Block() = @\Items()
-					Wend
+
+				; The rows to move, in list order.
+				If LayerList_DragSetKind(*GadgetData)
+					ForEach \Items()
+						If \Items()\Selected
+							AddElement(Roots())
+							Roots() = @\Items()
+						EndIf
+					Next
+				Else
+					AddElement(Roots())
+					Roots() = *Dragged
 				EndIf
-				
+
+				; Each root, followed by its children when it's a group. A homogeneous set never holds
+				; both a group and its own children, so nothing can land in the block twice.
+				ForEach Roots()
+					ChangeCurrentElement(\Items(), Roots())
+					AddElement(Block())
+					Block() = @\Items()
+
+					If Not \Items()\Child
+						While NextElement(\Items()) And \Items()\Child
+							AddElement(Block())
+							Block() = @\Items()
+						Wend
+					EndIf
+				Next
+
 				; Dropping inside the block being carried would be a no-op at best.
 				ForEach Block()
 					If Block() = *Destination
 						ProcedureReturn
 					EndIf
 				Next
-				
+
 				ForEach Block()
 					ChangeCurrentElement(\Items(), Block())
 					If *Destination
@@ -12488,11 +12710,11 @@ Module UITK
 						MoveElement(\Items(), #PB_List_Last)
 					EndIf
 				Next
-				
+
 				ChangeCurrentElement(\Items(), *Dragged)
 				\State = ListIndex(\Items())
-				
-				; A child dropped into a folded group would vanish — open the group instead.
+
+				; Children dropped into a folded group would vanish - open the group instead.
 				If \DragChild
 					Parent = LayerList_ParentOf(*GadgetData, \State)
 					If Parent > -1 And SelectElement(\Items(), Parent)
@@ -12501,7 +12723,7 @@ Module UITK
 				EndIf
 			EndWith
 		EndProcedure
-		
+
 		Procedure LayerList_ReorderTimer(*GadgetData.LayerListData, Timer)
 			; Auto-scroll while the pointer is held past the top or bottom edge.
 			Protected Event.Event
@@ -12638,7 +12860,7 @@ Module UITK
 		;- Events
 
 		Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
-			Protected Redraw, Row, Index, Zone, Rows, Cursor = *GadgetData\EditCursor
+			Protected Redraw, Row, Index, Zone, Rows, Modifiers, Cursor = *GadgetData\EditCursor
 
 			With *GadgetData
 				Select *Event\EventType
@@ -12738,21 +12960,17 @@ Module UITK
 							Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
 						ElseIf \ItemState > -1
 							Index = \ItemState
-							
-							; Whatever was clicked, the row it belongs to becomes the selection, so a
-							; handler can read GetGadgetState for every one of the three events below.
+							Modifiers = GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers)
+
+							; Whatever was clicked, the row it belongs to becomes the focus, so a handler
+							; can read GetGadgetState for every one of the events below.
 							If Index <> \State
-								\State = Index
 								Redraw = #True
-								If \HoverZone = #LayerList_Zone_Body
-									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-								EndIf
-							ElseIf \HoverZone = #LayerList_Zone_Body
-								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf
-							
+
 							Select \HoverZone
 								Case #LayerList_Zone_Fold ;{
+									\State = Index
 									If SelectElement(\Items(), Index) And Not \Items()\Child
 										\Items()\Folded = Bool(Not \Items()\Folded)
 										LayerList_UpdateScrollBar(*GadgetData)
@@ -12761,13 +12979,18 @@ Module UITK
 									EndIf
 									;}
 								Case #LayerList_Zone_Eye ;{
-									If SelectElement(\Items(), Index)
-										\Items()\Visible = Bool(Not \Items()\Visible)
-										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerVisibility)
+									\State = Index
+									LayerList_ToggleVisibility(*GadgetData, Index)
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerVisibility)
+									Redraw = #True
+									;}
+								Default ;{ the row body: pick the selection, then arm a drag
+									If LayerList_ClickSelect(*GadgetData, Index, Modifiers)
 										Redraw = #True
 									EndIf
-									;}
-								Default ;{ the row body starts a drag
+
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+
 									If \Reorder
 										\DragState = #Drag_Init
 										\DragIndex = Index
@@ -12776,6 +12999,13 @@ Module UITK
 									EndIf
 									;}
 							EndSelect
+						Else
+							; A press on empty space below the rows drops the selection.
+							If \MultiSelect And LayerList_SelectedCount(*GadgetData)
+								LayerList_SelectOnly(*GadgetData, -1)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								Redraw = #True
+							EndIf
 						EndIf
 						;}
 					Case #LeftButtonUp ;{
@@ -12796,8 +13026,15 @@ Module UITK
 							LayerList_StateFocus(*GadgetData)
 							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							Redraw = #True
+						ElseIf \PendingSelect > -1
+							; The press landed on an already-selected row and never became a drag, so
+							; it was a plain click after all: collapse onto that row now.
+							LayerList_SelectOnly(*GadgetData, \PendingSelect)
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+							Redraw = #True
 						EndIf
-						
+
+						\PendingSelect = -1
 						\DragState = #Drag_None
 						;}
 					Case #MouseLeave ;{
@@ -12846,14 +13083,14 @@ Module UITK
 								Case #PB_Shortcut_Down ;{
 									Index = LayerList_RowToIndex(*GadgetData, Row + 1)
 									If Row > -1 And Index > -1
-										\State = Index
+										LayerList_MoveFocus(*GadgetData, Index)
 										LayerList_StateFocus(*GadgetData)
 										Redraw = #True
 									EndIf
 									;}
 								Case #PB_Shortcut_Up ;{
 									If Row > 0
-										\State = LayerList_RowToIndex(*GadgetData, Row - 1)
+										LayerList_MoveFocus(*GadgetData, LayerList_RowToIndex(*GadgetData, Row - 1))
 										LayerList_StateFocus(*GadgetData)
 										Redraw = #True
 									EndIf
@@ -12882,9 +13119,16 @@ Module UITK
 										Redraw = #True
 									EndIf
 									;}
-								Case #PB_Shortcut_Space ;{ toggle this row's eye
-									If SelectElement(\Items(), \State)
-										\Items()\Visible = Bool(Not \Items()\Visible)
+								Case #PB_Shortcut_Space ;{ toggle the eye - ctrl+space toggles the selection instead
+									If \MultiSelect And (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control)
+										If SelectElement(\Items(), \State)
+											\Items()\Selected = Bool(Not \Items()\Selected)
+											\SelectAnchor = \State
+											PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+											Redraw = #True
+										EndIf
+									ElseIf \State > -1
+										LayerList_ToggleVisibility(*GadgetData, \State)
 										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerVisibility)
 										Redraw = #True
 									EndIf
@@ -13024,6 +13268,54 @@ Module UITK
 			ProcedureReturn ListSize(*GadgetData\Items())
 		EndProcedure
 		
+		Procedure LayerList_GetItemState(*this.PB_Gadget, Position)
+			; Nonzero when the row is selected - same answer a ListViewGadget gives.
+			Protected *GadgetData.LayerListData = *this\vt
+
+			ProcedureReturn LayerList_IsSelected(*GadgetData, Position)
+		EndProcedure
+
+		Procedure LayerList_SetItemState(*this.PB_Gadget, Position, State)
+			; Select or deselect one row. Without #MultiSelect, selecting a row moves the selection
+			; onto it, since there can only ever be one.
+			Protected *GadgetData.LayerListData = *this\vt
+
+			With *GadgetData
+				If Position < 0 Or Position >= ListSize(\Items())
+					ProcedureReturn
+				EndIf
+
+				If Not \MultiSelect
+					If State
+						LayerList_SelectOnly(*GadgetData, Position)
+					Else
+						LayerList_SelectOnly(*GadgetData, -1)
+					EndIf
+				ElseIf SelectElement(\Items(), Position)
+					\Items()\Selected = Bool(State)
+					If State
+						\State = Position
+						\SelectAnchor = Position
+					EndIf
+				EndIf
+
+				RedrawObject()
+			EndWith
+		EndProcedure
+
+		Procedure LayerList_SetState(*this.PB_Gadget, State)
+			; -1 clears the selection, anything else selects that row alone - as SetGadgetState does
+			; on a ListViewGadget. Going through here keeps the per-item flags and \State in step.
+			Protected *GadgetData.LayerListData = *this\vt
+
+			If State < 0 Or State >= ListSize(*GadgetData\Items())
+				State = -1
+			EndIf
+
+			LayerList_SelectOnly(*GadgetData, State)
+			RedrawObject()
+		EndProcedure
+
 		Procedure LayerList_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
 			Protected *GadgetData.LayerListData = *this\vt
 			
@@ -13253,6 +13545,9 @@ Module UITK
 					\ItemRedraw = @LayerList_ItemRedraw()
 				EndIf
 				
+				\MultiSelect = Bool(Flags & #MultiSelect)
+				\SelectAnchor = -1
+				\PendingSelect = -1
 				\ItemHeight = #LayerList_ItemHeight
 				\State = -1
 				\ItemState = -1
@@ -13278,6 +13573,9 @@ Module UITK
 				\VT\RemoveGadgetItem = @LayerList_RemoveItem()
 				\VT\ClearGadgetItemList = @LayerList_ClearItems()
 				\VT\CountGadgetItems = @LayerList_CountItem()
+				\VT\GetGadgetItemState = @LayerList_GetItemState()
+				\VT\SetGadgetItemState = @LayerList_SetItemState()
+				\VT\SetGadgetState = @LayerList_SetState()
 				\VT\GetGadgetItemAttribute2 = @LayerList_GetItemAttribute()
 				\VT\SetGadgetItemAttribute2 = @LayerList_SetItemAttribute()
 				\VT\GetGadgetItemData = @LayerList_GetItemData()

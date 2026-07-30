@@ -38,6 +38,15 @@ Procedure RefreshStatus(Tag.s)
 
 	Text = Tag + " - " + GetGadgetItemText(List, Row)
 
+	; GetGadgetItemState answers the same question a ListViewGadget's does: is this row selected.
+	Protected i, Selected
+	For i = 0 To CountGadgetItems(List) - 1
+		If GetGadgetItemState(List, i) : Selected + 1 : EndIf
+	Next
+	If Selected > 1
+		Text + " [" + Str(Selected) + " selected]"
+	EndIf
+
 	If GetGadgetItemAttribute(List, Row, UITK::#Attribute_LayerList_IsChild)
 		Text + " (child of " + GetGadgetItemText(List, GetGadgetItemAttribute(List, Row, UITK::#Attribute_LayerList_Parent)) + ")"
 	Else
@@ -147,7 +156,8 @@ Window = UITK::Window(#PB_Any, (Width - 620) * 0.5, (Height - 460) * 0.5, 620, 4
 
 ; #ReOrder turns on dragging: a child moves between groups, a group travels with its children.
 ; #Editable turns on renaming a row in place with F2.
-List = UITK::LayerList(#PB_Any, 20, 20, 300, 380, UITK::#Border | UITK::#ReOrder | UITK::#Editable)
+; #MultiSelect turns on ctrl / shift click, like a #PB_ListView_Multiselect ListViewGadget.
+List = UITK::LayerList(#PB_Any, 20, 20, 300, 380, UITK::#Border | UITK::#ReOrder | UITK::#Editable | UITK::#MultiSelect)
 
 UITK::Label(#PB_Any, 340, 20, 260, 20, "Drag rows to reorder - a child can be dropped", UITK::#HAlignLeft)
 UITK::Label(#PB_Any, 340, 38, 260, 20, "into any group, a group carries its children.", UITK::#HAlignLeft)
@@ -176,8 +186,11 @@ BindGadgetEvent(Button, @Handler_Rename(), #PB_EventType_Change)
 UITK::Label(#PB_Any, 340, 228, 260, 20, "Keys: up/down select, left folds, right", UITK::#HAlignLeft)
 UITK::Label(#PB_Any, 340, 246, 260, 20, "unfolds, space toggles the eye, F2 renames", UITK::#HAlignLeft)
 UITK::Label(#PB_Any, 340, 264, 260, 20, "(Enter keeps it, Escape drops it).", UITK::#HAlignLeft)
+UITK::Label(#PB_Any, 340, 288, 260, 20, "Ctrl / shift click to select several - the eye", UITK::#HAlignLeft)
+UITK::Label(#PB_Any, 340, 306, 260, 20, "then hits all of them, and dragging moves the", UITK::#HAlignLeft)
+UITK::Label(#PB_Any, 340, 324, 260, 20, "lot (all children, or all groups).", UITK::#HAlignLeft)
 
-Status = UITK::Label(#PB_Any, 340, 300, 260, 100, "", UITK::#HAlignLeft | UITK::#VAlignTop)
+Status = UITK::Label(#PB_Any, 340, 356, 260, 60, "", UITK::#HAlignLeft | UITK::#VAlignTop)
 
 ; The fifth AddGadgetItem argument is the level: 0 makes a group, 1 a child of the group above it.
 AddGadgetItem(List, -1, "Background", ImageID(LayerIcon(90, 140, 230, 0)), 0)
