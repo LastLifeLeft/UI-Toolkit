@@ -2490,21 +2490,34 @@ Module UITK
 			ProcedureReturn #False
 		EndProcedure
 
-		; Every child placed on the container gets this thin subclass: a GADGET
-		; covering the resize border used to answer WM_NCHITTEST with HTCLIENT,
-		; stopping the hit-test dead - the container's own HTTRANSPARENT band
-		; (below) never got a say, so a panel filled edge-to-edge with gadgets had
-		; no grabbable window border. Same contract, one level deeper: inside the
-		; band the gadget steps aside and the hit-test falls through gadget ->
-		; container -> window, which answers HTBOTTOMRIGHT & co.
-		Procedure GadgetSizeBand_Handler(hWnd, Msg, wParam, lParam)
-			Protected OriginalProc = GetProp_(hWnd, "UITK_BandProc")
+		; Every child placed on the container gets this thin subclass, doing two
+		; jobs the child can't know it should:
+		; - RESIZE BAND: a gadget covering the border used to answer WM_NCHITTEST
+		;   with HTCLIENT, stopping the hit-test dead - inside the band it now
+		;   steps aside so gadget -> container -> window fall-through reaches the
+		;   window's HTBOTTOMRIGHT & co.
+		; - SHORTCUT BUBBLING: window shortcuts work from ANY focused gadget. An
+		;   unmodified letter the child doesn't claim is forwarded to its
+		;   top-level window, whose callback treats it like a viewport keypress.
+		;   "Claimed" = the "UITK_KeepKeys" prop: standalone String gadgets set
+		;   it for life, hosts of an inline edit (VerticalList/LayerList/
+		;   PropertyBox/... meta Strings) set it while \Editing - so typing a
+		;   name never triggers shortcuts. Ctrl'd letters are left alone: they
+		;   belong to the accelerator table (which eats them pre-dispatch
+		;   anyway). The child still processes the key afterwards - no UITK
+		;   gadget acts on bare letters outside an edit.
+		Procedure ContainerChild_Handler(hWnd, Msg, wParam, lParam)
+			Protected OriginalProc = GetProp_(hWnd, "UITK_ChildProc")
 
 			If Msg = #WM_NCHITTEST And Window_InSizeBand(GetAncestor_(hWnd, #GA_ROOT), lParam)
 				ProcedureReturn #HTTRANSPARENT
+			ElseIf Msg = #WM_KEYDOWN And wParam >= 'A' And wParam <= 'Z'
+				If GetProp_(hWnd, "UITK_KeepKeys") = 0 And (GetKeyState_(#VK_CONTROL) & $8000) = 0
+					SendMessage_(GetAncestor_(hWnd, #GA_ROOT), #WM_KEYDOWN, wParam, lParam)
+				EndIf
 			ElseIf Msg = #WM_NCDESTROY
 				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, OriginalProc)
-				RemoveProp_(hWnd, "UITK_BandProc")
+				RemoveProp_(hWnd, "UITK_ChildProc")
 			EndIf
 
 			ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
@@ -2521,10 +2534,10 @@ Module UITK
 				EndIf
 			ElseIf Msg = #WM_PARENTNOTIFY And (wParam & $FFFF) = #WM_CREATE
 				; A new child (gadget, nested child, the 3D screen host - creation
-				; notifications bubble up from any depth): give it the band subclass,
-				; or it would occlude the resize border it happens to touch
-				If IsWindow_(lParam) And GetProp_(lParam, "UITK_BandProc") = 0
-					SetProp_(lParam, "UITK_BandProc", SetWindowLongPtr_(lParam, #GWL_WNDPROC, @GadgetSizeBand_Handler()))
+				; notifications bubble up from any depth): give it the child subclass
+				; (resize band + shortcut bubbling - see ContainerChild_Handler)
+				If IsWindow_(lParam) And GetProp_(lParam, "UITK_ChildProc") = 0
+					SetProp_(lParam, "UITK_ChildProc", SetWindowLongPtr_(lParam, #GWL_WNDPROC, @ContainerChild_Handler()))
 				EndIf
 			EndIf
 
@@ -4504,6 +4517,8 @@ Module UITK
 				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
 				GadgetHandler() = Gadget
 				String_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
+				SetProp_(GadgetID(Gadget), "UITK_KeepKeys", 1)	; A text field: its letters
+						; never bubble to the window as shortcuts (ContainerChild_Handler)
 				
 				CloseGadgetList()
 				
@@ -5622,7 +5637,7 @@ Module UITK
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
 					ElseIf \Editing
-						\Editing = #False
+						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 						SelectElement(\Items(), \State)
 						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 						PrepareVectorTextBlock(@\Items()\Text)
@@ -5713,7 +5728,7 @@ Module UITK
 						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
 						
 						If \Editing
-							\Editing = #False
+							\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 							SelectElement(\Items(), \State)
 							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 							PrepareVectorTextBlock(@\Items()\Text)
@@ -5742,7 +5757,7 @@ Module UITK
 								EndIf ;}
 							Case #PB_Shortcut_F2 ;{
 								If \Editable And \State > -1 And Not \Editing
-									\Editing = #True
+									\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 									SelectElement(\Items(), \State)
 									\String\String = \Items()\Text\OriginalText
 									String_ProcessString(\String)
@@ -5759,7 +5774,7 @@ Module UITK
 								EndIf ;}
 							Case #PB_Shortcut_Return ;{
 								If \Editing
-									\Editing = #False
+									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 									SelectElement(\Items(), \State)
 									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 									PrepareVectorTextBlock(@\Items()\Text)
@@ -5785,7 +5800,7 @@ Module UITK
 					;}
 				Case #LostFocus ;{
 					If \Editing
-						\Editing = #False
+						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 						SelectElement(\Items(), \State)
 						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 						PrepareVectorTextBlock(@\Items()\Text)
@@ -6438,7 +6453,7 @@ Module UITK
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
 					ElseIf \Editing
-						\Editing = #False
+						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 						SelectElement(\Items(), \State)
 						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 						PrepareVectorTextBlock(@\Items()\Text)
@@ -6505,7 +6520,7 @@ Module UITK
 							EndIf ;}
 						Case #PB_Shortcut_F2 ;{
 							If \Editable And \State > -1 And Not \Editing
-								\Editing = #True
+								\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 								SelectElement(\Items(), \State)
 								\String\String = \Items()\Text\OriginalText
 								String_ProcessString(\String)
@@ -6518,14 +6533,14 @@ Module UITK
 								StringSetSelection_Meta(\String, 0, Len(\String\String))
 							EndIf ;}
 						Case #PB_Shortcut_Escape ;{
-							\Editing = #False
+							\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 							*Event\EventType = #LostFocus
 							\String\EventHandler(\String, *Event)
 							Redraw = #True
 							;}
 						Case #PB_Shortcut_Return ;{
 							If \Editing
-								\Editing = #False
+								\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 								SelectElement(\Items(), \State)
 								\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 								PrepareVectorTextBlock(@\Items()\Text)
@@ -6545,7 +6560,7 @@ Module UITK
 					;}
 				Case #LostFocus ;{
 					If \Editing
-						\Editing = #False
+						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 						SelectElement(\Items(), \State)
 						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 						PrepareVectorTextBlock(@\Items()\Text)
@@ -8863,7 +8878,7 @@ Module UITK
 			If ItemRow < 0 Or ItemRow >= ListSize(\Items()) : ProcedureReturn : EndIf
 			SelectElement(\Items(), ItemRow)
 			
-			\Editing = #True
+			\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 			\EditItem = ItemRow
 			\EditNumeric = Bool(\Items()\Type = #PropertyBox_TextNumerical)
 			\State = ItemRow
@@ -8889,7 +8904,7 @@ Module UITK
 		
 		With *GadgetData
 			If \Editing
-				\Editing = #False
+				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 				
 				SelectElement(\Items(), \EditItem)
 				\Items()\Value\OriginalText = \String\String
@@ -8907,7 +8922,7 @@ Module UITK
 		
 		With *GadgetData
 			If \Editing
-				\Editing = #False
+				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 				Event\EventType = #LostFocus
 				\String\EventHandler(\String, Event)
 			EndIf
@@ -9666,7 +9681,7 @@ Module UITK
 						Redraw = \String\EventHandler(\String, *Event)
 					ElseIf \Editing
 						NewItem = ListIndex(\Items())
-						\Editing = #False
+						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 						SelectElement(\Items(), \State)
 						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 						PrepareVectorTextBlock(@\Items()\Text)
@@ -9698,7 +9713,7 @@ Module UITK
 						Redraw = \String\EventHandler(\String, *Event)
 					ElseIf \Editing
 						NewItem = ListIndex(\Items())
-						\Editing = #False
+						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 						SelectElement(\Items(), \State)
 						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 						PrepareVectorTextBlock(@\Items()\Text)
@@ -9754,7 +9769,7 @@ Module UITK
 						Case #PB_Shortcut_Up ;{
 							If \State > 0
 								If \Editing
-									\Editing = #False
+									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 									SelectElement(\Items(), \State)
 									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 									PrepareVectorTextBlock(@\Items()\Text)
@@ -9777,7 +9792,7 @@ Module UITK
 						Case #PB_Shortcut_Down ;{
 							If \State < ListSize(\Items()) - 1
 								If \Editing
-									\Editing = #False
+									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 									SelectElement(\Items(), \State)
 									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 									PrepareVectorTextBlock(@\Items()\Text)
@@ -9799,7 +9814,7 @@ Module UITK
 							;}
 						Case #PB_Shortcut_F2 ;{
 							If \Editable And \State > -1 And Not \Editing
-								\Editing = #True
+								\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 								SelectElement(\Items(), \State)
 								\String\String = \Items()\Text\OriginalText
 								String_ProcessString(\String)
@@ -9813,7 +9828,7 @@ Module UITK
 							EndIf ;}
 						Case #PB_Shortcut_Return ;{
 							If \Editing
-								\Editing = #False
+								\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 								SelectElement(\Items(), \State)
 								\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 								PrepareVectorTextBlock(@\Items()\Text)
@@ -9833,7 +9848,7 @@ Module UITK
 					;}
 				Case #LostFocus ;{
 					If \Editing
-						\Editing = #False
+						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 						SelectElement(\Items(), \State)
 						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 						PrepareVectorTextBlock(@\Items()\Text)
@@ -12870,7 +12885,7 @@ Module UITK
 					ProcedureReturn #False
 				EndIf
 
-				\Editing = #True
+				\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 				\String\String = \Items()\Text\OriginalText
 				String_ProcessString(\String)
 
@@ -12901,7 +12916,7 @@ Module UITK
 					ProcedureReturn #False
 				EndIf
 
-				\Editing = #False
+				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 
 				If Keep And SelectElement(\Items(), \State)
 					\Items()\Text\OriginalText = \String\String
@@ -13120,6 +13135,11 @@ Module UITK
 					Case #LeftDoubleClick ;{
 						If \ItemState > -1
 							If \HoverZone = #LayerList_Zone_Body
+								; The press under this double-click half-armed a reorder
+								; drag. The gesture supersedes it — and the app may well
+								; answer the posted event by opening the row's inline
+								; editor, which a pending drag arm would refuse
+								\DragState = #Drag_None
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ForcefulChange)
 							EndIf
 						EndIf
@@ -14409,7 +14429,7 @@ Module UITK
 								If \State > -1 And Not \Editing
 									\RedrawBody = TimeLine_VerticalFocus(*GadgetData)
 									\RedrawList = #True
-									\Editing = #True
+									\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 									SelectElement(\Lines(), \State)
 									\String\String = \Lines()\Text\OriginalText
 									String_ProcessString(\String)
@@ -14425,7 +14445,7 @@ Module UITK
 								;}
 							Case #PB_Shortcut_Escape ;{
 								If \Editing
-									\Editing = #False
+									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 									*Event\EventType = #LostFocus
 									\String\EventHandler(\String, *Event)
 									\RedrawList = #True
@@ -14437,7 +14457,7 @@ Module UITK
 								;}
 							Case #PB_Shortcut_Return ;{
 								If \Editing
-									\Editing = #False
+									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 									SelectElement(\Lines(), \State)
 									If \Lines()\Text\OriginalText <> \String\String
 										\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
@@ -14460,7 +14480,7 @@ Module UITK
 							\RedrawBody + ScrollBar_EventHandler(\VScrollBar, *Event)
 						ElseIf \MouseState <> \State
 							If \Editing
-								\Editing = #False
+								\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 								SelectElement(\Lines(), \State)
 								If \Lines()\Text\OriginalText <> \String\String
 									\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
@@ -14486,7 +14506,7 @@ Module UITK
 								\RedrawList = \String\EventHandler(\String, *Event)
 							Else
 								If \Editing
-									\Editing = #False
+									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 									SelectElement(\Lines(), \State)
 									If \Lines()\Text\OriginalText <> \String\String
 										\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
@@ -14566,7 +14586,7 @@ Module UITK
 										  ;}
 					Case #MouseWheel	  ;{
 						If \Editing
-							\Editing = #False
+							\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 							*Event\EventType = #LostFocus
 							\String\EventHandler(\String, *Event)
 							\RedrawList = #True
@@ -14586,7 +14606,7 @@ Module UITK
 						EndIf
 						;}
 					Case #LostFocus ;{
-						\Editing = #False
+						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 						\String\EventHandler(\String, *Event)
 						\RedrawList = #True
 						;}
