@@ -83,6 +83,15 @@
 		#Attribute_Library_SectionHeight
 		#Attribute_Library_ItemWidth
 		#Attribute_Tree_ItemDepth
+		
+		CompilerIf Defined(EnableLayerList, #PB_Module)
+			#Attribute_LayerList_Visible			; LayerList item: this row's own eye state (read/write)
+			#Attribute_LayerList_EffectiveVisible	; LayerList item: own eye AND the group's, ie. does it show through (read only)
+			#Attribute_LayerList_Folded				; LayerList item: group folded, children hidden (read/write, groups only)
+			#Attribute_LayerList_IsChild			; LayerList item: #True when the row is a child (read only)
+			#Attribute_LayerList_Parent				; LayerList item: list index of the owning group, -1 for a group (read only)
+			#Attribute_LayerList_ChildCount			; LayerList item: children held by the group (read only)
+		CompilerEndIf
 	EndEnumeration
 	
 	Enumeration ; Corners
@@ -227,6 +236,11 @@
 		#EventType_ForcefulChange
 		#EventType_ItemRightClick
 		#EventType_ItemTextChange
+		
+		CompilerIf Defined(EnableLayerList, #PB_Module)
+			#EventType_LayerVisibility			; LayerList: a row's eye was clicked - GetGadgetState is that row
+			#EventType_LayerFold				; LayerList: a group was folded or unfolded - GetGadgetState is that group
+		CompilerEndIf
 		
 		#EventType_FirstAvailableCustomValue
 	EndEnumeration	
@@ -405,6 +419,11 @@
 	CompilerIf Defined(EnableTimeline, #PB_Module)
 		Declare TimeLine(Gadget, x, y, Width, Height, Flags = #Default)
 		Declare AddMediaBlock(Gadget, Line, Position, Duration, Type, Text.s, *Data)
+	CompilerEndIf
+	
+	; LayerList
+	CompilerIf Defined(EnableLayerList, #PB_Module)
+		Declare LayerList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 	CompilerEndIf
 	
 	; Linux-only verification hook (Phase 3 GTK destroy cleanup). Reports current
@@ -1370,7 +1389,7 @@ Module UITK
 		If *TextData\Image
 			UITK_GetImageSize(*TextData\Image, @HBitmap)
 			If Trim(*TextData\OriginalText) <> ""		; the margin is the gap to the text; an icon-only
-				HBitmap\bmWidth + #TextBlock_ImageMargin	; block has none, so don't let it push the image off-centre
+				HBitmap\bmWidth + #TextBlock_ImageMargin; block has none, so don't let it push the image off-centre
 			EndIf
 			*TextData\RequiredWidth + HBitmap\bmWidth
 		EndIf
@@ -11097,12 +11116,12 @@ Module UITK
 	#ToolBar_ModeChevron_Size = 8		; extra span, along the bar's axis, taken by a mode button's chevron
 	#ToolBar_ModeMenuWidth = 140		; minimum width of a mode button's dropdown menu
 	#ToolBar_ModeMenuMaxItem = 7		; the dropdown stops growing past this many modes and scrolls instead
-
+	
 	Structure ToolBar_Item
 		Type.l							; #Toolbar_DefaultButton, #ToolBar_Separator or #ToolBar_ModeButton
 		Text.s							; hover-tip text
 		*Button.ButtonData				; the button, embedded as a Button_Meta (0 for separators; the icon side of a mode button)
-		; Mode button only
+										; Mode button only
 		*ModeButton.ButtonData			; the chevron side, opens the mode menu
 		ModeChevronIMG.i				; the little triangle drawn on the chevron side
 		Mode.l							; active mode index (-1 until a mode is added)
@@ -11110,7 +11129,7 @@ Module UITK
 		ModeWindow.i					; borderless popup window hosting the mode menu
 		ModeList.i						; VerticalList inside ModeWindow listing the modes
 	EndStructure
-
+	
 	Structure ToolBarData Extends GadgetData
 		Vertical.b
 		ButtonSize.l					; square cell size = the bar's cross-axis thickness
@@ -11202,7 +11221,7 @@ Module UITK
 						SaveVectorState()
 						*Button\Redraw(*Button)
 						RestoreVectorState()
-
+						
 						*Button = \Items()\ModeButton
 						*Button\OriginX = CellX + #ToolBar_Margin
 						*Button\OriginY = CellY + #ToolBar_Margin
@@ -11211,7 +11230,7 @@ Module UITK
 						Else
 							*Button\OriginX + \ButtonSize - #ToolBar_Margin * 2 + 1
 						EndIf
-
+						
 						SaveVectorState()
 						*Button\Redraw(*Button)
 						RestoreVectorState()
@@ -11282,7 +11301,7 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_ChevronAt(*GadgetData.ToolBarData, Item, P)
 		; #True when P sits on the chevron side of a mode button. Leaves the item list on an undefined element.
 		With *GadgetData
@@ -11292,7 +11311,7 @@ Module UITK
 		EndWith
 		ProcedureReturn #False
 	EndProcedure
-
+	
 	Procedure ToolBar_PartButton(*GadgetData.ToolBarData, Chevron)
 		; The button meta under the cursor for the current item; the item list element must already be selected.
 		With *GadgetData
@@ -11303,11 +11322,11 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_ModeApply(*GadgetData.ToolBarData, *Item.ToolBar_Item, Mode)
 		; Make Mode the active one: sync the menu's selection and put its icon on the icon side. Doesn't redraw the bar.
 		Protected *SubGadget.PB_Gadget, *VListData.VerticalListData
-
+		
 		With *Item
 			If Mode > -1 And Mode < \ModeCount
 				\Mode = Mode
@@ -11320,27 +11339,27 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_ModeMenuTimer(*GadgetData.ToolBarData, Timer)
 		RemoveGadgetTimer(Timer)
 		*GadgetData\ModeOpenItem = 0
 	EndProcedure
-
+	
 	Procedure ToolBar_ModeWindowHandler()
 		; The menu window lost activation: hide it. ModeOpenItem lingers 20 ms so a click on the chevron that
 		; caused the deactivation reads as "close" instead of instantly reopening (same dance as the Combo).
 		Protected Window = EventWindow(), *GadgetData.ToolBarData = GetProp_(WindowID(Window), "UITK_ToolBarData")
-
+		
 		AddGadgetTimer(*GadgetData, 20, @ToolBar_ModeMenuTimer())
 		HideWindow(Window, #True)
 	EndProcedure
-
+	
 	Procedure ToolBar_ModeListHandler()
 		; A mode was picked in the dropdown.
 		Protected Gadget = EventGadget()
 		Protected *GadgetData.ToolBarData = GetProp_(GadgetID(Gadget), "UITK_ToolBarData")
 		Protected *Item.ToolBar_Item = GetProp_(GadgetID(Gadget), "UITK_ToolBarItem")
-
+		
 		With *GadgetData
 			ToolBar_ModeApply(*GadgetData, *Item, GetGadgetState(Gadget))
 			HideWindow(*Item\ModeWindow, #True)
@@ -11351,10 +11370,10 @@ Module UITK
 			PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_ModeMenuShow(*GadgetData.ToolBarData, *Item.ToolBar_Item)
 		Protected X, Y, Offset
-
+		
 		With *GadgetData
 			ChangeCurrentElement(\Items(), *Item)
 			Offset = ToolBar_ItemOffset(*GadgetData, ListIndex(\Items()))
@@ -11373,17 +11392,17 @@ Module UITK
 			\ModeOpenItem = *Item
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_EventHandler(*GadgetData.ToolBarData, *Event.Event)
 		Protected Redraw, Item, P, Chevron
-
+		
 		With *GadgetData
 			If \Vertical
 				P = *Event\MouseY
 			Else
 				P = *Event\MouseX
 			EndIf
-
+			
 			Select *Event\EventType
 				Case #MouseMove ;{
 					Item = ToolBar_ItemAt(*GadgetData, P)
@@ -11454,12 +11473,12 @@ Module UITK
 					Redraw = #True
 					;}
 			EndSelect
-
+			
 			If Redraw
 				RedrawObject()
 			EndIf
 		EndWith
-
+		
 		ProcedureReturn Redraw
 	EndProcedure
 	
@@ -11476,13 +11495,13 @@ Module UITK
 	Procedure ToolBar_MakeModeButton(*GadgetData.ToolBarData, *NewItem.ToolBar_Item, ImageID)
 		Protected *Button.ButtonData, BtnSize = *GadgetData\ButtonSize - #ToolBar_Margin * 2
 		Protected *ModeButton.ButtonData, GadgetList
-
+		
 		; Icon side: shows the active mode's icon, a click cycles to the next mode
 		AllocateStructureX(*Button, ButtonData)
 		Button_Meta(*Button, *GadgetData\ButtonTheme, *GadgetData\Gadget, 0, 0, BtnSize, BtnSize, "", #Gadget_Meta)
 		*Button\ParentWindow = *GadgetData\ParentWindow
 		*Button\TextBlock\Image = ImageID
-
+		
 		; Chevron side: opens the mode menu. The triangle points along the direction the menu opens.
 		AllocateStructureX(*ModeButton, ButtonData)
 		If *GadgetData\Vertical
@@ -11496,7 +11515,7 @@ Module UITK
 			FillPath()
 			StopVectorDrawing()
 			Button_Meta(*ModeButton, *GadgetData\ButtonTheme, *GadgetData\Gadget, 0, 0, BtnSize, #ToolBar_ModeChevron_Size, "", #Gadget_Meta)
-
+			
 			*Button\CornerType = #Corner_Top
 			*ModeButton\CornerType = #Corner_Bottom
 		Else
@@ -11510,19 +11529,19 @@ Module UITK
 			FillPath()
 			StopVectorDrawing()
 			Button_Meta(*ModeButton, *GadgetData\ButtonTheme, *GadgetData\Gadget, 0, 0, #ToolBar_ModeChevron_Size, BtnSize, "", #Gadget_Meta)
-
+			
 			*Button\CornerType = #Corner_Left
 			*ModeButton\CornerType = #Corner_Right
 		EndIf
 		*ModeButton\ParentWindow = *GadgetData\ParentWindow
 		*ModeButton\TextBlock\Image = ImageID(*NewItem\ModeChevronIMG)
-
+		
 		PrepareVectorTextBlock(@*Button\TextBlock)
 		PrepareVectorTextBlock(@*ModeButton\TextBlock)
 		*NewItem\Button = *Button
 		*NewItem\ModeButton = *ModeButton
 		*NewItem\Mode = -1
-
+		
 		; Mode menu: borderless popup owning a VerticalList, opened under (or next to) the chevron - same recipe as the Combo.
 		GadgetList = UseGadgetList(0)
 		*NewItem\ModeWindow = OpenWindow(#PB_Any, 0, 0, #ToolBar_ModeMenuWidth, #VerticalList_ItemHeight + 2, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(*GadgetData\ParentWindow))
@@ -11530,20 +11549,20 @@ Module UITK
 		*NewItem\ModeList = VerticalList(#PB_Any, 1, 1, #ToolBar_ModeMenuWidth - 2, #VerticalList_ItemHeight)
 		SetGadgetAttribute(*NewItem\ModeList, #Attribute_CornerRadius, 0)
 		UseGadgetList(GadgetList)
-
+		
 		SetProp_(WindowID(*NewItem\ModeWindow), "UITK_ToolBarData", *GadgetData)
 		SetProp_(GadgetID(*NewItem\ModeList), "UITK_ToolBarData", *GadgetData)
 		SetProp_(GadgetID(*NewItem\ModeList), "UITK_ToolBarItem", *NewItem)
 		BindEvent(#PB_Event_DeactivateWindow, @ToolBar_ModeWindowHandler(), *NewItem\ModeWindow)
 		BindGadgetEvent(*NewItem\ModeList, @ToolBar_ModeListHandler(), #PB_EventType_Change)
-
+		
 		SetGadgetColor(*NewItem\ModeList, #Color_Shade_Cold, *GadgetData\ThemeData\BackColor[#Warm])
 		SetGadgetColor(*NewItem\ModeList, #Color_Shade_Warm, *GadgetData\ThemeData\BackColor[#Hot])
 		SetGadgetColor(*NewItem\ModeList, #Color_Shade_Hot, *GadgetData\ThemeData\BackColor[#Hot])
 		SetGadgetColor(*NewItem\ModeList, #Color_Text_Cold, *GadgetData\ThemeData\TextColor[#Cold])
 		SetGadgetColor(*NewItem\ModeList, #Color_Text_Warm, *GadgetData\ThemeData\TextColor[#Warm])
 		SetGadgetColor(*NewItem\ModeList, #Color_Text_Hot, *GadgetData\ThemeData\TextColor[#Hot])
-
+		
 		ProcedureReturn *NewItem
 	EndProcedure
 	
@@ -11581,25 +11600,25 @@ Module UITK
 			Position = ListIndex(\Items())
 			RedrawObject()
 		EndWith
-
+		
 		ProcedureReturn Position
 	EndProcedure
-
+	
 	Procedure ToolBarAddMode(Gadget, Item, Text.s, ImageID = 0)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.ToolBarData
 		Protected *SubGadget.PB_Gadget, *VListData.VerticalListData, Mode, MenuWidth
-
+		
 		If *this = 0
 			ProcedureReturn -1
 		EndIf
 		*GadgetData = *this\vt
-
+		
 		With *GadgetData
 			If Item > -1 And SelectElement(\Items(), Item) And \Items()\Type = #ToolBar_ModeButton
 				Mode = \Items()\ModeCount
 				AddGadgetItem(\Items()\ModeList, -1, Text, ImageID)
 				\Items()\ModeCount + 1
-
+				
 				; Grow the popup to fit the widest mode name; past #ToolBar_ModeMenuMaxItem entries the list scrolls instead.
 				*SubGadget = IsGadget(\Items()\ModeList)
 				*VListData = *SubGadget\vt
@@ -11615,36 +11634,36 @@ Module UITK
 					ResizeWindow(\Items()\ModeWindow, #PB_Ignore, #PB_Ignore, MenuWidth + 2, #PB_Ignore)
 					ResizeGadget(\Items()\ModeList, #PB_Ignore, #PB_Ignore, MenuWidth, #PB_Ignore)
 				EndIf
-
+				
 				; The first mode becomes the active one and takes over the icon side.
 				If \Items()\ModeCount = 1
 					ToolBar_ModeApply(*GadgetData, @\Items(), 0)
 					RedrawObject()
 				EndIf
-
+				
 				ProcedureReturn Mode
 			EndIf
 		EndWith
-
+		
 		ProcedureReturn -1
 	EndProcedure
-
+	
 	Procedure ToolBarGetMode(Gadget, Item)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.ToolBarData
-
+		
 		If *this
 			*GadgetData = *this\vt
 			If Item > -1 And SelectElement(*GadgetData\Items(), Item) And *GadgetData\Items()\Type = #ToolBar_ModeButton
 				ProcedureReturn *GadgetData\Items()\Mode
 			EndIf
 		EndIf
-
+		
 		ProcedureReturn -1
 	EndProcedure
-
+	
 	Procedure ToolBarSetMode(Gadget, Item, Mode)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.ToolBarData
-
+		
 		If *this
 			*GadgetData = *this\vt
 			With *GadgetData
@@ -11656,7 +11675,7 @@ Module UITK
 			EndWith
 		EndIf
 	EndProcedure
-
+	
 	Procedure ToolBar_FreeItem(*GadgetData.ToolBarData, *Item.ToolBar_Item)
 		With *Item
 			If \Button
@@ -11683,7 +11702,7 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_RemoveItem(*This.PB_Gadget, Position)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
@@ -11700,7 +11719,7 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure ToolBar_ClearItems(*This.PB_Gadget)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
@@ -11830,7 +11849,7 @@ Module UITK
 		With *GadgetData
 			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
 			ToolBar_CancelTip(*GadgetData)
-
+			
 			ForEach \Items()
 				ToolBar_FreeItem(*GadgetData, @\Items())
 			Next
@@ -11929,6 +11948,1256 @@ Module UITK
 		
 		ProcedureReturn Result
 	EndProcedure
+	;}
+	
+	
+	;{ LayerList
+	; A layer panel: foldable parent groups, each holding children, every row carrying its own
+	; visibility toggle. Children drag from one group to another, a group reorders as a whole
+	; block. Structurally this is a VerticalList over a two-level item list.
+	;
+	; Like the TimeLine it's a specialised gadget, so it's opt-in — declare an EnableLayerList
+	; module before including the library to compile it in:
+	;
+	;	DeclareModule EnableLayerList :: EndDeclareModule
+	;	Module EnableLayerList :: EndModule
+	;	IncludeFile "UI-Toolkit.pbi"
+	
+	CompilerIf Defined(EnableLayerList, #PB_Module)
+		#LayerList_ItemHeight = 24				; row height
+		#LayerList_Margin = 3
+		#LayerList_FoldWidth = 16				; fold-chevron column; doubles as the child indent step
+		#LayerList_EyeWidth = 22				; visibility-button column, right aligned
+		#LayerList_ToolbarThickness = 7			; scrollbar thickness — always reserved, so the eye never shifts
+		#LayerList_ReorderDelay = 400			; ms between auto-scroll steps while dragging against an edge
+		#LayerList_MarkerHeight = 3				; thickness of the drop-position marker
+		
+		Enumeration ; Which part of a row the pointer is over
+			#LayerList_Zone_Body
+			#LayerList_Zone_Fold
+			#LayerList_Zone_Eye
+		EndEnumeration
+		
+		Structure LayerList_Item
+			Text.Text							; must stay first: a VerticalList-style *CustomItem callback expects it there
+			Child.b								; #False = parent group, #True = child of the group above it
+			Folded.b							; parents only: children are in the list but take no row
+			Visible.b							; this row's own eye state
+			*Data
+		EndStructure
+		
+		Structure LayerListData Extends GadgetData
+			ItemHeight.l
+			VisibleScrollBar.b
+			ItemState.i							; hovered row, as a list index, or -1
+			HoverZone.b							; which part of the hovered row (#LayerList_Zone_*)
+			
+			Reorder.i
+			DragState.i
+			DragOriginX.i
+			DragOriginY.i
+			DragIndex.i							; list index of the row being dragged
+			DragChild.b							; dragging a lone child, rather than a group and its children
+			ReorderRow.i						; row the dragged item would land before, or -1
+			ReorderTimer.i
+			ReorderDirection.b
+			ReorderWindow.i
+			ReorderCanvas.i
+			
+			*ItemRedraw.ItemRedraw
+			*ScrollBar.ScrollBarData
+			
+			List Items.LayerList_Item()
+		EndStructure
+		
+		Declare LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
+		
+		;- Structure walking
+		; The item list is flat — a parent is followed by its children — but a child inside a
+		; folded group takes no row on screen, so list indices and screen rows diverge. These
+		; helpers convert between the two. They all walk the list, so they leave the current
+		; element wherever they finished: re-select what you need after calling one.
+		
+		Procedure LayerList_ParentOf(*GadgetData.LayerListData, Index)
+			; List index of the group owning Index. -1 for a parent, or for a child with no group above it.
+			Protected Result = -1
+			
+			With *GadgetData
+				If SelectElement(\Items(), Index) And \Items()\Child
+					While PreviousElement(\Items())
+						If Not \Items()\Child
+							Result = ListIndex(\Items())
+							Break
+						EndIf
+					Wend
+				EndIf
+			EndWith
+			
+			ProcedureReturn Result
+		EndProcedure
+		
+		Procedure LayerList_ChildCount(*GadgetData.LayerListData, Parent)
+			; How many children directly follow the group at Parent.
+			Protected Count
+			
+			With *GadgetData
+				If SelectElement(\Items(), Parent) And Not \Items()\Child
+					While NextElement(\Items()) And \Items()\Child
+						Count + 1
+					Wend
+				EndIf
+			EndWith
+			
+			ProcedureReturn Count
+		EndProcedure
+		
+		Procedure LayerList_RowCount(*GadgetData.LayerListData)
+			; Rows currently on screen, folded-away children excluded.
+			Protected Count, Folded
+			
+			With *GadgetData
+				ForEach \Items()
+					If \Items()\Child
+						If Folded
+							Continue
+						EndIf
+					Else
+						Folded = \Items()\Folded
+					EndIf
+					Count + 1
+				Next
+			EndWith
+			
+			ProcedureReturn Count
+		EndProcedure
+		
+		Procedure LayerList_RowToIndex(*GadgetData.LayerListData, Row)
+			; Screen row -> list index, or -1 when Row is past the end.
+			Protected Count = -1, Folded
+			
+			With *GadgetData
+				ForEach \Items()
+					If \Items()\Child
+						If Folded
+							Continue
+						EndIf
+					Else
+						Folded = \Items()\Folded
+					EndIf
+					
+					Count + 1
+					If Count = Row
+						ProcedureReturn ListIndex(\Items())
+					EndIf
+				Next
+			EndWith
+			
+			ProcedureReturn -1
+		EndProcedure
+		
+		Procedure LayerList_IndexToRow(*GadgetData.LayerListData, Index)
+			; List index -> screen row, or -1 when the item sits inside a folded group.
+			Protected Count = -1, Folded
+			
+			With *GadgetData
+				ForEach \Items()
+					If \Items()\Child
+						If Folded
+							If ListIndex(\Items()) = Index
+								ProcedureReturn -1
+							EndIf
+							Continue
+						EndIf
+					Else
+						Folded = \Items()\Folded
+					EndIf
+					
+					Count + 1
+					If ListIndex(\Items()) = Index
+						ProcedureReturn Count
+					EndIf
+				Next
+			EndWith
+			
+			ProcedureReturn -1
+		EndProcedure
+		
+		Procedure LayerList_EffectiveVisible(*GadgetData.LayerListData, Index)
+			; A row shows through only when its own eye is on and, for a child, its group's is too.
+			Protected Result, Parent
+			
+			With *GadgetData
+				If SelectElement(\Items(), Index)
+					Result = \Items()\Visible
+					
+					If Result And \Items()\Child
+						Parent = LayerList_ParentOf(*GadgetData, Index)
+						If Parent > -1 And SelectElement(\Items(), Parent)
+							Result = \Items()\Visible
+						EndIf
+					EndIf
+				EndIf
+			EndWith
+			
+			ProcedureReturn Result
+		EndProcedure
+		
+		;- Geometry
+		
+		Procedure LayerList_TextWidth(*GadgetData.LayerListData, Child)
+			; Width left for a row's content once the chevron, indent, eye and scrollbar are taken out.
+			ProcedureReturn *GadgetData\Width - *GadgetData\Border * 2 - #LayerList_FoldWidth - Bool(Child) * #LayerList_FoldWidth - #LayerList_EyeWidth - #LayerList_ToolbarThickness - #LayerList_Margin * 2
+		EndProcedure
+		
+		Procedure LayerList_TextX(*GadgetData.LayerListData, Child)
+			ProcedureReturn *GadgetData\Border + #LayerList_FoldWidth + Bool(Child) * #LayerList_FoldWidth + #LayerList_Margin
+		EndProcedure
+		
+		Procedure LayerList_EyeX(*GadgetData.LayerListData)
+			ProcedureReturn *GadgetData\Width - *GadgetData\Border - #LayerList_ToolbarThickness - #LayerList_EyeWidth
+		EndProcedure
+		
+		Procedure LayerList_ZoneAt(*GadgetData.LayerListData, Index, MouseX)
+			; Which part of the row at Index the pointer is over.
+			Protected Result = #LayerList_Zone_Body, EyeX = LayerList_EyeX(*GadgetData)
+			
+			With *GadgetData
+				If MouseX >= EyeX And MouseX < EyeX + #LayerList_EyeWidth
+					Result = #LayerList_Zone_Eye
+				ElseIf MouseX < \Border + #LayerList_FoldWidth
+					If SelectElement(\Items(), Index) And Not \Items()\Child
+						Result = #LayerList_Zone_Fold
+					EndIf
+				EndIf
+			EndWith
+			
+			ProcedureReturn Result
+		EndProcedure
+		
+		Procedure LayerList_UpdateScrollBar(*GadgetData.LayerListData)
+			Protected Total
+			
+			With *GadgetData
+				Total = LayerList_RowCount(*GadgetData) * \ItemHeight
+				
+				If Total > \Height
+					\VisibleScrollBar = #True
+					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, Total)
+				Else
+					; Don't touch the bar's position here: while it's too short to scroll, its
+					; Maximum is below one page, so ScrollBar_SetState_Meta would clamp against a
+					; negative ceiling and leave a negative position behind.
+					\VisibleScrollBar = #False
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_ScrollOffset(*GadgetData.LayerListData)
+			; How far the rows are scrolled up. A hidden bar keeps whatever position it last had,
+			; which needn't be 0 and needn't even be positive, so a hidden bar means pinned to the
+			; top. Every screen-position calculation goes through here so drawing and hit-testing
+			; can't disagree.
+			If *GadgetData\VisibleScrollBar
+				ProcedureReturn *GadgetData\ScrollBar\State
+			EndIf
+			
+			ProcedureReturn 0
+		EndProcedure
+		
+		Procedure LayerList_PrepareItem(*GadgetData.LayerListData, *Item.LayerList_Item)
+			; (Re)lay out one row's text block for its current indent level.
+			*Item\Text\Width = LayerList_TextWidth(*GadgetData, *Item\Child)
+			*Item\Text\Height = *GadgetData\ItemHeight
+			PrepareVectorTextBlock(@*Item\Text)
+		EndProcedure
+		
+		;- Drawing
+		
+		Procedure LayerList_DrawFold(X, Y, Size, Folded)
+			; A small triangle: pointing right when the group is folded, down when it's open.
+			Protected CX.d = X + Size * 0.5, CY.d = Y + Size * 0.5
+			
+			If Folded
+				MovePathCursor(CX - 2.5, CY - 4)
+				AddPathLine(CX + 3.5, CY)
+				AddPathLine(CX - 2.5, CY + 4)
+			Else
+				MovePathCursor(CX - 4, CY - 2.5)
+				AddPathLine(CX + 4, CY - 2.5)
+				AddPathLine(CX, CY + 3.5)
+			EndIf
+			
+			ClosePath()
+			FillPath()
+		EndProcedure
+		
+		Procedure LayerList_DrawEye(X, Y, Width, Height, Visible)
+			; An eye outline with a pupil; struck through when the row is switched off.
+			Protected CX.d = X + Width * 0.5, CY.d = Y + Height * 0.5
+			
+			AddPathEllipse(CX, CY, 6.5, 4.2)
+			StrokePath(1.2)
+			AddPathCircle(CX, CY, 2.1)
+			FillPath()
+			
+			If Not Visible
+				MovePathCursor(CX - 7, CY + 5.5)
+				AddPathLine(CX + 7, CY - 5.5)
+				StrokePath(1.4)
+			EndIf
+		EndProcedure
+		
+		Procedure LayerList_ItemRedraw(*Item.LayerList_Item, X, Y, Width, Height, State, *Theme.Theme)
+			; Default row content. The gadget has already painted the row shade and set the
+			; source colour, and it draws the chevron and the eye itself — a *CustomItem
+			; callback only has to fill this content rectangle.
+			DrawVectorTextBlock(@*Item\Text, X, Y)
+		EndProcedure
+		
+		Procedure LayerList_Redraw(*GadgetData.LayerListData)
+			Protected Y, Row, FirstRow, Rows, Index, ShadeState, TextState, TextX, EyeX, MarkerX, MarkerY
+			
+			With *GadgetData
+				If \Border
+					AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+					VectorSourceColor(\ThemeData\LineColor[#Cold])
+					StrokePath(2, #PB_Path_Preserve)
+				Else
+					AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
+				EndIf
+				
+				VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+				ClipPath(#PB_Path_Preserve)
+				FillPath()
+				
+				If Not ListSize(\Items())
+					ProcedureReturn
+				EndIf
+				
+				Rows = LayerList_RowCount(*GadgetData)
+				EyeX = \OriginX + LayerList_EyeX(*GadgetData)
+				
+				Y = \OriginY + \Border
+				If \VisibleScrollBar
+					FirstRow = Floor(\ScrollBar\State / \ItemHeight)
+					Y - (\ScrollBar\State % \ItemHeight)
+				EndIf
+				
+				Row = FirstRow
+				MarkerY = -1
+				
+				While Y < \OriginY + \Height
+					Index = LayerList_RowToIndex(*GadgetData, Row)
+					If Index = -1
+						Break
+					EndIf
+					
+					If Row = \ReorderRow
+						MarkerY = Y
+					EndIf
+					
+					SelectElement(\Items(), Index)
+					
+					If Index = \State
+						ShadeState = #Hot
+					ElseIf Index = \ItemState
+						ShadeState = #Warm
+					Else
+						ShadeState = #Cold
+					EndIf
+					
+					; A row that doesn't show through is drawn in the disabled ink, so a whole
+					; switched-off group reads as inactive without losing hover or selection.
+					If LayerList_EffectiveVisible(*GadgetData, Index)
+						TextState = ShadeState
+					Else
+						TextState = #Disabled
+					EndIf
+					
+					SelectElement(\Items(), Index)
+					
+					If ShadeState > #Cold
+						AddPathBox(\OriginX + \Border, Y, \Width - \Border * 2, \ItemHeight)
+						VectorSourceColor(\ThemeData\ShadeColor[ShadeState])
+						FillPath()
+					EndIf
+					
+					; Fold chevron — groups only, and only when they hold something.
+					If Not \Items()\Child
+						VectorSourceColor(\ThemeData\TextColor[TextState])
+						If LayerList_ChildCount(*GadgetData, Index)
+							SelectElement(\Items(), Index)
+							LayerList_DrawFold(\OriginX + \Border, Y, #LayerList_FoldWidth, \Items()\Folded)
+						EndIf
+						SelectElement(\Items(), Index)
+					EndIf
+					
+					TextX = \OriginX + LayerList_TextX(*GadgetData, \Items()\Child)
+					VectorSourceColor(\ThemeData\TextColor[TextState])
+					\ItemRedraw(@\Items(), TextX, Y, \Items()\Text\Width, \ItemHeight, TextState, \ThemeData)
+					
+					SelectElement(\Items(), Index)
+					VectorSourceColor(\ThemeData\TextColor[TextState])
+					LayerList_DrawEye(EyeX, Y, #LayerList_EyeWidth, \ItemHeight, \Items()\Visible)
+					
+					Y + \ItemHeight
+					Row + 1
+				Wend
+				
+				If \ReorderRow = Rows And Rows >= Row
+					MarkerY = Y			; dropping past the last row
+				EndIf
+				
+				If \ReorderRow > -1 And MarkerY > -1
+					; Indent the marker when a child is in flight, so it's clear it lands inside a group.
+					MarkerX = \OriginX + \Border + Bool(\DragChild) * #LayerList_FoldWidth * 2
+					AddPathBox(MarkerX, MarkerY - #LayerList_MarkerHeight * 0.5, \Width - \Border * 2 - (MarkerX - \OriginX - \Border), #LayerList_MarkerHeight)
+					VectorSourceColor(\ThemeData\TextColor[#Hot])
+					FillPath()
+				EndIf
+				
+				If \VisibleScrollBar
+					\ScrollBar\Redraw(\ScrollBar)
+				EndIf
+			EndWith
+		EndProcedure
+		
+		;- Scrolling and reordering
+		
+		Procedure LayerList_StateFocus(*GadgetData.LayerListData)
+			; Scroll the selected row into view.
+			Protected Result, Row
+			
+			With *GadgetData
+				If \VisibleScrollBar
+					Row = LayerList_IndexToRow(*GadgetData, \State)
+					
+					If Row > -1
+						If Ceil(\ScrollBar\State / \ItemHeight) > Row
+							ScrollBar_SetState_Meta(\ScrollBar, Row * \ItemHeight)
+							Result = #True
+						ElseIf Floor((\ScrollBar\State + \Height - \ItemHeight) / \ItemHeight) < Row
+							ScrollBar_SetState_Meta(\ScrollBar, Row * \ItemHeight - \Height + \ItemHeight)
+							Result = #True
+						EndIf
+					EndIf
+				EndIf
+			EndWith
+			
+			ProcedureReturn Result
+		EndProcedure
+		
+		Procedure LayerList_DropRow(*GadgetData.LayerListData, MouseY)
+			; The row the dragged item would land before, legalised for what's in flight: a group
+			; only ever lands between groups, and a child never lands above the first group.
+			Protected Row, Rows, R, Best, BestDistance, Distance, Folded
+			
+			With *GadgetData
+				Rows = LayerList_RowCount(*GadgetData)
+				Row = Clamp(Floor((MouseY + LayerList_ScrollOffset(*GadgetData) + \ItemHeight * 0.5) / \ItemHeight), 0, Rows)
+				
+				If \DragChild
+					If Row < 1
+						Row = 1			; a child always belongs to a group
+					EndIf
+				Else
+					Best = Rows
+					BestDistance = Abs(Rows - Row)
+					
+					ForEach \Items()
+						If \Items()\Child
+							If Folded
+								Continue
+							EndIf
+						Else
+							Folded = \Items()\Folded
+							Distance = Abs(R - Row)
+							If Distance < BestDistance
+								BestDistance = Distance
+								Best = R
+							EndIf
+						EndIf
+						R + 1
+					Next
+					
+					Row = Best
+				EndIf
+			EndWith
+			
+			ProcedureReturn Row
+		EndProcedure
+		
+		Procedure LayerList_ApplyDrop(*GadgetData.LayerListData)
+			; Move what's in flight to \ReorderRow. Linked-list element addresses survive
+			; MoveElement, so a group travels by re-inserting its block in order before the
+			; destination element — which also covers "insert before the next group", the
+			; position that means "append to the group above".
+			Protected *Destination, *Dragged, DestinationIndex, Parent
+			Protected NewList Block.i()
+			
+			With *GadgetData
+				If \ReorderRow < 0
+					ProcedureReturn
+				EndIf
+				
+				DestinationIndex = LayerList_RowToIndex(*GadgetData, \ReorderRow)
+				If DestinationIndex > -1 And SelectElement(\Items(), DestinationIndex)
+					*Destination = @\Items()
+				EndIf
+				
+				If Not SelectElement(\Items(), \DragIndex)
+					ProcedureReturn
+				EndIf
+				*Dragged = @\Items()
+				
+				AddElement(Block())
+				Block() = *Dragged
+				
+				If Not \DragChild
+					While NextElement(\Items()) And \Items()\Child
+						AddElement(Block())
+						Block() = @\Items()
+					Wend
+				EndIf
+				
+				; Dropping inside the block being carried would be a no-op at best.
+				ForEach Block()
+					If Block() = *Destination
+						ProcedureReturn
+					EndIf
+				Next
+				
+				ForEach Block()
+					ChangeCurrentElement(\Items(), Block())
+					If *Destination
+						MoveElement(\Items(), #PB_List_Before, *Destination)
+					Else
+						MoveElement(\Items(), #PB_List_Last)
+					EndIf
+				Next
+				
+				ChangeCurrentElement(\Items(), *Dragged)
+				\State = ListIndex(\Items())
+				
+				; A child dropped into a folded group would vanish — open the group instead.
+				If \DragChild
+					Parent = LayerList_ParentOf(*GadgetData, \State)
+					If Parent > -1 And SelectElement(\Items(), Parent)
+						\Items()\Folded = #False
+					EndIf
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_ReorderTimer(*GadgetData.LayerListData, Timer)
+			; Auto-scroll while the pointer is held past the top or bottom edge.
+			Protected Event.Event
+			
+			With *GadgetData
+				Event\EventType = #MouseMove
+				Event\MouseX = WindowX(\ReorderWindow) - \DragOriginX
+				Event\MouseY = WindowY(\ReorderWindow) - \DragOriginY
+				
+				If \ReorderDirection = -1
+					If \ScrollBar\State > 0
+						ScrollBar_SetState_Meta(\ScrollBar, Max(0, \ScrollBar\State - \ItemHeight))
+						LayerList_EventHandler(*GadgetData, @Event)
+					EndIf
+				Else
+					If \ScrollBar\State < \ScrollBar\Max - \ScrollBar\PageLength
+						ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State + \ItemHeight)
+						LayerList_EventHandler(*GadgetData, @Event)
+					EndIf
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_DragCanvasHandler()
+			; The floating preview swallows the wheel while it's under the pointer; hand it back.
+			Protected Gadget = EventGadget(), *GadgetData.LayerListData = GetProp_(GadgetID(Gadget), "UITK_LayerData"), Event.Event
+			
+			Event\EventType = #MouseWheel
+			Event\MouseX = WindowX(*GadgetData\ReorderWindow) - *GadgetData\DragOriginX
+			Event\MouseY = WindowY(*GadgetData\ReorderWindow) - *GadgetData\DragOriginY
+			Event\Param = GetGadgetAttribute(*GadgetData\ReorderCanvas, #PB_Canvas_WheelDelta)
+			
+			LayerList_EventHandler(*GadgetData, @Event)
+		EndProcedure
+		
+		Procedure LayerList_StartReorder(*GadgetData.LayerListData, *Event.Event)
+			; Fill the floating preview with the grabbed row and show it under the cursor.
+			Protected Row
+			
+			With *GadgetData
+				If Not SelectElement(\Items(), \DragIndex)
+					ProcedureReturn
+				EndIf
+				
+				\DragChild = \Items()\Child
+				\DragState = #Drag_Active
+				
+				Row = LayerList_IndexToRow(*GadgetData, \DragIndex)
+				\DragOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginX
+				\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + Row * \ItemHeight - LayerList_ScrollOffset(*GadgetData)
+				
+				StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
+				AddPathBox(0, 0, \Width, \ItemHeight)
+				VectorSourceColor(\ThemeData\ShadeColor[#Hot])
+				FillPath()
+				
+				SelectElement(\Items(), \DragIndex)
+				VectorSourceColor(\ThemeData\TextColor[#Hot])
+				\ItemRedraw(@\Items(), LayerList_TextX(*GadgetData, \Items()\Child), 0, \Items()\Text\Width, \ItemHeight, #Hot, \ThemeData)
+				StopVectorDrawing()
+				
+				\ReorderRow = LayerList_DropRow(*GadgetData, *Event\MouseY)
+				
+				ResizeWindow(\ReorderWindow, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, #PB_Ignore, #PB_Ignore)
+				HideWindow(\ReorderWindow, #False, #PB_Window_NoActivate)
+				SetActiveGadget(\Gadget)
+			EndWith
+		EndProcedure
+		
+		;- Events
+		
+		Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
+			Protected Redraw, Row, Index, Zone, Rows
+			
+			With *GadgetData
+				Select *Event\EventType
+					Case #MouseMove ;{
+						If \DragState = #Drag_Init ;{ waiting to clear the drag threshold
+							If Abs(\DragOriginX - *Event\MouseX) > #Drag_Distance Or Abs(\DragOriginY - *Event\MouseY) > #Drag_Distance
+								LayerList_StartReorder(*GadgetData, *Event)
+								Redraw = #True
+							EndIf
+							;}
+						ElseIf \DragState = #Drag_Active ;{ carrying a row
+							SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+							
+							If \VisibleScrollBar
+								If *Event\MouseY < 0
+									If Not \ReorderTimer
+										\ReorderTimer = AddGadgetTimer(*GadgetData, #LayerList_ReorderDelay, @LayerList_ReorderTimer())
+										\ReorderDirection = -1
+									EndIf
+									*Event\MouseY = 0
+								ElseIf *Event\MouseY > \Height
+									If Not \ReorderTimer
+										\ReorderTimer = AddGadgetTimer(*GadgetData, #LayerList_ReorderDelay, @LayerList_ReorderTimer())
+										\ReorderDirection = 1
+									EndIf
+									*Event\MouseY = \Height
+								ElseIf \ReorderTimer
+									RemoveGadgetTimer(\ReorderTimer)
+									\ReorderTimer = 0
+								EndIf
+							EndIf
+							
+							Row = LayerList_DropRow(*GadgetData, *Event\MouseY)
+							If Row <> \ReorderRow
+								\ReorderRow = Row
+								Redraw = #True
+							EndIf
+							;}
+						Else;{ plain hover
+							If \VisibleScrollBar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
+								Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+							ElseIf \ScrollBar\MouseState
+								\ScrollBar\MouseState = #False
+								Redraw = #True
+							EndIf
+							
+							If \ScrollBar\MouseState
+								If \ItemState > -1
+									\ItemState = -1
+									Redraw = #True
+								EndIf
+							Else
+								Index = LayerList_RowToIndex(*GadgetData, Floor((*Event\MouseY + LayerList_ScrollOffset(*GadgetData)) / \ItemHeight))
+								
+								If Index > -1
+									Zone = LayerList_ZoneAt(*GadgetData, Index, *Event\MouseX)
+								Else
+									Zone = #LayerList_Zone_Body
+								EndIf
+								
+								If Index <> \ItemState Or Zone <> \HoverZone
+									\ItemState = Index
+									\HoverZone = Zone
+									Redraw = #True
+								EndIf
+							EndIf
+						EndIf ;}
+							  ;}
+					Case #LeftButtonDown ;{
+						If \ScrollBar\MouseState
+							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						ElseIf \ItemState > -1
+							Index = \ItemState
+							
+							; Whatever was clicked, the row it belongs to becomes the selection, so a
+							; handler can read GetGadgetState for every one of the three events below.
+							If Index <> \State
+								\State = Index
+								Redraw = #True
+								If \HoverZone = #LayerList_Zone_Body
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								EndIf
+							ElseIf \HoverZone = #LayerList_Zone_Body
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+							EndIf
+							
+							Select \HoverZone
+								Case #LayerList_Zone_Fold ;{
+									If SelectElement(\Items(), Index) And Not \Items()\Child
+										\Items()\Folded = Bool(Not \Items()\Folded)
+										LayerList_UpdateScrollBar(*GadgetData)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerFold)
+										Redraw = #True
+									EndIf
+									;}
+								Case #LayerList_Zone_Eye ;{
+									If SelectElement(\Items(), Index)
+										\Items()\Visible = Bool(Not \Items()\Visible)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerVisibility)
+										Redraw = #True
+									EndIf
+									;}
+								Default ;{ the row body starts a drag
+									If \Reorder
+										\DragState = #Drag_Init
+										\DragIndex = Index
+										\DragOriginX = *Event\MouseX
+										\DragOriginY = *Event\MouseY
+									EndIf
+									;}
+							EndSelect
+						EndIf
+						;}
+					Case #LeftButtonUp ;{
+						If \ScrollBar\Drag
+							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						ElseIf \DragState = #Drag_Active
+							LayerList_ApplyDrop(*GadgetData)
+							
+							HideWindow(\ReorderWindow, #True)
+							
+							If \ReorderTimer
+								RemoveGadgetTimer(\ReorderTimer)
+								\ReorderTimer = 0
+							EndIf
+							
+							\ReorderRow = -1
+							LayerList_UpdateScrollBar(*GadgetData)
+							LayerList_StateFocus(*GadgetData)
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+							Redraw = #True
+						EndIf
+						
+						\DragState = #Drag_None
+						;}
+					Case #MouseLeave ;{
+						If \ScrollBar\MouseState
+							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						EndIf
+						
+						If \ItemState > -1
+							\ItemState = -1
+							Redraw = #True
+						EndIf
+						;}
+					Case #MouseWheel ;{
+						If \VisibleScrollBar
+							ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
+							*Event\EventType = #MouseMove
+							Redraw = Bool(Not LayerList_EventHandler(*GadgetData, *Event))
+						EndIf
+						;}
+					Case #LeftDoubleClick ;{
+						If \ItemState > -1
+							If \HoverZone = #LayerList_Zone_Body
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ForcefulChange)
+							EndIf
+						EndIf
+						;}
+					Case #KeyDown ;{
+						If \DragState = #Drag_None
+							Row = LayerList_IndexToRow(*GadgetData, \State)
+							
+							Select *Event\Param
+								Case #PB_Shortcut_Down ;{
+									Index = LayerList_RowToIndex(*GadgetData, Row + 1)
+									If Row > -1 And Index > -1
+										\State = Index
+										LayerList_StateFocus(*GadgetData)
+										Redraw = #True
+									EndIf
+									;}
+								Case #PB_Shortcut_Up ;{
+									If Row > 0
+										\State = LayerList_RowToIndex(*GadgetData, Row - 1)
+										LayerList_StateFocus(*GadgetData)
+										Redraw = #True
+									EndIf
+									;}
+								Case #PB_Shortcut_Left ;{ fold the group, or jump to it from a child
+									If SelectElement(\Items(), \State)
+										If \Items()\Child
+											Index = LayerList_ParentOf(*GadgetData, \State)
+											If Index > -1
+												\State = Index
+												Redraw = #True
+											EndIf
+										ElseIf Not \Items()\Folded
+											\Items()\Folded = #True
+											LayerList_UpdateScrollBar(*GadgetData)
+											PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerFold)
+											Redraw = #True
+										EndIf
+									EndIf
+									;}
+								Case #PB_Shortcut_Right ;{ open the group
+									If SelectElement(\Items(), \State) And Not \Items()\Child And \Items()\Folded
+										\Items()\Folded = #False
+										LayerList_UpdateScrollBar(*GadgetData)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerFold)
+										Redraw = #True
+									EndIf
+									;}
+								Case #PB_Shortcut_Space ;{ toggle this row's eye
+									If SelectElement(\Items(), \State)
+										\Items()\Visible = Bool(Not \Items()\Visible)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerVisibility)
+										Redraw = #True
+									EndIf
+									;}
+							EndSelect
+						EndIf
+						;}
+				EndSelect
+				
+				If Redraw
+					RedrawObject()
+				EndIf
+			EndWith
+			
+			ProcedureReturn Redraw
+		EndProcedure
+		
+		;- Items
+		
+		Procedure LayerList_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Level.l)
+			; Level 0 adds a group, anything above adds a child of the group above it. A child
+			; added when there's no group yet becomes a group, so the two-level shape always holds.
+			Protected *GadgetData.LayerListData = *this\vt, *NewItem.LayerList_Item, Child
+			
+			With *GadgetData
+				Child = Bool(Level > 0)
+				
+				If Position > -1 And Position < ListSize(\Items())
+					SelectElement(\Items(), Position)
+					*NewItem = InsertElement(\Items())
+				Else
+					LastElement(\Items())
+					*NewItem = AddElement(\Items())
+				EndIf
+				
+				If Child And ListIndex(\Items()) = 0
+					Child = #False			; nothing above it to belong to
+				EndIf
+				
+				*NewItem\Child = Child
+				*NewItem\Visible = #True
+				*NewItem\Text\OriginalText = PeekS(*Text)
+				*NewItem\Text\Image = ImageID
+				*NewItem\Text\LineLimit = 1
+				*NewItem\Text\FontID = \TextBlock\FontID
+				*NewItem\Text\FontScale = \TextBlock\FontScale
+				*NewItem\Text\VAlign = \TextBlock\VAlign
+				*NewItem\Text\HAlign = \TextBlock\HAlign
+				
+				LayerList_PrepareItem(*GadgetData, *NewItem)
+				
+				ChangeCurrentElement(\Items(), *NewItem)
+				Position = ListIndex(\Items())
+				
+				If Position <= \State
+					\State + 1
+				EndIf
+				
+				LayerList_UpdateScrollBar(*GadgetData)
+				RedrawObject()
+			EndWith
+			
+			ProcedureReturn Position
+		EndProcedure
+		
+		Procedure LayerList_RemoveItem(*this.PB_Gadget, Position)
+			; Removing a group takes its children with it.
+			Protected *GadgetData.LayerListData = *this\vt, Count, Loop
+			
+			With *GadgetData
+				If Position > -1 And Position < ListSize(\Items())
+					SelectElement(\Items(), Position)
+					
+					If \Items()\Child
+						Count = 1
+					Else
+						Count = 1 + LayerList_ChildCount(*GadgetData, Position)
+					EndIf
+					
+					For Loop = 1 To Count
+						If SelectElement(\Items(), Position)
+							DeleteElement(\Items())
+						EndIf
+					Next
+					
+					If \State > Position
+						\State = Max(-1, \State - Count)
+					ElseIf \State >= Position
+						\State = -1
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+					EndIf
+					
+					\ItemState = -1
+					LayerList_UpdateScrollBar(*GadgetData)
+					RedrawObject()
+					
+					ProcedureReturn #True
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_ClearItems(*this.PB_Gadget)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			With *GadgetData
+				ClearList(\Items())
+				\State = -1
+				\ItemState = -1
+				\ReorderRow = -1
+				LayerList_UpdateScrollBar(*GadgetData)
+				RedrawObject()
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_CountItem(*this.PB_Gadget)
+			Protected *GadgetData.LayerListData = *this\vt
+			ProcedureReturn ListSize(*GadgetData\Items())
+		EndProcedure
+		
+		Procedure LayerList_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			With *GadgetData
+				If Position > -1 And Position < ListSize(\Items())
+					Select Attribute
+						Case #Attribute_LayerList_Visible
+							If SelectElement(\Items(), Position)
+								ProcedureReturn \Items()\Visible
+							EndIf
+						Case #Attribute_LayerList_EffectiveVisible
+							ProcedureReturn LayerList_EffectiveVisible(*GadgetData, Position)
+						Case #Attribute_LayerList_Folded
+							If SelectElement(\Items(), Position)
+								ProcedureReturn \Items()\Folded
+							EndIf
+						Case #Attribute_LayerList_IsChild
+							If SelectElement(\Items(), Position)
+								ProcedureReturn \Items()\Child
+							EndIf
+						Case #Attribute_LayerList_Parent
+							ProcedureReturn LayerList_ParentOf(*GadgetData, Position)
+						Case #Attribute_LayerList_ChildCount
+							ProcedureReturn LayerList_ChildCount(*GadgetData, Position)
+					EndSelect
+				EndIf
+			EndWith
+			
+			ProcedureReturn -1
+		EndProcedure
+		
+		Procedure LayerList_SetItemAttribute(*this.PB_Gadget, Position, Attribute, Value)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			With *GadgetData
+				If Position > -1 And SelectElement(\Items(), Position)
+					Select Attribute
+						Case #Attribute_LayerList_Visible
+							\Items()\Visible = Bool(Value)
+							RedrawObject()
+						Case #Attribute_LayerList_Folded
+							If Not \Items()\Child
+								\Items()\Folded = Bool(Value)
+								LayerList_UpdateScrollBar(*GadgetData)
+								RedrawObject()
+							EndIf
+					EndSelect
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_GetItemData(*this.PB_Gadget, Position)
+			Protected *GadgetData.LayerListData = *this\vt, *Result
+			
+			If Position > -1 And SelectElement(*GadgetData\Items(), Position)
+				*Result = *GadgetData\Items()\Data
+			EndIf
+			
+			ProcedureReturn *Result
+		EndProcedure
+		
+		Procedure LayerList_SetItemData(*this.PB_Gadget, Position, *Data)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			If Position > -1 And SelectElement(*GadgetData\Items(), Position)
+				*GadgetData\Items()\Data = *Data
+			EndIf
+		EndProcedure
+		
+		Procedure.s LayerList_GetItemText(*this.PB_Gadget, Position)
+			Protected *GadgetData.LayerListData = *this\vt, Result.s
+			
+			If Position > -1 And SelectElement(*GadgetData\Items(), Position)
+				Result = *GadgetData\Items()\Text\OriginalText
+			EndIf
+			
+			ProcedureReturn Result
+		EndProcedure
+		
+		Procedure LayerList_SetItemText(*this.PB_Gadget, Position, *Text)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			With *GadgetData
+				If Position > -1 And SelectElement(\Items(), Position)
+					\Items()\Text\OriginalText = PeekS(*Text)
+					LayerList_PrepareItem(*GadgetData, @\Items())
+					RedrawObject()
+					ProcedureReturn #True
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_GetItemImage(*this.PB_Gadget, Position)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			If Position > -1 And SelectElement(*GadgetData\Items(), Position)
+				ProcedureReturn *GadgetData\Items()\Text\Image
+			EndIf
+		EndProcedure
+		
+		Procedure LayerList_SetItemImage(*this.PB_Gadget, Position, ImageID)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			With *GadgetData
+				If Position > -1 And SelectElement(\Items(), Position)
+					\Items()\Text\Image = ImageID
+					LayerList_PrepareItem(*GadgetData, @\Items())
+					RedrawObject()
+				EndIf
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_SetAttribute(*this.PB_Gadget, Attribute, Value)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			With *GadgetData
+				Select Attribute
+					Case #Attribute_ItemHeight ;{
+						\ItemHeight = Value
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_ScrollStep, \ItemHeight)
+						
+						ForEach \Items()
+							LayerList_PrepareItem(*GadgetData, @\Items())
+						Next
+						
+						If \Reorder
+							SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
+							ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
+						EndIf
+						
+						LayerList_UpdateScrollBar(*GadgetData)
+						;}
+					Default ;{
+						Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+						;}
+				EndSelect
+			EndWith
+			
+			RedrawObject()
+		EndProcedure
+		
+		Procedure LayerList_SetFont(*this.PB_Gadget, FontID)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			With *GadgetData
+				\TextBlock\FontID = FontID
+				
+				ForEach \Items()
+					\Items()\Text\FontID = FontID
+					LayerList_PrepareItem(*GadgetData, @\Items())
+				Next
+				
+				RedrawObject()
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList_Resize(*this.PB_Gadget, x, y, Width, Height)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			*this\VT = *GadgetData\OriginalVT
+			ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+			*this\VT = *GadgetData
+			
+			With *GadgetData
+				\Width = GadgetWidth(\Gadget)
+				\Height = GadgetHeight(\Gadget)
+				
+				ForEach \Items()
+					LayerList_PrepareItem(*GadgetData, @\Items())
+				Next
+				
+				ScrollBar_ResizeMeta(\ScrollBar, \Width - #LayerList_ToolbarThickness - \Border - 1, \Border + 1, #LayerList_ToolbarThickness, \Height - \Border * 2 - 2)
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
+				
+				If \Reorder
+					SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
+					ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
+				EndIf
+				
+				LayerList_UpdateScrollBar(*GadgetData)
+			EndWith
+			
+			RedrawObject()
+		EndProcedure
+		
+		Procedure LayerList_FreeGadget(*this.PB_Gadget)
+			Protected *GadgetData.LayerListData = *this\vt
+			
+			With *GadgetData
+				If \ReorderTimer
+					RemoveGadgetTimer(\ReorderTimer)
+					\ReorderTimer = 0
+				EndIf
+				
+				If \Reorder And IsWindow(\ReorderWindow)
+					CloseWindow(\ReorderWindow)
+				EndIf
+				
+				DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
+				FreeStructure(\ScrollBar)
+			EndWith
+			
+			Default_FreeGadget(*this)
+		EndProcedure
+		
+		Procedure LayerList_Meta(*GadgetData.LayerListData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags, *CustomItem)
+			Protected GadgetList
+			*GadgetData\ThemeData = *ThemeData
+			InitializeObject(LayerList)
+			
+			With *GadgetData
+				If Not (Flags & (#VAlignTop | #VAlignBottom))
+					\TextBlock\VAlign = #VAlignCenter
+				EndIf
+				
+				If *CustomItem
+					\ItemRedraw = *CustomItem
+				Else
+					\ItemRedraw = @LayerList_ItemRedraw()
+				EndIf
+				
+				\ItemHeight = #LayerList_ItemHeight
+				\State = -1
+				\ItemState = -1
+				\ReorderRow = -1
+				\DragIndex = -1
+				
+				AllocateStructureX(\ScrollBar, ScrollBarData)
+				ScrollBar_Meta(\ScrollBar, *ThemeData, -1, Width - #LayerList_ToolbarThickness - \Border - 1, \Border + 1, #LayerList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height, #Gadget_Vertical)
+				
+				If Flags & #ReOrder
+					GadgetList = UseGadgetList(0)
+					\Reorder = #True
+					\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, \ItemHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
+					\ReorderCanvas = CanvasGadget(#PB_Any, 0, 0, Width, \ItemHeight)
+					SetProp_(GadgetID(\ReorderCanvas), "UITK_LayerData", *GadgetData)
+					BindGadgetEvent(\ReorderCanvas, @LayerList_DragCanvasHandler(), #PB_EventType_MouseWheel)
+					SetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
+					SetLayeredWindowAttributes_(WindowID(\ReorderWindow), 0, 128, #LWA_ALPHA)
+					UseGadgetList(GadgetList)
+				EndIf
+				
+				\VT\AddGadgetItem3 = @LayerList_AddItem()
+				\VT\RemoveGadgetItem = @LayerList_RemoveItem()
+				\VT\ClearGadgetItemList = @LayerList_ClearItems()
+				\VT\CountGadgetItems = @LayerList_CountItem()
+				\VT\GetGadgetItemAttribute2 = @LayerList_GetItemAttribute()
+				\VT\SetGadgetItemAttribute2 = @LayerList_SetItemAttribute()
+				\VT\GetGadgetItemData = @LayerList_GetItemData()
+				\VT\SetGadgetItemData = @LayerList_SetItemData()
+				\VT\GetGadgetItemText = @LayerList_GetItemText()
+				\VT\SetGadgetItemText = @LayerList_SetItemText()
+				\VT\GetGadgetItemImage = @LayerList_GetItemImage()
+				\VT\SetGadgetItemImage = @LayerList_SetItemImage()
+				\VT\SetGadgetAttribute = @LayerList_SetAttribute()
+				\VT\SetGadgetFont = @LayerList_SetFont()
+				\VT\ResizeGadget = @LayerList_Resize()
+				\VT\FreeGadget = @LayerList_FreeGadget()
+				
+				; Enable only the needed events
+				\SupportedEvent[#MouseMove] = #True
+				\SupportedEvent[#MouseLeave] = #True
+				\SupportedEvent[#MouseWheel] = #True
+				\SupportedEvent[#LeftButtonDown] = #True
+				\SupportedEvent[#LeftButtonUp] = #True
+				\SupportedEvent[#LeftDoubleClick] = #True
+				\SupportedEvent[#KeyDown] = #True
+			EndWith
+		EndProcedure
+		
+		Procedure LayerList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
+			Protected Result, *this.PB_Gadget, *GadgetData.LayerListData, *ThemeData
+			
+			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
+			
+			If Result
+				If Gadget = #PB_Any
+					Gadget = Result
+				EndIf
+				
+				*this = IsGadget(Gadget)
+				AllocateStructureX(*GadgetData, LayerListData)
+				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+				*GadgetData\OriginalVT = *this\VT
+				*this\VT = *GadgetData
+				
+				AllocateStructureX(*ThemeData, Theme)
+				
+				If Flags & #DarkMode
+					CopyStructure(@DarkTheme, *ThemeData, Theme)
+				ElseIf Flags & #LightMode
+					CopyStructure(@LightTheme, *ThemeData, Theme)
+				Else
+					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+					If *WindowData
+						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+					Else
+						CopyStructure(*DefaultTheme, *ThemeData, Theme)
+					EndIf
+				EndIf
+				
+				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+				GadgetHandler() = Gadget
+				LayerList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
+				
+				RedrawObject()
+			EndIf
+			
+			ProcedureReturn Result
+		EndProcedure
+	CompilerEndIf
 	;}
 	
 	
@@ -13138,8 +14407,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 11285
-; FirstLine = 651
-; Folding = jA5---AAIAACAAAAAAAAgBAAAA9wBA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAABAAAAAAAAAAAAAAAAAAAAAAAAAA2xAAAAAAAAAg
+; CursorPosition = 781
+; Folding = AEA---HAAAAAAAAAAAAAAAAAAAAPcAA-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
