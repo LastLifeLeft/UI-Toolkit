@@ -2466,30 +2466,68 @@ Module UITK
 			ProcedureReturn CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
 		EndProcedure
 		
+		; Screen point (packed NCHITTEST lParam) inside the bottom/left/right resize
+		; band of a sizable, un-maximized themed window? The top band is the title
+		; bar's business, handled by the bar pieces themselves.
+		Procedure Window_InSizeBand(Window, lParam)
+			Protected *WindowData.ThemedWindow = GetProp_(Window, "UITK_WindowData")
+			Protected ptX, ptY, wRect.RECT, localX, localY, w, h
+
+			If *WindowData And *WindowData\Sizable And IsZoomed_(Window) = 0
+				ptX = lParam & $FFFF
+				ptY = (lParam >> 16) & $FFFF
+				If ptX & $8000 : ptX | $FFFF0000 : EndIf
+				If ptY & $8000 : ptY | $FFFF0000 : EndIf
+				GetWindowRect_(Window, @wRect)
+				localX = ptX - wRect\left
+				localY = ptY - wRect\top
+				w = wRect\right - wRect\left
+				h = wRect\bottom - wRect\top
+				If localY >= h - #SizableBorder Or localX < #SizableBorder Or localX >= w - #SizableBorder
+					ProcedureReturn #True
+				EndIf
+			EndIf
+			ProcedureReturn #False
+		EndProcedure
+
+		; Every child placed on the container gets this thin subclass: a GADGET
+		; covering the resize border used to answer WM_NCHITTEST with HTCLIENT,
+		; stopping the hit-test dead - the container's own HTTRANSPARENT band
+		; (below) never got a say, so a panel filled edge-to-edge with gadgets had
+		; no grabbable window border. Same contract, one level deeper: inside the
+		; band the gadget steps aside and the hit-test falls through gadget ->
+		; container -> window, which answers HTBOTTOMRIGHT & co.
+		Procedure GadgetSizeBand_Handler(hWnd, Msg, wParam, lParam)
+			Protected OriginalProc = GetProp_(hWnd, "UITK_BandProc")
+
+			If Msg = #WM_NCHITTEST And Window_InSizeBand(GetAncestor_(hWnd, #GA_ROOT), lParam)
+				ProcedureReturn #HTTRANSPARENT
+			ElseIf Msg = #WM_NCDESTROY
+				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, OriginalProc)
+				RemoveProp_(hWnd, "UITK_BandProc")
+			EndIf
+
+			ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
+		EndProcedure
+
 		Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
-			Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData"), *WindowData.ThemedWindow
-			
+			Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData")
+
 			; The container sits below the title bar and covers the resize border on the bottom/left/right.
 			; We return HTTRANSPARENT in those bands so the parent's WM_NCHITTEST gets the chance to return HTLEFT/HTRIGHT/HTBOTTOM/etc; without which the OS-driven resize and Aero Snap would never see the click.
 			If Msg = #WM_NCHITTEST
-				*WindowData = GetProp_(*ContainerData\Parent, "UITK_WindowData")
-				If *WindowData\Sizable And IsZoomed_(*ContainerData\Parent) = 0
-					Protected ptX = lParam & $FFFF
-					Protected ptY = (lParam >> 16) & $FFFF
-					If ptX & $8000 : ptX | $FFFF0000 : EndIf
-					If ptY & $8000 : ptY | $FFFF0000 : EndIf
-					Protected wRect.RECT
-					GetWindowRect_(*ContainerData\Parent, @wRect)
-					Protected localY = ptY - wRect\top
-					Protected localX = ptX - wRect\left
-					Protected w = wRect\right - wRect\left
-					Protected h = wRect\bottom - wRect\top
-					If localY >= h - #SizableBorder Or localX < #SizableBorder Or localX >= w - #SizableBorder
-						ProcedureReturn #HTTRANSPARENT
-					EndIf
+				If Window_InSizeBand(*ContainerData\Parent, lParam)
+					ProcedureReturn #HTTRANSPARENT
+				EndIf
+			ElseIf Msg = #WM_PARENTNOTIFY And (wParam & $FFFF) = #WM_CREATE
+				; A new child (gadget, nested child, the 3D screen host - creation
+				; notifications bubble up from any depth): give it the band subclass,
+				; or it would occlude the resize border it happens to touch
+				If IsWindow_(lParam) And GetProp_(lParam, "UITK_BandProc") = 0
+					SetProp_(lParam, "UITK_BandProc", SetWindowLongPtr_(lParam, #GWL_WNDPROC, @GadgetSizeBand_Handler()))
 				EndIf
 			EndIf
-			
+
 			ProcedureReturn CallWindowProc_(*ContainerData\OriginalProc, hWnd, Msg, wParam, lParam)
 		EndProcedure
 		
@@ -8373,7 +8411,25 @@ Module UITK
 					\SectionHeight = Value
 				Case #Attribute_Library_ItemWidth
 					\ItemWidth = Value
-				Default	
+					; The width-dependent layout must follow, or the gadget keeps
+					; the old items-per-line until the first resize recomputes it
+					\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
+					\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
+					\InternalHeight = 0
+					ForEach \Sections()
+						If \Sections()\Height
+							\Sections()\Height = \SectionHeight
+							\Sections()\Height + Round(ListSize(\Sections()\Items()) / \ItemPerLine, #PB_Round_Up) * (\ItemVMargin + \ItemHeight)
+							\InternalHeight + \Sections()\Height
+						EndIf
+					Next
+					If \InternalHeight > \Height
+						\VisibleScrollBar = #True
+						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+					Else
+						\VisibleScrollBar = #False
+					EndIf
+				Default
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
 			EndSelect
 			
@@ -8425,9 +8481,11 @@ Module UITK
 			\ItemVMargin = #Library_ItemVMargin
 			\ItemState = -1
 			\State = -1
-			
+
 			\Drag = Bool(Flags & #Drag)
-			
+
+			\Width = Width		; Only Resize used to set these, so the per-line math
+			\Height = Height	; below ran on width 0 until the first resize
 			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
 			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
 			
@@ -8729,71 +8787,72 @@ Module UITK
 		Protected Y, X, FirstElement, ValueX
 		
 		With *GadgetData
-			If \Border
-				AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
-				VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
-				StrokePath(2, #PB_Path_Preserve)
-			Else
-				AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
-			EndIf
-			
-			VectorSourceColor(\ThemeData\ShadeColor[#Warm])
-			ClipPath(#PB_Path_Preserve)
-			FillPath()
-			
-			If ListSize(\Items())
-				X = \OriginX + \Border + \MarginWidth + 3
-				Y = *GadgetData\OriginY + \Border
-				ValueX = \OriginX + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
-				
-				If \VisibleScrollBar
-					SelectElement(\Items(), Floor(\ScrollBar\State / \ItemHeight))
-					Y - (\ScrollBar\State % \ItemHeight)
+			If Not \Freeze
+				If \Border
+					AddPathRoundedBox(\OriginX + 1, \OriginY + 1, \Width - 2, \Height - 2, \ThemeData\CornerRadius, \CornerType)
+					VectorSourceColor(*GadgetData\ThemeData\LineColor[#Cold])
+					StrokePath(2, #PB_Path_Preserve)
 				Else
-					FirstElement(\Items())
+					AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, \ThemeData\CornerRadius, \CornerType)
 				EndIf
-				
-				VectorSourceColor(\ThemeData\TextColor[#Cold])
-				
-				Repeat
-					If \Items()\Type = #PropertyBox_Title
-						DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 1)
-					Else
-						VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-						AddPathBox(X, Y, \Width, \ItemHeight - 1)
-						FillPath()
-						
-						VectorSourceColor(\ThemeData\TextColor[#Cold])
-						DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 2)
-						
-						PropertyBox_DrawValue(*GadgetData, @\Items(), ValueX, Y)
-					EndIf
-					
-					Y + \ItemHeight
-				Until Not NextElement(\Items()) Or Y > \Height
 				
 				VectorSourceColor(\ThemeData\ShadeColor[#Warm])
-				MovePathCursor(\OriginX + \ColumnWidth + \MarginWidth + 0.5, \Border)
-				AddPathLine(0, \Height, #PB_Path_Relative)
-				StrokePath(1)
+				ClipPath(#PB_Path_Preserve)
+				FillPath()
 				
-				If Y < \Height
-					VectorSourceColor(\ThemeData\ShadeColor[#Cold])
-					AddPathBox(X, Y, \Width, \Height - Y)
-					FillPath()
-				EndIf
-				
-				If \Editing
-					SaveVectorState()
-					\String\Redraw(\String)
-					RestoreVectorState()
-				EndIf
-				
-				If \VisibleScrollBar
-					\ScrollBar\Redraw(\ScrollBar)
+				If ListSize(\Items())
+					X = \OriginX + \Border + \MarginWidth + 3
+					Y = *GadgetData\OriginY + \Border
+					ValueX = \OriginX + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
+					
+					If \VisibleScrollBar
+						SelectElement(\Items(), Floor(\ScrollBar\State / \ItemHeight))
+						Y - (\ScrollBar\State % \ItemHeight)
+					Else
+						FirstElement(\Items())
+					EndIf
+					
+					VectorSourceColor(\ThemeData\TextColor[#Cold])
+					
+					Repeat
+						If \Items()\Type = #PropertyBox_Title
+							DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 1)
+						Else
+							VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+							AddPathBox(X, Y, \Width, \ItemHeight - 1)
+							FillPath()
+							
+							VectorSourceColor(\ThemeData\TextColor[#Cold])
+							DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 2)
+							
+							PropertyBox_DrawValue(*GadgetData, @\Items(), ValueX, Y)
+						EndIf
+						
+						Y + \ItemHeight
+					Until Not NextElement(\Items()) Or Y > \Height
+					
+					VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+					MovePathCursor(\OriginX + \ColumnWidth + \MarginWidth + 0.5, \Border)
+					AddPathLine(0, \Height, #PB_Path_Relative)
+					StrokePath(1)
+					
+					If Y < \Height
+						VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+						AddPathBox(X, Y, \Width, \Height - Y)
+						FillPath()
+					EndIf
+					
+					If \Editing
+						SaveVectorState()
+						\String\Redraw(\String)
+						RestoreVectorState()
+					EndIf
+					
+					If \VisibleScrollBar
+						\ScrollBar\Redraw(\ScrollBar)
+					EndIf
 				EndIf
 			EndIf
-			
 		EndWith
 	EndProcedure
 	
@@ -14869,7 +14928,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 781
-; Folding = AEA---HAAAAAAAAAAAAAAAAAAAAPcAA-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 627
+; Folding = AEA---HAAAAAAAAAAAAAAAAAAAAPcAA-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcAAAAAAAAAAAAAAAAAAAAAAA----
 ; EnableXP
 ; DPIAware
