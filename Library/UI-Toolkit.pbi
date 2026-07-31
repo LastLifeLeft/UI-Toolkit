@@ -408,6 +408,7 @@
 	Declare CatchSvgIcon(*Buffer, BufferLength, Size, Color)
 	Declare DragPreviewVisible(State)						; Show/hide the floating drag preview mid-drag (in-place preview takes over)
 	Declare EditGadgetItemText(Gadget)
+	Declare ToggleGadgetItemVisibility(Gadget)				; Flip the focused row's eye, as clicking it does
 	
 	; Drag & drop
 	Declare AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
@@ -415,6 +416,8 @@
 	Declare AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
 	Declare AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
 	Declare RegisterDropCallback(*Callback)
+	Declare.i AdvancedDragActive()							; Is one of OUR drags in flight? (the drop callback is global — a file
+															; dragged in from the desktop reaches it too)
 	
 	; TimeLine
 	CompilerIf Defined(EnableTimeline, #PB_Module)
@@ -1523,10 +1526,20 @@ Module UITK
 	
 	Procedure EditGadgetItemText(Gadget)
 		Protected Event.Event, *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
-		
+
 		SetActiveGadget(Gadget)
 		Event\EventType = #KeyDown
 		Event\Param = #PB_Shortcut_F2
+		*GadgetData\EventHandler(*GadgetData, Event)
+	EndProcedure
+
+	; Flip the focused row's eye, exactly as clicking it does - the gadget maps
+	; Space to that, so this drives the real path rather than a copy of it.
+	Procedure ToggleGadgetItemVisibility(Gadget)
+		Protected Event.Event, *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
+
+		Event\EventType = #KeyDown
+		Event\Param = #PB_Shortcut_Space
 		*GadgetData\EventHandler(*GadgetData, Event)
 	EndProcedure
 	
@@ -3191,6 +3204,14 @@ Module UITK
 		Procedure RegisterDropCallback(*Callback)
 			*DropCallback = *Callback
 		EndProcedure
+
+		; PB has ONE global drop callback, so a drop target hears about every
+		; drag the window accepts — a file off the desktop as much as one of our
+		; cards. The hook only exists while an AdvancedDrag is running, which
+		; makes it the honest answer to "is this drag mine?".
+		Procedure.i AdvancedDragActive()
+			ProcedureReturn Bool(ADNDHook <> 0)
+		EndProcedure
 		
 		; Show/hide the floating drag preview mid-drag. A drop target that renders its
 		; own in-place preview (a 3D ghost, say) hides the card while the cursor is
@@ -3216,6 +3237,7 @@ Module UITK
 		Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)         : ProcedureReturn 0 : EndProcedure
 		Procedure RegisterDropCallback(*Callback) : EndProcedure
 		Procedure DragPreviewVisible(State) : EndProcedure
+		Procedure.i AdvancedDragActive() : ProcedureReturn #False : EndProcedure
 	CompilerEndIf
 	;}
 	
@@ -12323,7 +12345,16 @@ Module UITK
 		Procedure LayerList_ToggleVisibility(*GadgetData.LayerListData, Index)
 			; Flip a row's eye. When that row is part of a multi-row selection the whole selection
 			; follows it, so switching a batch of layers off is one click rather than N.
-			Protected NewState
+			;
+			; LayerList_SelectedCount walks the list, and a walk leaves the current element
+			; wherever it finished - on the LAST item. Testing it inside the condition therefore
+			; moved the cursor off the row we had just selected, and the single-row branch below
+			; wrote the eye of the last row in the list instead. Hiding one selected item did
+			; nothing (unless it happened to BE the last one); a multi-row selection was fine,
+			; because its branch starts a fresh ForEach; and an unselected row was fine too,
+			; because \Items()\Selected is #False and the count is never reached. Take the count
+			; first, then re-select.
+			Protected NewState, Batch
 
 			With *GadgetData
 				If Not SelectElement(\Items(), Index)
@@ -12331,14 +12362,15 @@ Module UITK
 				EndIf
 
 				NewState = Bool(Not \Items()\Visible)
+				Batch = Bool(\MultiSelect And \Items()\Selected And LayerList_SelectedCount(*GadgetData) > 1)
 
-				If \MultiSelect And \Items()\Selected And LayerList_SelectedCount(*GadgetData) > 1
+				If Batch
 					ForEach \Items()
 						If \Items()\Selected
 							\Items()\Visible = NewState
 						EndIf
 					Next
-				Else
+				ElseIf SelectElement(\Items(), Index)
 					\Items()\Visible = NewState
 				EndIf
 			EndWith
@@ -12918,6 +12950,16 @@ Module UITK
 
 				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 
+				; \EditCursor means "the pointer is inside the editor", and every
+				; click consults it to decide between typing and clicking the row.
+				; It must not outlive the editor: left standing it sends the NEXT
+				; click into a String that is no longer open, and nothing works
+				; again until the pointer happens to cross a row body.
+				If \EditCursor
+					\EditCursor = #PB_Cursor_Default
+					\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
+				EndIf
+
 				If Keep And SelectElement(\Items(), \State)
 					\Items()\Text\OriginalText = \String\String
 					LayerList_PrepareItem(*GadgetData, @\Items())
@@ -13009,9 +13051,13 @@ Module UITK
 								EndIf
 
 								; Over the open editor the pointer becomes a caret, which is also how
-								; #LeftButtonDown below knows the click belongs to the editor.
+								; #LeftButtonDown below knows the click belongs to the editor. The
+								; RIGHT edge matters as much as the left: the editor deliberately
+								; stops short of the eye, so without that bound the eye counted as
+								; "inside the editor" - clicking it placed a caret instead of
+								; committing the name, and the caret cursor stuck.
 								If \Editing And Index = \State
-									If *Event\MouseX > \String\OriginX And *Event\MouseY > \String\OriginY And *Event\MouseY < \String\OriginY + \String\Height
+									If *Event\MouseX > \String\OriginX And *Event\MouseX < \String\OriginX + \String\Width And *Event\MouseY > \String\OriginY And *Event\MouseY < \String\OriginY + \String\Height
 										Cursor = #PB_Cursor_IBeam
 									EndIf
 								EndIf
