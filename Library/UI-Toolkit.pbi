@@ -114,8 +114,8 @@
 	
 	Enumeration; Colors
 		#Color_Text_Cold	= #PB_Gadget_FrontColor
-		#Color_Back_Cold	= #PB_Gadget_BackColor 
-		#Color_Line_Cold	= #PB_Gadget_LineColor 
+		#Color_Back_Cold	= #PB_Gadget_BackColor
+		#Color_Line_Cold	= #PB_Gadget_LineColor
 		
 		#Color_Back_Warm
 		#Color_Back_Hot
@@ -343,12 +343,10 @@
 	Declare SetCurrentTheme(*Theme.Theme)
 	Declare SetDarkMode(State)								; Enable or disable the dark theme
 	Declare SetAccessibilityMode(State)						; Enable or disable accessibility mode. If enabled, gadget falls back on to their default PB version, making them compatible with important features like screen readers or RTL languages.
-	Declare SetGadgetColorScheme(Gadget, ThemeJson.s)		; Apply a complete color scheme at once
 	Declare SubClassFunction(Gadget, Function, *Address)	; Subclass any gadget function (Works with native pb gadgets too)
 	
 	; Getters
 	Declare GetAccessibilityMode()							; Returns the current accessibility state.
-	Declare.s GetGadgetColorScheme(Gadget)					; Apply a complete color scheme at once
 	Declare GetCurrentTheme()								; Returns the current theme address
 	
 	; Window
@@ -438,6 +436,12 @@
 	; size of the per-widget property map; tests use it to assert cleanup ran.
 	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
 		Declare _Linux_PropMapSize()
+	CompilerEndIf
+	
+	; Debug builds only: Debug-print every UITK allocation still alive and return the count.
+	; Call it after closing everything to catch library-side leaks.
+	CompilerIf #PB_Compiler_Debugger
+		Declare DumpAllocations()
 	CompilerEndIf
 	;}
 EndDeclareModule
@@ -667,7 +671,6 @@ Module UITK
 		*GadgetData\EventHandler = @GadgetType#_EventHandler()
 		*GadgetData\VT\FreeGadget = @Default_FreeGadget()
 		*GadgetData\VT\ResizeGadget = @Default_ResizeGadget()
-		*GadgetData\VT\FreeGadget = @Default_FreeGadget()
 		
 		; Getters
 		*GadgetData\VT\GetGadgetFont = @Default_GetFont()
@@ -713,6 +716,41 @@ Module UITK
 				StopVectorDrawing()
 			EndIf
 		EndIf
+	EndMacro
+	
+	; Shared tail of every gadget constructor: resolve #PB_Any, swap the canvas's
+	; vtable for the gadget's own GadgetDataType, resolve the theme (explicit flag >
+	; owning themed window > current default) and register the OS handle so the
+	; global drop callback can route back to this gadget.
+	; Expects the constructor's locals: Result, Gadget, Flags, *this, *GadgetData, *ThemeData.
+	Macro CreateGadgetObject(GadgetDataType)
+		If Gadget = #PB_Any
+			Gadget = Result
+		EndIf
+		
+		*this = IsGadget(Gadget)
+		AllocateStructureX(*GadgetData, GadgetDataType)
+		CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
+		*GadgetData\OriginalVT = *this\VT
+		*this\VT = *GadgetData
+		
+		AllocateStructureX(*ThemeData, Theme)
+		
+		If Flags & #DarkMode
+			CopyStructure(@DarkTheme, *ThemeData, Theme)
+		ElseIf Flags & #LightMode
+			CopyStructure(@LightTheme, *ThemeData, Theme)
+		Else
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
+			If *WindowData
+				CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+			Else
+				CopyStructure(*DefaultTheme, *ThemeData, Theme)
+			EndIf
+		EndIf
+		
+		AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+		GadgetHandler() = Gadget
 	EndMacro
 	
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows ; Fix color
@@ -776,6 +814,13 @@ Module UITK
 			Next
 			FreeStructure(Memory)
 		EndMacro
+		
+		Procedure DumpAllocations()
+			ForEach Memories()
+				Debug "UITK leak: " + Str(Memories()\Size) + " bytes, allocated at " + GetFilePart(Memories()\File) + ":" + Str(Memories()\Line)
+			Next
+			ProcedureReturn ListSize(Memories())
+		EndProcedure
 	CompilerElse
 		Macro AllocateStructureX(Variable, StructureName)
 			Variable = AllocateStructure(StructureName)
@@ -950,7 +995,7 @@ Module UITK
 		
 		CornerType.a
 		
-		*ThemeData.THeme
+		*ThemeData.Theme
 		
 		Redraw.Redraw
 		EventHandler.EventHandler
@@ -1001,6 +1046,8 @@ Module UITK
 	Global NewMap GadgetHandler()
 	
 	Prototype ItemRedraw(*Item, X, Y, Width, Height, State, *Theme.Theme)
+	
+	Declare RemoveGadgetTimers(*Gadget)	; body lives in the Timer section; used by the Free procedures above it
 	
 	#Drag_Distance = 7
 	;}
@@ -1146,37 +1193,37 @@ Module UITK
 		ProcedureReturn Value
 	EndProcedure
 	
-	Procedure Min(A, Blue)
-		If A > Blue
-			ProcedureReturn Blue
+	Procedure Min(A, B)
+		If A > B
+			ProcedureReturn B
 		EndIf
 		ProcedureReturn A
 	EndProcedure
 	
-	Procedure Max(A, Blue)
-		If A < Blue
-			ProcedureReturn Blue
+	Procedure Max(A, B)
+		If A < B
+			ProcedureReturn B
 		EndIf
 		ProcedureReturn A
 	EndProcedure
 	
-	Procedure.f MinF(A.f, Blue.f)
-		If A < Blue
+	Procedure.f MinF(A.f, B.f)
+		If A < B
 			ProcedureReturn A
 		EndIf
-		ProcedureReturn Blue
+		ProcedureReturn B
 	EndProcedure
 	
-	Procedure.f MaxF(A.f, Blue.f)
-		If A > Blue
+	Procedure.f MaxF(A.f, B.f)
+		If A > B
 			ProcedureReturn A
 		EndIf
-		ProcedureReturn Blue
+		ProcedureReturn B
 	EndProcedure
 	
 	; Misc
 	Procedure CurrentWindow()
-		Protected Window =- 1
+		Protected Window = -1
 		PB_Object_EnumerateStart(PB_Window_Objects)
 		If PB_Window_Objects
 			While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
@@ -1268,7 +1315,12 @@ Module UITK
 				AddPathArc(X + Width, Y + Height, X, Y + Height, Radius)
 				ClosePath()
 				
-			Case#Corner_TopRightBottomLeft
+			Case #Corner_TopRightBottomLeft
+				MovePathCursor(X, Y)
+				AddPathArc(X + Width, Y, X + Width, Y + Height, Radius)
+				AddPathLine(X + Width, Y + Height)
+				AddPathArc(X, Y + Height, X, Y, Radius)
+				ClosePath()
 				
 		EndSelect
 	EndProcedure
@@ -1361,8 +1413,13 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	; Shared scratch surface for text measurement: resize paths re-prepare every item's
+	; text block, so a create/free pair per call added up to hundreds of image
+	; allocations per resize. Created lazily, lives for the program.
+	Global MeasuringImage
+	
 	Procedure PrepareVectorTextBlock(*TextData.Text)
-		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, Image, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.UITK_BitmapInfo
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.UITK_BitmapInfo
 		
 		*TextData\RequiredHeight = 0
 		*TextData\RequiredWidth = 0
@@ -1373,8 +1430,10 @@ Module UITK
 		
 		Count = CountString(String, #CR$) + 1
 		
-		Image = CreateImage(#PB_Any, 10, 19)
-		StartVectorDrawing(ImageVectorOutput(Image))
+		If Not IsImage(MeasuringImage)
+			MeasuringImage = CreateImage(#PB_Any, 10, 19)
+		EndIf
+		StartVectorDrawing(ImageVectorOutput(MeasuringImage))
 		If *TextData\FontScale
 			VectorFont(*TextData\FontID, *TextData\FontScale)
 		Else
@@ -1491,7 +1550,6 @@ Module UITK
 		*TextData\RequiredWidth + 1
 		
 		StopVectorDrawing()
-		FreeImage(Image)
 	EndProcedure
 	
 	Procedure DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
@@ -1530,197 +1588,112 @@ Module UITK
 	
 	Procedure EditGadgetItemText(Gadget)
 		Protected Event.Event, *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
-
+		
 		SetActiveGadget(Gadget)
 		Event\EventType = #KeyDown
 		Event\Param = #PB_Shortcut_F2
 		*GadgetData\EventHandler(*GadgetData, Event)
 	EndProcedure
-
+	
 	; Flip the focused row's eye, exactly as clicking it does - the gadget maps
 	; Space to that, so this drives the real path rather than a copy of it.
 	Procedure ToggleGadgetItemVisibility(Gadget)
 		Protected Event.Event, *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
-
+		
 		Event\EventType = #KeyDown
 		Event\Param = #PB_Shortcut_Space
 		*GadgetData\EventHandler(*GadgetData, Event)
 	EndProcedure
 	
 	; Default functions
+	; #Color_* constant -> byte offset of the matching slot inside a Theme structure.
+	; One shared table instead of four hand-written 30-case Selects (gadget / window x get / set).
+	Global NewMap ThemeColorOffset.i()
+	
+	Macro MapThemeColorRow(ColorConstant, Field)
+		ThemeColorOffset(Str(ColorConstant#_Cold))     = OffsetOf(Theme\Field) + #Cold * SizeOf(Long)
+		ThemeColorOffset(Str(ColorConstant#_Warm))     = OffsetOf(Theme\Field) + #Warm * SizeOf(Long)
+		ThemeColorOffset(Str(ColorConstant#_Hot))      = OffsetOf(Theme\Field) + #Hot * SizeOf(Long)
+		ThemeColorOffset(Str(ColorConstant#_Disabled)) = OffsetOf(Theme\Field) + #Disabled * SizeOf(Long)
+	EndMacro
+	
+	MapThemeColorRow(#Color_Back, BackColor)
+	MapThemeColorRow(#Color_Text, TextColor)
+	MapThemeColorRow(#Color_Shade, ShadeColor)
+	MapThemeColorRow(#Color_Line, LineColor)
+	MapThemeColorRow(#Color_Special1, Special1)
+	MapThemeColorRow(#Color_Special2, Special2)
+	MapThemeColorRow(#Color_Special3, Special3)
+	ThemeColorOffset(Str(#Color_Parent))       = OffsetOf(Theme\WindowColor)
+	ThemeColorOffset(Str(#Color_WindowBorder)) = OffsetOf(Theme\WindowTitle)
+	
+	; PB's canvas events arrive in three contiguous #PB_EventType_* blocks (clicks,
+	; focus, everything else), each in the same relative order as the ordered #Event
+	; enum - asserted here at compile time, so a PB layout change fails loudly.
+	CompilerIf #PB_EventType_RightDoubleClick <> #PB_EventType_LeftClick + (#RightDoubleClick - #LeftClick) Or #PB_EventType_LostFocus <> #PB_EventType_Focus + 1 Or #PB_EventType_MouseWheel <> #PB_EventType_MouseEnter + (#MouseWheel - #MouseEnter) Or #PB_EventType_Input <> #PB_EventType_MouseEnter + (#Input - #MouseEnter)
+		CompilerError "PB's canvas #PB_EventType_* layout changed - review Default_EventHandle's range translation."
+	CompilerEndIf
+	
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
-		If *GadgetData\Enabled
-			Select EventType()
-				Case #PB_EventType_MouseEnter ;{
-					If *GadgetData\SupportedEvent[#MouseEnter]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #MouseEnter
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_MouseLeave ;{
-					If *GadgetData\SupportedEvent[#MouseLeave]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #MouseLeave
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_MouseMove ;{
-					If *GadgetData\SupportedEvent[#MouseMove]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #MouseMove
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_MouseWheel ;{
-					If *GadgetData\SupportedEvent[#MouseWheel]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_WheelDelta)
-						Event\EventType = #MouseWheel
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_LeftButtonDown ;{
-					If *GadgetData\SupportedEvent[#LeftButtonDown]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #LeftButtonDown
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_LeftButtonUp ;{
-					If *GadgetData\SupportedEvent[#LeftButtonUp]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #LeftButtonUp
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_LeftClick ;{
-					If *GadgetData\SupportedEvent[#LeftClick]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #LeftClick
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_LeftDoubleClick ;{
-					If *GadgetData\SupportedEvent[#LeftDoubleClick]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #LeftDoubleClick
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_RightButtonDown ;{
-					If *GadgetData\SupportedEvent[#RightButtonDown]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_Key)
-						Event\EventType = #RightButtonDown
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_RightButtonUp ;{
-					If *GadgetData\SupportedEvent[#RightButtonUp]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #RightButtonUp
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_RightClick ;{
-					If *GadgetData\SupportedEvent[#RightClick]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #RightClick
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_RightDoubleClick ;{
-					If *GadgetData\SupportedEvent[#RightDoubleClick]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #RightDoubleClick
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_MiddleButtonDown ;{
-					If *GadgetData\SupportedEvent[#MiddleButtonDown]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #MiddleButtonDown
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_MiddleButtonUp ;{
-					If *GadgetData\SupportedEvent[#MiddleButtonUp]
-						Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-						Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
-						Event\EventType = #MiddleButtonUp
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_Focus ;{
-					If *GadgetData\SupportedEvent[#Focus]
-						Event\EventType = #Focus
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_LostFocus ;{
-					If *GadgetData\SupportedEvent[#LostFocus]
-						Event\EventType = #LostFocus
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_KeyDown ;{
-					If *GadgetData\SupportedEvent[#KeyDown]
-						Event\EventType = #KeyDown
-						Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_Key)
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_KeyUp ;{
-					If *GadgetData\SupportedEvent[#KeyUp]
-						Event\EventType = #KeyUp
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_Input ;{
-					If *GadgetData\SupportedEvent[#Input]
-						Event\EventType = #Input
-						Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_Input)
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Case #PB_EventType_Resize ;{
-					If *GadgetData\SupportedEvent[#Resize]
-						Event\EventType = #Resize
-						*GadgetData\EventHandler(*GadgetData, Event)
-					EndIf
-					;}
-				Default
-					ProcedureReturn
-			EndSelect
+		Protected PBType = EventType()
+		
+		If Not *GadgetData\Enabled
+			ProcedureReturn
 		EndIf
+		
+		; Translate the PB event to our 0-based #Event constant, block by block
+		Select PBType
+			Case #PB_EventType_LeftClick To #PB_EventType_RightDoubleClick
+				Event\EventType = #LeftClick + PBType - #PB_EventType_LeftClick
+			Case #PB_EventType_Focus, #PB_EventType_LostFocus
+				Event\EventType = #Focus + PBType - #PB_EventType_Focus
+			Case #PB_EventType_Resize
+				Event\EventType = #Resize
+			Case #PB_EventType_MouseEnter To #PB_EventType_Input
+				Event\EventType = #MouseEnter + PBType - #PB_EventType_MouseEnter
+			Default
+				ProcedureReturn
+		EndSelect
+		
+		If Not *GadgetData\SupportedEvent[Event\EventType]
+			ProcedureReturn
+		EndIf
+		
+		; Payload, for the events that carry one
+		Select Event\EventType
+			Case #KeyDown, #RightButtonDown
+				Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_Key)
+			Case #Input
+				Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_Input)
+			Case #MouseWheel
+				Event\Param = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_WheelDelta)
+		EndSelect
+		
+		; Mouse position, except for the events that have none
+		Select Event\EventType
+			Case #Focus, #LostFocus, #KeyDown, #KeyUp, #Input, #Resize
+			Default
+				Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+				Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+		EndSelect
+		
+		*GadgetData\EventHandler(*GadgetData, Event)
 	EndProcedure
 	
 	Procedure Default_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.GadgetData = *this\vt
 		
 		DeleteMapElement(GadgetHandler(), Str(GadgetID(*GadgetData\Gadget)))
+		RemoveGadgetTimers(*GadgetData)
 		
 		If *GadgetData\DefaultEventHandler
 			UnbindGadgetEvent(*GadgetData\Gadget, *GadgetData\DefaultEventHandler)
 		EndIf
 		
 		*this\vt = *GadgetData\OriginalVT
-		FreeStructure(*GadgetData)
+		FreeStructureX(*GadgetData\ThemeData)	; every constructor allocates the gadget's own theme copy
+		FreeStructureX(*GadgetData)
 		
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
@@ -1753,66 +1726,9 @@ Module UITK
 	Procedure Default_GetColor(*This.PB_Gadget, ColorType)
 		Protected *GadgetData.GadgetData = *this\vt, Result
 		
-		Select ColorType
-			Case #Color_Back_Cold
-				Result = *GadgetData\ThemeData\BackColor[#Cold]
-			Case #Color_Back_Warm
-				Result = *GadgetData\ThemeData\BackColor[#Warm]
-			Case #Color_Back_Hot
-				Result = *GadgetData\ThemeData\BackColor[#Hot]
-			Case #Color_Back_Disabled
-				Result = *GadgetData\ThemeData\BackColor[#Disabled]
-			Case #Color_Text_Cold
-				Result = *GadgetData\ThemeData\TextColor[#Cold]
-			Case #Color_Text_Warm
-				Result = *GadgetData\ThemeData\TextColor[#Warm]
-			Case #Color_Text_Hot
-				Result = *GadgetData\ThemeData\TextColor[#Hot]
-			Case #Color_Text_Disabled
-				Result = *GadgetData\ThemeData\TextColor[#Disabled]
-			Case #Color_Parent
-				Result = *GadgetData\ThemeData\WindowColor
-			Case #Color_Shade_Cold
-				Result = *GadgetData\ThemeData\ShadeColor[#Cold]
-			Case #Color_Shade_Warm
-				Result = *GadgetData\ThemeData\ShadeColor[#Warm]
-			Case #Color_Shade_Hot
-				Result = *GadgetData\ThemeData\ShadeColor[#Hot]
-			Case #Color_Shade_Disabled
-				Result = *GadgetData\ThemeData\ShadeColor[#Disabled]
-			Case #Color_Line_Cold
-				Result = *GadgetData\ThemeData\LineColor[#Cold]
-			Case #Color_Line_Warm
-				Result = *GadgetData\ThemeData\LineColor[#Warm]
-			Case #Color_Line_Hot
-				Result = *GadgetData\ThemeData\LineColor[#Hot]
-			Case #Color_Line_Disabled
-				Result = *GadgetData\ThemeData\LineColor[#Disabled]
-			Case #Color_Special1_Cold
-				Result = *GadgetData\ThemeData\Special1[#Cold]
-			Case #Color_Special1_Warm
-				Result = *GadgetData\ThemeData\Special1[#Warm]
-			Case #Color_Special1_Hot
-				Result = *GadgetData\ThemeData\Special1[#Hot]
-			Case #Color_Special1_Disabled
-				Result = *GadgetData\ThemeData\Special1[#Disabled]
-			Case #Color_Special2_Cold
-				Result = *GadgetData\ThemeData\Special2[#Cold]
-			Case #Color_Special2_Warm
-				Result = *GadgetData\ThemeData\Special2[#Warm]
-			Case #Color_Special2_Hot
-				Result = *GadgetData\ThemeData\Special2[#Hot]
-			Case #Color_Special2_Disabled
-				Result = *GadgetData\ThemeData\Special2[#Disabled]
-			Case #Color_Special3_Cold
-				Result = *GadgetData\ThemeData\Special3[#Cold]
-			Case #Color_Special3_Warm
-				Result = *GadgetData\ThemeData\Special3[#Warm]
-			Case #Color_Special3_Hot
-				Result = *GadgetData\ThemeData\Special3[#Hot]
-			Case #Color_Special3_Disabled
-				Result = *GadgetData\ThemeData\Special3[#Disabled]
-		EndSelect
+		If FindMapElement(ThemeColorOffset(), Str(ColorType))
+			Result = PeekL(*GadgetData\ThemeData + ThemeColorOffset())
+		EndIf
 		
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
 	EndProcedure
@@ -1843,7 +1759,7 @@ Module UITK
 				Case #Attribute_CornerType
 					Result = \CornerType
 				Default
-					*GadgetData\OriginalVT\GetGadgetAttribute(*This, Attribute)
+					Result = *GadgetData\OriginalVT\GetGadgetAttribute(*This, Attribute)
 			EndSelect
 		EndWith
 		
@@ -1856,7 +1772,12 @@ Module UITK
 	EndProcedure
 	
 	Procedure GetGadgetImage(Gadget)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData
 		
+		If *this
+			*GadgetData = *this\vt
+			ProcedureReturn *GadgetData\TextBlock\Image
+		EndIf
 	EndProcedure
 	
 	Procedure GetGadgetItemImage(Gadget, Position)
@@ -1876,12 +1797,6 @@ Module UITK
 		AccessibilityMode = MouseState
 	EndProcedure
 	
-	Procedure SetGadgetColorScheme(Gadget, ThemeJson.s)
-	EndProcedure
-	
-	Procedure.s GetGadgetColorScheme(Gadget)	
-	EndProcedure
-	
 	Procedure SetGadgetImage(Gadget, Image)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
 		
@@ -1891,136 +1806,33 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
+	; The #SubClass_* enum lists GadgetVT's pointer fields in declaration order, so a
+	; slot's address is plain arithmetic off GadgetCallback - asserted right here, so
+	; enum or structure drift fails the build instead of patching the wrong slot.
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+		CompilerIf OffsetOf(GadgetVT\FreeGadget) <> OffsetOf(GadgetVT\GadgetCallback) + (#SubClass_FreeGadget - #SubClass_GadgetCallback) * SizeOf(Integer) Or OffsetOf(GadgetVT\GetGadgetAttribute) <> OffsetOf(GadgetVT\GadgetCallback) + (#SubClass_GetGadgetAttribute - #SubClass_GadgetCallback) * SizeOf(Integer) Or OffsetOf(GadgetVT\SetGadgetItemImage) <> OffsetOf(GadgetVT\GadgetCallback) + (#SubClass_SetGadgetItemImage - #SubClass_GadgetCallback) * SizeOf(Integer)
+			CompilerError "The #SubClass_* enum no longer mirrors GadgetVT's field order - review SubClassFunction."
+		CompilerEndIf
+	CompilerEndIf
+	
 	Procedure SubClassFunction(Gadget, Function, *Address) ; Advanced functionality! Probably too much of a niche usage, move it to the private branch of UITK?
-		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt, *Result
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt, *Result, *Slot.Integer
 		CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
-			; TODO Linux: rewrite this whole switch using the Linux GadgetVT field set
-			; (no GadgetCallback / GadgetX/Y/W/H / SetActiveGadget / GetRequiredSize).
+			; TODO Linux: rewrite using the Linux GadgetVT field set (no GadgetCallback /
+			; GadgetX/Y/W/H / SetActiveGadget / GetRequiredSize).
 			ProcedureReturn 0
 		CompilerElse
-			
 			Select Function
-				Case #SubClass_EventHandler
+				Case #SubClass_EventHandler		; not a vtable slot - lives in our GadgetData
 					*Result = *GadgetData\EventHandler
 					If *Address : *GadgetData\EventHandler = *Address : EndIf
-				Case #SubClass_GadgetCallback
-					*Result = *this\vt\GadgetCallback
-					If *Address : *this\vt\GadgetCallback = *Address : EndIf
-				Case #SubClass_FreeGadget
-					*Result = *this\vt\FreeGadget
-					If *Address : *this\vt\FreeGadget = *Address : EndIf
-				Case #SubClass_GetGadgetState
-					*Result = *this\vt\GetGadgetState
-					If *Address : *this\vt\GetGadgetState = *Address : EndIf
-				Case #SubClass_SetGadgetState
-					*Result = *this\vt\SetGadgetState
-					If *Address : *this\vt\SetGadgetState = *Address : EndIf
-				Case #SubClass_GetGadgetText
-					*Result = *this\vt\GetGadgetText
-					If *Address : *this\vt\GetGadgetText = *Address : EndIf
-				Case #SubClass_SetGadgetText
-					*Result = *this\vt\SetGadgetText
-					If *Address : *this\vt\SetGadgetText = *Address : EndIf
-				Case #SubClass_AddGadgetItem2
-					*Result = *this\vt\AddGadgetItem2
-					If *Address : *this\vt\AddGadgetItem2 = *Address : EndIf
-				Case #SubClass_AddGadgetItem3
-					*Result = *this\vt\AddGadgetItem3
-					If *Address : *this\vt\AddGadgetItem3 = *Address : EndIf
-				Case #SubClass_RemoveGadgetItem
-					*Result = *this\vt\RemoveGadgetItem
-					If *Address : *this\vt\RemoveGadgetItem = *Address : EndIf
-				Case #SubClass_ClearGadgetItemList
-					*Result = *this\vt\ClearGadgetItemList
-					If *Address : *this\vt\ClearGadgetItemList = *Address : EndIf
-				Case #SubClass_ResizeGadget
-					*Result = *this\vt\ResizeGadget
-					If *Address : *this\vt\ResizeGadget = *Address : EndIf
-				Case #SubClass_CountGadgetItems
-					*Result = *this\vt\CountGadgetItems
-					If *Address : *this\vt\CountGadgetItems = *Address : EndIf
-				Case #SubClass_GetGadgetItemState
-					*Result = *this\vt\GetGadgetItemState
-					If *Address : *this\vt\GetGadgetItemState = *Address : EndIf
-				Case #SubClass_SetGadgetItemState
-					*Result = *this\vt\SetGadgetItemState
-					If *Address : *this\vt\SetGadgetItemState = *Address : EndIf
-				Case #SubClass_GetGadgetItemText
-					*Result = *this\vt\GetGadgetItemText
-					If *Address : *this\vt\GetGadgetItemText = *Address : EndIf
-				Case #SubClass_SetGadgetItemText
-					*Result = *this\vt\SetGadgetItemText
-					If *Address : *this\vt\SetGadgetItemText = *Address : EndIf
-				Case #SubClass_OpenGadgetList2
-					*Result = *this\vt\OpenGadgetList2
-					If *Address : *this\vt\OpenGadgetList2 = *Address : EndIf
-				Case #SubClass_GadgetX
-					*Result = *this\vt\GadgetX
-					If *Address : *this\vt\GadgetX = *Address : EndIf
-				Case #SubClass_GadgetY
-					*Result = *this\vt\GadgetY
-					If *Address : *this\vt\GadgetY = *Address : EndIf
-				Case #SubClass_GadgetWidth
-					*Result = *this\vt\GadgetWidth
-					If *Address : *this\vt\GadgetWidth = *Address : EndIf
-				Case #SubClass_GadgetHeight
-					*Result = *this\vt\GadgetHeight
-					If *Address : *this\vt\GadgetHeight = *Address : EndIf
-				Case #SubClass_HideGadget
-					*Result = *this\vt\HideGadget
-					If *Address : *this\vt\HideGadget = *Address : EndIf
-				Case #SubClass_AddGadgetColumn
-					*Result = *this\vt\AddGadgetColumn
-					If *Address : *this\vt\AddGadgetColumn = *Address : EndIf
-				Case #SubClass_RemoveGadgetColumn
-					*Result = *this\vt\RemoveGadgetColumn
-					If *Address : *this\vt\RemoveGadgetColumn = *Address : EndIf
-				Case #SubClass_GetGadgetAttribute
-					*Result = *this\vt\GetGadgetAttribute
-					If *Address : *this\vt\GetGadgetAttribute = *Address : EndIf
-				Case #SubClass_SetGadgetAttribute
-					*Result = *this\vt\SetGadgetAttribute
-					If *Address : *this\vt\SetGadgetAttribute = *Address : EndIf
-				Case #SubClass_GetGadgetItemAttribute2
-					*Result = *this\vt\GetGadgetItemAttribute2
-					If *Address : *this\vt\GetGadgetItemAttribute2 = *Address : EndIf
-				Case #SubClass_SetGadgetItemAttribute2
-					*Result = *this\vt\SetGadgetItemAttribute2
-					If *Address : *this\vt\SetGadgetItemAttribute2 = *Address : EndIf
-				Case #SubClass_SetGadgetColor
-					*Result = *this\vt\SetGadgetColor
-					If *Address : *this\vt\SetGadgetColor = *Address : EndIf
-				Case #SubClass_GetGadgetColor
-					*Result = *this\vt\GetGadgetColor
-					If *Address : *this\vt\GetGadgetColor = *Address : EndIf
-				Case #SubClass_SetGadgetItemColor2
-					*Result = *this\vt\SetGadgetItemColor2
-					If *Address : *this\vt\SetGadgetItemColor2 = *Address : EndIf
-				Case #SubClass_GetGadgetItemColor2
-					*Result = *this\vt\GetGadgetItemColor2
-					If *Address : *this\vt\GetGadgetItemColor2 = *Address : EndIf
-				Case #SubClass_SetGadgetItemData
-					*Result = *this\vt\SetGadgetItemData
-					If *Address : *this\vt\SetGadgetItemData = *Address : EndIf
-				Case #SubClass_GetGadgetItemData
-					*Result = *this\vt\GetGadgetItemData
-					If *Address : *this\vt\GetGadgetItemData = *Address : EndIf
-				Case #SubClass_GetRequiredSize
-					*Result = *this\vt\GetRequiredSize
-					If *Address : *this\vt\GetRequiredSize = *Address : EndIf
-				Case #SubClass_SetActiveGadget
-					*Result = *this\vt\SetActiveGadget
-					If *Address : *this\vt\SetActiveGadget = *Address : EndIf
-				Case #SubClass_GetGadgetFont
-					*Result = *this\vt\GetGadgetFont
-					If *Address : *this\vt\GetGadgetFont = *Address : EndIf
-				Case #SubClass_SetGadgetFont
-					*Result = *this\vt\SetGadgetFont
-					If *Address : *this\vt\SetGadgetFont = *Address : EndIf
-				Case #SubClass_SetGadgetItemImage
-					*Result = *this\vt\SetGadgetItemImage
-					If *Address : *this\vt\SetGadgetItemImage = *Address : EndIf
-				Case #SubClass_DropHandler
+					
+				Case #SubClass_GadgetCallback To #SubClass_SetGadgetItemImage
+					*Slot = *this\vt + OffsetOf(GadgetVT\GadgetCallback) + (Function - #SubClass_GadgetCallback) * SizeOf(Integer)
+					*Result = *Slot\i
+					If *Address : *Slot\i = *Address : EndIf
+					
+				Case #SubClass_DropHandler		; sits past GetGadgetItemImage, which has no #SubClass entry
 					*Result = *this\vt\DropHandler
 					If *Address : *this\vt\DropHandler = *Address : EndIf
 			EndSelect
@@ -2068,66 +1880,13 @@ Module UITK
 	Procedure Default_SetColor(*This.PB_Gadget, ColorType, Color)
 		Protected *GadgetData.GadgetData = *this\vt
 		
-		Select ColorType
-			Case #Color_Back_Cold
-				*GadgetData\ThemeData\BackColor[#Cold] = Color
-			Case #Color_Back_Warm
-				*GadgetData\ThemeData\BackColor[#Warm] = Color
-			Case #Color_Back_Hot
-				*GadgetData\ThemeData\BackColor[#Hot] = Color
-			Case #Color_Back_Disabled
-				*GadgetData\ThemeData\BackColor[#Disabled] = Color
-			Case #Color_Text_Cold
-				*GadgetData\ThemeData\TextColor[#Cold] = Color
-			Case #Color_Text_Warm
-				*GadgetData\ThemeData\TextColor[#Warm] = Color
-			Case #Color_Text_Hot
-				*GadgetData\ThemeData\TextColor[#Hot] = Color
-			Case #Color_Text_Disabled
-				*GadgetData\ThemeData\TextColor[#Disabled] = Color
-			Case #Color_Parent
-				*GadgetData\ThemeData\WindowColor = Color
-			Case #Color_Shade_Cold
-				*GadgetData\ThemeData\ShadeColor[#Cold] = Color
-			Case #Color_Shade_Warm                      
-				*GadgetData\ThemeData\ShadeColor[#Warm] = Color
-			Case #Color_Shade_Hot                       
-				*GadgetData\ThemeData\ShadeColor[#Hot] = Color
-			Case #Color_Shade_Disabled
-				*GadgetData\ThemeData\ShadeColor[#Disabled] = Color
-			Case #Color_Line_Cold
-				*GadgetData\ThemeData\LineColor[#Cold] = Color
-			Case #Color_Line_Warm                   
-				*GadgetData\ThemeData\LineColor[#Warm] = Color
-			Case #Color_Line_Hot                    
-				*GadgetData\ThemeData\LineColor[#Hot] = Color
-			Case #Color_Line_Disabled              
-				*GadgetData\ThemeData\LineColor[#Disabled] = Color
-			Case #Color_Special1_Cold
-				*GadgetData\ThemeData\Special1[#Cold] = Color
-			Case #Color_Special1_Warm
-				*GadgetData\ThemeData\Special1[#Warm] = Color
-			Case #Color_Special1_Hot
-				*GadgetData\ThemeData\Special1[#Hot] = Color
-			Case #Color_Special1_Disabled
-				*GadgetData\ThemeData\Special1[#Disabled] = Color
-			Case #Color_Special2_Cold
-				*GadgetData\ThemeData\Special2[#Cold] = Color
-			Case #Color_Special2_Warm
-				*GadgetData\ThemeData\Special2[#Warm] = Color
-			Case #Color_Special2_Hot
-				*GadgetData\ThemeData\Special2[#Hot] = Color
-			Case #Color_Special2_Disabled
-				*GadgetData\ThemeData\Special2[#Disabled] = Color
-			Case #Color_Special3_Cold
-				*GadgetData\ThemeData\Special3[#Cold] = Color
-			Case #Color_Special3_Warm
-				*GadgetData\ThemeData\Special3[#Warm] = Color
-			Case #Color_Special3_Hot
-				*GadgetData\ThemeData\Special3[#Hot] = Color
-			Case #Color_Special3_Disabled
-				*GadgetData\ThemeData\Special3[#Disabled] = Color
-		EndSelect
+		If Alpha(Color) = 0	; a plain RGB would be drawn fully transparent - store it opaque (same treatment as RenderSvgIcon)
+			Color = SetAlpha(Color, 255)
+		EndIf
+		
+		If FindMapElement(ThemeColorOffset(), Str(ColorType))
+			PokeL(*GadgetData\ThemeData + ThemeColorOffset(), Color)
+		EndIf
 		
 		RedrawObject()
 	EndProcedure
@@ -2167,7 +1926,10 @@ Module UITK
 	Procedure AddGadgetTimer(*Gadget.GadgetData, TimeOut, *Callback)
 		Protected Timer
 		
-		Timer = AddWindowTimer(TimerWindow, Random(1048575, 1), TimeOut) ; can't use PB_Any with a timer...
+		Repeat ; can't use PB_Any with a timer, and a random ID must not collide with a live one
+			Timer = Random(1048575, 1)
+		Until FindMapElement(Timers(), Hex(Timer)) = 0
+		AddWindowTimer(TimerWindow, Timer, TimeOut)
 		
 		AddMapElement(Timers(), Hex(Timer))
 		Timers()\Callback = *Callback
@@ -2179,6 +1941,21 @@ Module UITK
 	Procedure RemoveGadgetTimer(Timer)
 		RemoveWindowTimer(TimerWindow, Timer)
 		DeleteMapElement(Timers(), Hex(Timer))
+	EndProcedure
+	
+	Procedure RemoveGadgetTimers(*Gadget)
+		Protected NewList Stale.s()
+		
+		ForEach Timers()
+			If Timers()\Gadget = *Gadget
+				AddElement(Stale()) : Stale() = MapKey(Timers())
+			EndIf
+		Next
+		
+		ForEach Stale()
+			RemoveWindowTimer(TimerWindow, Val("$" + Stale()))
+			DeleteMapElement(Timers(), Stale())
+		Next
 	EndProcedure
 	;}
 	
@@ -2474,7 +2251,8 @@ Module UITK
 					
 					SetWindowLongPtr_(hWnd, #GWL_WNDPROC, *WindowData\OriginalProc)
 					OriginalProc = *WindowData\OriginalProc
-					FreeStructure(*WindowData)
+					DeleteObject_(*WindowData\Brush)	; the title-bar pattern brush (WindowSetColor already deletes replaced ones)
+					FreeStructureX(*WindowData)
 					
 					ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
 					;}
@@ -2489,7 +2267,7 @@ Module UITK
 		Procedure Window_InSizeBand(Window, lParam)
 			Protected *WindowData.ThemedWindow = GetProp_(Window, "UITK_WindowData")
 			Protected ptX, ptY, wRect.RECT, localX, localY, w, h
-
+			
 			If *WindowData And *WindowData\Sizable And IsZoomed_(Window) = 0
 				ptX = lParam & $FFFF
 				ptY = (lParam >> 16) & $FFFF
@@ -2506,7 +2284,7 @@ Module UITK
 			EndIf
 			ProcedureReturn #False
 		EndProcedure
-
+		
 		; Every child placed on the container gets this thin subclass, doing two
 		; jobs the child can't know it should:
 		; - RESIZE BAND: a gadget covering the border used to answer WM_NCHITTEST
@@ -2525,7 +2303,7 @@ Module UITK
 		;   gadget acts on bare letters outside an edit.
 		Procedure ContainerChild_Handler(hWnd, Msg, wParam, lParam)
 			Protected OriginalProc = GetProp_(hWnd, "UITK_ChildProc")
-
+			
 			If Msg = #WM_NCHITTEST And Window_InSizeBand(GetAncestor_(hWnd, #GA_ROOT), lParam)
 				ProcedureReturn #HTTRANSPARENT
 			ElseIf Msg = #WM_KEYDOWN And wParam >= 'A' And wParam <= 'Z'
@@ -2536,19 +2314,25 @@ Module UITK
 				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, OriginalProc)
 				RemoveProp_(hWnd, "UITK_ChildProc")
 			EndIf
-
+			
 			ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
 		EndProcedure
-
+		
 		Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
 			Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData")
-
+			
 			; The container sits below the title bar and covers the resize border on the bottom/left/right.
 			; We return HTTRANSPARENT in those bands so the parent's WM_NCHITTEST gets the chance to return HTLEFT/HTRIGHT/HTBOTTOM/etc; without which the OS-driven resize and Aero Snap would never see the click.
 			If Msg = #WM_NCHITTEST
 				If Window_InSizeBand(*ContainerData\Parent, lParam)
 					ProcedureReturn #HTTRANSPARENT
 				EndIf
+			ElseIf Msg = #WM_NCDESTROY
+				Protected OriginalProc = *ContainerData\OriginalProc
+				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, OriginalProc)
+				RemoveProp_(hWnd, "UITK_ContainerData")
+				FreeStructureX(*ContainerData)
+				ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
 			ElseIf Msg = #WM_PARENTNOTIFY And (wParam & $FFFF) = #WM_CREATE
 				; A new child (gadget, nested child, the 3D screen host - creation
 				; notifications bubble up from any depth): give it the child subclass
@@ -2557,7 +2341,7 @@ Module UITK
 					SetProp_(lParam, "UITK_ChildProc", SetWindowLongPtr_(lParam, #GWL_WNDPROC, @ContainerChild_Handler()))
 				EndIf
 			EndIf
-
+			
 			ProcedureReturn CallWindowProc_(*ContainerData\OriginalProc, hWnd, Msg, wParam, lParam)
 		EndProcedure
 		
@@ -2568,6 +2352,12 @@ Module UITK
 			; The min/max/close buttons are separate child gadgets. They keep their own HTCLIENT hit-test and continue to receive normal clicks.
 			If Msg = #WM_NCHITTEST
 				ProcedureReturn #HTTRANSPARENT
+			ElseIf Msg = #WM_NCDESTROY
+				Protected OriginalProc = *WindowBarData\OriginalProc
+				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, OriginalProc)
+				RemoveProp_(hWnd, "UITK_WindowBarData")
+				FreeStructureX(*WindowBarData)
+				ProcedureReturn CallWindowProc_(OriginalProc, hWnd, Msg, wParam, lParam)
 			EndIf
 			
 			ProcedureReturn CallWindowProc_(*WindowBarData\OriginalProc, hWnd, Msg, wParam, lParam)
@@ -2629,7 +2419,7 @@ Module UITK
 				
 				If Flags & #Window_CloseButton
 					OffsetX + #WindowButtonWidth
-					*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode * #DarkMode)
+					*WindowData\ButtonClose = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode)
 					
 					SetGadgetAttribute(*WindowData\ButtonClose, #Attribute_CornerRadius, 0)
 					
@@ -2648,7 +2438,7 @@ Module UITK
 				
 				If Flags & #Window_MaximizeButton
 					OffsetX + #WindowButtonWidth
-					*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode * #DarkMode)
+					*WindowData\ButtonMaximize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "", Flags & #DarkMode)
 					
 					SetGadgetAttribute(*WindowData\ButtonMaximize, #Attribute_CornerRadius, 0)
 					
@@ -2661,7 +2451,7 @@ Module UITK
 				
 				If Flags & #Window_MinimizeButton
 					OffsetX + #WindowButtonWidth
-					*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "",Flags & #DarkMode * #DarkMode)
+					*WindowData\ButtonMinimize = Button(#PB_Any, *WindowData\Width - OffsetX, 1, #WindowButtonWidth, #WindowBarHeight - 1, "",Flags & #DarkMode)
 					
 					SetGadgetAttribute(*WindowData\ButtonMinimize, #Attribute_CornerRadius, 0)
 					
@@ -2672,7 +2462,7 @@ Module UITK
 					BindGadgetEvent(*WindowData\ButtonMinimize, @MinimizeButton_Handler(), #PB_EventType_Change)
 				EndIf
 				
-				*WindowData\Label = Label(#PB_Any, #SizableBorder, 1, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode * #DarkMode) | #HAlignLeft | #VAlignCenter)
+				*WindowData\Label = Label(#PB_Any, #SizableBorder, 1, *WindowData\Width - OffsetX, #WindowBarHeight , Title, (Flags & #DarkMode) | #HAlignLeft | #VAlignCenter)
 				SetGadgetColor(*WindowData\Label, #Color_Parent, *WindowData\Theme\WindowTitle)
 				*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
 				ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
@@ -2693,7 +2483,7 @@ Module UITK
 				*WindowData\Container = ContainerGadget(#PB_Any, 0, #WindowBarHeight, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #PB_Container_BorderLess)
 				AllocateStructureX(*ContainerData, WindowContainer)
 				*ContainerData\Parent = WindowID
-				SetProp_(GadgetID(*WindowData\Container), "UITK_ContainerData", *WindowBarData)
+				SetProp_(GadgetID(*WindowData\Container), "UITK_ContainerData", *ContainerData)
 				*ContainerData\OriginalProc = SetWindowLongPtr_(GadgetID(*WindowData\Container), #GWL_WNDPROC, @WindowContainer_Handler())
 				SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(*WindowData\Theme\WindowColor), Green(*WindowData\Theme\WindowColor), Blue(*WindowData\Theme\WindowColor)))
 				
@@ -2752,8 +2542,11 @@ Module UITK
 				
 				If WindowGadgetList
 					UseGadgetList(WindowGadgetList)
-					*WindowData.ThemedWindow = GetProp_(WindowID(WindowGadgetList), "UITK_WindowData")
-					OpenGadgetList(\Container)
+					; UseGadgetList hands back the previous list's OS handle, not a PB window number
+					*WindowData.ThemedWindow = GetProp_(WindowGadgetList, "UITK_WindowData")
+					If *WindowData
+						OpenGadgetList(\Container)
+					EndIf
 				Else
 					OpenGadgetList(\Container)
 				EndIf
@@ -2829,71 +2622,21 @@ Module UITK
 		EndProcedure
 		
 		Procedure WindowSetColor(Window, ColorType, Color)
-			Protected *WindowData.ThemedWindow, Image, *OldBrush
-			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData"), Image, *OldBrush
+			
+			If Alpha(Color) = 0	; a plain RGB would be drawn fully transparent - store it opaque
+				Color = SetAlpha(Color, 255)
+			EndIf
+			
+			If FindMapElement(ThemeColorOffset(), Str(ColorType))
+				PokeL(@*WindowData\Theme + ThemeColorOffset(), Color)
+			EndIf
 			
 			Select ColorType
-				Case #Color_Back_Cold
-					*WindowData\Theme\BackColor[#Cold] = Color
-				Case #Color_Back_Warm
-					*WindowData\Theme\BackColor[#Warm] = Color
-				Case #Color_Back_Hot
-					*WindowData\Theme\BackColor[#Hot] = Color
-				Case #Color_Back_Disabled
-					*WindowData\Theme\BackColor[#Disabled] = Color
-				Case #Color_Text_Cold
-					*WindowData\Theme\TextColor[#Cold] = Color
-				Case #Color_Text_Warm
-					*WindowData\Theme\TextColor[#Warm] = Color
-				Case #Color_Text_Hot
-					*WindowData\Theme\TextColor[#Hot] = Color
-				Case #Color_Text_Disabled
-					*WindowData\Theme\TextColor[#Disabled] = Color
-				Case #Color_Parent
-					*WindowData\Theme\WindowColor = Color
-					SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(Color),Green(Color),Blue(Color)))
-				Case #Color_Shade_Cold
-					*WindowData\Theme\ShadeColor[#Cold] = Color
-				Case #Color_Shade_Warm                      
-					*WindowData\Theme\ShadeColor[#Warm] = Color
-				Case #Color_Shade_Hot                       
-					*WindowData\Theme\ShadeColor[#Hot] = Color
-				Case #Color_Shade_Disabled
-					*WindowData\Theme\ShadeColor[#Disabled] = Color
-				Case #Color_Line_Cold
-					*WindowData\Theme\LineColor[#Cold] = Color
-				Case #Color_Line_Warm                   
-					*WindowData\Theme\LineColor[#Warm] = Color
-				Case #Color_Line_Hot                    
-					*WindowData\Theme\LineColor[#Hot] = Color
-				Case #Color_Line_Disabled              
-					*WindowData\Theme\LineColor[#Disabled] = Color
-				Case #Color_Special1_Cold
-					*WindowData\Theme\Special1[#Cold] = Color
-				Case #Color_Special1_Warm
-					*WindowData\Theme\Special1[#Warm] = Color
-				Case #Color_Special1_Hot
-					*WindowData\Theme\Special1[#Hot] = Color
-				Case #Color_Special1_Disabled
-					*WindowData\Theme\Special1[#Disabled] = Color
-				Case #Color_Special2_Cold
-					*WindowData\Theme\Special2[#Cold] = Color
-				Case #Color_Special2_Warm
-					*WindowData\Theme\Special2[#Warm] = Color
-				Case #Color_Special2_Hot
-					*WindowData\Theme\Special2[#Hot] = Color
-				Case #Color_Special2_Disabled
-					*WindowData\Theme\Special2[#Disabled] = Color
-				Case #Color_Special3_Cold
-					*WindowData\Theme\Special3[#Cold] = Color
-				Case #Color_Special3_Warm
-					*WindowData\Theme\Special3[#Warm] = Color
-				Case #Color_Special3_Hot
-					*WindowData\Theme\Special3[#Hot] = Color
-				Case #Color_Special3_Disabled
-					*WindowData\Theme\Special3[#Disabled] = Color
-				Case #Color_WindowBorder
-					*WindowData\Theme\WindowTitle = Color
+				Case #Color_Parent			; the client container paints the new background itself
+					SetGadgetColor(*WindowData\Container, #PB_Gadget_BackColor, RGB(Red(Color), Green(Color), Blue(Color)))
+					
+				Case #Color_WindowBorder	; rebuild the title-bar brush and recolour the bar's gadgets
 					*OldBrush = *WindowData\Brush
 					Image = CreateImage(#PB_Any, 8, 8, 32, SetAlpha(*WindowData\Theme\WindowTitle, 255)) ; Removing SetAlpha makes LightTheme goes derp. Can anybody explain?
 					*WindowData\Brush = CreatePatternBrush_(ImageID(Image))
@@ -2911,10 +2654,7 @@ Module UITK
 					If *WindowData\ButtonClose
 						SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Cold, *WindowData\Theme\WindowTitle)
 					EndIf
-					
 			EndSelect
-			
-			
 		EndProcedure
 		
 		; Getters
@@ -2935,72 +2675,11 @@ Module UITK
 		EndProcedure
 		
 		Procedure WindowGetColor(Window, ColorType)
-			Protected *WindowData.ThemedWindow, Result
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData"), Result
 			
-			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
-			
-			Select ColorType
-				Case #Color_Back_Cold
-					Result = *WindowData\Theme\BackColor[#Cold]
-				Case #Color_Back_Warm
-					Result = *WindowData\Theme\BackColor[#Warm]
-				Case #Color_Back_Hot
-					Result = *WindowData\Theme\BackColor[#Hot]
-				Case #Color_Back_Disabled
-					Result = *WindowData\Theme\BackColor[#Disabled]
-				Case #Color_Text_Cold
-					Result = *WindowData\Theme\TextColor[#Cold]
-				Case #Color_Text_Warm
-					Result = *WindowData\Theme\TextColor[#Warm]
-				Case #Color_Text_Hot
-					Result = *WindowData\Theme\TextColor[#Hot]
-				Case #Color_Text_Disabled
-					Result = *WindowData\Theme\TextColor[#Disabled]
-				Case #Color_Parent
-					Result = *WindowData\Theme\WindowColor
-				Case #Color_Shade_Cold
-					Result = *WindowData\Theme\ShadeColor[#Cold]
-				Case #Color_Shade_Warm                      
-					Result = *WindowData\Theme\ShadeColor[#Warm]
-				Case #Color_Shade_Hot                       
-					Result = *WindowData\Theme\ShadeColor[#Hot]
-				Case #Color_Shade_Disabled
-					Result = *WindowData\Theme\ShadeColor[#Disabled]
-				Case #Color_Line_Cold
-					Result = *WindowData\Theme\LineColor[#Cold]
-				Case #Color_Line_Warm                   
-					Result = *WindowData\Theme\LineColor[#Warm]
-				Case #Color_Line_Hot                    
-					Result = *WindowData\Theme\LineColor[#Hot]
-				Case #Color_Line_Disabled              
-					Result = *WindowData\Theme\LineColor[#Disabled]
-				Case #Color_Special1_Cold
-					Result = *WindowData\Theme\Special1[#Cold]
-				Case #Color_Special1_Warm
-					Result = *WindowData\Theme\Special1[#Warm]
-				Case #Color_Special1_Hot
-					Result = *WindowData\Theme\Special1[#Hot]
-				Case #Color_Special1_Disabled
-					Result = *WindowData\Theme\Special1[#Disabled]
-				Case #Color_Special2_Cold
-					Result = *WindowData\Theme\Special2[#Cold]
-				Case #Color_Special2_Warm
-					Result = *WindowData\Theme\Special2[#Warm]
-				Case #Color_Special2_Hot
-					Result = *WindowData\Theme\Special2[#Hot]
-				Case #Color_Special2_Disabled
-					Result = *WindowData\Theme\Special2[#Disabled]
-				Case #Color_Special3_Cold
-					Result = *WindowData\Theme\Special3[#Cold]
-				Case #Color_Special3_Warm
-					Result = *WindowData\Theme\Special3[#Warm]
-				Case #Color_Special3_Hot
-					Result = *WindowData\Theme\Special3[#Hot]
-				Case #Color_Special3_Disabled
-					Result = *WindowData\Theme\Special3[#Disabled]
-				Case #Color_WindowBorder
-					Result = *WindowData\Theme\WindowTitle
-			EndSelect
+			If FindMapElement(ThemeColorOffset(), Str(ColorType))
+				Result = PeekL(@*WindowData\Theme + ThemeColorOffset())
+			EndIf
 			
 			ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
 		EndProcedure
@@ -3138,7 +2817,6 @@ Module UITK
 		Procedure ADND_ShowPreview(ImageID)
 			Protected HBitmap.BITMAP
 			
-			ExamineDesktops()
 			GetObject_(ImageID, SizeOf(BITMAP), @HBitmap)
 			ResizeWindow(ADNDWindow, DesktopMouseX() + ADND_OffsetX, DesktopMouseY() + ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
 			SetGadgetState(ADNDGadget, ImageID)	
@@ -3208,7 +2886,7 @@ Module UITK
 		Procedure RegisterDropCallback(*Callback)
 			*DropCallback = *Callback
 		EndProcedure
-
+		
 		; PB has ONE global drop callback, so a drop target hears about every
 		; drag the window accepts — a file off the desktop as much as one of our
 		; cards. The hook only exists while an AdvancedDrag is running, which
@@ -3258,7 +2936,7 @@ Module UITK
 		
 		With *GadgetData
 			If \Enabled
-				If \State And \MouseState = #cold
+				If \State And \MouseState = #Cold
 					State = #Hot
 				Else
 					State = \MouseState
@@ -3293,7 +2971,7 @@ Module UITK
 			Select *Event\EventType
 				Case #LeftClick
 					If \Toggle
-						\State = Bool(Not \State) * #hot
+						\State = Bool(Not \State) * #Hot
 					EndIf
 					
 					PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
@@ -3312,7 +2990,7 @@ Module UITK
 				Case #KeyDown
 					If *Event\Param = #PB_Shortcut_Space
 						If \Toggle
-							\State = Bool(Not \State) * #hot
+							\State = Bool(Not \State) * #Hot
 						EndIf
 						
 						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
@@ -3398,33 +3076,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, ButtonData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(ButtonData)
 				Button_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
@@ -3566,33 +3218,7 @@ Module UITK
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 		
 		If Result
-			If Gadget = #PB_Any
-				Gadget = Result
-			EndIf
-			
-			*this = IsGadget(Gadget)
-			AllocateStructureX(*GadgetData, ToggleData)
-			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-			*GadgetData\OriginalVT = *this\VT
-			*this\VT = *GadgetData
-			
-			AllocateStructureX(*ThemeData, Theme)
-			
-			If Flags & #DarkMode
-				CopyStructure(@DarkTheme, *ThemeData, Theme)
-			ElseIf Flags & #LightMode
-				CopyStructure(@LightTheme, *ThemeData, Theme)
-			Else
-				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-				If *WindowData
-					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-				Else
-					CopyStructure(*DefaultTheme, *ThemeData, Theme)
-				EndIf
-			EndIf
-			
-			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-			GadgetHandler() = Gadget
+			CreateGadgetObject(ToggleData)
 			Toggle_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 			
 			RedrawObject()
@@ -3737,33 +3363,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, CheckBoxData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(CheckBoxData)
 				CheckBox_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
@@ -4400,9 +4000,9 @@ Module UITK
 			RedrawObject()
 			
 			LastElement(\CharacterData())
-			ResizeGadget(\Caret, \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 			
-			If \Focus = \Gadget
+			If \Focus
 				HideGadget(\Caret, #False)
 				\CaretVisible = #True
 				RemoveGadgetTimer(\Timer)
@@ -4515,36 +4115,10 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | #PB_Canvas_Container)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, StringData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(StringData)
 				String_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				SetProp_(GadgetID(Gadget), "UITK_KeepKeys", 1)	; A text field: its letters
-						; never bubble to the window as shortcuts (ContainerChild_Handler)
+																; never bubble to the window as shortcuts (ContainerChild_Handler)
 				
 				CloseGadgetList()
 				
@@ -4804,9 +4378,7 @@ Module UITK
 						
 						If \PageLength >= (\Max - \Min)
 							\BarSize = -1
-						EndIf
-						
-						If \Vertical
+						ElseIf \Vertical
 							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
 						Else
 							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
@@ -4829,9 +4401,7 @@ Module UITK
 						
 						If \PageLength >= (\Max - \Min)
 							\BarSize = -1
-						EndIf
-						
-						If \Vertical
+						ElseIf \Vertical
 							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Height, #PB_Round_Nearest) - \Thickness, 0, \Height - \Thickness)
 						Else
 							\BarSize = Clamp(Round(\PageLength / (\Max - \Min) * \Width, #PB_Round_Nearest) - \Thickness, 0, \Width - \Thickness)
@@ -4950,10 +4520,10 @@ Module UITK
 			If Flags & #Gadget_Vertical
 				\Vertical = #True
 				\Thickness = \Width
-				\BarSize = Clamp(Round(PageLength / (max - min) * Height, #PB_Round_Nearest) - \Thickness, 0, Height - \Thickness)
+				\BarSize = Clamp(Round(PageLength / (Max - Min) * Height, #PB_Round_Nearest) - \Thickness, 0, Height - \Thickness)
 			Else
 				\Thickness = \Height
-				\BarSize = Clamp(Round(PageLength / (max - min) * Width, #PB_Round_Nearest) - \Thickness, 0, Width - \Thickness)
+				\BarSize = Clamp(Round(PageLength / (Max - Min) * Width, #PB_Round_Nearest) - \Thickness, 0, Width - \Thickness)
 			EndIf
 			
 			If \PageLength >= (\Max - \Min)
@@ -4987,34 +4557,8 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, ScrollBarData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
+				CreateGadgetObject(ScrollBarData)
 				*GadgetData\Background = #True
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
 				ScrollBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLength, Flags)
 				
 				RedrawObject()
@@ -5066,33 +4610,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, LabelData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(LabelData)
 				Label_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text.s, Flags)
 				
 				RedrawObject()
@@ -5143,10 +4661,6 @@ Module UITK
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
 		*this\VT = *GadgetData
-		
-		With *GadgetData
-			
-		EndWith
 	EndProcedure
 	
 	Procedure ScrollArea_Free(*this.PB_Gadget)
@@ -5159,7 +4673,8 @@ Module UITK
 			If IsGadget(\ScrollArea) : FreeGadget(\ScrollArea) : EndIf
 			
 			*this\vt = \OriginalVT
-			FreeStructure(*GadgetData)
+			FreeStructureX(\ThemeData)
+			FreeStructureX(*GadgetData)
 			CallFunctionFast(*this\vt\FreeGadget, *this)
 		EndWith
 	EndProcedure
@@ -5184,36 +4699,9 @@ Module UITK
 				Case #ScrollArea_InnerWidth
 					SetGadgetAttribute(*GadgetData\HorizontalScrollBar, #ScrollBar_Maximum, Value)
 					
-					; 					If Value <= \Width + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
-					; 						If Not \HiddenHScrollBar
-					; 							\HiddenHScrollBar = #True
-					; 							HideGadget(\HorizontalScrollBar, #True)
-					; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
-					; 						EndIf
-					; 					Else
-					; 						If \HiddenHScrollBar
-					; 							\HiddenHScrollBar = #False
-					; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
-					; 							HideGadget(\HorizontalScrollBar, #True)
-					; 						EndIf
-					; 					EndIf
-					
 				Case #ScrollArea_InnerHeight
 					SetGadgetAttribute(*GadgetData\VerticalScrollBar, #ScrollBar_Maximum, Value)
 					
-					; 					If Value >= \Height + Bool(Not \HiddenVScrollBar) * #ScrollArea_Bar_Thickness
-					; 						If Not \HiddenHScrollBar
-					; 							\HiddenHScrollBar = #True
-					; 							HideGadget(\VerticalScrollBar, #True)
-					; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
-					; 						EndIf
-					; 					Else
-					; 						If \HiddenHScrollBar
-					; 							\HiddenHScrollBar = #False
-					; 							HideGadget(\VerticalScrollBar, #False)
-					; 							ResizeGadget(*GadgetData\Gadget, #PB_Ignore, #PB_Ignore, \Width - #ScrollArea_Bar_Thickness * Bool(Not \HiddenVScrollBar), \Height - #ScrollArea_Bar_Thickness * Bool(Not \HiddenHScrollBar))
-					; 						EndIf
-					; 					EndIf
 				Case #ScrollArea_X
 					
 				Case #ScrollArea_Y
@@ -5529,6 +5017,55 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure VerticalList_BeginEdit(*GadgetData.VerticalListData)
+		Protected Event.Event
+		
+		With *GadgetData
+			If Not \Editable Or \Editing Or \State < 0 Or Not SelectElement(\Items(), \State)
+				ProcedureReturn #False
+			EndIf
+			
+			\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
+			\String\String = \Items()\Text\OriginalText
+			String_ProcessString(\String)
+			
+			\String\OriginX = \Items()\Text\TextX + #VerticalList_Margin + \Border
+			; TextX (the item icon's share of the row) is already in the origin, so it
+			; has to come off the width too, or the box overruns the row to the right.
+			\String\Width = \Items()\Text\Width - \Items()\Text\TextX
+			\String\OriginY = \State * \ItemHeight - \ScrollBar\State + \Items()\Text\TextY + \Border - 2
+			
+			Event\EventType = #Focus
+			\String\EventHandler(\String, Event)
+			StringSetSelection_Meta(\String, 0, Len(\String\String))
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
+	Procedure VerticalList_EndEdit(*GadgetData.VerticalListData, Keep)
+		Protected Event.Event
+		
+		With *GadgetData
+			If Not \Editing
+				ProcedureReturn #False
+			EndIf
+			
+			\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
+			
+			If Keep And SelectElement(\Items(), \State)
+				\Items()\Text\OriginalText = \String\String
+				PrepareVectorTextBlock(@\Items()\Text)
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+			EndIf
+			
+			Event\EventType = #LostFocus
+			\String\EventHandler(\String, Event)
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
 	Procedure VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
 		Protected Redraw, Item, *Element, Image, Cursor = *GadgetData\EditCursor
 		With *GadgetData
@@ -5638,7 +5175,7 @@ Module UITK
 						If Not \ScrollBar\MouseState
 							Item = Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight)
 							
-							If item >= ListSize(\Items())
+							If Item >= ListSize(\Items())
 								Item = -1
 							EndIf
 							
@@ -5647,8 +5184,8 @@ Module UITK
 								Redraw = #True
 							EndIf
 							
-							If item = \State And \Editing
-								If *Event\MouseY > \String\OriginY And *Event\MouseY < \String\OriginY + \string\Height And *Event\MouseX > \String\OriginX
+							If Item = \State And \Editing
+								If *Event\MouseY > \String\OriginY And *Event\MouseY < \String\OriginY + \String\Height And *Event\MouseX > \String\OriginX
 									Cursor = #PB_Cursor_IBeam
 								EndIf
 							EndIf
@@ -5663,15 +5200,7 @@ Module UITK
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
 					ElseIf \Editing
-						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-						SelectElement(\Items(), \State)
-						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-						PrepareVectorTextBlock(@\Items()\Text)
-						
-						*Event\EventType = #LostFocus
-						\String\EventHandler(\String, *Event)
-						
-						Redraw = #True
+						Redraw = VerticalList_EndEdit(*GadgetData, #True)
 					EndIf
 					
 					If \ScrollBar\MouseState
@@ -5753,15 +5282,7 @@ Module UITK
 						*Event\EventType = #MouseMove
 						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
 						
-						If \Editing
-							\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-							SelectElement(\Items(), \State)
-							\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-							PrepareVectorTextBlock(@\Items()\Text)
-							
-							*Event\EventType = #LostFocus
-							\String\EventHandler(\String, *Event)
-							
+						If VerticalList_EndEdit(*GadgetData, #True)
 							Redraw = #True
 						EndIf
 					EndIf
@@ -5782,36 +5303,15 @@ Module UITK
 									Redraw = #True
 								EndIf ;}
 							Case #PB_Shortcut_F2 ;{
-								If \Editable And \State > -1 And Not \Editing
-									\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
-									SelectElement(\Items(), \State)
-									\String\String = \Items()\Text\OriginalText
-									String_ProcessString(\String)
-									Redraw = #True
-									
-									*Event\EventType = #Focus
-									\String\OriginX = \Items()\Text\TextX + #VerticalList_Margin + \Border
-									; TextX (the item icon's share of the row) is already in the origin, so it
-									; has to come off the width too, or the box overruns the row to the right.
-									\String\Width = \Items()\Text\Width - \Items()\Text\TextX
-									\String\OriginY = \State * \ItemHeight - \ScrollBar\State + \Items()\Text\TextY + \Border - 2
-									\String\EventHandler(\String, *Event)
-									StringSetSelection_Meta(\String, 0, Len(\String\String))
-								EndIf ;}
-							Case #PB_Shortcut_Return ;{
-								If \Editing
-									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-									SelectElement(\Items(), \State)
-									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-									PrepareVectorTextBlock(@\Items()\Text)
-									
-									*Event\EventType = #LostFocus
-									\String\EventHandler(\String, *Event)
-									
-									Redraw = #True
-								EndIf
+								Redraw = VerticalList_BeginEdit(*GadgetData)
 								;}
-							Default	 ;{
+							Case #PB_Shortcut_Return ;{
+								Redraw = VerticalList_EndEdit(*GadgetData, #True)
+								;}
+							Case #PB_Shortcut_Escape ;{
+								Redraw = VerticalList_EndEdit(*GadgetData, #False)	; keep the old name
+																					;}
+							Default													;{
 								If \Editing
 									Redraw = \String\EventHandler(\String, *Event)
 								EndIf
@@ -5821,22 +5321,12 @@ Module UITK
 					;}
 				Case #LeftDoubleClick ;{
 					If \ItemState > -1
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)
 					EndIf
 					;}
 				Case #LostFocus ;{
-					If \Editing
-						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-						SelectElement(\Items(), \State)
-						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-						PrepareVectorTextBlock(@\Items()\Text)
-						
-						*Event\EventType = #LostFocus
-						\String\EventHandler(\String, *Event)
-						
-						Redraw = #True
-					EndIf
-					;}	
+					Redraw = VerticalList_EndEdit(*GadgetData, #True)
+					;}
 				Default ;{
 					If \Editing
 						*Event\MouseX - \String\OriginX
@@ -5982,7 +5472,13 @@ Module UITK
 			CloseWindow(*GadgetData\ReorderWindow)
 		EndIf
 		DeleteMapElement(GadgetHandler(), Str(GadgetID(*GadgetData\Gadget)))
-		FreeStructure(*GadgetData\ScrollBar)
+		FreeStructureX(*GadgetData\ScrollBar)
+		
+		If *GadgetData\Editable
+			RemoveGadgetTimers(*GadgetData\String)
+			FreeMemory(*GadgetData\String\ThemeData)	; the editor's own copy of the theme
+			FreeStructureX(*GadgetData\String)
+		EndIf
 		
 		Default_FreeGadget(*this.PB_Gadget)
 	EndProcedure
@@ -6064,12 +5560,11 @@ Module UITK
 						\Items()\Text\FontScale = Value
 						PrepareVectorTextBlock(@\Items()\Text)
 					Next
-					
-					RedrawObject()
 					;}
-				Default ;{	
+				Default ;{
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
-					;}
+					ProcedureReturn	; already redraws
+									;}
 			EndSelect
 		EndWith
 		RedrawObject()
@@ -6205,33 +5700,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Editable) * #PB_Canvas_Container))
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, VerticalListData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(VerticalListData)
 				VerticalList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 				
 				RedrawObject()
@@ -6254,6 +5723,7 @@ Module UITK
 	
 	Structure HorizontalListData Extends GadgetData
 		ItemWidth.l
+		HoverItem.l			; hovered item index, -1 when none (the base \MouseState stays a #Cold/#Warm/#Hot state)
 		VisibleScrollBar.b
 		InternalWidth.l
 		DragOriginX.l
@@ -6327,7 +5797,7 @@ Module UITK
 							String_Redraw(\String)
 						EndIf
 						RestoreVectorState()
-					ElseIf ListIndex(\Items()) = \MouseState
+					ElseIf ListIndex(\Items()) = \HoverItem
 						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Warm, \ThemeData)
 					Else
 						HorizontalList_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Cold, \ThemeData)
@@ -6402,6 +5872,52 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure HorizontalList_BeginEdit(*GadgetData.HorizontalListData)
+		Protected Event.Event
+		
+		With *GadgetData
+			If Not \Editable Or \Editing Or \State < 0 Or Not SelectElement(\Items(), \State)
+				ProcedureReturn #False
+			EndIf
+			
+			\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
+			\String\String = \Items()\Text\OriginalText
+			String_ProcessString(\String)
+			
+			\String\OriginX = \State * \ItemWidth - \ScrollBar\State + \Border
+			\String\OriginY = \Items()\Text\TextY - 1
+			
+			Event\EventType = #Focus
+			\String\EventHandler(\String, Event)
+			StringSetSelection_Meta(\String, 0, Len(\String\String))
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
+	Procedure HorizontalList_EndEdit(*GadgetData.HorizontalListData, Keep)
+		Protected Event.Event
+		
+		With *GadgetData
+			If Not \Editing
+				ProcedureReturn #False
+			EndIf
+			
+			\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
+			
+			If Keep And SelectElement(\Items(), \State)
+				\Items()\Text\OriginalText = \String\String
+				PrepareVectorTextBlock(@\Items()\Text)
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+			EndIf
+			
+			Event\EventType = #LostFocus
+			\String\EventHandler(\String, Event)
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
 	Procedure HorizontalList_EventHandler(*GadgetData.HorizontalListData, *Event.Event)
 		Protected Redraw, HoverItem, Keyboard, Image, Cursor = *GadgetData\EditCursor
 		
@@ -6429,8 +5945,8 @@ Module UITK
 							
 							If Not \ScrollBar\MouseState
 								HoverItem = Floor((*Event\MouseX + \ScrollBar\State) / \ItemWidth)
-								If HoverItem <> \MouseState
-									\MouseState = HoverItem
+								If HoverItem <> \HoverItem
+									\HoverItem = HoverItem
 									Redraw = #True
 								EndIf
 								
@@ -6441,8 +5957,8 @@ Module UITK
 										EndIf
 									EndIf
 								EndIf
-							ElseIf \MouseState > -1
-								\MouseState = -1
+							ElseIf \HoverItem > -1
+								\HoverItem = -1
 								Redraw = #True
 							EndIf
 							;}
@@ -6467,8 +5983,8 @@ Module UITK
 				Case #MouseLeave ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf \MouseState > -1
-						\MouseState = -1
+					ElseIf \HoverItem > -1
+						\HoverItem = -1
 						Redraw = #True
 					EndIf
 					
@@ -6479,20 +5995,14 @@ Module UITK
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
 					ElseIf \Editing
-						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-						SelectElement(\Items(), \State)
-						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-						PrepareVectorTextBlock(@\Items()\Text)
-						
-						*Event\EventType = #LostFocus
-						\String\EventHandler(\String, *Event)
+						Redraw = HorizontalList_EndEdit(*GadgetData, #True)
 					EndIf
 					
 					If \ScrollBar\MouseState
 						Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf \MouseState > -1 
-						If \State <> \MouseState
-							\State = \MouseState
+					ElseIf \HoverItem > -1
+						If \State <> \HoverItem
+							\State = \HoverItem
 							Redraw = #True
 							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 							AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
@@ -6522,12 +6032,12 @@ Module UITK
 					EndIf
 					;}
 				Case #LeftDoubleClick ;{
-					If \MouseState > -1
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
+					If \HoverItem > -1
+						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)
 					EndIf
 					;}
 				Case #KeyDown ;{
-					Select *Event\Param 
+					Select *Event\Param
 						Case #PB_Shortcut_Left ;{
 							If \Editing
 								Redraw = \String\EventHandler(\String, *Event)
@@ -6545,37 +6055,13 @@ Module UITK
 								Redraw = #True
 							EndIf ;}
 						Case #PB_Shortcut_F2 ;{
-							If \Editable And \State > -1 And Not \Editing
-								\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
-								SelectElement(\Items(), \State)
-								\String\String = \Items()\Text\OriginalText
-								String_ProcessString(\String)
-								Redraw = #True
-								
-								*Event\EventType = #Focus
-								\String\OriginX = \State * \ItemWidth - \ScrollBar\State + \Border
-								\String\OriginY = \Items()\Text\TextY - 1
-								\String\EventHandler(\String, *Event)
-								StringSetSelection_Meta(\String, 0, Len(\String\String))
-							EndIf ;}
-						Case #PB_Shortcut_Escape ;{
-							\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-							*Event\EventType = #LostFocus
-							\String\EventHandler(\String, *Event)
-							Redraw = #True
+							Redraw = HorizontalList_BeginEdit(*GadgetData)
 							;}
-						Case #PB_Shortcut_Return ;{
-							If \Editing
-								\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-								SelectElement(\Items(), \State)
-								\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-								PrepareVectorTextBlock(@\Items()\Text)
-								
-								*Event\EventType = #LostFocus
-								\String\EventHandler(\String, *Event)
-								
-								Redraw = #True
-							EndIf
+						Case #PB_Shortcut_Escape ;{
+							Redraw = HorizontalList_EndEdit(*GadgetData, #False)	; keep the old name
+																					;}
+						Case #PB_Shortcut_Return									;{
+							Redraw = HorizontalList_EndEdit(*GadgetData, #True)
 							;}
 						Default	  ;{
 							If \Editing
@@ -6585,17 +6071,7 @@ Module UITK
 					EndSelect
 					;}
 				Case #LostFocus ;{
-					If \Editing
-						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-						SelectElement(\Items(), \State)
-						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-						PrepareVectorTextBlock(@\Items()\Text)
-						
-						*Event\EventType = #LostFocus
-						\String\EventHandler(\String, *Event)
-						
-						Redraw = #True
-					EndIf
+					Redraw = HorizontalList_EndEdit(*GadgetData, #True)
 					;}
 				Default ;{
 					If \Editing
@@ -6703,11 +6179,12 @@ Module UITK
 	Procedure HorizontalList_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.HorizontalListData = *this\vt
 		
-		FreeStructure(*GadgetData\ScrollBar)
+		FreeStructureX(*GadgetData\ScrollBar)
 		
 		If *GadgetData\Editable
+			RemoveGadgetTimers(*GadgetData\String)
 			FreeMemory(*GadgetData\String\ThemeData)
-			FreeStructure(*GadgetData\String)
+			FreeStructureX(*GadgetData\String)
 		EndIf
 		
 		Default_FreeGadget(*this.PB_Gadget)
@@ -6759,9 +6236,10 @@ Module UITK
 						PrepareVectorTextBlock(@\Items()\Text)
 					Next
 					;}
-				Default ;{	
+				Default ;{
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
-					;}
+					ProcedureReturn	; already redraws
+									;}
 			EndSelect
 		EndWith
 		RedrawObject()
@@ -6777,7 +6255,7 @@ Module UITK
 			\VisibleScrollBar = #False
 			\ItemWidth = Height
 			\State = -1
-			\MouseState = -1
+			\HoverItem = -1
 			\Drag = Bool(Flags & #Drag)
 			
 			ScrollBar_Meta(\ScrollBar, *ThemeData, -1, \Border + 1, \Height - \Border - 1 - #VerticalList_ToolbarThickness, \Width - \Border * 2 - 2, #VerticalList_ToolbarThickness, 0, 0, \Width, #Null)
@@ -6825,33 +6303,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Editable) * #PB_Canvas_Container))
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, HorizontalListData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(HorizontalListData)
 				HorizontalList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
@@ -7175,7 +6627,7 @@ Module UITK
 	
 	Procedure TrackBar_SetText(*this.PB_Gadget, Text.s)
 		Protected *GadgetData.TrackBarData = *this\vt
-		*GadgetData\unit = Text
+		*GadgetData\Unit = Text
 		RedrawObject()
 	EndProcedure
 	
@@ -7187,9 +6639,10 @@ Module UITK
 				Case #TrackBar_Scale ;{
 					\Scale = 1 / Value
 					;}
-				Default ;{	
+				Default ;{
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
-					;}
+					ProcedureReturn	; already redraws
+									;}
 			EndSelect
 		EndWith
 		RedrawObject()
@@ -7242,33 +6695,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, TrackBarData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(TrackBarData)
 				TrackBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
 				
 				RedrawObject()
@@ -7442,10 +6869,12 @@ Module UITK
 				UnbindGadgetEvent(\Gadget, \DefaultEventHandler)
 			EndIf
 			
+			RemoveGadgetTimers(*GadgetData)
 			*this\vt = \OriginalVT
+			FreeStructureX(\ThemeData)
 		EndWith
 		
-		FreeStructure(*GadgetData)
+		FreeStructureX(*GadgetData)
 		
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
@@ -7572,33 +7001,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, ComboData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(ComboData)
 				Combo_Meta(*GadgetData.ComboData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
@@ -7652,33 +7055,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, ContainerData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(ContainerData)
 				Container_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
@@ -7890,33 +7267,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Container) * #PB_Canvas_Container))
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, RadioData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(RadioData)
 				Radio_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Text, RadioGroup, Flags)
 				
 				RedrawObject()
@@ -8472,6 +7823,7 @@ Module UITK
 					EndIf
 				Default
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+					ProcedureReturn	; already redraws
 			EndSelect
 			
 			RedrawObject()
@@ -8501,6 +7853,14 @@ Module UITK
 	EndProcedure
 	
 	
+	Procedure Library_FreeGadget(*this.PB_Gadget)
+		Protected *GadgetData.LibraryData = *this\vt
+		
+		FreeStructureX(*GadgetData\ScrollBar)
+		
+		Default_FreeGadget(*this)
+	EndProcedure
+	
 	Procedure Library_Meta(*GadgetData.LibraryData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Library)
@@ -8522,9 +7882,9 @@ Module UITK
 			\ItemVMargin = #Library_ItemVMargin
 			\ItemState = -1
 			\State = -1
-
+			
 			\Drag = Bool(Flags & #Drag)
-
+			
 			\Width = Width		; Only Resize used to set these, so the per-line math
 			\Height = Height	; below ran on width 0 until the first resize
 			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
@@ -8543,6 +7903,7 @@ Module UITK
 			\VT\GetGadgetItemData = @Library_GetItemData()
 			\VT\GetGadgetItemImage = @Library_GetItemImage()
 			\VT\CountGadgetItems = @Library_CountItem()
+			\VT\FreeGadget = @Library_FreeGadget()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -8562,33 +7923,7 @@ Module UITK
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 		
 		If Result
-			If Gadget = #PB_Any
-				Gadget = Result
-			EndIf
-			
-			*this = IsGadget(Gadget)
-			AllocateStructureX(*GadgetData, LibraryData)
-			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-			*GadgetData\OriginalVT = *this\VT
-			*this\VT = *GadgetData
-			
-			AllocateStructureX(*ThemeData, Theme)
-			
-			If Flags & #DarkMode
-				CopyStructure(@DarkTheme, *ThemeData, Theme)
-			ElseIf Flags & #LightMode
-				CopyStructure(@LightTheme, *ThemeData, Theme)
-			Else
-				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-				If *WindowData
-					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-				Else
-					CopyStructure(*DefaultTheme, *ThemeData, Theme)
-				EndIf
-			EndIf
-			
-			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-			GadgetHandler() = Gadget
+			CreateGadgetObject(LibraryData)
 			Library_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 			
 			RedrawObject()
@@ -8647,7 +7982,7 @@ Module UITK
 			\Value\FontID = *GadgetData\TextBlock\FontID
 			\Value\Height = *GadgetData\ItemHeight
 			\Value\Width = PropertyBox_ValueWidth(*GadgetData)
-
+			
 			; A font summary can be long ("Georgia, 18 Bold Italic"), so keep it clear of the
 			; ellipsis rather than letting it run underneath.
 			If \Type = #PropertyBox_Font
@@ -8728,7 +8063,7 @@ Module UITK
 				Case #PropertyBox_Font ;{ "family, size" plus an ellipsis, the usual "this opens a dialog" hint
 					VectorSourceColor(\ThemeData\TextColor[#Cold])
 					DrawVectorTextBlock(@*Item\Value, ValueX, Y - 2)
-
+					
 					Center = Y + *GadgetData\ItemHeight * 0.5
 					AddPathCircle(ValueX + PropertyBox_ValueWidth(*GadgetData) - 9, Center + 1, 1)
 					AddPathCircle(ValueX + PropertyBox_ValueWidth(*GadgetData) - 5, Center + 1, 1)
@@ -8803,11 +8138,11 @@ Module UITK
 	; Font rows keep their size and style here; every other row type ignores these.
 	Procedure PropertyBox_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
 		Protected *GadgetData.PropertyBoxData = *this\vt
-
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
-
+				
 				Select Attribute
 					Case #Attribute_PropertyBox_FontSize
 						ProcedureReturn \Items()\FontSize
@@ -8817,15 +8152,15 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_SetItemAttribute(*this.PB_Gadget, Position, Attribute, Value)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
-
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
 				*Item = @\Items()
-
+				
 				Select Attribute
 					Case #Attribute_PropertyBox_FontSize
 						*Item\FontSize = Value
@@ -8834,13 +8169,13 @@ Module UITK
 					Default
 						ProcedureReturn
 				EndSelect
-
+				
 				PropertyBox_PrepareValue(*GadgetData, *Item)
 				RedrawObject()
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_GetItemState(*this.PB_Gadget, Position)
 		Protected *GadgetData.PropertyBoxData = *this\vt, Result
 		
@@ -9132,12 +8467,12 @@ Module UITK
 			If Not SelectElement(\Items(), ItemRow)
 				ProcedureReturn
 			EndIf
-
+			
 			If FontRequester(\Items()\FontName, \Items()\FontSize, #PB_FontRequester_Effects, 0, \Items()\FontStyle, WindowID(\ParentWindow))
 				\Items()\FontName = SelectedFontName()
 				\Items()\FontSize = SelectedFontSize()
 				\Items()\FontStyle = SelectedFontStyle()
-
+				
 				PropertyBox_PrepareValue(*GadgetData, @\Items())
 				\State = ItemRow
 				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
@@ -9145,7 +8480,7 @@ Module UITK
 			EndIf
 		EndWith
 	EndProcedure
-
+	
 	Procedure PropertyBox_OpenColorPopup(*GadgetData.PropertyBoxData, ItemRow)
 		Protected ScrollOffset, ScreenX, ScreenY
 		
@@ -9221,17 +8556,23 @@ Module UITK
 				CloseWindow(\ColorPopupWindow)
 			EndIf
 			
-			If \String : FreeStructure(\String) : EndIf
-			If \ScrollBar : FreeStructure(\ScrollBar) : EndIf
+			If \String
+				RemoveGadgetTimers(\String)
+				FreeMemory(\String\ThemeData)	; the inline editor's own copy of the theme
+				FreeStructureX(\String)
+			EndIf
+			If \ScrollBar : FreeStructureX(\ScrollBar) : EndIf
 			
 			If \DefaultEventHandler
 				UnbindGadgetEvent(\Gadget, \DefaultEventHandler)
 			EndIf
 			
+			RemoveGadgetTimers(*GadgetData)
 			*this\vt = \OriginalVT
+			FreeStructureX(\ThemeData)
 		EndWith
 		
-		FreeStructure(*GadgetData)
+		FreeStructureX(*GadgetData)
 		
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
@@ -9556,33 +8897,7 @@ Module UITK
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Container | #PB_Canvas_Keyboard)
 		
 		If Result
-			If Gadget = #PB_Any
-				Gadget = Result
-			EndIf
-			
-			*this = IsGadget(Gadget)
-			AllocateStructureX(*GadgetData, PropertyBoxData)
-			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-			*GadgetData\OriginalVT = *this\VT
-			*this\VT = *GadgetData
-			
-			AllocateStructureX(*ThemeData, Theme)
-			
-			If Flags & #DarkMode
-				CopyStructure(@DarkTheme, *ThemeData, Theme)
-			ElseIf Flags & #LightMode
-				CopyStructure(@LightTheme, *ThemeData, Theme)
-			Else
-				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-				If *WindowData
-					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-				Else
-					CopyStructure(*DefaultTheme, *ThemeData, Theme)
-				EndIf
-			EndIf
-			
-			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-			GadgetHandler() = Gadget
+			CreateGadgetObject(PropertyBoxData)
 			PropertyBox_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 			
 			RedrawObject()
@@ -9778,6 +9093,52 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Tree_BeginEdit(*GadgetData.TreeData)
+		Protected Event.Event
+		
+		With *GadgetData
+			If Not \Editable Or \Editing Or \State < 0 Or Not SelectElement(\Items(), \State)
+				ProcedureReturn #False
+			EndIf
+			
+			\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
+			\String\String = \Items()\Text\OriginalText
+			String_ProcessString(\String)
+			
+			\String\OriginX = \OriginX + \Border + \BranchWidth + 1 + \Items()\Level * \BranchWidth + \Items()\Text\TextX
+			\String\OriginY = \State * \ItemHeight - \ScrollBar\State + \Border + 1
+			
+			Event\EventType = #Focus
+			\String\EventHandler(\String, Event)
+			StringSetSelection_Meta(\String, 0, Len(\String\String))
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
+	Procedure Tree_EndEdit(*GadgetData.TreeData, Keep)
+		Protected Event.Event
+		
+		With *GadgetData
+			If Not \Editing
+				ProcedureReturn #False
+			EndIf
+			
+			\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
+			
+			If Keep And SelectElement(\Items(), \State)
+				\Items()\Text\OriginalText = \String\String
+				PrepareVectorTextBlock(@\Items()\Text)
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+			EndIf
+			
+			Event\EventType = #LostFocus
+			\String\EventHandler(\String, Event)
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
 	Procedure Tree_EventHandler(*GadgetData.TreeData, *Event.Event)
 		Protected Redraw, Y, NewItem = -1, ItemRow, Cursor = *GadgetData\EditCursor
 		
@@ -9815,18 +9176,7 @@ Module UITK
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
 					ElseIf \Editing
-						NewItem = ListIndex(\Items())
-						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-						SelectElement(\Items(), \State)
-						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-						PrepareVectorTextBlock(@\Items()\Text)
-						
-						*Event\EventType = #LostFocus
-						\String\EventHandler(\String, *Event)
-						*Event\EventType = #LeftButtonDown
-						
-						Redraw = #True
-						SelectElement(\Items(), NewItem)
+						Redraw = Tree_EndEdit(*GadgetData, #True)
 					EndIf
 					
 					If \ScrollBar\MouseState
@@ -9847,18 +9197,7 @@ Module UITK
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
 					ElseIf \Editing
-						NewItem = ListIndex(\Items())
-						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-						SelectElement(\Items(), \State)
-						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-						PrepareVectorTextBlock(@\Items()\Text)
-						
-						*Event\EventType = #LostFocus
-						\String\EventHandler(\String, *Event)
-						*Event\EventType = #RightButtonDown
-						
-						Redraw = #True
-						SelectElement(\Items(), NewItem)
+						Redraw = Tree_EndEdit(*GadgetData, #True)
 					EndIf
 					
 					If Not \ScrollBar\MouseState
@@ -9894,7 +9233,7 @@ Module UITK
 							If \State <> ListIndex(\Items())
 								\State = ListIndex(\Items())
 								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #Eventtype_ForcefulChange)
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)
 							EndIf
 						EndIf
 					EndIf
@@ -9903,17 +9242,7 @@ Module UITK
 					Select *Event\Param 
 						Case #PB_Shortcut_Up ;{
 							If \State > 0
-								If \Editing
-									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-									SelectElement(\Items(), \State)
-									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-									PrepareVectorTextBlock(@\Items()\Text)
-									
-									*Event\EventType = #LostFocus
-									\String\EventHandler(\String, *Event)
-									
-									Redraw = #True
-								EndIf
+								Tree_EndEdit(*GadgetData, #True)
 								
 								\State - 1
 								Redraw = #True
@@ -9926,17 +9255,7 @@ Module UITK
 							;}
 						Case #PB_Shortcut_Down ;{
 							If \State < ListSize(\Items()) - 1
-								If \Editing
-									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-									SelectElement(\Items(), \State)
-									\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-									PrepareVectorTextBlock(@\Items()\Text)
-									
-									*Event\EventType = #LostFocus
-									\String\EventHandler(\String, *Event)
-									
-									Redraw = #True
-								EndIf
+								Tree_EndEdit(*GadgetData, #True)
 								
 								\State + 1
 								
@@ -9948,33 +9267,15 @@ Module UITK
 							EndIf
 							;}
 						Case #PB_Shortcut_F2 ;{
-							If \Editable And \State > -1 And Not \Editing
-								\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
-								SelectElement(\Items(), \State)
-								\String\String = \Items()\Text\OriginalText
-								String_ProcessString(\String)
-								Redraw = #True
-								
-								*Event\EventType = #Focus
-								\String\OriginX = \OriginX + \Border + \BranchWidth + 1 + \Items()\Level * \BranchWidth + \Items()\Text\TextX
-								\String\OriginY = \State * \ItemHeight - \ScrollBar\State + \Border + 1
-								\String\EventHandler(\String, *Event)
-								StringSetSelection_Meta(\String, 0, Len(\String\String))
-							EndIf ;}
+							Redraw = Tree_BeginEdit(*GadgetData)
+							;}
 						Case #PB_Shortcut_Return ;{
-							If \Editing
-								\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-								SelectElement(\Items(), \State)
-								\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-								PrepareVectorTextBlock(@\Items()\Text)
-								
-								*Event\EventType = #LostFocus
-								\String\EventHandler(\String, *Event)
-								
-								Redraw = #True
-							EndIf
-							;}	
-						Default ;{
+							Redraw = Tree_EndEdit(*GadgetData, #True)
+							;}
+						Case #PB_Shortcut_Escape ;{
+							Redraw = Tree_EndEdit(*GadgetData, #False)	; keep the old name
+																		;}
+						Default											;{
 							If \Editing
 								Redraw = \String\EventHandler(\String, *Event)
 							EndIf
@@ -9982,18 +9283,8 @@ Module UITK
 					EndSelect
 					;}
 				Case #LostFocus ;{
-					If \Editing
-						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-						SelectElement(\Items(), \State)
-						\Items()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-						PrepareVectorTextBlock(@\Items()\Text)
-						
-						*Event\EventType = #LostFocus
-						\String\EventHandler(\String, *Event)
-						
-						Redraw = #True
-					EndIf
-					;}	
+					Redraw = Tree_EndEdit(*GadgetData, #True)
+					;}
 				Default ;{
 					If \Editing
 						*Event\MouseX - \String\OriginX
@@ -10210,6 +9501,20 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure Tree_FreeGadget(*this.PB_Gadget)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		FreeStructureX(*GadgetData\ScrollBar)
+		
+		If *GadgetData\Editable
+			RemoveGadgetTimers(*GadgetData\String)
+			FreeMemory(*GadgetData\String\ThemeData)
+			FreeStructureX(*GadgetData\String)
+		EndIf
+		
+		Default_FreeGadget(*this)
+	EndProcedure
+	
 	Procedure Tree_Meta(*GadgetData.TreeData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tree)
@@ -10247,6 +9552,7 @@ Module UITK
 			\VT\GetGadgetItemImage = @Tree_GetItemImage()
 			
 			\VT\DropHandler = @Tree_DropHandler()
+			\VT\FreeGadget = @Tree_FreeGadget()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -10280,33 +9586,7 @@ Module UITK
 		Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Editable) * #PB_Canvas_Container))
 		
 		If Result
-			If Gadget = #PB_Any
-				Gadget = Result
-			EndIf
-			
-			*this = IsGadget(Gadget)
-			AllocateStructureX(*GadgetData, TreeData)
-			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-			*GadgetData\OriginalVT = *this\VT
-			*this\VT = *GadgetData
-			
-			AllocateStructureX(*ThemeData, Theme)
-			
-			If Flags & #DarkMode
-				CopyStructure(@DarkTheme, *ThemeData, Theme)
-			ElseIf Flags & #LightMode
-				CopyStructure(@LightTheme, *ThemeData, Theme)
-			Else
-				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-				If *WindowData
-					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-				Else
-					CopyStructure(*DefaultTheme, *ThemeData, Theme)
-				EndIf
-			EndIf
-			
-			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-			GadgetHandler() = Gadget
+			CreateGadgetObject(TreeData)
 			Tree_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 			
 			RedrawObject()
@@ -10425,7 +9705,6 @@ Module UITK
 					EndIf
 					;}
 			EndSelect
-			EventType()
 		EndWith
 	EndProcedure
 	
@@ -10558,10 +9837,10 @@ Module UITK
 			
 			\Item()\Type = #Separator
 			
+			\Height + #MenuSeparatorHeight
+			
 			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
 			ResizeGadget(\Canvas, #PB_Ignore, #PB_Ignore, \Width, \Height)
-			
-			\Height + #MenuSeparatorHeight
 			
 			FlatMenu_Redraw(*MenuData)
 			
@@ -10569,27 +9848,53 @@ Module UITK
 	EndProcedure
 	
 	Procedure RemoveFlatMenuItem(Menu, Position)
-
-
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+		
+		With *MenuData
+			If Not SelectElement(\Item(), Position)
+				ProcedureReturn
+			EndIf
+			
+			If \Item()\Type = #Separator
+				\Height - #MenuSeparatorHeight
+			Else
+				\Height - \ItemHeight
+			EndIf
+			DeleteElement(\Item())
+			
+			; The removed entry may have been the widest: recompute from what's left.
+			\Width = #MenuMinimumWidth
+			ForEach \Item()
+				If \Item()\Type = #Item And \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin > \Width
+					\Width = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin
+				EndIf
+			Next
+			
+			\State = -1		; the hover index may point past the shortened list
+			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
+			ResizeGadget(\Canvas, #PB_Ignore, #PB_Ignore, \Width, \Height)
+			
+			FlatMenu_Redraw(*MenuData)
+		EndWith
 	EndProcedure
 	
 	Procedure SetFlatMenuItemText(Menu, Position, Text.s)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
-
+		
 		With *MenuData
 			If Not SelectElement(\Item(), Position) Or \Item()\Type <> #Item
 				ProcedureReturn
 			EndIf
-
+			
 			\Item()\Text\OriginalText = Text
 			PrepareVectorTextBlock(@\Item()\Text)
-
+			
 			If \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin > \Width
 				\Width = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin
 				ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
 				ResizeGadget(\Canvas, #PB_Ignore, #PB_Ignore, \Width, \Height)
 			EndIf
-
+			
 			FlatMenu_Redraw(*MenuData)
 		EndWith
 	EndProcedure
@@ -10621,7 +9926,6 @@ Module UITK
 	;}
 	
 	;{ Tab
-	#HList_ItemHeight = 100
 	
 	Structure Tab_Item
 		ImageX.l
@@ -10634,10 +9938,7 @@ Module UITK
 	Structure TabData Extends GadgetData
 		ItemWidth.l
 		InternalWidth.i
-		DragOriginX.l
-		DragOriginY.l
-		Drag.b
-		DragState.b
+		HoverItem.l			; hovered item index, -1 when none (the base \MouseState stays a #Cold/#Warm/#Hot state)
 		List Items.Tab_Item()
 	EndStructure
 	
@@ -10679,7 +9980,7 @@ Module UITK
 				Repeat
 					If ListIndex(\Items()) = \State
 						Tab_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Hot, \ThemeData)
-					ElseIf ListIndex(\Items()) = \MouseState
+					ElseIf ListIndex(\Items()) = \HoverItem
 						Tab_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Warm, \ThemeData)
 					Else
 						Tab_ItemRedraw(@\Items(), X, \OriginY, \ItemWidth, \Height, #Cold, \ThemeData)
@@ -10704,12 +10005,6 @@ Module UITK
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
 			
-			If \InternalWidth > \Width
-				
-			Else
-				
-			EndIf
-			
 			If PreviousHeight <> \Height
 				ForEach \Items()
 					\Items()\Text\Height = \Height
@@ -10721,16 +10016,6 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Tab_StateFocus(*GadgetData.TabData)
-		Protected Result
-		
-		With *GadgetData
-			
-		EndWith
-		
-		ProcedureReturn Result
-	EndProcedure
-	
 	Procedure Tab_EventHandler(*GadgetData.TabData, *Event.Event)
 		Protected Redraw, HoverItem
 		
@@ -10738,31 +10023,28 @@ Module UITK
 			Select *Event\EventType
 				Case #MouseMove ;{
 					HoverItem = Floor(*Event\MouseX / \ItemWidth)
-					If HoverItem <> \MouseState 
+					If HoverItem <> \HoverItem
 						If HoverItem < ListSize(\Items())
-							\MouseState = HoverItem
+							\HoverItem = HoverItem
 							Redraw = #True
 						Else
-							\MouseState = -1
+							\HoverItem = -1
 							Redraw = #True
 						EndIf
 					EndIf
 					;}
 				Case #MouseLeave ;{
-					If \MouseState <> -1
-						\MouseState = -1
+					If \HoverItem <> -1
+						\HoverItem = -1
 						Redraw = #True
 					EndIf
 					;}
 				Case #LeftButtonDown ;{
-					If \MouseState > - 1 And \MouseState <> \State
-						\State = \MouseState
+					If \HoverItem > -1 And \HoverItem <> \State
+						\State = \HoverItem
 						Redraw = #True
 						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 					EndIf
-					;}
-				Case #KeyDown ;{
-					
 					;}
 			EndSelect
 			If Redraw
@@ -10841,10 +10123,6 @@ Module UITK
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
 	
-	Procedure Tab_ClearItems(*This.PB_Gadget)
-		
-	EndProcedure
-	
 	; Getters
 	Procedure.s Tab_GetItemText(*this.PB_Gadget, Position)
 		Protected *GadgetData.TabData = *this\vt
@@ -10883,9 +10161,10 @@ Module UITK
 						PrepareVectorTextBlock(@\Items()\Text)
 					Next
 					;}
-				Default ;{	
+				Default ;{
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
-					;}
+					ProcedureReturn	; already redraws
+									;}
 			EndSelect
 		EndWith
 		RedrawObject()
@@ -10913,8 +10192,7 @@ Module UITK
 		With *GadgetData
 			\ItemWidth = Height
 			\State = -1
-			\MouseState = -1
-			\Drag = Bool(Flags & #Drag)
+			\HoverItem = -1
 			
 			\VT\AddGadgetItem2 = @Tab_AddItem()
 			\VT\RemoveGadgetItem = @Tab_RemoveItem()
@@ -10926,11 +10204,9 @@ Module UITK
 			\VT\SetGadgetItemAttribute2 = @Tab_SetItemAttribute()
 			
 			; Enable only the needed events
-			\SupportedEvent[#MouseWheel] = #True
 			\SupportedEvent[#MouseLeave] = #True
 			\SupportedEvent[#MouseMove] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
-			\SupportedEvent[#KeyDown] = #True
 		EndWith
 	EndProcedure
 	
@@ -10943,33 +10219,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, TabData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(TabData)
 				Tab_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				RedrawObject()
@@ -11251,6 +10501,16 @@ Module UITK
 		Default_SetColor(*This, ColorType, Color)
 	EndProcedure
 	
+	Procedure ColorPicker_Free(*this.PB_Gadget)
+		Protected *GadgetData.ColorPickerData = *this\vt
+		
+		If IsImage(*GadgetData\WheelImg)
+			FreeImage(*GadgetData\WheelImg)
+		EndIf
+		
+		Default_FreeGadget(*this)
+	EndProcedure
+	
 	Procedure ColorPicker_Meta(*GadgetData.ColorPickerData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(ColorPicker)
@@ -11291,6 +10551,7 @@ Module UITK
 			
 			\VT\SetGadgetState = @ColorPicker_SetState()
 			\VT\SetGadgetColor = @ColorPicker_SetColor()
+			\VT\FreeGadget = @ColorPicker_Free()
 			
 		EndWith
 	EndProcedure
@@ -11304,34 +10565,8 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, ColorPickerData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
+				CreateGadgetObject(ColorPickerData)
 				ColorPicker_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
 				
 				RedrawObject()
 			EndIf
@@ -11912,14 +11147,14 @@ Module UITK
 	Procedure ToolBar_FreeItem(*GadgetData.ToolBarData, *Item.ToolBar_Item)
 		With *Item
 			If \Button
-				FreeStructure(\Button)
+				FreeStructureX(\Button)
 			EndIf
 			If \Type = #ToolBar_ModeButton
 				If *GadgetData\ModeOpenItem = *Item
 					*GadgetData\ModeOpenItem = 0
 				EndIf
 				If \ModeButton
-					FreeStructure(\ModeButton)
+					FreeStructureX(\ModeButton)
 				EndIf
 				If IsImage(\ModeChevronIMG)
 					FreeImage(\ModeChevronIMG)
@@ -12087,13 +11322,15 @@ Module UITK
 				ToolBar_FreeItem(*GadgetData, @\Items())
 			Next
 			If \ButtonTheme
-				FreeStructure(\ButtonTheme)
+				FreeStructureX(\ButtonTheme)
 			EndIf
 			
+			RemoveGadgetTimers(*GadgetData)
 			*this\vt = \OriginalVT
+			FreeStructureX(\ThemeData)
 		EndWith
 		
-		FreeStructure(*GadgetData)
+		FreeStructureX(*GadgetData)
 		
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
@@ -12147,33 +11384,7 @@ Module UITK
 		Result = CanvasGadget(Gadget, x, y, Width, Height)
 		
 		If Result
-			If Gadget = #PB_Any
-				Gadget = Result
-			EndIf
-			
-			*this = IsGadget(Gadget)
-			AllocateStructureX(*GadgetData, ToolBarData)
-			CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-			*GadgetData\OriginalVT = *this\VT
-			*this\VT = *GadgetData
-			
-			AllocateStructureX(*ThemeData, Theme)
-			
-			If Flags & #DarkMode
-				CopyStructure(@DarkTheme, *ThemeData, Theme)
-			ElseIf Flags & #LightMode
-				CopyStructure(@LightTheme, *ThemeData, Theme)
-			Else
-				Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-				If *WindowData
-					CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-				Else
-					CopyStructure(*DefaultTheme, *ThemeData, Theme)
-				EndIf
-			EndIf
-			
-			AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-			GadgetHandler() = Gadget
+			CreateGadgetObject(ToolBarData)
 			ToolBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 			
 			RedrawObject()
@@ -12240,11 +11451,11 @@ Module UITK
 			ReorderDirection.b
 			ReorderWindow.i
 			ReorderCanvas.i
-
+			
 			Editable.l
 			Editing.b
 			EditCursor.b					; the cursor shape in force, and so also "pointer inside the editor"
-
+			
 			*String.StringData				; inline rename editor, only allocated with #Editable
 			*ItemRedraw.ItemRedraw
 			*ScrollBar.ScrollBarData
@@ -12388,7 +11599,7 @@ Module UITK
 		; \State is the focus row and what GetGadgetState reports, exactly like a single-select
 		; list. With #MultiSelect the per-item Selected flag rides alongside it, and Get/SetGadgetItemState
 		; speak that flag - the same contract as PureBasic's #PB_ListView_Multiselect ListViewGadget.
-
+		
 		Procedure LayerList_ClearSelection(*GadgetData.LayerListData)
 			With *GadgetData
 				ForEach \Items()
@@ -12396,54 +11607,54 @@ Module UITK
 				Next
 			EndWith
 		EndProcedure
-
+		
 		Procedure LayerList_SelectOnly(*GadgetData.LayerListData, Index)
 			; Collapse the selection onto one row and make it the focus.
 			With *GadgetData
 				LayerList_ClearSelection(*GadgetData)
-
+				
 				If Index > -1 And SelectElement(\Items(), Index)
 					\Items()\Selected = #True
 				EndIf
-
+				
 				\State = Index
 				\SelectAnchor = Index
 			EndWith
 		EndProcedure
-
+		
 		Procedure LayerList_SelectRange(*GadgetData.LayerListData, FromIndex, ToIndex)
 			; Select every row on screen between two items. Ranges run over visible rows, so children
 			; folded away inside a group are passed over rather than silently swept in.
 			Protected FromRow, ToRow, Row
-
+			
 			With *GadgetData
 				FromRow = LayerList_IndexToRow(*GadgetData, FromIndex)
 				ToRow = LayerList_IndexToRow(*GadgetData, ToIndex)
-
+				
 				If FromRow < 0 Or ToRow < 0
 					LayerList_SelectOnly(*GadgetData, ToIndex)
 					ProcedureReturn
 				EndIf
-
+				
 				If FromRow > ToRow
 					Swap FromRow, ToRow
 				EndIf
-
+				
 				LayerList_ClearSelection(*GadgetData)
-
+				
 				For Row = FromRow To ToRow
 					If SelectElement(\Items(), LayerList_RowToIndex(*GadgetData, Row))
 						\Items()\Selected = #True
 					EndIf
 				Next
-
+				
 				\State = ToIndex
 			EndWith
 		EndProcedure
-
+		
 		Procedure LayerList_SelectedCount(*GadgetData.LayerListData)
 			Protected Count
-
+			
 			With *GadgetData
 				ForEach \Items()
 					If \Items()\Selected
@@ -12451,19 +11662,19 @@ Module UITK
 					EndIf
 				Next
 			EndWith
-
+			
 			ProcedureReturn Count
 		EndProcedure
-
-
+		
+		
 		Procedure LayerList_IsSelected(*GadgetData.LayerListData, Index)
 			If Index > -1 And SelectElement(*GadgetData\Items(), Index)
 				ProcedureReturn *GadgetData\Items()\Selected
 			EndIf
-
+			
 			ProcedureReturn #False
 		EndProcedure
-
+		
 		Procedure LayerList_MoveFocus(*GadgetData.LayerListData, Index)
 			; Arrow-key move. Shift drags the selection along from the anchor, otherwise the
 			; selection collapses onto the row we land on.
@@ -12475,7 +11686,7 @@ Module UITK
 				EndIf
 			EndWith
 		EndProcedure
-
+		
 		Procedure LayerList_ToggleVisibility(*GadgetData.LayerListData, Index)
 			; Flip a row's eye. When that row is part of a multi-row selection the whole selection
 			; follows it, so switching a batch of layers off is one click rather than N.
@@ -12489,15 +11700,15 @@ Module UITK
 			; because \Items()\Selected is #False and the count is never reached. Take the count
 			; first, then re-select.
 			Protected NewState, Batch
-
+			
 			With *GadgetData
 				If Not SelectElement(\Items(), Index)
 					ProcedureReturn
 				EndIf
-
+				
 				NewState = Bool(Not \Items()\Visible)
 				Batch = Bool(\MultiSelect And \Items()\Selected And LayerList_SelectedCount(*GadgetData) > 1)
-
+				
 				If Batch
 					ForEach \Items()
 						If \Items()\Selected
@@ -12509,7 +11720,7 @@ Module UITK
 				EndIf
 			EndWith
 		EndProcedure
-
+		
 		Procedure LayerList_ClickSelect(*GadgetData.LayerListData, Index, Modifiers)
 			; Work out what a press on a row's body does to the selection. Returns #True when
 			; anything changed.
@@ -12519,7 +11730,7 @@ Module UITK
 			; selection to drag it would throw that selection away on the way down.
 			With *GadgetData
 				\PendingSelect = -1
-
+				
 				If Not \MultiSelect
 					If Index = \State
 						ProcedureReturn #False
@@ -12527,7 +11738,7 @@ Module UITK
 					LayerList_SelectOnly(*GadgetData, Index)
 					ProcedureReturn #True
 				EndIf
-
+				
 				If Modifiers & #PB_Canvas_Control
 					If SelectElement(\Items(), Index)
 						\Items()\Selected = Bool(Not \Items()\Selected)
@@ -12536,23 +11747,23 @@ Module UITK
 					\SelectAnchor = Index
 					ProcedureReturn #True
 				EndIf
-
+				
 				If (Modifiers & #PB_Canvas_Shift) And \SelectAnchor > -1
 					LayerList_SelectRange(*GadgetData, \SelectAnchor, Index)
 					ProcedureReturn #True
 				EndIf
-
+				
 				If LayerList_IsSelected(*GadgetData, Index)
 					\PendingSelect = Index		; settled on release, if this doesn't become a drag
 					\State = Index
 					ProcedureReturn #False
 				EndIf
-
+				
 				LayerList_SelectOnly(*GadgetData, Index)
 				ProcedureReturn #True
 			EndWith
 		EndProcedure
-
+		
 		;- Geometry
 		
 		Procedure LayerList_TextWidth(*GadgetData.LayerListData, Child)
@@ -12772,7 +11983,7 @@ Module UITK
 					\String\Redraw(\String)
 					RestoreVectorState()
 				EndIf
-
+				
 				If \VisibleScrollBar
 					\ScrollBar\Redraw(\ScrollBar)
 				EndIf
@@ -12852,12 +12063,12 @@ Module UITK
 			; children has no one sensible landing place - dropping it somewhere would have to invent
 			; an answer - so it falls back to dragging the single grabbed row.
 			Protected Children, Groups
-
+			
 			With *GadgetData
 				If Not \MultiSelect Or Not LayerList_IsSelected(*GadgetData, \DragIndex)
 					ProcedureReturn 0
 				EndIf
-
+				
 				ForEach \Items()
 					If \Items()\Selected
 						If \Items()\Child
@@ -12867,7 +12078,7 @@ Module UITK
 						EndIf
 					EndIf
 				Next
-
+				
 				If Children + Groups < 2
 					ProcedureReturn 0
 				ElseIf Groups = 0
@@ -12876,10 +12087,10 @@ Module UITK
 					ProcedureReturn 2
 				EndIf
 			EndWith
-
+			
 			ProcedureReturn 0
 		EndProcedure
-
+		
 		Procedure LayerList_ApplyDrop(*GadgetData.LayerListData)
 			; Move what's in flight to \ReorderRow. Linked-list element addresses survive MoveElement,
 			; so everything travels by re-inserting its elements, in order, before the destination
@@ -12891,22 +12102,22 @@ Module UITK
 			Protected *Destination, *Dragged, DestinationIndex, Parent
 			Protected NewList Roots.i()
 			Protected NewList Block.i()
-
+			
 			With *GadgetData
 				If \ReorderRow < 0
 					ProcedureReturn
 				EndIf
-
+				
 				DestinationIndex = LayerList_RowToIndex(*GadgetData, \ReorderRow)
 				If DestinationIndex > -1 And SelectElement(\Items(), DestinationIndex)
 					*Destination = @\Items()
 				EndIf
-
+				
 				If Not SelectElement(\Items(), \DragIndex)
 					ProcedureReturn
 				EndIf
 				*Dragged = @\Items()
-
+				
 				; The rows to move, in list order.
 				If LayerList_DragSetKind(*GadgetData)
 					ForEach \Items()
@@ -12919,14 +12130,14 @@ Module UITK
 					AddElement(Roots())
 					Roots() = *Dragged
 				EndIf
-
+				
 				; Each root, followed by its children when it's a group. A homogeneous set never holds
 				; both a group and its own children, so nothing can land in the block twice.
 				ForEach Roots()
 					ChangeCurrentElement(\Items(), Roots())
 					AddElement(Block())
 					Block() = @\Items()
-
+					
 					If Not \Items()\Child
 						While NextElement(\Items()) And \Items()\Child
 							AddElement(Block())
@@ -12934,14 +12145,14 @@ Module UITK
 						Wend
 					EndIf
 				Next
-
+				
 				; Dropping inside the block being carried would be a no-op at best.
 				ForEach Block()
 					If Block() = *Destination
 						ProcedureReturn
 					EndIf
 				Next
-
+				
 				ForEach Block()
 					ChangeCurrentElement(\Items(), Block())
 					If *Destination
@@ -12950,10 +12161,10 @@ Module UITK
 						MoveElement(\Items(), #PB_List_Last)
 					EndIf
 				Next
-
+				
 				ChangeCurrentElement(\Items(), *Dragged)
 				\State = ListIndex(\Items())
-
+				
 				; Children dropped into a folded group would vanish - open the group instead.
 				If \DragChild
 					Parent = LayerList_ParentOf(*GadgetData, \State)
@@ -12963,7 +12174,7 @@ Module UITK
 				EndIf
 			EndWith
 		EndProcedure
-
+		
 		Procedure LayerList_ReorderTimer(*GadgetData.LayerListData, Timer)
 			; Auto-scroll while the pointer is held past the top or bottom edge.
 			Protected Event.Event
@@ -13034,27 +12245,27 @@ Module UITK
 		EndProcedure
 		
 		;- Inline renaming (#Editable)
-
+		
 		Procedure LayerList_BeginEdit(*GadgetData.LayerListData)
 			; Drop the editor over the selected row. Refused when there's nothing to edit, or when
 			; the row can't be seen - editing a row tucked inside a folded group would put the box
 			; nowhere useful.
 			Protected Event.Event, Row
-
+			
 			With *GadgetData
 				If Not \Editable Or \Editing Or \State < 0
 					ProcedureReturn #False
 				EndIf
-
+				
 				Row = LayerList_IndexToRow(*GadgetData, \State)
 				If Row < 0 Or Not SelectElement(\Items(), \State)
 					ProcedureReturn #False
 				EndIf
-
+				
 				\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 				\String\String = \Items()\Text\OriginalText
 				String_ProcessString(\String)
-
+				
 				; Sit exactly where the row's text is drawn: the row's content origin plus the text
 				; block's own offset, which already accounts for the item's icon. That offset has to
 				; come back off the width too, or the box overshoots to the right by the width of the
@@ -13062,28 +12273,28 @@ Module UITK
 				\String\OriginX = LayerList_TextX(*GadgetData, \Items()\Child) + \Items()\Text\TextX
 				\String\OriginY = \Border + Row * \ItemHeight - LayerList_ScrollOffset(*GadgetData) + \Items()\Text\TextY - 2
 				\String\Width = \Items()\Text\Width - \Items()\Text\TextX
-
+				
 				Event\EventType = #Focus
 				\String\EventHandler(\String, Event)
 				StringSetSelection_Meta(\String, 0, Len(\String\String))
 			EndWith
-
+			
 			ProcedureReturn #True
 		EndProcedure
-
+		
 		Procedure LayerList_EndEdit(*GadgetData.LayerListData, Keep)
 			; Fold the editor away. Keep writes the typed text back into the row and reports it
 			; with #EventType_ItemTextChange; otherwise the row keeps the text it had (Escape, or
 			; the row being removed from under the editor).
 			Protected Event.Event
-
+			
 			With *GadgetData
 				If Not \Editing
 					ProcedureReturn #False
 				EndIf
-
+				
 				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-
+				
 				; \EditCursor means "the pointer is inside the editor", and every
 				; click consults it to decide between typing and clicking the row.
 				; It must not outlive the editor: left standing it sends the NEXT
@@ -13093,25 +12304,25 @@ Module UITK
 					\EditCursor = #PB_Cursor_Default
 					\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
 				EndIf
-
+				
 				If Keep And SelectElement(\Items(), \State)
 					\Items()\Text\OriginalText = \String\String
 					LayerList_PrepareItem(*GadgetData, @\Items())
 					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
 				EndIf
-
+				
 				Event\EventType = #LostFocus
 				\String\EventHandler(\String, Event)
 			EndWith
-
+			
 			ProcedureReturn #True
 		EndProcedure
-
+		
 		;- Events
-
+		
 		Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 			Protected Redraw, Row, Index, Zone, Rows, Modifiers, Cursor = *GadgetData\EditCursor
-
+			
 			With *GadgetData
 				Select *Event\EventType
 					Case #MouseMove ;{
@@ -13156,7 +12367,7 @@ Module UITK
 							;}
 						Else;{ plain hover
 							Cursor = #PB_Cursor_Default
-
+							
 							If \VisibleScrollBar And (*Event\MouseX >= \ScrollBar\OriginX Or \ScrollBar\Drag = #True)
 								Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 							ElseIf \ScrollBar\MouseState
@@ -13183,7 +12394,7 @@ Module UITK
 									\HoverZone = Zone
 									Redraw = #True
 								EndIf
-
+								
 								; Over the open editor the pointer becomes a caret, which is also how
 								; #LeftButtonDown below knows the click belongs to the editor. The
 								; RIGHT edge matters as much as the left: the editor deliberately
@@ -13199,12 +12410,12 @@ Module UITK
 						EndIf ;}
 							  ;}
 					Case #LeftButtonDown ;{
-						; A click anywhere but inside the editor commits what was being typed - on a
-						; row, on the scrollbar, or on empty space below the rows.
+										 ; A click anywhere but inside the editor commits what was being typed - on a
+										 ; row, on the scrollbar, or on empty space below the rows.
 						If Not \EditCursor
 							Redraw = LayerList_EndEdit(*GadgetData, #True)
 						EndIf
-
+						
 						If \EditCursor ;{ inside the open editor: the click places the caret
 							*Event\MouseX - \String\OriginX
 							*Event\MouseY - \String\OriginY
@@ -13215,13 +12426,13 @@ Module UITK
 						ElseIf \ItemState > -1
 							Index = \ItemState
 							Modifiers = GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers)
-
+							
 							; Whatever was clicked, the row it belongs to becomes the focus, so a handler
 							; can read GetGadgetState for every one of the events below.
 							If Index <> \State
 								Redraw = #True
 							EndIf
-
+							
 							Select \HoverZone
 								Case #LayerList_Zone_Fold ;{
 									\State = Index
@@ -13242,9 +12453,9 @@ Module UITK
 									If LayerList_ClickSelect(*GadgetData, Index, Modifiers)
 										Redraw = #True
 									EndIf
-
+									
 									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-
+									
 									If \Reorder
 										\DragState = #Drag_Init
 										\DragIndex = Index
@@ -13287,7 +12498,7 @@ Module UITK
 							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							Redraw = #True
 						EndIf
-
+						
 						\PendingSelect = -1
 						\DragState = #Drag_None
 						;}
@@ -13302,10 +12513,10 @@ Module UITK
 						EndIf
 						;}
 					Case #MouseWheel ;{
-						; Commit first: the editor is placed against a row's screen position, so
-						; scrolling would leave it stranded away from the row it belongs to.
+									 ; Commit first: the editor is placed against a row's screen position, so
+									 ; scrolling would leave it stranded away from the row it belongs to.
 						Redraw = LayerList_EndEdit(*GadgetData, #True)
-
+						
 						If \VisibleScrollBar
 							ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
 							*Event\EventType = #MouseMove
@@ -13407,17 +12618,17 @@ Module UITK
 						EndIf
 						;}
 				EndSelect
-
+				
 				If Cursor <> \EditCursor
 					\EditCursor = Cursor
 					\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 				EndIf
-
+				
 				If Redraw
 					RedrawObject()
 				EndIf
 			EndWith
-
+			
 			ProcedureReturn Redraw
 		EndProcedure
 		
@@ -13472,11 +12683,11 @@ Module UITK
 		Procedure LayerList_RemoveItem(*this.PB_Gadget, Position)
 			; Removing a group takes its children with it.
 			Protected *GadgetData.LayerListData = *this\vt, Count, Loop
-
+			
 			With *GadgetData
 				; Drop the editor rather than let it commit into whatever lands on this index.
 				LayerList_EndEdit(*GadgetData, #False)
-
+				
 				If Position > -1 And Position < ListSize(\Items())
 					SelectElement(\Items(), Position)
 					
@@ -13530,20 +12741,20 @@ Module UITK
 		Procedure LayerList_GetItemState(*this.PB_Gadget, Position)
 			; Nonzero when the row is selected - same answer a ListViewGadget gives.
 			Protected *GadgetData.LayerListData = *this\vt
-
+			
 			ProcedureReturn LayerList_IsSelected(*GadgetData, Position)
 		EndProcedure
-
+		
 		Procedure LayerList_SetItemState(*this.PB_Gadget, Position, State)
 			; Select or deselect one row. Without #MultiSelect, selecting a row moves the selection
 			; onto it, since there can only ever be one.
 			Protected *GadgetData.LayerListData = *this\vt
-
+			
 			With *GadgetData
 				If Position < 0 Or Position >= ListSize(\Items())
 					ProcedureReturn
 				EndIf
-
+				
 				If Not \MultiSelect
 					If State
 						LayerList_SelectOnly(*GadgetData, Position)
@@ -13557,24 +12768,24 @@ Module UITK
 						\SelectAnchor = Position
 					EndIf
 				EndIf
-
+				
 				RedrawObject()
 			EndWith
 		EndProcedure
-
+		
 		Procedure LayerList_SetState(*this.PB_Gadget, State)
 			; -1 clears the selection, anything else selects that row alone - as SetGadgetState does
 			; on a ListViewGadget. Going through here keeps the per-item flags and \State in step.
 			Protected *GadgetData.LayerListData = *this\vt
-
+			
 			If State < 0 Or State >= ListSize(*GadgetData\Items())
 				State = -1
 			EndIf
-
+			
 			LayerList_SelectOnly(*GadgetData, State)
 			RedrawObject()
 		EndProcedure
-
+		
 		Procedure LayerList_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
 			Protected *GadgetData.LayerListData = *this\vt
 			
@@ -13709,7 +12920,8 @@ Module UITK
 						;}
 					Default ;{
 						Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
-						;}
+						ProcedureReturn	; already redraws
+										;}
 				EndSelect
 			EndWith
 			
@@ -13733,10 +12945,10 @@ Module UITK
 		
 		Procedure LayerList_Resize(*this.PB_Gadget, x, y, Width, Height)
 			Protected *GadgetData.LayerListData = *this\vt
-
+			
 			; The editor is placed against the current geometry, so settle it before moving things.
 			LayerList_EndEdit(*GadgetData, #True)
-
+			
 			*this\VT = *GadgetData\OriginalVT
 			ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
 			*this\VT = *GadgetData
@@ -13777,14 +12989,15 @@ Module UITK
 				EndIf
 				
 				DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
-				FreeStructure(\ScrollBar)
-
+				FreeStructureX(\ScrollBar)
+				
 				If \String
+					RemoveGadgetTimers(\String)
 					FreeMemory(\String\ThemeData)		; the editor's own copy of the theme
-					FreeStructure(\String)
+					FreeStructureX(\String)
 				EndIf
 			EndWith
-
+			
 			Default_FreeGadget(*this)
 		EndProcedure
 		
@@ -13856,13 +13069,13 @@ Module UITK
 				\SupportedEvent[#LeftButtonUp] = #True
 				\SupportedEvent[#LeftDoubleClick] = #True
 				\SupportedEvent[#KeyDown] = #True
-
+				
 				; #Editable adds an inline editor: a String meta gadget parked over the row being
 				; renamed. It needs the extra keyboard/focus events, hence String_SupportedEvents.
 				Protected *StringThemeData.Theme
 				\Editable = Bool(Flags & #Editable)
 				\EditCursor = #PB_Cursor_Default
-
+				
 				If \Editable
 					*StringThemeData = AllocateMemory(SizeOf(Theme))
 					CopyMemory(*ThemeData, *StringThemeData, SizeOf(Theme))
@@ -13878,38 +13091,12 @@ Module UITK
 		
 		Procedure LayerList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 			Protected Result, *this.PB_Gadget, *GadgetData.LayerListData, *ThemeData
-
+			
 			; #PB_Canvas_Container is what lets the inline rename editor live inside the canvas.
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | (Bool(Flags & #Editable) * #PB_Canvas_Container))
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, LayerListData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(LayerListData)
 				LayerList_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags, *CustomItem)
 				
 				RedrawObject()
@@ -14104,8 +13291,7 @@ Module UITK
 			Duration.i
 			Scale.q
 			
-			Array *CollisionArray.TimeLine_Block(1,1)				; This can grow up quickly, and I'm not sure it's a good solution : on a 4k panel, we can quickly rise above the million entries...
-																	; I don't really know how PB is managing its 2D array, worst case scenario I could simply use a buffer and manage everything myself.
+			HoverItem.l			; hovered line index, -1 when none (the base \MouseState stays a #Cold/#Warm/#Hot state)
 			
 			List Lines.TimeLine_Line()
 			Map Blocks.TimeLine_Block()
@@ -14270,7 +13456,7 @@ Module UITK
 						
 						Repeat
 							If Not ListIndex(\Lines()) = \State
-								TimeLine_Redraw_ListItem(*GadgetData, \OriginX, Y, Bool(ListIndex(\Lines()) = \MouseState) * #Warm)
+								TimeLine_Redraw_ListItem(*GadgetData, \OriginX, Y, Bool(ListIndex(\Lines()) = \HoverItem) * #Warm)
 							ElseIf Not \DragState = #Drag_Active
 								TimeLine_Redraw_ListItem(*GadgetData, \OriginX, Y, #Hot)
 							Else
@@ -14327,7 +13513,7 @@ Module UITK
 						
 						Repeat
 							If Not ListIndex(\Lines()) = \State
-								TimeLine_Redraw_Body(*GadgetData, X, Y, Bool(ListIndex(\Lines()) = \MouseState) * #Warm, Alt)
+								TimeLine_Redraw_Body(*GadgetData, X, Y, Bool(ListIndex(\Lines()) = \HoverItem) * #Warm, Alt)
 							ElseIf Not \DragState = #Drag_Active
 								TimeLine_Redraw_Body(*GadgetData, X, Y, #Hot, Alt)
 							Else
@@ -14446,14 +13632,72 @@ Module UITK
 			EndWith
 		EndProcedure
 		
+		; Open the inline rename editor over the selected line (F2 / EditGadgetItemText).
+		Procedure TimeLine_BeginEdit(*GadgetData.TimeLineData)
+			Protected Event.Event
+			
+			With *GadgetData
+				If \Editing Or \State < 0 Or Not SelectElement(\Lines(), \State)
+					ProcedureReturn #False
+				EndIf
+				
+				\RedrawBody = TimeLine_VerticalFocus(*GadgetData)
+				\RedrawList = #True
+				\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
+				SelectElement(\Lines(), \State)		; VerticalFocus walks the list, re-select
+				\String\String = \Lines()\Text\OriginalText
+				String_ProcessString(\String)
+				
+				\String\OriginX = \Lines()\Text\TextX + #TimeLine_List_TextMargin + \Border
+				; Same as the VerticalList: TextX is in the origin, so take it off the width.
+				\String\Width = \Lines()\Text\Width - \Lines()\Text\TextX
+				\String\OriginY = #TimeLine_Header_Height + \Lines()\Y + \Lines()\Text\TextY + \Border - \VScrollBar\State
+				
+				Event\EventType = #Focus
+				\String\EventHandler(\String, Event)
+				StringSetSelection_Meta(\String, 0, Len(\String\String))
+			EndWith
+			
+			ProcedureReturn #True
+		EndProcedure
+		
+		; Fold the editor away. Keep writes the typed text back into the line (when it
+		; actually changed) and reports it with #EventType_ItemTextChange; otherwise
+		; the line keeps the text it had.
+		Procedure TimeLine_EndEdit(*GadgetData.TimeLineData, Keep)
+			Protected Event.Event
+			
+			With *GadgetData
+				If Not \Editing
+					ProcedureReturn #False
+				EndIf
+				
+				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
+				
+				If Keep And SelectElement(\Lines(), \State)
+					If \Lines()\Text\OriginalText <> \String\String
+						\Lines()\Text\OriginalText = \String\String
+						PrepareVectorTextBlock(@\Lines()\Text)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+					EndIf
+				EndIf
+				
+				Event\EventType = #LostFocus
+				\String\EventHandler(\String, Event)
+				\RedrawList = #True
+			EndWith
+			
+			ProcedureReturn #True
+		EndProcedure
+		
 		Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
-			Protected TempMouseState = -1, VScrollBar = #False, FirstDisplayedItem, LastDisplayedItem, Y, *Data, Cursor = *GadgetData\EditCursor
+			Protected HoverItem = -1, VScrollBar = #False, FirstDisplayedItem, LastDisplayedItem, Y, *Data, Cursor = *GadgetData\EditCursor
 			
 			With *GadgetData
 				Select *Event\EventType
 					Case #MouseLeave ;{
-						If \MouseState > -1
-							\MouseState = -1
+						If \HoverItem > -1
+							\HoverItem = -1
 							\RedrawBody = #True
 							\RedrawList = #True
 						EndIf
@@ -14505,7 +13749,7 @@ Module UITK
 									
 									Repeat
 										If *Event\MouseY < \Lines()\Y + \Lines()\Height
-											TempMouseState = ListIndex(\Lines())
+											HoverItem = ListIndex(\Lines())
 											Break
 										EndIf
 									Until Not NextElement(\Lines())
@@ -14517,8 +13761,8 @@ Module UITK
 								\RedrawBody = #True
 							EndIf
 							
-							If \MouseState <> TempMouseState
-								\MouseState = TempMouseState
+							If \HoverItem <> HoverItem
+								\HoverItem = HoverItem
 								\RedrawBody = #True
 								\RedrawList = #True
 							ElseIf \Editing
@@ -14551,7 +13795,7 @@ Module UITK
 								ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
 								FirstDisplayedItem = ListIndex(\Lines())
 								LastDisplayedItem = FirstDisplayedItem + Ceil(\BodyHeight / #TimeLine_List_LineHeight)
-								\ReorderPosition = Max(min(Round((*Event\MouseY + \VScrollBar\State - #TimeLine_Header_Height) / #TimeLine_List_LineHeight, #PB_Round_Nearest), LastDisplayedItem), FirstDisplayedItem)
+								\ReorderPosition = Max(Min(Round((*Event\MouseY + \VScrollBar\State - #TimeLine_Header_Height) / #TimeLine_List_LineHeight, #PB_Round_Nearest), LastDisplayedItem), FirstDisplayedItem)
 								\RedrawBody = #True
 								\RedrawList = #True
 								
@@ -14592,9 +13836,9 @@ Module UITK
 									RemoveGadgetTimer(\ReorderFocusTimer)
 									\ReorderFocusTimer = 0
 								EndIf
-								\ReorderPosition = Max(min(Round((*Event\MouseY + \VScrollBar\State - #TimeLine_Header_Height) / #TimeLine_List_LineHeight, #PB_Round_Nearest), LastDisplayedItem), FirstDisplayedItem)
+								\ReorderPosition = Max(Min(Round((*Event\MouseY + \VScrollBar\State - #TimeLine_Header_Height) / #TimeLine_List_LineHeight, #PB_Round_Nearest), LastDisplayedItem), FirstDisplayedItem)
 							Else
-								\ReorderPosition = Max(min(Round((*Event\MouseY + \VScrollBar\State - #TimeLine_Header_Height) / #TimeLine_List_LineHeight, #PB_Round_Nearest), ListSize(\Lines()) - 1), 0)
+								\ReorderPosition = Max(Min(Round((*Event\MouseY + \VScrollBar\State - #TimeLine_Header_Height) / #TimeLine_List_LineHeight, #PB_Round_Nearest), ListSize(\Lines()) - 1), 0)
 							EndIf
 							
 							\RedrawBody = #True
@@ -14606,29 +13850,10 @@ Module UITK
 					Case #KeyDown ;{
 						Select *Event\Param
 							Case #PB_Shortcut_F2 ;{
-								If \State > -1 And Not \Editing
-									\RedrawBody = TimeLine_VerticalFocus(*GadgetData)
-									\RedrawList = #True
-									\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
-									SelectElement(\Lines(), \State)
-									\String\String = \Lines()\Text\OriginalText
-									String_ProcessString(\String)
-									
-									*Event\EventType = #Focus
-									\String\OriginX = \Lines()\Text\TextX + #TimeLine_List_TextMargin + \Border
-									; Same as the VerticalList: TextX is in the origin, so take it off the width.
-									\String\Width = \Lines()\Text\Width - \Lines()\Text\TextX
-									\String\OriginY = #TimeLine_Header_Height + \Lines()\Y + \Lines()\Text\TextY + \Border - \VScrollBar\State
-									\String\EventHandler(\String, *Event)
-									StringSetSelection_Meta(\String, 0, Len(\String\String))
-								EndIf
+								TimeLine_BeginEdit(*GadgetData)
 								;}
 							Case #PB_Shortcut_Escape ;{
-								If \Editing
-									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-									*Event\EventType = #LostFocus
-									\String\EventHandler(\String, *Event)
-									\RedrawList = #True
+								If TimeLine_EndEdit(*GadgetData, #False)	; keep the old name
 								ElseIf \DragState = #Drag_Active
 									\ReorderPosition = \State
 									*Event\EventType = #LeftButtonUp
@@ -14636,18 +13861,7 @@ Module UITK
 								EndIf
 								;}
 							Case #PB_Shortcut_Return ;{
-								If \Editing
-									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-									SelectElement(\Lines(), \State)
-									If \Lines()\Text\OriginalText <> \String\String
-										\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-										PrepareVectorTextBlock(@\Lines()\Text)
-									EndIf
-									*Event\EventType = #LostFocus
-									\String\EventHandler(\String, *Event)
-									
-									\RedrawList = #True
-								EndIf
+								TimeLine_EndEdit(*GadgetData, #True)
 								;}
 							Default
 								If \Editing
@@ -14658,21 +13872,10 @@ Module UITK
 					Case #LeftButtonDown ;{
 						If \VScrollBar\MouseState
 							\RedrawBody + ScrollBar_EventHandler(\VScrollBar, *Event)
-						ElseIf \MouseState <> \State
-							If \Editing
-								\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-								SelectElement(\Lines(), \State)
-								If \Lines()\Text\OriginalText <> \String\String
-									\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-									PrepareVectorTextBlock(@\Lines()\Text)
-								EndIf
-								*Event\EventType = #LostFocus
-								\String\EventHandler(\String, *Event)
-								
-								\RedrawList = #True
-							EndIf
-							If \MouseState > -1 
-								\State = \MouseState
+						ElseIf \HoverItem <> \State
+							TimeLine_EndEdit(*GadgetData, #True)
+							If \HoverItem > -1
+								\State = \HoverItem
 								\RedrawBody = #True
 								\RedrawList = #True
 								\DragState = #Drag_Init
@@ -14685,19 +13888,8 @@ Module UITK
 								*Event\MouseY - \String\OriginY
 								\RedrawList = \String\EventHandler(\String, *Event)
 							Else
-								If \Editing
-									\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-									SelectElement(\Lines(), \State)
-									If \Lines()\Text\OriginalText <> \String\String
-										\Lines()\Text\OriginalText = \String\String : PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
-										PrepareVectorTextBlock(@\Lines()\Text)
-									EndIf
-									*Event\EventType = #LostFocus
-									\String\EventHandler(\String, *Event)
-									
-									\RedrawList = #True
-								EndIf
-								If \MouseState > -1
+								TimeLine_EndEdit(*GadgetData, #True)
+								If \HoverItem > -1
 									\DragState = #Drag_Init
 									\DragOriginX = *Event\MouseX
 									\DragOriginY = *Event\MouseY
@@ -14765,12 +13957,7 @@ Module UITK
 					Case #RightButtonDown ;{
 										  ;}
 					Case #MouseWheel	  ;{
-						If \Editing
-							\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-							*Event\EventType = #LostFocus
-							\String\EventHandler(\String, *Event)
-							\RedrawList = #True
-						EndIf
+						TimeLine_EndEdit(*GadgetData, #True)
 						
 						If \VisibleVerticalScrollBar
 							ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State - *Event\Param * #TimeLine_List_LineHeight * 0.5)
@@ -14786,9 +13973,7 @@ Module UITK
 						EndIf
 						;}
 					Case #LostFocus ;{
-						\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-						\String\EventHandler(\String, *Event)
-						\RedrawList = #True
+						TimeLine_EndEdit(*GadgetData, #True)
 						;}
 					Default ;{
 						If \Editing
@@ -14796,7 +13981,7 @@ Module UITK
 							*Event\MouseY - \String\OriginY
 							\RedrawList = \String\EventHandler(\String, *Event)
 						EndIf
-						;}		
+						;}
 				EndSelect
 				
 				If Cursor <> \EditCursor
@@ -15001,6 +14186,23 @@ Module UITK
 		EndProcedure
 		
 		
+		Procedure TimeLine_Free(*this.PB_Gadget)
+			Protected *GadgetData.TimeLineData = *this\vt
+			
+			With *GadgetData
+				If IsWindow(\ReorderWindow)
+					CloseWindow(\ReorderWindow)
+				EndIf
+				
+				RemoveGadgetTimers(\String)
+				FreeStructureX(\String)		; its ThemeData is the gadget's own theme, freed once in Default_FreeGadget
+				FreeStructureX(\VScrollBar)
+				FreeStructureX(\HScrollBar)
+			EndWith
+			
+			Default_FreeGadget(*this)
+		EndProcedure
+		
 		Procedure TimeLine_Meta(*GadgetData.TimeLineData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 			Protected GadgetList
 			
@@ -15013,6 +14215,7 @@ Module UITK
 				\VT\AddGadgetItem3 = @TimeLine_AddItem()
 				\VT\RemoveGadgetItem = @TimeLine_RemoveItem()
 				\VT\CountGadgetItems = @TimeLine_CountItem()
+				\VT\FreeGadget = @TimeLine_Free()
 				
 				; Enable only the needed events
 				\SupportedEvent[#MouseLeave] = #True
@@ -15028,6 +14231,7 @@ Module UITK
 				\BodyHeight = Height - BorderMargin - #TimeLine_Header_Height
 				\BodyWidth = Width - BorderMargin - #TimeLine_List_Width
 				\State = -1
+				\HoverItem = -1
 				\ReorderPosition = -1
 				\Duration = 600
 				\Scale = 1
@@ -15051,9 +14255,6 @@ Module UITK
 				String_Meta(\String, *ThemeData, Gadget, 0, 0, \Width, 24, "", #HAlignLeft | #Gadget_Meta)
 				String_SetFont_Meta(\String, TimeLine_ListFont)
 				String_SupportedEvents()
-				
-				Dim	\CollisionArray(\BodyWidth, \BodyHeight)
-				
 			EndWith
 		EndProcedure
 		
@@ -15063,33 +14264,7 @@ Module UITK
 			Result = CanvasGadget(Gadget, x, y, Width, Height, #PB_Canvas_Keyboard | #PB_Canvas_Container)
 			
 			If Result
-				If Gadget = #PB_Any
-					Gadget = Result
-				EndIf
-				
-				*this = IsGadget(Gadget)
-				AllocateStructureX(*GadgetData, TimeLineData)
-				CopyMemory(*this\vt, *GadgetData\vt, SizeOf(GadgetVT))
-				*GadgetData\OriginalVT = *this\VT
-				*this\VT = *GadgetData
-				
-				AllocateStructureX(*ThemeData, Theme)
-				
-				If Flags & #DarkMode
-					CopyStructure(@DarkTheme, *ThemeData, Theme)
-				ElseIf Flags & #LightMode
-					CopyStructure(@LightTheme, *ThemeData, Theme)
-				Else
-					Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
-					If *WindowData
-						CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
-					Else
-						CopyStructure(*DefaultTheme, *ThemeData, Theme)
-					EndIf
-				EndIf
-				
-				AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
-				GadgetHandler() = Gadget
+				CreateGadgetObject(TimeLineData)
 				TimeLine_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 				
 				If Not Flags & #PB_Canvas_Container
@@ -15128,8 +14303,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 10574
-; FirstLine = 154
-; Folding = AcA---HAAAAAAAAAAAAAAAAAAAA-0DA-fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAcAAAAAAAAAAAAAAAAAAAAAAA------
+; CursorPosition = 113
+; Folding = AIA+--PAAAAAAAAAAAAAAAAAAe5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
