@@ -367,6 +367,7 @@
 	Declare FlatMenu(Flags = #Default)
 	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0, Flag = 0)
 	Declare RemoveFlatMenuItem(Menu, Position)
+	Declare SetFlatMenuItemText(Menu, Position, Text.s)	; [Abra²] re-apply after a UITK update
 	Declare AddFlatMenuSeparator(Menu, Position)
 	Declare ShowFlatMenu(FlatMenu, X = -1, Y = -1)
 	Declare SetFlatMenuColor(Menu, ColorType, Color)
@@ -10568,8 +10569,29 @@ Module UITK
 	EndProcedure
 	
 	Procedure RemoveFlatMenuItem(Menu, Position)
-		
-		
+
+
+	EndProcedure
+	
+	Procedure SetFlatMenuItemText(Menu, Position, Text.s)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+
+		With *MenuData
+			If Not SelectElement(\Item(), Position) Or \Item()\Type <> #Item
+				ProcedureReturn
+			EndIf
+
+			\Item()\Text\OriginalText = Text
+			PrepareVectorTextBlock(@\Item()\Text)
+
+			If \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin > \Width
+				\Width = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin
+				ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
+				ResizeGadget(\Canvas, #PB_Ignore, #PB_Ignore, \Width, \Height)
+			EndIf
+
+			FlatMenu_Redraw(*MenuData)
+		EndWith
 	EndProcedure
 	
 	Procedure DisableFlatMenuItem(Menu, Position, State)
@@ -15106,7 +15128,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 627
-; Folding = AEA---HAAAAAAAAAAAAAAAAAAAAPcAA-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcAAAAAAAAAAAAAAAAAAAAAAA----
+; CursorPosition = 10574
+; FirstLine = 154
+; Folding = AcA---HAAAAAAAAAAAAAAAAAAAA-0DA-fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAcAAAAAAAAAAAAAAAAAAAAAAA------
 ; EnableXP
 ; DPIAware
