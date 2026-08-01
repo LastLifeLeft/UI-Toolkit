@@ -59,6 +59,7 @@
 		#PropertyBox_Combo
 		#PropertyBox_Color
 		#PropertyBox_CheckBox
+		#PropertyBox_Font							; PropertyBox row: font picker - opens FontRequester, family in the value text, size/style in the attributes below
 		
 		#Toolbar_DefaultButton							; ToolBar item: a plain push button (also used when the AddGadgetItem flag is 0)
 		#ToolBar_Toggle									; ToolBar item: a sticky toggle button (passed as the AddGadgetItem flag)
@@ -84,6 +85,8 @@
 		#Attribute_Library_SectionHeight
 		#Attribute_Library_ItemWidth
 		#Attribute_Tree_ItemDepth
+		#Attribute_PropertyBox_FontSize			; #PropertyBox_Font row: point size (read/write)
+		#Attribute_PropertyBox_FontStyle		; #PropertyBox_Font row: #PB_Font_* style bits (read/write)
 		
 		CompilerIf Defined(EnableLayerList, #PB_Module)
 			#Attribute_LayerList_Visible			; LayerList item: this row's own eye state (read/write)
@@ -8600,6 +8603,7 @@ Module UITK
 	#PropertyBox_ItemHeight = 19
 	#PropertyBox_ValueMargin = 4			; horizontal inset of the value cell from the divider and the right edge
 	#PropertyBox_CellInset = 3				; vertical inset of the checkbox / colour swatch inside a row
+	#PropertyBox_FontEllipsisWidth = 14		; space kept clear at the right of a Font row for its "..."
 	
 	Structure PropertyBox_Item
 		Text.Text							; label (left column)
@@ -8607,6 +8611,9 @@ Module UITK
 		Value.Text							; prepared display text for the value cell (Text / TextNumerical content, or the selected Combo option)
 		State.q								; CheckBox tri-state / Color (stored the way ColorPicker does) / Combo selected index
 		Options.s							; Combo: newline-delimited option list
+		FontName.s							; Font: family, kept apart from Value's "name, size" display text
+		FontSize.l							; Font: point size
+		FontStyle.l							; Font: #PB_Font_* bits
 	EndStructure
 	
 	Structure PropertyBoxData Extends GadgetData
@@ -8639,12 +8646,31 @@ Module UITK
 			\Value\FontID = *GadgetData\TextBlock\FontID
 			\Value\Height = *GadgetData\ItemHeight
 			\Value\Width = PropertyBox_ValueWidth(*GadgetData)
+
+			; A font summary can be long ("Georgia, 18 Bold Italic"), so keep it clear of the
+			; ellipsis rather than letting it run underneath.
+			If \Type = #PropertyBox_Font
+				\Value\Width - #PropertyBox_FontEllipsisWidth
+			EndIf
 			\Value\VAlign = #VAlignCenter
 			\Value\LineLimit = 1
 			
-			; Combo shows the currently selected option; the others display their own text verbatim.
+			; Combo shows the currently selected option, Font a "family, size" summary; the others
+			; display their own text verbatim.
 			If \Type = #PropertyBox_Combo
 				\Value\OriginalText = StringField(\Options, \State + 1, #LF$)
+			ElseIf \Type = #PropertyBox_Font
+				If \FontName
+					\Value\OriginalText = \FontName + ", " + Str(\FontSize)
+					If \FontStyle & #PB_Font_Bold
+						\Value\OriginalText + " Bold"
+					EndIf
+					If \FontStyle & #PB_Font_Italic
+						\Value\OriginalText + " Italic"
+					EndIf
+				Else
+					\Value\OriginalText = ""
+				EndIf
 			EndIf
 			
 			PrepareVectorTextBlock(@\Value)
@@ -8698,6 +8724,16 @@ Module UITK
 					ClosePath()
 					FillPath()
 					;}
+				Case #PropertyBox_Font ;{ "family, size" plus an ellipsis, the usual "this opens a dialog" hint
+					VectorSourceColor(\ThemeData\TextColor[#Cold])
+					DrawVectorTextBlock(@*Item\Value, ValueX, Y - 2)
+
+					Center = Y + *GadgetData\ItemHeight * 0.5
+					AddPathCircle(ValueX + PropertyBox_ValueWidth(*GadgetData) - 9, Center + 1, 1)
+					AddPathCircle(ValueX + PropertyBox_ValueWidth(*GadgetData) - 5, Center + 1, 1)
+					AddPathCircle(ValueX + PropertyBox_ValueWidth(*GadgetData) - 1, Center + 1, 1)
+					FillPath()
+					;}
 				Default ;{ Text / TextNumerical
 					VectorSourceColor(\ThemeData\TextColor[#Cold])
 					DrawVectorTextBlock(@*Item\Value, ValueX, Y - 2)
@@ -8722,6 +8758,8 @@ Module UITK
 					Result = \Items()\Text\OriginalText
 				ElseIf \Items()\Type = #PropertyBox_Combo
 					Result = \Items()\Options
+				ElseIf \Items()\Type = #PropertyBox_Font
+					Result = \Items()\FontName
 				Else
 					Result = \Items()\Value\OriginalText
 				EndIf
@@ -8748,6 +8786,9 @@ Module UITK
 						*Item\State = 0
 					EndIf
 					PropertyBox_PrepareValue(*GadgetData, *Item)
+				ElseIf *Item\Type = #PropertyBox_Font
+					*Item\FontName = PeekS(*Text)
+					PropertyBox_PrepareValue(*GadgetData, *Item)
 				Else
 					*Item\Value\OriginalText = PeekS(*Text)
 					PropertyBox_PrepareValue(*GadgetData, *Item)
@@ -8758,6 +8799,47 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	; Font rows keep their size and style here; every other row type ignores these.
+	Procedure PropertyBox_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
+		Protected *GadgetData.PropertyBoxData = *this\vt
+
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+
+				Select Attribute
+					Case #Attribute_PropertyBox_FontSize
+						ProcedureReturn \Items()\FontSize
+					Case #Attribute_PropertyBox_FontStyle
+						ProcedureReturn \Items()\FontStyle
+				EndSelect
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure PropertyBox_SetItemAttribute(*this.PB_Gadget, Position, Attribute, Value)
+		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
+
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				*Item = @\Items()
+
+				Select Attribute
+					Case #Attribute_PropertyBox_FontSize
+						*Item\FontSize = Value
+					Case #Attribute_PropertyBox_FontStyle
+						*Item\FontStyle = Value
+					Default
+						ProcedureReturn
+				EndSelect
+
+				PropertyBox_PrepareValue(*GadgetData, *Item)
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+
 	Procedure PropertyBox_GetItemState(*this.PB_Gadget, Position)
 		Protected *GadgetData.PropertyBoxData = *this\vt, Result
 		
@@ -9040,6 +9122,29 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	; Font rows hand off to PB's own requester rather than a themed popup: it already covers
+	; family, size, style and effects, and the alternative is enumerating fonts by hand. It is
+	; modal and OS-drawn, so unlike the Combo and Colour popups there's nothing to position or
+	; dismiss - it either returns a font or the user cancelled and nothing changes.
+	Procedure PropertyBox_OpenFontRequester(*GadgetData.PropertyBoxData, ItemRow)
+		With *GadgetData
+			If Not SelectElement(\Items(), ItemRow)
+				ProcedureReturn
+			EndIf
+
+			If FontRequester(\Items()\FontName, \Items()\FontSize, #PB_FontRequester_Effects, 0, \Items()\FontStyle, WindowID(\ParentWindow))
+				\Items()\FontName = SelectedFontName()
+				\Items()\FontSize = SelectedFontSize()
+				\Items()\FontStyle = SelectedFontStyle()
+
+				PropertyBox_PrepareValue(*GadgetData, @\Items())
+				\State = ItemRow
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+
 	Procedure PropertyBox_OpenColorPopup(*GadgetData.PropertyBoxData, ItemRow)
 		Protected ScrollOffset, ScreenX, ScreenY
 		
@@ -9199,6 +9304,8 @@ Module UITK
 										PropertyBox_OpenComboPopup(*GadgetData, ItemRow)
 									Case #PropertyBox_Color
 										PropertyBox_OpenColorPopup(*GadgetData, ItemRow)
+									Case #PropertyBox_Font
+										PropertyBox_OpenFontRequester(*GadgetData, ItemRow)
 								EndSelect
 							EndIf
 						EndIf
@@ -9291,6 +9398,9 @@ Module UITK
 			*NewItem\Text\Image = ImageID
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Type = Flags
+			If *NewItem\Type = #PropertyBox_Font
+				*NewItem\FontSize = 9			; so the requester opens somewhere sane before anything is picked
+			EndIf
 			If *NewItem\Type = #PropertyBox_Title
 				*NewItem\Text\FontID = BoldFont
 				*NewItem\Text\FontScale = 11
@@ -9405,6 +9515,8 @@ Module UITK
 			\VT\CountGadgetItems = @PropertyBox_CountItem()
 			\VT\GetGadgetItemText = @PropertyBox_GetItemText()
 			\VT\SetGadgetItemText = @PropertyBox_SetItemText()
+			\VT\GetGadgetItemAttribute2 = @PropertyBox_GetItemAttribute()
+			\VT\SetGadgetItemAttribute2 = @PropertyBox_SetItemAttribute()
 			\VT\GetGadgetItemState = @PropertyBox_GetItemState()
 			\VT\SetGadgetItemState = @PropertyBox_SetItemState()
 			

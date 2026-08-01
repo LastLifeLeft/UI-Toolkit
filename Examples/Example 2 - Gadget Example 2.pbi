@@ -40,10 +40,16 @@ AddGadgetItem(Gadget, -1, "Fullscreen", 0, UITK::#PropertyBox_CheckBox)
 SetGadgetItemState(Gadget, 5, #True)
 AddGadgetItem(Gadget, -1, "Vsync", 0, UITK::#PropertyBox_CheckBox)
 
+; A Font row opens the system font requester when clicked. The family lives in the value text
+; column, the size and style in per-item attributes.
+AddGadgetItem(Gadget, -1, "Font", 0, UITK::#PropertyBox_Font)
+SetGadgetItemText(Gadget, 7, "Segoe UI", 1)
+SetGadgetItemAttribute(Gadget, 7, UITK::#Attribute_PropertyBox_FontSize, 10)
+
 AddGadgetItem(Gadget, -1, "More entries", 0, UITK::#PropertyBox_Title)
 For a = 0 To 12
 	AddGadgetItem(Gadget, -1, "Entry " + Str(a), 0, UITK::#PropertyBox_Text)
-	SetGadgetItemText(Gadget, 8 + a, "value " + Str(a), 1)
+	SetGadgetItemText(Gadget, 9 + a, "value " + Str(a), 1)
 Next
 
 Gadget = UITK::Tree(#PB_Any, 20, 320, 280, 270, UITK::#Border | UITK::#Tree_StraightLine | UITK::#Editable)
