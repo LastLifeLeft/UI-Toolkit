@@ -365,7 +365,7 @@
 	Declare FlatMenu(Flags = #Default)
 	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0, Flag = 0)
 	Declare RemoveFlatMenuItem(Menu, Position)
-	Declare SetFlatMenuItemText(Menu, Position, Text.s)	; [Abra²] re-apply after a UITK update
+	Declare SetFlatMenuItemText(Menu, Position, Text.s)
 	Declare AddFlatMenuSeparator(Menu, Position)
 	Declare ShowFlatMenu(FlatMenu, X = -1, Y = -1)
 	Declare SetFlatMenuColor(Menu, ColorType, Color)
@@ -1021,6 +1021,7 @@ Module UITK
 		Icon.i
 		ID.i
 		Disabled.b
+		SubMenu.i			; window of another FlatMenu, unfolded beside this entry on hover; 0 = plain item
 	EndStructure
 	
 	Structure FlatMenu
@@ -1032,6 +1033,8 @@ Module UITK
 		ItemHeight.i
 		FontID.i
 		Border.i
+		ParentMenu.i		; menu this one is currently unfolded from, 0 when root / standalone
+		OpenSubMenu.i		; currently unfolded child menu, 0 when none
 		Theme.Theme
 		*HotItem
 		List Item.MenuItem()
@@ -2779,9 +2782,24 @@ Module UITK
 			; would land in the wrong menu — caveat documented here for the future.
 			
 			MenuTitle(Title)
+			Protected *SubData.FlatMenu
 			ForEach *MenuData\Item()
 				If *MenuData\Item()\Type = #Separator
 					MenuBar()
+				ElseIf *MenuData\Item()\SubMenu And IsWindow(*MenuData\Item()\SubMenu)
+					; Mirror one level of submenu natively (deeper nesting is not mirrored here)
+					*SubData = GetProp_(WindowID(*MenuData\Item()\SubMenu), "UITK_MenuData")
+					If *SubData
+						OpenSubMenu(*MenuData\Item()\Text\OriginalText)
+						ForEach *SubData\Item()
+							If *SubData\Item()\Type = #Separator
+								MenuBar()
+							Else
+								MenuItem(*SubData\Item()\ID, *SubData\Item()\Text\OriginalText)
+							EndIf
+						Next
+						CloseSubMenu()
+					EndIf
 				Else
 					MenuItem(*MenuData\Item()\ID, *MenuData\Item()\Text\OriginalText)
 				EndIf
@@ -9601,6 +9619,7 @@ Module UITK
 	#MenuSeparatorHeight = 5
 	#MenuMargin = 5
 	#MenuItemLeftMargin = 20 + #menuMargin
+	#MenuSubMenuArrowWidth = 12		; room kept clear at the right of an entry for its unfold triangle
 	
 	Procedure FlatMenu_Redraw(*MenuData.FlatMenu)
 		Protected Y = 0, VerticalOffset
@@ -9622,7 +9641,8 @@ Module UITK
 					Y + #MenuSeparatorHeight
 				Else
 					If Not \Item()\Disabled
-						If ListIndex(\Item()) = \State
+						; The entry owning the currently unfolded child stays lit while the pointer roams it
+						If ListIndex(\Item()) = \State Or (\Item()\SubMenu And \Item()\SubMenu = \OpenSubMenu)
 							AddPathBox(0, Y, \Width, \ItemHeight)
 							VectorSourceColor(\Theme\ShadeColor[#Warm])
 							FillPath()
@@ -9637,6 +9657,15 @@ Module UITK
 						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
 						VectorSourceColor(\Theme\TextColor[#Warm])
 					EndIf
+					
+					If \Item()\SubMenu	; a small right-pointing triangle marks the entries that unfold
+						MovePathCursor(\Width - #MenuMargin - 6, Y + \ItemHeight * 0.5 - 4)
+						AddPathLine(5, 4, #PB_Path_Relative)
+						AddPathLine(-5, 4, #PB_Path_Relative)
+						ClosePath()
+						FillPath()
+					EndIf
+					
 					Y + \ItemHeight
 				EndIf
 			Next
@@ -9645,13 +9674,115 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure FlatMenu_WindowEvent()
-		Protected *MenuData.FlatMenu = GetProp_(WindowID(EventWindow()), "UITK_MenuData"), PreviousState
+	Declare FlatMenu_HideBranch(Menu)
+	
+	Procedure FlatMenu_HideBranch(Menu)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
+		
+		If *MenuData
+			With *MenuData
+				If \OpenSubMenu
+					FlatMenu_HideBranch(\OpenSubMenu)
+					\OpenSubMenu = 0
+				EndIf
+				
+				\ParentMenu = 0
+				\State = -1
+				HideWindow(\Window, #True)
+				PostEvent(#Event_CloseMenu, \Window, 0, 0, \Window)
+			EndWith
+		EndIf
+	EndProcedure
+	
+	Procedure FlatMenu_CloseChain(*MenuData.FlatMenu)
+		; Close the whole chain this menu belongs to, from its root down.
+		Protected Root = *MenuData\Window
+		
+		While *MenuData\ParentMenu
+			Root = *MenuData\ParentMenu
+			*MenuData = GetProp_(WindowID(Root), "UITK_MenuData")
+		Wend
+		
+		FlatMenu_HideBranch(Root)
+	EndProcedure
+	
+	Procedure FlatMenu_ChainContainsActive(*MenuData.FlatMenu)
+		; Is the active window part of this menu's chain? Walk up to the root, then
+		; down the unfolded branch.
+		Protected Active = GetActiveWindow(), Menu
+		
+		While *MenuData\ParentMenu
+			*MenuData = GetProp_(WindowID(*MenuData\ParentMenu), "UITK_MenuData")
+		Wend
+		
+		Menu = *MenuData\Window
+		While Menu
+			If Menu = Active
+				ProcedureReturn #True
+			EndIf
+			*MenuData = GetProp_(WindowID(Menu), "UITK_MenuData")
+			Menu = *MenuData\OpenSubMenu
+		Wend
+		
+		ProcedureReturn #False
+	EndProcedure
+	
+	Procedure FlatMenu_OpenSub(*MenuData.FlatMenu, Item)
+		Protected *SubData.FlatMenu, X, Y, Loop
 		
 		With *MenuData
-			HideWindow(\Window, #True)
-			PostEvent(#Event_CloseMenu, \Window, 0, 0, \Window)
+			If \OpenSubMenu
+				FlatMenu_HideBranch(\OpenSubMenu)
+				\OpenSubMenu = 0
+			EndIf
+			
+			If Not SelectElement(\Item(), Item) Or IsWindow(\Item()\SubMenu) = 0
+				ProcedureReturn
+			EndIf
+			*SubData = GetProp_(WindowID(\Item()\SubMenu), "UITK_MenuData")
+			If *SubData = 0
+				ProcedureReturn
+			EndIf
+			
+			For Loop = 0 To Item - 1	; the child sits level with its entry
+				SelectElement(\Item(), Loop)
+				If \Item()\Type = #Separator
+					Y + #MenuSeparatorHeight
+				Else
+					Y + \ItemHeight
+				EndIf
+			Next
+			
+			X = WindowX(\Window) + WindowWidth(\Window) - 2
+			ExamineDesktops()	; flip to the left side when the child would leave the screen
+			If X + WindowWidth(*SubData\Window) > DesktopX(0) + DesktopWidth(0)
+				X = WindowX(\Window) - WindowWidth(*SubData\Window) + 2
+			EndIf
+			
+			*SubData\ParentMenu = \Window
+			*SubData\State = -1
+			ResizeWindow(*SubData\Window, X, WindowY(\Window) + Y, #PB_Ignore, #PB_Ignore)
+			HideWindow(*SubData\Window, #False, #PB_Window_NoActivate)
+			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+				SetWindowPos_(WindowID(*SubData\Window), 0, 0, 0, 0, 0, #SWP_NOMOVE | #SWP_NOSIZE | #SWP_NOACTIVATE)
+			CompilerEndIf
+			FlatMenu_Redraw(*SubData)
+			\OpenSubMenu = *SubData\Window
+			
+			SelectElement(\Item(), Item)
 		EndWith
+	EndProcedure
+	
+	Procedure FlatMenu_WindowEvent()
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(EventWindow()), "UITK_MenuData")
+		
+		; Deactivated because one of our own submenus was clicked: that's navigation
+		; inside the chain, not a dismissal.
+		If FlatMenu_ChainContainsActive(*MenuData)
+			ProcedureReturn
+		EndIf
+		
+		FlatMenu_CloseChain(*MenuData)
 	EndProcedure
 	
 	Procedure FlatMenu_CanvasEvent()
@@ -9681,10 +9812,25 @@ Module UITK
 					
 					If State <> \State
 						\State = State
+						
+						If State > -1
+							SelectElement(\Item(), State)
+							If \Item()\SubMenu
+								If \Item()\SubMenu <> \OpenSubMenu
+									FlatMenu_OpenSub(*MenuData, State)
+								EndIf
+							ElseIf \OpenSubMenu	; hovering a plain entry folds the open child away
+								FlatMenu_HideBranch(\OpenSubMenu)
+								\OpenSubMenu = 0
+							EndIf
+						EndIf
+						
 						FlatMenu_Redraw(*MenuData)
 					EndIf
 					;}
 				Case #PB_EventType_MouseLeave ;{
+											  ; Only the hover highlight resets - leaving towards an unfolded child
+											  ; must not close it, so the chain is only ended by clicks.
 					If \State <> -1
 						\State = -1
 						FlatMenu_Redraw(*MenuData)
@@ -9693,10 +9839,15 @@ Module UITK
 				Case #PB_EventType_LeftClick ;{
 					If \State > -1
 						SelectElement(\Item(), \State)
-						PostEvent(#PB_Event_Menu, EventWindow(), \Item()\ID)
-						FlatMenu_WindowEvent()
-						\State = -1
-						FlatMenu_Redraw(*MenuData)
+						If \Item()\SubMenu
+							If \Item()\SubMenu <> \OpenSubMenu	; the click unfolds rather than picks
+								FlatMenu_OpenSub(*MenuData, \State)
+								FlatMenu_Redraw(*MenuData)
+							EndIf
+						Else
+							PostEvent(#PB_Event_Menu, EventWindow(), \Item()\ID)
+							FlatMenu_CloseChain(*MenuData)
+						EndIf
 					EndIf
 					;}
 				Case #PB_EventType_LostFocus ;{
@@ -9783,6 +9934,7 @@ Module UITK
 			Y = DesktopMouseY()
 		EndIf
 		
+		*MenuData\ParentMenu = 0	; shown standalone: whatever chain it sat in before is over
 		ResizeWindow(*MenuData\Window, X, Y, #PB_Ignore, #PB_Ignore)
 		HideWindow(*MenuData\Window, #False)
 		SetActiveGadget(*MenuData\Canvas)
@@ -9809,11 +9961,13 @@ Module UITK
 			\Item()\Text\FontID = \FontID
 			\Item()\Text\Image = ImageID
 			\Item()\ID = MenuItem
+			\Item()\SubMenu = SubMenu
 			\Height + \ItemHeight
 			PrepareVectorTextBlock(@\Item()\Text)
 			
-			If \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin > \Width 
-				\Width  = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin
+			TextWidth = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin + Bool(SubMenu <> 0) * #MenuSubMenuArrowWidth
+			If TextWidth > \Width
+				\Width = TextWidth
 			EndIf
 			
 			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
@@ -14302,8 +14456,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 113
-; Folding = AIA+--PAAAAAAAAAAAAAAAAAAe5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
+; IDE Options = PureBasic 6.41 (Windows - x64)
+; CursorPosition = 336
+; Folding = BIA+--PAAAAAAAAAAAAAAAAAAe5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware

@@ -6,7 +6,7 @@ ExamineDesktops()
 Define Width = DesktopWidth(0)
 Define Height = DesktopHeight(0)
 
-Global Gadget, Menu,Image = LoadImage(#PB_Any, "Logo.png"), LibraryImageID = ImageID(LoadImage(#PB_Any, "Tiled.png"))
+Global Gadget, Menu, SubMenu, NestedMenu, Image = LoadImage(#PB_Any, "Logo.png"), LibraryImageID = ImageID(LoadImage(#PB_Any, "Tiled.png"))
 
 ; Window0 = UITK::Window(#PB_Any, (Width - 1024) * 0.5 - 200, (Height - 600) * 0.5 - 100, 945, 600, "UI Toolkit : Gadget showcase 1", UITK::#Window_CloseButton | #PB_Window_SizeGadget)
 ; UITK::SetWindowIcon(Window0, ImageID(Image))
@@ -212,6 +212,17 @@ AddGadgetItem(Gadget, 2, "Item 2", LibraryImageID, 2)
 AddGadgetItem(Gadget, 2, "Item 3", LibraryImageID, 2)
 AddGadgetItem(Gadget, 2, "Item 4", LibraryImageID, 2)
 
+NestedMenu = UITK::FlatMenu(UITK::#DarkMode)
+UITK::AddFlatMenuItem(NestedMenu, 0, -1, "As PNG...")
+UITK::AddFlatMenuItem(NestedMenu, 0, -1, "As JPEG...")
+UITK::AddFlatMenuItem(NestedMenu, 0, -1, "As SVG...")
+
+SubMenu = UITK::FlatMenu(UITK::#DarkMode)
+UITK::AddFlatMenuItem(SubMenu, 0, -1, "Save")
+UITK::AddFlatMenuItem(SubMenu, 0, -1, "Save as...", ImageID(Image))
+UITK::AddFlatMenuSeparator(SubMenu, -1)
+UITK::AddFlatMenuItem(SubMenu, 0, -1, "Export", 0, NestedMenu)
+
 Menu = UITK::FlatMenu(UITK::#DarkMode)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 2")
 UITK::AddFlatMenuItem(Menu, 0, -1, "Item 3", ImageID(Image))
@@ -220,6 +231,7 @@ UITK::AddFlatMenuSeparator(Menu, -1)
 UITK::AddFlatMenuItem(Menu, 0, -1, "Variable Viewer")
 UITK::AddFlatMenuItem(Menu, 0, -1, "Compare Files/Folder")
 UITK::AddFlatMenuItem(Menu, 0, -1, "Procedure Browser")
+UITK::AddFlatMenuItem(Menu, 0, -1, "Document", 0, SubMenu)
 
 UITK::AddWindowMenu(Window1, Menu, "File")
 
@@ -229,8 +241,8 @@ Repeat
 	EndIf
 ForEver
 
-; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 192
-; FirstLine = 152
+; IDE Options = PureBasic 6.41 (Windows - x64)
+; CursorPosition = 213
+; FirstLine = 168
 ; EnableXP
 ; DPIAware
