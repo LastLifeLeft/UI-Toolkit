@@ -251,11 +251,12 @@
 	
 	Enumeration #PB_Event_FirstCustomValue
 		#Event_CloseMenu
-		#Event_Drag_Enter 
+		#Event_Drag_Enter
 		#Event_Drag_Update
 		#Event_Drag_Leave
 		#Event_Drag_Finish
-		
+		#Event_MenuDeactivated
+
 		#Event_FirstAvailableCustomValue
 	EndEnumeration
 	
@@ -9688,7 +9689,12 @@ Module UITK
 				
 				\ParentMenu = 0
 				\State = -1
-				HideWindow(\Window, #True)
+				
+				CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+					ShowWindow_(WindowID(\Window), #SW_HIDE)
+				CompilerElse
+					HideWindow(\Window, #True)
+				CompilerEndIf
 				PostEvent(#Event_CloseMenu, \Window, 0, 0, \Window)
 			EndWith
 		EndIf
@@ -9774,14 +9780,24 @@ Module UITK
 	EndProcedure
 	
 	Procedure FlatMenu_WindowEvent()
+		PostEvent(#Event_MenuDeactivated, EventWindow(), 0, 0, EventWindow())
+	EndProcedure
+
+	Procedure FlatMenu_Deactivated()
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(EventWindow()), "UITK_MenuData")
-		
-		; Deactivated because one of our own submenus was clicked: that's navigation
-		; inside the chain, not a dismissal.
-		If FlatMenu_ChainContainsActive(*MenuData)
+
+		If *MenuData = 0
 			ProcedureReturn
 		EndIf
 		
+		If IsWindowVisible_(WindowID(*MenuData\Window)) = 0
+			ProcedureReturn
+		EndIf
+		
+		If FlatMenu_ChainContainsActive(*MenuData)
+			ProcedureReturn
+		EndIf
+
 		FlatMenu_CloseChain(*MenuData)
 	EndProcedure
 	
@@ -9917,6 +9933,7 @@ Module UITK
 			SetProp_(GadgetID(\Canvas), "UITK_MenuData", *MenuData)
 			
 			BindEvent(#PB_Event_DeactivateWindow, @FlatMenu_WindowEvent(), \Window)
+			BindEvent(#Event_MenuDeactivated, @FlatMenu_Deactivated(), \Window)
 			BindGadgetEvent(\Canvas, @FlatMenu_CanvasEvent())
 			
 			UseGadgetList(GadgetList)
@@ -14457,7 +14474,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 336
+; CursorPosition = 448
 ; Folding = BIA+--PAAAAAAAAAAAAAAAAAAe5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
