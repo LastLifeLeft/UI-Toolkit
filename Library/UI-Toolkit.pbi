@@ -256,7 +256,7 @@
 		#Event_Drag_Leave
 		#Event_Drag_Finish
 		#Event_MenuDeactivated
-
+		
 		#Event_FirstAvailableCustomValue
 	EndEnumeration
 	
@@ -1042,6 +1042,7 @@ Module UITK
 	EndStructure
 	
 	Global MenuWindow
+	Global FlatMenuPressed	; the FlatMenu whose canvas took a press whose click is still to come
 	Global AccessibilityMode = #False
 	Global LightTheme.Theme, DarkTheme.Theme, *DefaultTheme.Theme
 	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
@@ -9689,6 +9690,9 @@ Module UITK
 				
 				\ParentMenu = 0
 				\State = -1
+				If FlatMenuPressed = \Window	; nothing of this menu's gesture outlives it
+					FlatMenuPressed = 0
+				EndIf
 				
 				CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 					ShowWindow_(WindowID(\Window), #SW_HIDE)
@@ -9701,7 +9705,6 @@ Module UITK
 	EndProcedure
 	
 	Procedure FlatMenu_CloseChain(*MenuData.FlatMenu)
-		; Close the whole chain this menu belongs to, from its root down.
 		Protected Root = *MenuData\Window
 		
 		While *MenuData\ParentMenu
@@ -9712,10 +9715,12 @@ Module UITK
 		FlatMenu_HideBranch(Root)
 	EndProcedure
 	
-	Procedure FlatMenu_ChainContainsActive(*MenuData.FlatMenu)
-		; Is the active window part of this menu's chain? Walk up to the root, then
-		; down the unfolded branch.
-		Protected Active = GetActiveWindow(), Menu
+	Procedure FlatMenu_ChainContains(*MenuData.FlatMenu, Window)
+		Protected Menu
+		
+		If Window = 0
+			ProcedureReturn #False
+		EndIf
 		
 		While *MenuData\ParentMenu
 			*MenuData = GetProp_(WindowID(*MenuData\ParentMenu), "UITK_MenuData")
@@ -9723,7 +9728,7 @@ Module UITK
 		
 		Menu = *MenuData\Window
 		While Menu
-			If Menu = Active
+			If Menu = Window
 				ProcedureReturn #True
 			EndIf
 			*MenuData = GetProp_(WindowID(Menu), "UITK_MenuData")
@@ -9731,6 +9736,10 @@ Module UITK
 		Wend
 		
 		ProcedureReturn #False
+	EndProcedure
+	
+	Procedure FlatMenu_ChainContainsActive(*MenuData.FlatMenu)
+		ProcedureReturn FlatMenu_ChainContains(*MenuData, GetActiveWindow())
 	EndProcedure
 	
 	Procedure FlatMenu_OpenSub(*MenuData.FlatMenu, Item)
@@ -9782,10 +9791,10 @@ Module UITK
 	Procedure FlatMenu_WindowEvent()
 		PostEvent(#Event_MenuDeactivated, EventWindow(), 0, 0, EventWindow())
 	EndProcedure
-
+	
 	Procedure FlatMenu_Deactivated()
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(EventWindow()), "UITK_MenuData")
-
+		
 		If *MenuData = 0
 			ProcedureReturn
 		EndIf
@@ -9797,7 +9806,11 @@ Module UITK
 		If FlatMenu_ChainContainsActive(*MenuData)
 			ProcedureReturn
 		EndIf
-
+		
+		If FlatMenuPressed And FlatMenu_ChainContains(*MenuData, FlatMenuPressed)
+			ProcedureReturn
+		EndIf
+		
 		FlatMenu_CloseChain(*MenuData)
 	EndProcedure
 	
@@ -9852,7 +9865,11 @@ Module UITK
 						FlatMenu_Redraw(*MenuData)
 					EndIf
 					;}
+				Case #PB_EventType_LeftButtonDown ;{
+					FlatMenuPressed = \Window
+					;}
 				Case #PB_EventType_LeftClick ;{
+					FlatMenuPressed = 0
 					If \State > -1
 						SelectElement(\Item(), \State)
 						If \Item()\SubMenu
@@ -9951,7 +9968,7 @@ Module UITK
 			Y = DesktopMouseY()
 		EndIf
 		
-		*MenuData\ParentMenu = 0	; shown standalone: whatever chain it sat in before is over
+		*MenuData\ParentMenu = 0
 		ResizeWindow(*MenuData\Window, X, Y, #PB_Ignore, #PB_Ignore)
 		HideWindow(*MenuData\Window, #False)
 		SetActiveGadget(*MenuData\Canvas)
@@ -14474,7 +14491,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 448
-; Folding = BIA+--PAAAAAAAAAAAAAAAAAAe5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 9717
+; FirstLine = 37
+; Folding = AIA+--PAAAAAAAAAAAAAAAAAAe5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
