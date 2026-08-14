@@ -419,8 +419,11 @@
 	Declare AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
 	Declare AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
 	Declare RegisterDropCallback(*Callback)
-	Declare.i AdvancedDragActive()							; Is one of OUR drags in flight? (the drop callback is global — a file
-															; dragged in from the desktop reaches it too)
+	Declare.i AdvancedDragActive()
+	
+	; The Weird
+	Declare.i KeyboardClaimed()
+	Declare ForwardKeyToFocus(VirtualKey)
 	
 	; TimeLine
 	CompilerIf Defined(EnableTimeline, #PB_Module)
@@ -2907,19 +2910,10 @@ Module UITK
 			*DropCallback = *Callback
 		EndProcedure
 		
-		; PB has ONE global drop callback, so a drop target hears about every
-		; drag the window accepts — a file off the desktop as much as one of our
-		; cards. The hook only exists while an AdvancedDrag is running, which
-		; makes it the honest answer to "is this drag mine?".
 		Procedure.i AdvancedDragActive()
 			ProcedureReturn Bool(ADNDHook <> 0)
 		EndProcedure
 		
-		; Show/hide the floating drag preview mid-drag. A drop target that renders its
-		; own in-place preview (a 3D ghost, say) hides the card while the cursor is
-		; over it. We drive the LAYER ALPHA, not window visibility: HideWindow/ShowWindow
-		; race the WH_MOUSE_LL hook's per-move SetWindowPos and can get stuck, whereas
-		; the alpha the hook never touches — 0 = invisible, 128 = the drag's own alpha.
 		Procedure DragPreviewVisible(State)
 			If ADNDHook	; Only meaningful during an active AdvancedDrag
 				If State
@@ -2943,6 +2937,39 @@ Module UITK
 	CompilerEndIf
 	;}
 	
+	
+	;{ The Weird
+	; Those are bandaid on an open wound: fixes for problems that only emerged because
+	; of the strict adherence To PureBasic's internals. Might be worth reconsidering
+	; when the great refactor comes in.
+	
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+		; "UITK_KeepKeys" is set by whatever is taking typed text — a String for
+		; its whole life, an inline editor for as long as it is open. It already
+		; stops bare letters bubbling up as window shortcuts (see
+		; ContainerChild_Handler); this asks the same question from outside, for
+		; the keys that never bubble because the ACCELERATOR TABLE takes them
+		; first. Del is the one that matters: a host that binds it to a delete
+		; command deletes the very row whose name is being typed.
+		Procedure.i KeyboardClaimed()
+			ProcedureReturn Bool(GetProp_(GetFocus_(), "UITK_KeepKeys") <> 0)
+		EndProcedure
+		
+		; Give a key the accelerator table swallowed back to whoever is typing, so
+		; the host can decline it AND the editor still does the obvious thing with
+		; it. Sent, not posted: the caller is inside its own menu handler and the
+		; editor should have consumed it by the time that returns.
+		Procedure ForwardKeyToFocus(VirtualKey)
+			Protected Focus = GetFocus_()
+			
+			If Focus = 0 Or GetProp_(Focus, "UITK_KeepKeys") = 0
+				ProcedureReturn
+			EndIf
+			SendMessage_(Focus, #WM_KEYDOWN, VirtualKey, 0)
+			SendMessage_(Focus, #WM_KEYUP, VirtualKey, 0)
+		EndProcedure
+	CompilerEndIf
+	;}
 	
 	;Gadgets:
 	;{ Button
@@ -14491,8 +14518,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 9717
-; FirstLine = 37
-; Folding = AIA+--PAAAAAAAAAAAAAAAAAAe5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 425
+; FirstLine = 36
+; Folding = RIA+--PAAAAAAAAAAAAAAAAAAe5AA9fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
