@@ -8134,6 +8134,8 @@ Module UITK
 					DrawVectorTextBlock(@*Item\Value, ValueX, Y - 2)
 					;}
 			EndSelect
+			
+			VectorSourceColor(\ThemeData\TextColor[#Cold])
 		EndWith
 	EndProcedure
 	
@@ -14530,7 +14532,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 2826
-; Folding = BIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 8136
+; FirstLine = 72
+; Folding = BIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
