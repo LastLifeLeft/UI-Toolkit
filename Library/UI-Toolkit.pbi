@@ -1024,6 +1024,7 @@ Module UITK
 	Structure MenuItem
 		Type.b
 		Text.Text
+		Shortcut.Text		; the key column, right-aligned against the menu's edge; empty text = no shortcut
 		Icon.i
 		ID.i
 		Disabled.b
@@ -1056,8 +1057,6 @@ Module UITK
 	Global NewMap GadgetHandler()
 	
 	Prototype ItemRedraw(*Item, X, Y, Width, Height, State, *Theme.Theme)
-	
-	Declare RemoveGadgetTimers(*Gadget)	; body lives in the Timer section; used by the Free procedures above it
 	
 	#Drag_Distance = 7
 	;}
@@ -1189,6 +1188,10 @@ Module UITK
 			PB_Window_Objects.i
 		EndImport
 	CompilerEndIf
+	
+	;Declaration
+	Declare RemoveGadgetTimers(*Gadget)	; body lives in the Timer section; used by the Free procedures above it
+	Declare.s FlatMenu_NativeLabel(*Item.MenuItem)	; …and this one in the Menu section, used by AddWindowMenu above it
 	
 	; Math
 	Procedure Clamp(Value, Min, Max)
@@ -2812,13 +2815,13 @@ Module UITK
 							If *SubData\Item()\Type = #Separator
 								MenuBar()
 							Else
-								MenuItem(*SubData\Item()\ID, *SubData\Item()\Text\OriginalText)
+								MenuItem(*SubData\Item()\ID, FlatMenu_NativeLabel(@*SubData\Item()))
 							EndIf
 						Next
 						CloseSubMenu()
 					EndIf
 				Else
-					MenuItem(*MenuData\Item()\ID, *MenuData\Item()\Text\OriginalText)
+					MenuItem(*MenuData\Item()\ID, FlatMenu_NativeLabel(@*MenuData\Item()))
 				EndIf
 			Next
 		EndProcedure
@@ -9663,6 +9666,62 @@ Module UITK
 	#MenuMargin = 5
 	#MenuItemLeftMargin = 20 + #menuMargin
 	#MenuSubMenuArrowWidth = 12		; room kept clear at the right of an entry for its unfold triangle
+	#MenuShortcutGap = 24			; smallest air between the longest label and the key column
+	
+	Declare FlatMenu_HideBranch(Menu)
+	
+	Procedure FlatMenu_SetItemText(*MenuData.FlatMenu, *Item.MenuItem, Text.s)
+		Protected Separator = FindString(Text, #TAB$)
+		
+		If Separator
+			*Item\Text\OriginalText = Left(Text, Separator - 1)
+			*Item\Shortcut\OriginalText = Mid(Text, Separator + 1)
+		Else
+			*Item\Text\OriginalText = Text
+			*Item\Shortcut\OriginalText = ""
+		EndIf
+		
+		*Item\Text\VAlign = #VAlignCenter
+		*Item\Text\Height = *MenuData\ItemHeight
+		*Item\Text\Width = 500
+		*Item\Text\FontID = *MenuData\FontID
+		PrepareVectorTextBlock(@*Item\Text)
+		
+		; Measured against a generous box here, then re-measured to the real menu
+		; width by the reflow — RequiredWidth is what the width formula needs, and
+		; it must be known before the width it will be aligned in exists.
+		*Item\Shortcut\VAlign = #VAlignCenter
+		*Item\Shortcut\HAlign = #HAlignRight
+		*Item\Shortcut\LineLimit = 1
+		*Item\Shortcut\Height = *MenuData\ItemHeight
+		*Item\Shortcut\Width = 500
+		*Item\Shortcut\FontID = *MenuData\FontID
+		PrepareVectorTextBlock(@*Item\Shortcut)
+	EndProcedure
+	
+	Procedure.i FlatMenu_ItemWidth(*Item.MenuItem)
+		Protected Result = *Item\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin
+		
+		If *Item\Shortcut\OriginalText <> ""
+			Result + #MenuShortcutGap + *Item\Shortcut\RequiredWidth
+		EndIf
+		If *Item\SubMenu
+			Result + #MenuSubMenuArrowWidth
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure FlatMenu_ReflowShortcuts(*MenuData.FlatMenu)
+		With *MenuData
+			ForEach \Item()
+				If \Item()\Type = #Item And \Item()\Shortcut\OriginalText <> ""
+					\Item()\Shortcut\Width = \Width - #MenuMargin * 2 - Bool(\Item()\SubMenu <> 0) * #MenuSubMenuArrowWidth
+					PrepareVectorTextBlock(@\Item()\Shortcut)
+				EndIf
+			Next
+		EndWith
+	EndProcedure
 	
 	Procedure FlatMenu_Redraw(*MenuData.FlatMenu)
 		Protected Y = 0, VerticalOffset
@@ -9691,13 +9750,21 @@ Module UITK
 							FillPath()
 							VectorSourceColor(\Theme\TextColor[#Hot])
 							DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
-							VectorSourceColor(\Theme\TextColor[#Warm])
 						Else
 							DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
 						EndIf
+						
+						If \Item()\Shortcut\OriginalText <> ""
+							VectorSourceColor(\Theme\TextColor[#Cold])
+							DrawVectorTextBlock(@\Item()\Shortcut, #MenuMargin, Y)
+						EndIf
+						VectorSourceColor(\Theme\TextColor[#Warm])
 					Else
 						VectorSourceColor(\Theme\TextColor[#Disabled])
 						DrawVectorTextBlock(@\Item()\Text, #MenuMargin, Y)
+						If \Item()\Shortcut\OriginalText <> ""	; greyed out with the label it belongs to
+							DrawVectorTextBlock(@\Item()\Shortcut, #MenuMargin, Y)
+						EndIf
 						VectorSourceColor(\Theme\TextColor[#Warm])
 					EndIf
 					
@@ -9716,8 +9783,6 @@ Module UITK
 			StopVectorDrawing()
 		EndWith
 	EndProcedure
-	
-	Declare FlatMenu_HideBranch(Menu)
 	
 	Procedure FlatMenu_HideBranch(Menu)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
@@ -10029,22 +10094,19 @@ Module UITK
 			EndIf
 			
 			\Item()\Type = #Item
-			\Item()\Text\VAlign = #VAlignCenter
-			\Item()\Text\OriginalText = Text
-			\Item()\Text\Height = \ItemHeight
-			\Item()\Text\Width = 500
-			\Item()\Text\FontID = \FontID
-			\Item()\Text\Image = ImageID
 			\Item()\ID = MenuItem
 			\Item()\SubMenu = SubMenu
 			\Height + \ItemHeight
-			PrepareVectorTextBlock(@\Item()\Text)
+			FlatMenu_SetItemText(*MenuData, @\Item(), Text)
+			\Item()\Text\Image = ImageID
+			PrepareVectorTextBlock(@\Item()\Text)	; again, now that it carries an icon
 			
-			TextWidth = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin + Bool(SubMenu <> 0) * #MenuSubMenuArrowWidth
+			TextWidth = FlatMenu_ItemWidth(@\Item())
 			If TextWidth > \Width
 				\Width = TextWidth
 			EndIf
 			
+			FlatMenu_ReflowShortcuts(*MenuData)
 			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
 			ResizeGadget(\Canvas, #PB_Ignore, #PB_Ignore, \Width, \Height)
 			
@@ -10094,10 +10156,11 @@ Module UITK
 			; The removed entry may have been the widest: recompute from what's left.
 			\Width = #MenuMinimumWidth
 			ForEach \Item()
-				If \Item()\Type = #Item And \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin > \Width
-					\Width = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin
+				If \Item()\Type = #Item And FlatMenu_ItemWidth(@\Item()) > \Width
+					\Width = FlatMenu_ItemWidth(@\Item())
 				EndIf
 			Next
+			FlatMenu_ReflowShortcuts(*MenuData)
 			
 			\State = -1		; the hover index may point past the shortened list
 			ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
@@ -10115,14 +10178,17 @@ Module UITK
 				ProcedureReturn
 			EndIf
 			
-			\Item()\Text\OriginalText = Text
+			Protected Icon = \Item()\Text\Image	; SetItemText rebuilds the block from scratch
+			FlatMenu_SetItemText(*MenuData, @\Item(), Text)
+			\Item()\Text\Image = Icon
 			PrepareVectorTextBlock(@\Item()\Text)
 			
-			If \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin > \Width
-				\Width = \Item()\Text\RequiredWidth + #MenuMargin + #MenuItemLeftMargin
+			If FlatMenu_ItemWidth(@\Item()) > \Width
+				\Width = FlatMenu_ItemWidth(@\Item())
 				ResizeWindow(\Window, #PB_Ignore, #PB_Ignore, \Width + 2, \Height + \Border)
 				ResizeGadget(\Canvas, #PB_Ignore, #PB_Ignore, \Width, \Height)
 			EndIf
+			FlatMenu_ReflowShortcuts(*MenuData)	; the new keys need aiming even when nothing moved
 			
 			FlatMenu_Redraw(*MenuData)
 		EndWith
@@ -10135,6 +10201,13 @@ Module UITK
 			*MenuData\Item()\Disabled = State
 			FlatMenu_Redraw(*MenuData)
 		EndIf
+	EndProcedure
+	
+	Procedure.s FlatMenu_NativeLabel(*Item.MenuItem)
+		If *Item\Shortcut\OriginalText <> ""
+			ProcedureReturn *Item\Text\OriginalText + #TAB$ + *Item\Shortcut\OriginalText
+		EndIf
+		ProcedureReturn *Item\Text\OriginalText
 	EndProcedure
 	
 	; Getters
@@ -14532,8 +14605,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 8136
-; FirstLine = 72
-; Folding = BIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 6770
+; Folding = AIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
