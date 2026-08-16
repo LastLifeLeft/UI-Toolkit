@@ -362,6 +362,8 @@
 	
 	; Menu
 	Declare GetWindowContainer(Window)						; The themed window's client container gadget (-1 on the plain fallback)
+	Declare.i GetWindowMenuButton(Window, Index)
+	
 	Declare SetWindowLabel(Window, Text.s)					; Title text, menu-aware; also sets the OS caption
 	Declare FlatMenu(Flags = #Default)
 	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0, Flag = 0)
@@ -2675,6 +2677,15 @@ Module UITK
 			ProcedureReturn -1
 		EndProcedure
 		
+		Procedure.i GetWindowMenuButton(Window, Index)
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+			
+			If *WindowData And SelectElement(*WindowData\MenuList(), Index)
+				ProcedureReturn *WindowData\MenuList()
+			EndIf
+			ProcedureReturn -1
+		EndProcedure
+		
 		Procedure GetWindowIcon(Window)
 			Protected *WindowData.ThemedWindow
 			
@@ -2707,6 +2718,7 @@ Module UITK
 		Procedure Window_Init() : EndProcedure
 		Procedure ExtendFrameIntoClient(WindowID) : EndProcedure
 		Procedure GetWindowContainer(Window) : ProcedureReturn -1 : EndProcedure
+		Procedure.i GetWindowMenuButton(Window, Index) : ProcedureReturn -1 : EndProcedure
 		Procedure SetWindowLabel(Window, Text.s) : SetWindowTitle(Window, Text) : EndProcedure
 		
 		Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
@@ -14518,8 +14530,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 425
-; FirstLine = 36
-; Folding = RIA+--PAAAAAAAAAAAAAAAAAAe5AA9fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 2826
+; Folding = BIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
