@@ -713,7 +713,8 @@ Module UITK
 	EndMacro
 	
 	Macro RedrawObject()
-		If Not *GadgetData\Freeze
+		; The size test is not an optimisation. A gadget 0 px wide or tall makes its rounded box degenerate, and ClipPath() on a degenerate arc path hangs
+		If Not *GadgetData\Freeze And *GadgetData\Width > 0 And *GadgetData\Height > 0
 			If *GadgetData\MetaGadget
 				
 			Else
@@ -728,11 +729,6 @@ Module UITK
 		EndIf
 	EndMacro
 	
-	; Shared tail of every gadget constructor: resolve #PB_Any, swap the canvas's
-	; vtable for the gadget's own GadgetDataType, resolve the theme (explicit flag >
-	; owning themed window > current default) and register the OS handle so the
-	; global drop callback can route back to this gadget.
-	; Expects the constructor's locals: Result, Gadget, Flags, *this, *GadgetData, *ThemeData.
 	Macro CreateGadgetObject(GadgetDataType)
 		If Gadget = #PB_Any
 			Gadget = Result
@@ -773,12 +769,6 @@ Module UITK
 		EndMacro
 	CompilerEndIf
 	
-	; SetAlpha — pack a 24-bit RGB color and an 8-bit alpha into PB's 32-bit ARGB
-	; format (alpha in the high byte). PB's Red/Green/Blue/Alpha accessors and
-	; RGB/RGBA constructors use the same byte order across Windows and Linux, so
-	; we use the same macro on both platforms. The old Linux branch produced
-	; RRGGBBAA instead of AABBGGRR — every theme color round-tripped to garbage,
-	; which is what made the container render bright red on the Linux port.
 	Macro SetAlpha(Color, Alpha)
 		(Alpha << 24) + Color
 	EndMacro
@@ -846,8 +836,8 @@ Module UITK
 	;{ Private variables, structures and constants
 	CompilerSelect #PB_Compiler_OS
 		CompilerCase #PB_OS_Windows ;{
-			Prototype GetAttribute(*This, Attribute)
-			Prototype SetAttribute(*This, Attribute, Value)
+			Prototype GetAttribute(*This, Attribute.l)
+			Prototype SetAttribute(*This, Attribute.l, Value)
 			Structure GadgetVT
 				GadgetType.l
 				SizeOf.l
@@ -905,8 +895,8 @@ Module UITK
 			EndStructure
 			;}
 		CompilerCase #PB_OS_Linux   ;{
-			Prototype GetAttribute(*This, Attribute)
-			Prototype SetAttribute(*This, Attribute, Value)
+			Prototype GetAttribute(*This, Attribute.l)
+			Prototype SetAttribute(*This, Attribute.l, Value)
 			; Mirrors PB 6.40's PB_GadgetVT (sdk/c/PureLibraries/Gadget/Gadget.h).
 			; Field order MUST match; PB dispatches by offset, not by name.
 			; UITK extensions go strictly AFTER PB's last field.
@@ -1715,7 +1705,7 @@ Module UITK
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
 	
-	Procedure Default_ResizeGadget(*This.PB_Gadget, x, y, Width, Height)
+	Procedure Default_ResizeGadget(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.GadgetData = *this\vt
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -1740,7 +1730,7 @@ Module UITK
 		ProcedureReturn *GadgetData\TextBlock\FontID
 	EndProcedure
 	
-	Procedure Default_GetColor(*This.PB_Gadget, ColorType)
+	Procedure Default_GetColor(*This.PB_Gadget, ColorType.l)
 		Protected *GadgetData.GadgetData = *this\vt, Result
 		
 		If FindMapElement(ThemeColorOffset(), Str(ColorType))
@@ -1858,7 +1848,7 @@ Module UITK
 		CompilerEndIf
 	EndProcedure
 	
-	Procedure Default_SetAttribute(*This.PB_Gadget, Attribute, Value)
+	Procedure Default_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.GadgetData = *this\vt
 		
 		With *GadgetData
@@ -1894,7 +1884,7 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure Default_SetColor(*This.PB_Gadget, ColorType, Color)
+	Procedure Default_SetColor(*This.PB_Gadget, ColorType.l, Color)
 		Protected *GadgetData.GadgetData = *this\vt
 		
 		If Alpha(Color) = 0	; a plain RGB would be drawn fully transparent - store it opaque (same treatment as RenderSvgIcon)
@@ -4410,7 +4400,7 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure ScrollBar_GetAttribute(*This.PB_Gadget, Attribute)
+	Procedure ScrollBar_GetAttribute(*This.PB_Gadget, Attribute.l)
 		Protected *GadgetData.ScrollBarData = *this\vt, Result
 		
 		Select Attribute
@@ -4514,7 +4504,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure ScrollBar_SetAttribute(*This.PB_Gadget, Attribute, Value)
+	Procedure ScrollBar_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
 		ScrollBar_SetAttribute_Meta(*this\vt, Attribute, Value)
 	EndProcedure
 	
@@ -4564,7 +4554,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure ScrollBar_Resize(*This.PB_Gadget, x, y, Width, Height)
+	Procedure ScrollBar_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.ScrollBarData = *this\vt
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -4721,7 +4711,7 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure ScrollArea_Resize(*this.PB_Gadget, x, y, Width, Height)
+	Procedure ScrollArea_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.ScrollAreaData = *this\vt
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -4745,7 +4735,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure ScrollArea_GetAttribute(*This.PB_Gadget, Attribute)
+	Procedure ScrollArea_GetAttribute(*This.PB_Gadget, Attribute.l)
 		Protected *GadgetData.ScrollAreaData = *this\vt, Result
 		
 		With *GadgetData
@@ -4755,7 +4745,7 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
-	Procedure ScrollArea_SetAttribute(*This.PB_Gadget, Attribute, Value)
+	Procedure ScrollArea_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.ScrollAreaData = *this\vt
 		
 		SetGadgetAttribute(*GadgetData\ScrollArea, Attribute, Value)
@@ -4780,7 +4770,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure ScrollArea_SetColor(*This.PB_Gadget, ColorType, Color)
+	Procedure ScrollArea_SetColor(*This.PB_Gadget, ColorType.l, Color)
 		Protected *GadgetData.ScrollAreaData = *this\vt
 		
 		With *GadgetData
@@ -5415,7 +5405,7 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure VerticalList_AddItem(*this.PB_Gadget, Position, *Text, ImageID)
+	Procedure VerticalList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID)
 		Protected *GadgetData.VerticalListData = *this\vt, *NewItem
 		
 		With *GadgetData
@@ -5463,7 +5453,7 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure VerticalList_RemoveItem(*this.PB_Gadget, Position)
+	Procedure VerticalList_RemoveItem(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.VerticalListData = *this\vt, *Result
 		
 		With *GadgetData
@@ -5494,7 +5484,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure VerticalList_Resize(*this.PB_Gadget, x, y, Width, Height)
+	Procedure VerticalList_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -5555,7 +5545,7 @@ Module UITK
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
 	
-	Procedure VerticalList_GetItemData(*this.PB_Gadget, Position)
+	Procedure VerticalList_GetItemData(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.VerticalListData = *this\vt, *Result
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
@@ -5566,7 +5556,7 @@ Module UITK
 		ProcedureReturn *Result
 	EndProcedure
 	
-	Procedure.s VerticalList_GetItemText(*this.PB_Gadget, Position)
+	Procedure.s VerticalList_GetItemText(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.VerticalListData = *this\vt, Result.s
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
@@ -5590,7 +5580,7 @@ Module UITK
 	
 	
 	; Setters
-	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
+	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
 		With *GadgetData
@@ -5636,7 +5626,7 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure VerticalList_SetItemData(*this.PB_Gadget, Position, *Data)
+	Procedure VerticalList_SetItemData(*this.PB_Gadget, Position.l, *Data)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
@@ -5647,7 +5637,7 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure VerticalList_SetItemText(*this.PB_Gadget, Position, *Text)
+	Procedure VerticalList_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.VerticalListData = *this\vt, *Result
 		
 		With *GadgetData
@@ -5879,7 +5869,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure HorizontalList_Resize(*This.PB_Gadget, x, y, Width, Height)
+	Procedure HorizontalList_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.HorizontalListData = *this\vt, PreviousHeight
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -6159,7 +6149,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure HorizontalList_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+	Procedure HorizontalList_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.UITK_BitmapInfo
 		With *GadgetData
 			
@@ -6206,7 +6196,7 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure HorizontalList_RemoveItem(*This.PB_Gadget, Position)
+	Procedure HorizontalList_RemoveItem(*This.PB_Gadget, Position.l)
 		Protected *GadgetData.HorizontalListData = *this\vt
 		
 		With *GadgetData
@@ -6258,7 +6248,7 @@ Module UITK
 	
 	
 	; Getters
-	Procedure.s HorizontalList_GetItemText(*this.PB_Gadget, Position)
+	Procedure.s HorizontalList_GetItemText(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.HorizontalListData = *this\vt
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
@@ -6281,7 +6271,7 @@ Module UITK
 	
 	
 	; Setters
-	Procedure HorizontalList_SetAttribute(*this.PB_Gadget, Attribute, Value)
+	Procedure HorizontalList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.HorizontalListData = *this\vt
 		
 		With *GadgetData
@@ -6662,7 +6652,7 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure TrackBar_AddGadgetItem(*this.PB_Gadget, Position, *Text, ImageID)
+	Procedure TrackBar_AddGadgetItem(*this.PB_Gadget, Position.l, *Text, ImageID)
 		Protected *GadgetData.TrackBarData = *this\vt, ListSize
 		
 		With *GadgetData
@@ -6873,17 +6863,17 @@ Module UITK
 		ProcedureReturn *GadgetData\ItemCount
 	EndProcedure
 	
-	Procedure Combo_SetItemData(*this.PB_Gadget, Position, *Data)
+	Procedure Combo_SetItemData(*this.PB_Gadget, Position.l, *Data)
 		Protected *GadgetData.ComboData = *this\vt
 		SetGadgetItemData(*GadgetData\MenuCanvas, Position, *Data)
 	EndProcedure
 	
-	Procedure Combo_GetItemData(*this.PB_Gadget, Position)
+	Procedure Combo_GetItemData(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.ComboData = *this\vt
 		ProcedureReturn GetGadgetItemData(*GadgetData\MenuCanvas, Position)
 	EndProcedure
 	
-	Procedure Combo_SetItemText(*this.PB_Gadget, Position, *Text)
+	Procedure Combo_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.ComboData = *this\vt
 		With *GadgetData
 			If SetGadgetItemText(\MenuCanvas, Position, PeekS(*Text)) And \State = Position
@@ -6945,7 +6935,7 @@ Module UITK
 		ProcedureReturn CallFunctionFast(*this\vt\FreeGadget, *this)
 	EndProcedure
 	
-	Procedure Combo_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Flag)
+	Procedure Combo_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Flag)
 		Protected *GadgetData.ComboData = *this\vt
 		
 		*GadgetData\ItemCount + 1
@@ -6958,7 +6948,7 @@ Module UITK
 		AddGadgetItem(*GadgetData\MenuCanvas, Position, PeekS(*Text), ImageID, Flag)
 	EndProcedure
 	
-	Procedure Combo_RemoveItem(*this.PB_Gadget, Position)
+	Procedure Combo_RemoveItem(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.ComboData = *this\vt
 		
 		If RemoveGadgetItem(*GadgetData\MenuCanvas, Position)
@@ -6986,7 +6976,7 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure Combo_SetColor(*This.PB_Gadget, ColorType, Color)
+	Procedure Combo_SetColor(*This.PB_Gadget, ColorType.l, Color)
 		Protected *GadgetData.ComboData = *this\vt
 		Default_SetColor(*This, ColorType, Color)
 		
@@ -7468,7 +7458,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Library_AddColumn(*This.PB_Gadget, Position, *Text, Width)
+	Procedure Library_AddColumn(*This.PB_Gadget, Position.l, *Text, Width.l)
 		Protected *GadgetData.LibraryData = *this\vt, *NewSection.Library_Section
 		
 		With *GadgetData
@@ -7499,7 +7489,7 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure Library_AddItem(*This.PB_Gadget, Position.w, *Text, ImageID, Flags.i)
+	Procedure Library_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)	; Flags is .l because PB's vtable passes it as a 32-bit int
 		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.UITK_BitmapInfo
 		
 		With *GadgetData
@@ -7715,7 +7705,7 @@ Module UITK
 		ProcedureReturn Redraw
 	EndProcedure
 	
-	Procedure Library_RemoveItem(*This.PB_Gadget, Position)
+	Procedure Library_RemoveItem(*This.PB_Gadget, Position.l)
 		Protected *GadgetData.LibraryData = *this\vt
 		
 		With *GadgetData
@@ -7786,7 +7776,7 @@ Module UITK
 		
 	EndProcedure
 	
-	Procedure Library_Resize(*this.PB_Gadget, x, y, Width, Height)
+	Procedure Library_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.LibraryData = *this\vt
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -7798,7 +7788,13 @@ Module UITK
 			\Height = GadgetHeight(\Gadget)
 			
 			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
+			If \ItemPerLine < 1	; a gadget too narrow for one item gave 0, and AddItem's `% \ItemPerLine`
+				\ItemPerLine = 1; then killed the process outright. One clipped column beats a crash.
+			EndIf
 			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
+			If \ItemHMargin < 0
+				\ItemHMargin = 0
+			EndIf
 			
 			ScrollBar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
@@ -7832,7 +7828,7 @@ Module UITK
 	EndProcedure
 	
 	;Setters
-	Procedure Library_SetItemData(*this.PB_Gadget, Position, *Data)
+	Procedure Library_SetItemData(*this.PB_Gadget, Position.l, *Data)
 		Protected *GadgetData.LibraryData = *this\vt
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
@@ -7843,7 +7839,7 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure Library_SetItemText(*this.PB_Gadget, Position, *Text)
+	Procedure Library_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.LibraryData = *this\vt
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
@@ -7854,7 +7850,7 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure Library_SetAttribute(*This.PB_Gadget, Attribute, Value)
+	Procedure Library_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.LibraryData = *this\vt
 		
 		With *GadgetData
@@ -7869,10 +7865,15 @@ Module UITK
 					\SectionHeight = Value
 				Case #Attribute_Library_ItemWidth
 					\ItemWidth = Value
-					; The width-dependent layout must follow, or the gadget keeps
-					; the old items-per-line until the first resize recomputes it
+					; The width-dependent layout must follow, or the gadget keeps the old items-per-line until the first resize recomputes it
 					\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
+					If \ItemPerLine < 1	; …and a wide ItemWidth set on a narrow gadget reaches 0 the same way
+						\ItemPerLine = 1
+					EndIf
 					\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
+					If \ItemHMargin < 0
+						\ItemHMargin = 0
+					EndIf
 					\InternalHeight = 0
 					ForEach \Sections()
 						If \Sections()\Height
@@ -7897,7 +7898,7 @@ Module UITK
 	EndProcedure
 	
 	;Getters
-	Procedure Library_GetItemData(*this.PB_Gadget, Position)
+	Procedure Library_GetItemData(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.LibraryData = *this\vt, *Result
 		
 		If Position > -1 And SelectElement(*GadgetData\Items(), Position)
@@ -7954,7 +7955,13 @@ Module UITK
 			\Width = Width		; Only Resize used to set these, so the per-line math
 			\Height = Height	; below ran on width 0 until the first resize
 			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
+			If \ItemPerLine < 1	; a gadget too narrow for one item gave 0, and AddItem's `% \ItemPerLine`
+				\ItemPerLine = 1; then killed the process outright. One clipped column beats a crash.
+			EndIf
 			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
+			If \ItemHMargin < 0
+				\ItemHMargin = 0
+			EndIf
 			
 			\VT\AddGadgetColumn = @Library_AddColumn()
 			\VT\AddGadgetItem3 = @Library_AddItem()
@@ -8152,7 +8159,7 @@ Module UITK
 	EndProcedure
 	
 	; Column 0 is the label, column 1 the value. Combo's "value" text is its whole newline-delimited option list.
-	Procedure.s PropertyBox_GetItemText(*this.PB_Gadget, Position, Column)
+	Procedure.s PropertyBox_GetItemText(*this.PB_Gadget, Position.l, Column.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, Result.s
 		
 		With *GadgetData
@@ -8173,7 +8180,7 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
-	Procedure PropertyBox_SetItemText(*this.PB_Gadget, Position, *Text, Column)
+	Procedure PropertyBox_SetItemText(*this.PB_Gadget, Position.l, *Text, Column.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
 		
 		With *GadgetData
@@ -8204,7 +8211,7 @@ Module UITK
 	EndProcedure
 	
 	; Font rows keep their size and style here; every other row type ignores these.
-	Procedure PropertyBox_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
+	Procedure PropertyBox_GetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt
 		
 		With *GadgetData
@@ -8221,7 +8228,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure PropertyBox_SetItemAttribute(*this.PB_Gadget, Position, Attribute, Value)
+	Procedure PropertyBox_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
 		
 		With *GadgetData
@@ -8244,7 +8251,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure PropertyBox_GetItemState(*this.PB_Gadget, Position)
+	Procedure PropertyBox_GetItemState(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, Result
 		
 		With *GadgetData
@@ -8257,7 +8264,7 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
-	Procedure PropertyBox_SetItemState(*this.PB_Gadget, Position, State)
+	Procedure PropertyBox_SetItemState(*this.PB_Gadget, Position.l, State.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
 		
 		With *GadgetData
@@ -8273,7 +8280,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure PropertyBox_Resize(*This.PB_Gadget, x, y, Width, Height)
+	Procedure PropertyBox_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -8792,7 +8799,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure PropertyBox_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+	Procedure PropertyBox_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *NewItem.PropertyBox_Item
 		With *GadgetData
 			
@@ -8849,7 +8856,7 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure PropertyBox_RemoveItem(*This.PB_Gadget, Position)
+	Procedure PropertyBox_RemoveItem(*This.PB_Gadget, Position.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, WasScrollBarVisible
 		
 		With *GadgetData
@@ -9132,7 +9139,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Tree_Resize(*This.PB_Gadget, x, y, Width, Height)
+	Procedure Tree_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.TreeData = *this\vt
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -9373,7 +9380,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Tree_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+	Procedure Tree_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		Protected *GadgetData.TreeData = *this\vt, *NewItem.Tree_Item
 		With *GadgetData
 			
@@ -9420,7 +9427,7 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure Tree_RemoveItem(*This.PB_Gadget, Position)
+	Procedure Tree_RemoveItem(*This.PB_Gadget, Position.l)
 		Protected *GadgetData.TreeData = *this\vt
 		
 		With *GadgetData
@@ -9516,7 +9523,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Tree_GetItemData(*this.PB_Gadget, Position)
+	Procedure Tree_GetItemData(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.TreeData = *this\vt, *Result
 		
 		If Position > -1 And SelectElement(*GadgetData\Items(), Position)
@@ -9526,7 +9533,7 @@ Module UITK
 		ProcedureReturn *Result
 	EndProcedure
 	
-	Procedure Tree_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
+	Procedure Tree_GetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l)
 		Protected *GadgetData.TreeData = *this\vt, *Result
 		
 		If Position > -1 And SelectElement(*GadgetData\Items(), Position)
@@ -9538,7 +9545,7 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure.s Tree_GetItemText(*this.PB_Gadget, Position)
+	Procedure.s Tree_GetItemText(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.TreeData = *this\vt, *Result
 		
 		If Position > -1 And SelectElement(*GadgetData\Items(), Position)
@@ -9547,7 +9554,7 @@ Module UITK
 	EndProcedure
 	
 	; Setters
-	Procedure Tree_SetItemData(*this.PB_Gadget, Position, *Data)
+	Procedure Tree_SetItemData(*this.PB_Gadget, Position.l, *Data)
 		Protected *GadgetData.TreeData = *this\vt
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
@@ -9558,7 +9565,7 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	Procedure Tree_SetItemText(*this.PB_Gadget, Position, *Text)
+	Procedure Tree_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.TreeData = *this\vt
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
@@ -10323,7 +10330,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Tab_Resize(*This.PB_Gadget, x, y, Width, Height)
+	Procedure Tab_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.TabData = *this\vt, PreviousHeight
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -10383,7 +10390,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure Tab_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+	Procedure Tab_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		Protected *GadgetData.TabData = *this\vt, *NewItem.Tab_Item, HBitmap.UITK_BitmapInfo
 		With *GadgetData
 			
@@ -10424,7 +10431,7 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure Tab_RemoveItem(*This.PB_Gadget, Position)
+	Procedure Tab_RemoveItem(*This.PB_Gadget, Position.l)
 		Protected *GadgetData.TabData = *this\vt
 		
 		With *GadgetData
@@ -10454,7 +10461,7 @@ Module UITK
 	EndProcedure
 	
 	; Getters
-	Procedure.s Tab_GetItemText(*this.PB_Gadget, Position)
+	Procedure.s Tab_GetItemText(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.TabData = *this\vt
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
@@ -10477,7 +10484,7 @@ Module UITK
 	
 	
 	; Setters
-	Procedure Tab_SetAttribute(*this.PB_Gadget, Attribute, Value)
+	Procedure Tab_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.TabData = *this\vt
 		
 		With *GadgetData
@@ -10500,7 +10507,7 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure Tab_SetItemAttribute(*this.PB_Gadget, Position, Attribute, Value)
+	Procedure Tab_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
 		Protected *GadgetData.TabData = *this\vt
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
@@ -10820,7 +10827,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure ColorPicker_SetColor(*This.PB_Gadget, ColorType, Color)
+	Procedure ColorPicker_SetColor(*This.PB_Gadget, ColorType.l, Color)
 		Protected *GadgetData.ColorPickerData = *this\vt
 		
 		If ColorType = #Color_Parent
@@ -11364,7 +11371,7 @@ Module UITK
 		ProcedureReturn *NewItem
 	EndProcedure
 	
-	Procedure ToolBar_AddItem(*This.PB_Gadget, Position, *Text, ImageID, Flags.l)
+	Procedure ToolBar_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		Protected *GadgetData.ToolBarData = *this\vt, *NewItem.ToolBar_Item
 		
 		If Flags = 0
@@ -11501,7 +11508,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure ToolBar_RemoveItem(*This.PB_Gadget, Position)
+	Procedure ToolBar_RemoveItem(*This.PB_Gadget, Position.l)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position)
@@ -11537,7 +11544,7 @@ Module UITK
 		ProcedureReturn ListSize(*GadgetData\Items())
 	EndProcedure
 	
-	Procedure ToolBar_GetItemState(*This.PB_Gadget, Position)
+	Procedure ToolBar_GetItemState(*This.PB_Gadget, Position.l)
 		Protected *GadgetData.ToolBarData = *this\vt, Result
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
@@ -11557,7 +11564,7 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	
-	Procedure ToolBar_SetItemState(*This.PB_Gadget, Position, State)
+	Procedure ToolBar_SetItemState(*This.PB_Gadget, Position.l, State.l)
 		Protected *GadgetData.ToolBarData = *this\vt
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position) And \Items()\Button
@@ -11598,7 +11605,7 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure ToolBar_Resize(*This.PB_Gadget, x, y, Width, Height)
+	Procedure ToolBar_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.ToolBarData = *this\vt, BtnSize
 		
 		*this\VT = *GadgetData\OriginalVT
@@ -13003,9 +13010,8 @@ Module UITK
 		EndProcedure
 		
 		;- Items
-		Procedure LayerList_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Level.l)
-			; Level 0 adds a group, anything above adds a child of the group above it. A child
-			; added when there's no group yet becomes a group, so the two-level shape always holds.
+		Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l)
+			; Level 0 adds a group, anything above adds a child of the group above it. A child added when there's no group yet becomes a group, so the two-level shape always holds.
 			Protected *GadgetData.LayerListData = *this\vt, *NewItem.LayerList_Item, Child
 			
 			With *GadgetData
@@ -13049,7 +13055,7 @@ Module UITK
 			ProcedureReturn Position
 		EndProcedure
 		
-		Procedure LayerList_RemoveItem(*this.PB_Gadget, Position)
+		Procedure LayerList_RemoveItem(*this.PB_Gadget, Position.l)
 			; Removing a group takes its children with it.
 			Protected *GadgetData.LayerListData = *this\vt, Count, Loop
 			
@@ -13107,14 +13113,14 @@ Module UITK
 			ProcedureReturn ListSize(*GadgetData\Items())
 		EndProcedure
 		
-		Procedure LayerList_GetItemState(*this.PB_Gadget, Position)
+		Procedure LayerList_GetItemState(*this.PB_Gadget, Position.l)
 			; Nonzero when the row is selected - same answer a ListViewGadget gives.
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			ProcedureReturn LayerList_IsSelected(*GadgetData, Position)
 		EndProcedure
 		
-		Procedure LayerList_SetItemState(*this.PB_Gadget, Position, State)
+		Procedure LayerList_SetItemState(*this.PB_Gadget, Position.l, State.l)
 			; Select or deselect one row. Without #MultiSelect, selecting a row moves the selection
 			; onto it, since there can only ever be one.
 			Protected *GadgetData.LayerListData = *this\vt
@@ -13155,7 +13161,7 @@ Module UITK
 			RedrawObject()
 		EndProcedure
 		
-		Procedure LayerList_GetItemAttribute(*this.PB_Gadget, Position, Attribute)
+		Procedure LayerList_GetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l)
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			With *GadgetData
@@ -13190,7 +13196,7 @@ Module UITK
 			ProcedureReturn -1
 		EndProcedure
 		
-		Procedure LayerList_SetItemAttribute(*this.PB_Gadget, Position, Attribute, Value)
+		Procedure LayerList_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			With *GadgetData
@@ -13213,7 +13219,7 @@ Module UITK
 			EndWith
 		EndProcedure
 		
-		Procedure LayerList_GetItemData(*this.PB_Gadget, Position)
+		Procedure LayerList_GetItemData(*this.PB_Gadget, Position.l)
 			Protected *GadgetData.LayerListData = *this\vt, *Result
 			
 			If Position > -1 And SelectElement(*GadgetData\Items(), Position)
@@ -13223,7 +13229,7 @@ Module UITK
 			ProcedureReturn *Result
 		EndProcedure
 		
-		Procedure LayerList_SetItemData(*this.PB_Gadget, Position, *Data)
+		Procedure LayerList_SetItemData(*this.PB_Gadget, Position.l, *Data)
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			If Position > -1 And SelectElement(*GadgetData\Items(), Position)
@@ -13231,7 +13237,7 @@ Module UITK
 			EndIf
 		EndProcedure
 		
-		Procedure.s LayerList_GetItemText(*this.PB_Gadget, Position)
+		Procedure.s LayerList_GetItemText(*this.PB_Gadget, Position.l)
 			Protected *GadgetData.LayerListData = *this\vt, Result.s
 			
 			If Position > -1 And SelectElement(*GadgetData\Items(), Position)
@@ -13241,7 +13247,7 @@ Module UITK
 			ProcedureReturn Result
 		EndProcedure
 		
-		Procedure LayerList_SetItemText(*this.PB_Gadget, Position, *Text)
+		Procedure LayerList_SetItemText(*this.PB_Gadget, Position.l, *Text)
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			With *GadgetData
@@ -13262,7 +13268,7 @@ Module UITK
 			EndIf
 		EndProcedure
 		
-		Procedure LayerList_SetItemImage(*this.PB_Gadget, Position, ImageID)
+		Procedure LayerList_SetItemImage(*this.PB_Gadget, Position.l, ImageID)
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			With *GadgetData
@@ -13274,7 +13280,7 @@ Module UITK
 			EndWith
 		EndProcedure
 		
-		Procedure LayerList_SetAttribute(*this.PB_Gadget, Attribute, Value)
+		Procedure LayerList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			With *GadgetData
@@ -13319,7 +13325,7 @@ Module UITK
 			EndWith
 		EndProcedure
 		
-		Procedure LayerList_Resize(*this.PB_Gadget, x, y, Width, Height)
+		Procedure LayerList_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 			Protected *GadgetData.LayerListData = *this\vt
 			
 			; The editor is placed against the current geometry, so settle it before moving things.
@@ -14396,7 +14402,7 @@ Module UITK
 			EndSelect
 		EndProcedure
 		
-		Procedure TimeLine_AddItem(*This.PB_Gadget, Position.w, *Text, ImageID, Flags.i)
+		Procedure TimeLine_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)	; …same as every other AddGadgetItem3 handler here
 			Protected *GadgetData.TimeLineData = *this\vt, *NewItem.TimeLine_Line, Result
 			With *GadgetData
 				If Position > -1 And Position < ListSize(\Lines())
@@ -14457,7 +14463,7 @@ Module UITK
 			ProcedureReturn Result
 		EndProcedure
 		
-		Procedure TimeLine_RemoveItem(*This.PB_Gadget, Position.w)
+		Procedure TimeLine_RemoveItem(*This.PB_Gadget, Position.l)
 			Protected *GadgetData.TimeLineData = *this\vt, Y
 			
 			With *GadgetData
@@ -14679,7 +14685,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 460
+; CursorPosition = 11902
+; FirstLine = 16
 ; Folding = AIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
