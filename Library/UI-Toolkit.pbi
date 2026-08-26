@@ -95,6 +95,7 @@
 			#Attribute_LayerList_IsChild			; LayerList item: #True when the row is a child (read only)
 			#Attribute_LayerList_Parent				; LayerList item: list index of the owning group, -1 for a group (read only)
 			#Attribute_LayerList_ChildCount			; LayerList item: children held by the group (read only)
+			#Attribute_LayerList_Locked				; LayerList item: this row's own padlock (read/write)
 		CompilerEndIf
 	EndEnumeration
 	
@@ -244,6 +245,7 @@
 		CompilerIf Defined(EnableLayerList, #PB_Module)
 			#EventType_LayerVisibility			; LayerList: a row's eye was clicked - GetGadgetState is that row
 			#EventType_LayerFold				; LayerList: a group was folded or unfolded - GetGadgetState is that group
+			#EventType_LayerLock				; LayerList: a row's padlock was clicked - GetGadgetState is that row
 		CompilerEndIf
 		
 		#EventType_FirstAvailableCustomValue
@@ -373,6 +375,8 @@
 	Declare ShowFlatMenu(FlatMenu, X = -1, Y = -1)
 	Declare SetFlatMenuColor(Menu, ColorType, Color)
 	Declare DisableFlatMenuItem(Menu, Position, State)
+	Declare.i FlatMenuOpenSub(FlatMenu)
+	Declare.i FlatMenuHoverItem(FlatMenu)
 	
 	; Gadgets
 	Declare GetGadgetImage(Gadget)
@@ -9958,6 +9962,9 @@ Module UITK
 								FlatMenu_HideBranch(\OpenSubMenu)
 								\OpenSubMenu = 0
 							EndIf
+						ElseIf \OpenSubMenu
+							FlatMenu_HideBranch(\OpenSubMenu)
+							\OpenSubMenu = 0
 						EndIf
 						
 						FlatMenu_Redraw(*MenuData)
@@ -10075,6 +10082,9 @@ Module UITK
 		EndIf
 		
 		*MenuData\ParentMenu = 0
+		*MenuData\State = -1
+		
+		FlatMenu_Redraw(*MenuData)
 		ResizeWindow(*MenuData\Window, X, Y, #PB_Ignore, #PB_Ignore)
 		HideWindow(*MenuData\Window, #False)
 		SetActiveGadget(*MenuData\Canvas)
@@ -10211,6 +10221,24 @@ Module UITK
 	EndProcedure
 	
 	; Getters
+	Procedure.i FlatMenuOpenSub(FlatMenu)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
+		
+		If *MenuData
+			ProcedureReturn *MenuData\OpenSubMenu
+		EndIf
+		ProcedureReturn 0
+	EndProcedure
+	
+	Procedure.i FlatMenuHoverItem(FlatMenu)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
+		
+		If *MenuData
+			ProcedureReturn *MenuData\State
+		EndIf
+		ProcedureReturn -1
+	EndProcedure
+	
 	Procedure FlatMenuWidth(FlatMenu)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
 		
@@ -11698,22 +11726,12 @@ Module UITK
 	
 	
 	;{ LayerList
-	; A layer panel: foldable parent groups, each holding children, every row carrying its own
-	; visibility toggle. Children drag from one group to another, a group reorders as a whole
-	; block. Structurally this is a VerticalList over a two-level item list.
-	;
-	; Like the TimeLine it's a specialised gadget, so it's opt-in — declare an EnableLayerList
-	; module before including the library to compile it in:
-	;
-	;	DeclareModule EnableLayerList :: EndDeclareModule
-	;	Module EnableLayerList :: EndModule
-	;	IncludeFile "UI-Toolkit.pbi"
-	
 	CompilerIf Defined(EnableLayerList, #PB_Module)
 		#LayerList_ItemHeight = 24				; row height
 		#LayerList_Margin = 3
 		#LayerList_FoldWidth = 16				; fold-chevron column; doubles as the child indent step
 		#LayerList_EyeWidth = 22				; visibility-button column, right aligned
+		#LayerList_LockWidth = 20				; padlock column, immediately left of the eye
 		#LayerList_ToolbarThickness = 7			; scrollbar thickness — always reserved, so the eye never shifts
 		#LayerList_ReorderDelay = 400			; ms between auto-scroll steps while dragging against an edge
 		#LayerList_MarkerHeight = 3				; thickness of the drop-position marker
@@ -11722,6 +11740,7 @@ Module UITK
 			#LayerList_Zone_Body
 			#LayerList_Zone_Fold
 			#LayerList_Zone_Eye
+			#LayerList_Zone_Lock
 		EndEnumeration
 		
 		Structure LayerList_Item
@@ -11729,6 +11748,7 @@ Module UITK
 			Child.b								; #False = parent group, #True = child of the group above it
 			Folded.b							; parents only: children are in the list but take no row
 			Visible.b							; this row's own eye state
+			Locked.b							; …and its own padlock
 			Selected.b							; part of the current selection (#MultiSelect)
 			*Data
 		EndStructure
@@ -11768,11 +11788,6 @@ Module UITK
 		Declare LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 		
 		;- Structure walking
-		; The item list is flat — a parent is followed by its children — but a child inside a
-		; folded group takes no row on screen, so list indices and screen rows diverge. These
-		; helpers convert between the two. They all walk the list, so they leave the current
-		; element wherever they finished: re-select what you need after calling one.
-		
 		Procedure LayerList_ParentOf(*GadgetData.LayerListData, Index)
 			; List index of the group owning Index. -1 for a parent, or for a child with no group above it.
 			Protected Result = -1
@@ -11898,10 +11913,6 @@ Module UITK
 		EndProcedure
 		
 		;- Selection
-		; \State is the focus row and what GetGadgetState reports, exactly like a single-select
-		; list. With #MultiSelect the per-item Selected flag rides alongside it, and Get/SetGadgetItemState
-		; speak that flag - the same contract as PureBasic's #PB_ListView_Multiselect ListViewGadget.
-		
 		Procedure LayerList_ClearSelection(*GadgetData.LayerListData)
 			With *GadgetData
 				ForEach \Items()
@@ -12023,6 +12034,29 @@ Module UITK
 			EndWith
 		EndProcedure
 		
+		Procedure LayerList_ToggleLock(*GadgetData.LayerListData, Index)
+			Protected NewState, Batch
+			
+			With *GadgetData
+				If Not SelectElement(\Items(), Index)
+					ProcedureReturn
+				EndIf
+				
+				NewState = Bool(Not \Items()\Locked)
+				Batch = Bool(\MultiSelect And \Items()\Selected And LayerList_SelectedCount(*GadgetData) > 1)
+				
+				If Batch
+					ForEach \Items()
+						If \Items()\Selected
+							\Items()\Locked = NewState
+						EndIf
+					Next
+				ElseIf SelectElement(\Items(), Index)
+					\Items()\Locked = NewState
+				EndIf
+			EndWith
+		EndProcedure
+		
 		Procedure LayerList_ClickSelect(*GadgetData.LayerListData, Index, Modifiers)
 			; Work out what a press on a row's body does to the selection. Returns #True when
 			; anything changed.
@@ -12067,10 +12101,9 @@ Module UITK
 		EndProcedure
 		
 		;- Geometry
-		
 		Procedure LayerList_TextWidth(*GadgetData.LayerListData, Child)
 			; Width left for a row's content once the chevron, indent, eye and scrollbar are taken out.
-			ProcedureReturn *GadgetData\Width - *GadgetData\Border * 2 - #LayerList_FoldWidth - Bool(Child) * #LayerList_FoldWidth - #LayerList_EyeWidth - #LayerList_ToolbarThickness - #LayerList_Margin * 2
+			ProcedureReturn *GadgetData\Width - *GadgetData\Border * 2 - #LayerList_FoldWidth - Bool(Child) * #LayerList_FoldWidth - #LayerList_EyeWidth - #LayerList_LockWidth - #LayerList_ToolbarThickness - #LayerList_Margin * 2
 		EndProcedure
 		
 		Procedure LayerList_TextX(*GadgetData.LayerListData, Child)
@@ -12081,13 +12114,20 @@ Module UITK
 			ProcedureReturn *GadgetData\Width - *GadgetData\Border - #LayerList_ToolbarThickness - #LayerList_EyeWidth
 		EndProcedure
 		
+		Procedure LayerList_LockX(*GadgetData.LayerListData)
+			ProcedureReturn LayerList_EyeX(*GadgetData) - #LayerList_LockWidth
+		EndProcedure
+		
 		Procedure LayerList_ZoneAt(*GadgetData.LayerListData, Index, MouseX)
 			; Which part of the row at Index the pointer is over.
 			Protected Result = #LayerList_Zone_Body, EyeX = LayerList_EyeX(*GadgetData)
+			Protected LockX = LayerList_LockX(*GadgetData)
 			
 			With *GadgetData
 				If MouseX >= EyeX And MouseX < EyeX + #LayerList_EyeWidth
 					Result = #LayerList_Zone_Eye
+				ElseIf MouseX >= LockX And MouseX < LockX + #LayerList_LockWidth
+					Result = #LayerList_Zone_Lock
 				ElseIf MouseX < \Border + #LayerList_FoldWidth
 					If SelectElement(\Items(), Index) And Not \Items()\Child
 						Result = #LayerList_Zone_Fold
@@ -12136,7 +12176,6 @@ Module UITK
 		EndProcedure
 		
 		;- Drawing
-		
 		Procedure LayerList_DrawFold(X, Y, Size, Folded)
 			; A small triangle: pointing right when the group is folded, down when it's open.
 			Protected CX.d = X + Size * 0.5, CY.d = Y + Size * 0.5
@@ -12168,6 +12207,24 @@ Module UITK
 				MovePathCursor(CX - 7, CY + 5.5)
 				AddPathLine(CX + 7, CY - 5.5)
 				StrokePath(1.4)
+			EndIf
+		EndProcedure
+		
+		Procedure LayerList_DrawLock(X, Y, Width, Height, Locked)
+			Protected CX.d = X + Width * 0.5, CY.d = Y + Height * 0.5
+			Protected BodyW.d = 9, BodyH.d = 7
+			
+			If Locked
+				AddPathEllipse(CX, CY - BodyH * 0.5, 3.1, 3.1, 180, 360)
+			Else
+				AddPathEllipse(CX + 2.2, CY - BodyH * 0.5, 3.1, 3.1, 180, 330)
+			EndIf
+			StrokePath(1.3)
+			AddPathBox(CX - BodyW * 0.5, CY - BodyH * 0.5, BodyW, BodyH)
+			If Locked
+				FillPath()
+			Else
+				StrokePath(1.3)
 			EndIf
 		EndProcedure
 		
@@ -12264,6 +12321,14 @@ Module UITK
 					VectorSourceColor(\ThemeData\TextColor[TextState])
 					LayerList_DrawEye(EyeX, Y, #LayerList_EyeWidth, \ItemHeight, \Items()\Visible)
 					
+					SelectElement(\Items(), Index)
+					If \Items()\Locked	; a shut padlock speaks up; an open one keeps quiet
+						VectorSourceColor(\ThemeData\TextColor[TextState])
+					Else
+						VectorSourceColor(\ThemeData\TextColor[#Disabled])
+					EndIf
+					LayerList_DrawLock(\OriginX + LayerList_LockX(*GadgetData), Y, #LayerList_LockWidth, \ItemHeight, \Items()\Locked)
+					
 					Y + \ItemHeight
 					Row + 1
 				Wend
@@ -12293,7 +12358,6 @@ Module UITK
 		EndProcedure
 		
 		;- Scrolling and reordering
-		
 		Procedure LayerList_StateFocus(*GadgetData.LayerListData)
 			; Scroll the selected row into view.
 			Protected Result, Row
@@ -12547,7 +12611,6 @@ Module UITK
 		EndProcedure
 		
 		;- Inline renaming (#Editable)
-		
 		Procedure LayerList_BeginEdit(*GadgetData.LayerListData)
 			; Drop the editor over the selected row. Refused when there's nothing to edit, or when
 			; the row can't be seen - editing a row tucked inside a folded group would put the box
@@ -12621,7 +12684,6 @@ Module UITK
 		EndProcedure
 		
 		;- Events
-		
 		Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 			Protected Redraw, Row, Index, Zone, Rows, Modifiers, Cursor = *GadgetData\EditCursor
 			
@@ -12749,6 +12811,12 @@ Module UITK
 									\State = Index
 									LayerList_ToggleVisibility(*GadgetData, Index)
 									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerVisibility)
+									Redraw = #True
+									;}
+								Case #LayerList_Zone_Lock ;{
+									\State = Index
+									LayerList_ToggleLock(*GadgetData, Index)
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerLock)
 									Redraw = #True
 									;}
 								Default ;{ the row body: pick the selection, then arm a drag
@@ -12935,7 +13003,6 @@ Module UITK
 		EndProcedure
 		
 		;- Items
-		
 		Procedure LayerList_AddItem(*this.PB_Gadget, Position, *Text, ImageID, Level.l)
 			; Level 0 adds a group, anything above adds a child of the group above it. A child
 			; added when there's no group yet becomes a group, so the two-level shape always holds.
@@ -13112,6 +13179,10 @@ Module UITK
 							ProcedureReturn LayerList_ParentOf(*GadgetData, Position)
 						Case #Attribute_LayerList_ChildCount
 							ProcedureReturn LayerList_ChildCount(*GadgetData, Position)
+						Case #Attribute_LayerList_Locked
+							If SelectElement(\Items(), Position)
+								ProcedureReturn \Items()\Locked
+							EndIf
 					EndSelect
 				EndIf
 			EndWith
@@ -13127,6 +13198,9 @@ Module UITK
 					Select Attribute
 						Case #Attribute_LayerList_Visible
 							\Items()\Visible = Bool(Value)
+							RedrawObject()
+						Case #Attribute_LayerList_Locked
+							\Items()\Locked = Bool(Value)
 							RedrawObject()
 						Case #Attribute_LayerList_Folded
 							If Not \Items()\Child
@@ -14605,7 +14679,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 6770
-; Folding = AIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 460
+; Folding = AIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
