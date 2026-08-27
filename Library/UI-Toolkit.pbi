@@ -92,7 +92,9 @@
 			#Attribute_LayerList_Visible			; LayerList item: this row's own eye state (read/write)
 			#Attribute_LayerList_EffectiveVisible	; LayerList item: own eye AND the group's, ie. does it show through (read only)
 			#Attribute_LayerList_Folded				; LayerList item: group folded, children hidden (read/write, groups only)
-			#Attribute_LayerList_IsChild			; LayerList item: #True when the row is a child (read only)
+			#Attribute_LayerList_IsChild			; LayerList item: #True when the row sits inside another (read only)
+			#Attribute_LayerList_Depth				; LayerList item: how deep it sits, 0 at the top (read only)
+			#Attribute_LayerList_ScreenRow			; LayerList item: which drawn row it is, -1 when folded away (read only)
 			#Attribute_LayerList_Parent				; LayerList item: list index of the owning group, -1 for a group (read only)
 			#Attribute_LayerList_ChildCount			; LayerList item: children held by the group (read only)
 			#Attribute_LayerList_Locked				; LayerList item: this row's own padlock (read/write)
@@ -248,6 +250,7 @@
 			#EventType_LayerLock				; LayerList: a row's padlock was clicked - GetGadgetState is that row
 		CompilerEndIf
 		
+		#EventType_PropertyBoxEditNext	; PropertyBox plumbing: PropertyBoxEditNext posts this to itself
 		#EventType_FirstAvailableCustomValue
 	EndEnumeration	
 	
@@ -406,6 +409,7 @@
 	Declare ToolBarAddMode(Gadget, Item, Text.s, ImageID = 0)	; Add a mode to a #ToolBar_ModeButton item. Returns the mode index, -1 on failure.
 	Declare ToolBarGetMode(Gadget, Item)						; Active mode index of a mode button item (-1 if it has no mode yet)
 	Declare ToolBarSetMode(Gadget, Item, Mode)					; Set the active mode of a mode button item (does not post a change event)
+	Declare.i PropertyBoxEditNext(Gadget, Backwards = #False)	; Commit the open editor and move it to the next text row. #False if it could not
 	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
@@ -713,8 +717,7 @@ Module UITK
 	EndMacro
 	
 	Macro RedrawObject()
-		; The size test is not an optimisation. A gadget 0 px wide or tall makes its rounded box degenerate, and ClipPath() on a degenerate arc path hangs
-		If Not *GadgetData\Freeze And *GadgetData\Width > 0 And *GadgetData\Height > 0
+		If Not *GadgetData\Freeze And *GadgetData\Width > 0 And *GadgetData\Height > 0	; ClipPath() hangs on a 0-size gadget's degenerate rounded box
 			If *GadgetData\MetaGadget
 				
 			Else
@@ -7489,7 +7492,7 @@ Module UITK
 		ProcedureReturn Position
 	EndProcedure
 	
-	Procedure Library_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)	; Flags is .l because PB's vtable passes it as a 32-bit int
+	Procedure Library_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)	; .l: PB's vtable passes these as 32-bit ints
 		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.UITK_BitmapInfo
 		
 		With *GadgetData
@@ -7788,8 +7791,8 @@ Module UITK
 			\Height = GadgetHeight(\Gadget)
 			
 			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
-			If \ItemPerLine < 1	; a gadget too narrow for one item gave 0, and AddItem's `% \ItemPerLine`
-				\ItemPerLine = 1; then killed the process outright. One clipped column beats a crash.
+			If \ItemPerLine < 1	; 0 would divide-by-zero in AddItem
+				\ItemPerLine = 1
 			EndIf
 			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
 			If \ItemHMargin < 0
@@ -7867,7 +7870,7 @@ Module UITK
 					\ItemWidth = Value
 					; The width-dependent layout must follow, or the gadget keeps the old items-per-line until the first resize recomputes it
 					\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
-					If \ItemPerLine < 1	; …and a wide ItemWidth set on a narrow gadget reaches 0 the same way
+					If \ItemPerLine < 1	; 0 would divide-by-zero in AddItem
 						\ItemPerLine = 1
 					EndIf
 					\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
@@ -7955,8 +7958,8 @@ Module UITK
 			\Width = Width		; Only Resize used to set these, so the per-line math
 			\Height = Height	; below ran on width 0 until the first resize
 			\ItemPerLine = Floor((\Width - \ItemMinimumHMargin) / (\ItemWidth + \ItemMinimumHMargin))
-			If \ItemPerLine < 1	; a gadget too narrow for one item gave 0, and AddItem's `% \ItemPerLine`
-				\ItemPerLine = 1; then killed the process outright. One clipped column beats a crash.
+			If \ItemPerLine < 1	; 0 would divide-by-zero in AddItem
+				\ItemPerLine = 1
 			EndIf
 			\ItemHMargin = Floor((\Width - \ItemPerLine * \ItemWidth) / (\ItemPerLine + 1))
 			If \ItemHMargin < 0
@@ -8444,6 +8447,78 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure PropertyBox_ScrollToRow(*GadgetData.PropertyBoxData, Row)
+		Protected Top
+		
+		With *GadgetData
+			If Not \VisibleScrollBar
+				ProcedureReturn
+			EndIf
+			
+			Top = Row * \ItemHeight
+			If Top < \ScrollBar\State
+				ScrollBar_SetState_Meta(\ScrollBar, Top)
+			ElseIf Top + \ItemHeight > \ScrollBar\State + \Height
+				ScrollBar_SetState_Meta(\ScrollBar, Top + \ItemHeight - \Height)
+			EndIf
+		EndWith
+	EndProcedure
+	
+	; One pass later than PropertyBoxEditNext, so the queued commit is answered first
+	Procedure PropertyBox_EditNextHandler()
+		Protected *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.PropertyBoxData, Row = EventData() - 1
+		
+		If *this = 0 Or Row < 0
+			ProcedureReturn
+		EndIf
+		*GadgetData = *this\vt
+		
+		PropertyBox_ScrollToRow(*GadgetData, Row)
+		PropertyBox_StartEdit(*GadgetData, Row)
+		RedrawObject()
+	EndProcedure
+	
+	; Commit and open the next text row, wrapping. The move waits a pass - see the handler above
+	Procedure.i PropertyBoxEditNext(Gadget, Backwards = #False)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.PropertyBoxData
+		Protected Row, Total, Direction = 1, Loop
+		
+		If *this = 0
+			ProcedureReturn #False
+		EndIf
+		*GadgetData = *this\vt
+		
+		With *GadgetData
+			If Not \Editing
+				ProcedureReturn #False
+			EndIf
+			
+			Total = ListSize(\Items())
+			If Backwards
+				Direction = -1
+			EndIf
+			
+			Row = \EditItem
+			For Loop = 1 To Total - 1
+				Row + Direction
+				If Row >= Total
+					Row = 0
+				ElseIf Row < 0
+					Row = Total - 1
+				EndIf
+				
+				If SelectElement(\Items(), Row) And (\Items()\Type = #PropertyBox_Text Or \Items()\Type = #PropertyBox_TextNumerical)
+					PropertyBox_CommitEdit(*GadgetData)
+					RedrawObject()
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_PropertyBoxEditNext, Row + 1)	; +1: EventData 0 means "none"
+					ProcedureReturn #True
+				EndIf
+			Next
+		EndWith
+		
+		ProcedureReturn #False
+	EndProcedure
+	
 	Procedure PropertyBox_ComboPopup_Select()
 		Protected Gadget = EventGadget(), *GadgetData.PropertyBoxData = GetProp_(GadgetID(Gadget), "UITK_PropertyData")
 		
@@ -8861,8 +8936,9 @@ Module UITK
 		
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position)
-				; Removing a row can pull the ground out from under an open editor / popup.
-				PropertyBox_CancelEdit(*GadgetData)
+				If \Editing And Position <= \EditItem	; a row AFTER the editor cannot disturb it
+					PropertyBox_CancelEdit(*GadgetData)
+				EndIf
 				HideWindow(\ComboPopupWindow, #True)
 				HideWindow(\ColorPopupWindow, #True)
 				
@@ -8974,6 +9050,7 @@ Module UITK
 		If Result
 			CreateGadgetObject(PropertyBoxData)
 			PropertyBox_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Flags)
+			BindGadgetEvent(Gadget, @PropertyBox_EditNextHandler(), #EventType_PropertyBoxEditNext)
 			
 			RedrawObject()
 		EndIf
@@ -11752,8 +11829,8 @@ Module UITK
 		
 		Structure LayerList_Item
 			Text.Text							; must stay first: a VerticalList-style *CustomItem callback expects it there
-			Child.b								; #False = parent group, #True = child of the group above it
-			Folded.b							; parents only: children are in the list but take no row
+			Depth.b								; 0 = top level, 1 = child of the nearest shallower row above it, and so on
+			Folded.b							; anything holding a subtree: it stays in the list and takes no row
 			Visible.b							; this row's own eye state
 			Locked.b							; …and its own padlock
 			Selected.b							; part of the current selection (#MultiSelect)
@@ -11774,7 +11851,7 @@ Module UITK
 			DragOriginX.i
 			DragOriginY.i
 			DragIndex.i							; list index of the row being dragged
-			DragChild.b							; dragging a lone child, rather than a group and its children
+			DragDepth.b							; the depth of the row in flight: 0 is a top-level row and its whole subtree
 			ReorderRow.i						; row the dragged item would land before, or -1
 			ReorderTimer.i
 			ReorderDirection.b
@@ -11795,127 +11872,148 @@ Module UITK
 		Declare LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 		
 		;- Structure walking
-		Procedure LayerList_ParentOf(*GadgetData.LayerListData, Index)
-			; List index of the group owning Index. -1 for a parent, or for a child with no group above it.
-			Protected Result = -1
-			
+		Procedure LayerList_DepthAt(*GadgetData.LayerListData, Index)
+			; How deep the row at Index sits, or -1 when there is no such row.
 			With *GadgetData
-				If SelectElement(\Items(), Index) And \Items()\Child
+				If SelectElement(\Items(), Index)
+					ProcedureReturn \Items()\Depth
+				EndIf
+			EndWith
+
+			ProcedureReturn -1
+		EndProcedure
+
+		Procedure LayerList_ParentOf(*GadgetData.LayerListData, Index)
+			; List index of the nearest row above Index that sits shallower, -1 if there is none
+			Protected Result = -1, Depth
+
+			With *GadgetData
+				If SelectElement(\Items(), Index) And \Items()\Depth > 0
+					Depth = \Items()\Depth
 					While PreviousElement(\Items())
-						If Not \Items()\Child
+						If \Items()\Depth < Depth
 							Result = ListIndex(\Items())
 							Break
 						EndIf
 					Wend
 				EndIf
 			EndWith
-			
+
 			ProcedureReturn Result
 		EndProcedure
-		
+
 		Procedure LayerList_ChildCount(*GadgetData.LayerListData, Parent)
-			; How many children directly follow the group at Parent.
-			Protected Count
-			
+			; The whole subtree under Parent, not just the rows one step down
+			Protected Count, Depth
+
 			With *GadgetData
-				If SelectElement(\Items(), Parent) And Not \Items()\Child
-					While NextElement(\Items()) And \Items()\Child
+				If SelectElement(\Items(), Parent)
+					Depth = \Items()\Depth
+					While NextElement(\Items()) And \Items()\Depth > Depth
 						Count + 1
 					Wend
 				EndIf
 			EndWith
-			
+
 			ProcedureReturn Count
 		EndProcedure
 		
+		; HIDDEN is the depth of the shallowest folded row we are still inside, -1 out in the open
 		Procedure LayerList_RowCount(*GadgetData.LayerListData)
-			; Rows currently on screen, folded-away children excluded.
-			Protected Count, Folded
-			
+			; Rows currently on screen, folded-away subtrees excluded.
+			Protected Count, Hidden = -1
+
 			With *GadgetData
 				ForEach \Items()
-					If \Items()\Child
-						If Folded
+					If Hidden >= 0
+						If \Items()\Depth > Hidden
 							Continue
 						EndIf
-					Else
-						Folded = \Items()\Folded
+						Hidden = -1
 					EndIf
 					Count + 1
+					If \Items()\Folded
+						Hidden = \Items()\Depth
+					EndIf
 				Next
 			EndWith
-			
+
 			ProcedureReturn Count
 		EndProcedure
 		
 		Procedure LayerList_RowToIndex(*GadgetData.LayerListData, Row)
 			; Screen row -> list index, or -1 when Row is past the end.
-			Protected Count = -1, Folded
-			
+			Protected Count = -1, Hidden = -1
+
 			With *GadgetData
 				ForEach \Items()
-					If \Items()\Child
-						If Folded
+					If Hidden >= 0
+						If \Items()\Depth > Hidden
 							Continue
 						EndIf
-					Else
-						Folded = \Items()\Folded
+						Hidden = -1
 					EndIf
-					
+
 					Count + 1
 					If Count = Row
 						ProcedureReturn ListIndex(\Items())
 					EndIf
+					If \Items()\Folded
+						Hidden = \Items()\Depth
+					EndIf
 				Next
 			EndWith
-			
+
 			ProcedureReturn -1
 		EndProcedure
 		
 		Procedure LayerList_IndexToRow(*GadgetData.LayerListData, Index)
-			; List index -> screen row, or -1 when the item sits inside a folded group.
-			Protected Count = -1, Folded
-			
+			; List index -> screen row, or -1 when the item sits inside a folded subtree.
+			Protected Count = -1, Hidden = -1
+
 			With *GadgetData
 				ForEach \Items()
-					If \Items()\Child
-						If Folded
+					If Hidden >= 0
+						If \Items()\Depth > Hidden
 							If ListIndex(\Items()) = Index
 								ProcedureReturn -1
 							EndIf
 							Continue
 						EndIf
-					Else
-						Folded = \Items()\Folded
+						Hidden = -1
 					EndIf
-					
+
 					Count + 1
 					If ListIndex(\Items()) = Index
 						ProcedureReturn Count
 					EndIf
+					If \Items()\Folded
+						Hidden = \Items()\Depth
+					EndIf
 				Next
 			EndWith
-			
+
 			ProcedureReturn -1
 		EndProcedure
 		
 		Procedure LayerList_EffectiveVisible(*GadgetData.LayerListData, Index)
-			; A row shows through only when its own eye is on and, for a child, its group's is too.
-			Protected Result, Parent
-			
+			; A row shows through only when its own eye and every eye it sits under are on
+			Protected Result, Parent = Index
+
 			With *GadgetData
 				If SelectElement(\Items(), Index)
 					Result = \Items()\Visible
-					
-					If Result And \Items()\Child
-						Parent = LayerList_ParentOf(*GadgetData, Index)
-						If Parent > -1 And SelectElement(\Items(), Parent)
-							Result = \Items()\Visible
+
+					While Result
+						Parent = LayerList_ParentOf(*GadgetData, Parent)
+						If Parent < 0 Or Not SelectElement(\Items(), Parent)
+							Break
 						EndIf
-					EndIf
+						Result = \Items()\Visible
+					Wend
 				EndIf
 			EndWith
-			
+
 			ProcedureReturn Result
 		EndProcedure
 		
@@ -12108,13 +12206,21 @@ Module UITK
 		EndProcedure
 		
 		;- Geometry
-		Procedure LayerList_TextWidth(*GadgetData.LayerListData, Child)
-			; Width left for a row's content once the chevron, indent, eye and scrollbar are taken out.
-			ProcedureReturn *GadgetData\Width - *GadgetData\Border * 2 - #LayerList_FoldWidth - Bool(Child) * #LayerList_FoldWidth - #LayerList_EyeWidth - #LayerList_LockWidth - #LayerList_ToolbarThickness - #LayerList_Margin * 2
+		; Indent in pixels: a chevron column for the row's own arrow, plus one per level above it
+		Procedure LayerList_IndentOf(Depth)
+			If Depth < 0
+				Depth = 0
+			EndIf
+			ProcedureReturn #LayerList_FoldWidth * (Depth + 1)
 		EndProcedure
-		
-		Procedure LayerList_TextX(*GadgetData.LayerListData, Child)
-			ProcedureReturn *GadgetData\Border + #LayerList_FoldWidth + Bool(Child) * #LayerList_FoldWidth + #LayerList_Margin
+
+		Procedure LayerList_TextWidth(*GadgetData.LayerListData, Depth)
+			; Width left for a row's content once the chevron, indent, eye and scrollbar are taken out.
+			ProcedureReturn *GadgetData\Width - *GadgetData\Border * 2 - LayerList_IndentOf(Depth) - #LayerList_EyeWidth - #LayerList_LockWidth - #LayerList_ToolbarThickness - #LayerList_Margin * 2
+		EndProcedure
+
+		Procedure LayerList_TextX(*GadgetData.LayerListData, Depth)
+			ProcedureReturn *GadgetData\Border + LayerList_IndentOf(Depth) + #LayerList_Margin
 		EndProcedure
 		
 		Procedure LayerList_EyeX(*GadgetData.LayerListData)
@@ -12135,8 +12241,11 @@ Module UITK
 					Result = #LayerList_Zone_Eye
 				ElseIf MouseX >= LockX And MouseX < LockX + #LayerList_LockWidth
 					Result = #LayerList_Zone_Lock
-				ElseIf MouseX < \Border + #LayerList_FoldWidth
-					If SelectElement(\Items(), Index) And Not \Items()\Child
+				ElseIf SelectElement(\Items(), Index) And LayerList_ChildCount(*GadgetData, Index)
+					; The chevron rides at the row's own indent, not at the left edge
+					SelectElement(\Items(), Index)
+					Protected FoldX = \Border + LayerList_IndentOf(\Items()\Depth) - #LayerList_FoldWidth
+					If MouseX >= FoldX And MouseX < FoldX + #LayerList_FoldWidth
 						Result = #LayerList_Zone_Fold
 					EndIf
 				EndIf
@@ -12177,7 +12286,7 @@ Module UITK
 		
 		Procedure LayerList_PrepareItem(*GadgetData.LayerListData, *Item.LayerList_Item)
 			; (Re)lay out one row's text block for its current indent level.
-			*Item\Text\Width = LayerList_TextWidth(*GadgetData, *Item\Child)
+			*Item\Text\Width = LayerList_TextWidth(*GadgetData, *Item\Depth)
 			*Item\Text\Height = *GadgetData\ItemHeight
 			PrepareVectorTextBlock(@*Item\Text)
 		EndProcedure
@@ -12286,7 +12395,7 @@ Module UITK
 					
 					SelectElement(\Items(), Index)
 					
-					If Index = \State Or \Items()\Selected
+					If \Items()\Selected	; NOT the focus row: a padlock click moves that on purpose
 						ShadeState = #Hot
 					ElseIf Index = \ItemState
 						ShadeState = #Warm
@@ -12310,17 +12419,15 @@ Module UITK
 						FillPath()
 					EndIf
 					
-					; Fold chevron — groups only, and only when they hold something.
-					If Not \Items()\Child
-						VectorSourceColor(\ThemeData\TextColor[TextState])
-						If LayerList_ChildCount(*GadgetData, Index)
-							SelectElement(\Items(), Index)
-							LayerList_DrawFold(\OriginX + \Border, Y, #LayerList_FoldWidth, \Items()\Folded)
-						EndIf
+					; Fold chevron — any row holding a subtree, at its own indent.
+					If LayerList_ChildCount(*GadgetData, Index)
 						SelectElement(\Items(), Index)
+						VectorSourceColor(\ThemeData\TextColor[TextState])
+						LayerList_DrawFold(\OriginX + \Border + LayerList_IndentOf(\Items()\Depth) - #LayerList_FoldWidth, Y, #LayerList_FoldWidth, \Items()\Folded)
 					EndIf
-					
-					TextX = \OriginX + LayerList_TextX(*GadgetData, \Items()\Child)
+					SelectElement(\Items(), Index)
+
+					TextX = \OriginX + LayerList_TextX(*GadgetData, \Items()\Depth)
 					VectorSourceColor(\ThemeData\TextColor[TextState])
 					\ItemRedraw(@\Items(), TextX, Y, \Items()\Text\Width, \ItemHeight, TextState, \ThemeData)
 					
@@ -12345,8 +12452,11 @@ Module UITK
 				EndIf
 				
 				If \ReorderRow > -1 And MarkerY > -1
-					; Indent the marker when a child is in flight, so it's clear it lands inside a group.
-					MarkerX = \OriginX + \Border + Bool(\DragChild) * #LayerList_FoldWidth * 2
+					; Indent the marker to the depth in flight, so it's clear what it lands inside.
+					MarkerX = \OriginX + \Border
+					If \DragDepth > 0
+						MarkerX + LayerList_IndentOf(\DragDepth)
+					EndIf
 					AddPathBox(MarkerX, MarkerY - #LayerList_MarkerHeight * 0.5, \Width - \Border * 2 - (MarkerX - \OriginX - \Border), #LayerList_MarkerHeight)
 					VectorSourceColor(\ThemeData\TextColor[#Hot])
 					FillPath()
@@ -12389,42 +12499,45 @@ Module UITK
 		EndProcedure
 		
 		Procedure LayerList_DropRow(*GadgetData.LayerListData, MouseY)
-			; The row the dragged item would land before, legalised for what's in flight: a group
-			; only ever lands between groups, and a child never lands above the first group.
-			Protected Row, Rows, R, Best, BestDistance, Distance, Folded
-			
+			; The landing row, legalised: a top-level row only ever lands between top-level rows
+			Protected Row, Rows, R, Best, BestDistance, Distance, Hidden = -1
+
 			With *GadgetData
 				Rows = LayerList_RowCount(*GadgetData)
 				Row = Clamp(Floor((MouseY + LayerList_ScrollOffset(*GadgetData) + \ItemHeight * 0.5) / \ItemHeight), 0, Rows)
-				
-				If \DragChild
-					If Row < 1
-						Row = 1			; a child always belongs to a group
+
+				If \DragDepth > 0
+					If Row < \DragDepth
+						Row = \DragDepth	; a nested row always has something to belong to
 					EndIf
 				Else
 					Best = Rows
 					BestDistance = Abs(Rows - Row)
-					
+
 					ForEach \Items()
-						If \Items()\Child
-							If Folded
+						If Hidden >= 0
+							If \Items()\Depth > Hidden
 								Continue
 							EndIf
-						Else
-							Folded = \Items()\Folded
+							Hidden = -1
+						EndIf
+						If \Items()\Depth = 0
 							Distance = Abs(R - Row)
 							If Distance < BestDistance
 								BestDistance = Distance
 								Best = R
 							EndIf
 						EndIf
+						If \Items()\Folded
+							Hidden = \Items()\Depth
+						EndIf
 						R + 1
 					Next
-					
+
 					Row = Best
 				EndIf
 			EndWith
-			
+
 			ProcedureReturn Row
 		EndProcedure
 		
@@ -12444,7 +12557,7 @@ Module UITK
 				
 				ForEach \Items()
 					If \Items()\Selected
-						If \Items()\Child
+						If \Items()\Depth > 0
 							Children + 1
 						Else
 							Groups + 1
@@ -12508,15 +12621,14 @@ Module UITK
 				; both a group and its own children, so nothing can land in the block twice.
 				ForEach Roots()
 					ChangeCurrentElement(\Items(), Roots())
+					Protected RootDepth = \Items()\Depth
 					AddElement(Block())
 					Block() = @\Items()
-					
-					If Not \Items()\Child
-						While NextElement(\Items()) And \Items()\Child
-							AddElement(Block())
-							Block() = @\Items()
-						Wend
-					EndIf
+
+					While NextElement(\Items()) And \Items()\Depth > RootDepth
+						AddElement(Block())
+						Block() = @\Items()
+					Wend
 				Next
 				
 				; Dropping inside the block being carried would be a no-op at best.
@@ -12538,8 +12650,8 @@ Module UITK
 				ChangeCurrentElement(\Items(), *Dragged)
 				\State = ListIndex(\Items())
 				
-				; Children dropped into a folded group would vanish - open the group instead.
-				If \DragChild
+				; A row dropped into a folded parent would vanish - open the parent instead.
+				If \DragDepth > 0
 					Parent = LayerList_ParentOf(*GadgetData, \State)
 					If Parent > -1 And SelectElement(\Items(), Parent)
 						\Items()\Folded = #False
@@ -12592,7 +12704,7 @@ Module UITK
 					ProcedureReturn
 				EndIf
 				
-				\DragChild = \Items()\Child
+				\DragDepth = \Items()\Depth
 				\DragState = #Drag_Active
 				
 				Row = LayerList_IndexToRow(*GadgetData, \DragIndex)
@@ -12606,7 +12718,7 @@ Module UITK
 				
 				SelectElement(\Items(), \DragIndex)
 				VectorSourceColor(\ThemeData\TextColor[#Hot])
-				\ItemRedraw(@\Items(), LayerList_TextX(*GadgetData, \Items()\Child), 0, \Items()\Text\Width, \ItemHeight, #Hot, \ThemeData)
+				\ItemRedraw(@\Items(), LayerList_TextX(*GadgetData, \Items()\Depth), 0, \Items()\Text\Width, \ItemHeight, #Hot, \ThemeData)
 				StopVectorDrawing()
 				
 				\ReorderRow = LayerList_DropRow(*GadgetData, *Event\MouseY)
@@ -12642,7 +12754,7 @@ Module UITK
 				; block's own offset, which already accounts for the item's icon. That offset has to
 				; come back off the width too, or the box overshoots to the right by the width of the
 				; icon and covers the eye.
-				\String\OriginX = LayerList_TextX(*GadgetData, \Items()\Child) + \Items()\Text\TextX
+				\String\OriginX = LayerList_TextX(*GadgetData, \Items()\Depth) + \Items()\Text\TextX
 				\String\OriginY = \Border + Row * \ItemHeight - LayerList_ScrollOffset(*GadgetData) + \Items()\Text\TextY - 2
 				\String\Width = \Items()\Text\Width - \Items()\Text\TextX
 				
@@ -12692,7 +12804,7 @@ Module UITK
 		
 		;- Events
 		Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
-			Protected Redraw, Row, Index, Zone, Rows, Modifiers, Cursor = *GadgetData\EditCursor
+			Protected Redraw, Row, Index, Zone, Rows, Modifiers, Cursor = *GadgetData\EditCursor, CursorWas = Cursor
 			
 			With *GadgetData
 				Select *Event\EventType
@@ -12807,7 +12919,7 @@ Module UITK
 							Select \HoverZone
 								Case #LayerList_Zone_Fold ;{
 									\State = Index
-									If SelectElement(\Items(), Index) And Not \Items()\Child
+									If LayerList_ChildCount(*GadgetData, Index) And SelectElement(\Items(), Index)
 										\Items()\Folded = Bool(Not \Items()\Folded)
 										LayerList_UpdateScrollBar(*GadgetData)
 										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerFold)
@@ -12833,7 +12945,8 @@ Module UITK
 									
 									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 									
-									If \Reorder
+									; Depth 2 and deeper never lifts: DropRow has no landing place it could honestly draw
+									If \Reorder And LayerList_DepthAt(*GadgetData, Index) < 2
 										\DragState = #Drag_Init
 										\DragIndex = Index
 										\DragOriginX = *Event\MouseX
@@ -12851,7 +12964,11 @@ Module UITK
 						EndIf
 						;}
 					Case #LeftButtonUp ;{
-						If \ScrollBar\Drag
+						If \Editing And \String\Selecting	; the editor's own press needs its release, or Selecting sticks
+							*Event\MouseX - \String\OriginX
+							*Event\MouseY - \String\OriginY
+							Redraw = \String\EventHandler(\String, *Event)
+						ElseIf \ScrollBar\Drag
 							Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
 						ElseIf \DragState = #Drag_Active
 							LayerList_ApplyDrop(*GadgetData)
@@ -12901,7 +13018,14 @@ Module UITK
 						EndIf
 						;}
 					Case #LeftDoubleClick ;{
-						If \ItemState > -1
+						; Asked fresh, not the cached hover: the click under this one may have rebuilt the list to -1
+						Index = LayerList_RowToIndex(*GadgetData, Floor((*Event\MouseY + LayerList_ScrollOffset(*GadgetData)) / \ItemHeight))
+						If Index > -1
+							\ItemState = Index	; Put the hover back, so the row it landed on draws hot
+							\HoverZone = LayerList_ZoneAt(*GadgetData, Index, *Event\MouseX)
+							\State = Index	; …and FOCUS it: the host reads the hit row back with GetGadgetState
+						EndIf
+						If Index > -1
 							If \HoverZone = #LayerList_Zone_Body
 								; The press under this double-click half-armed a reorder
 								; drag. The gesture supersedes it — and the app may well
@@ -12942,15 +13066,16 @@ Module UITK
 										Redraw = #True
 									EndIf
 									;}
-								Case #PB_Shortcut_Left ;{ fold the group, or jump to it from a child
+								Case #PB_Shortcut_Left ;{ fold the row, or jump to the one it sits inside
 									If SelectElement(\Items(), \State)
-										If \Items()\Child
+										; An open row holding a subtree closes; anything else steps out to its parent
+										If \Items()\Folded Or Not LayerList_ChildCount(*GadgetData, \State)
 											Index = LayerList_ParentOf(*GadgetData, \State)
 											If Index > -1
-												\State = Index
+												LayerList_SelectOnly(*GadgetData, Index)	; …and selects it, as every other arrow key does
 												Redraw = #True
 											EndIf
-										ElseIf Not \Items()\Folded
+										ElseIf SelectElement(\Items(), \State)
 											\Items()\Folded = #True
 											LayerList_UpdateScrollBar(*GadgetData)
 											PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerFold)
@@ -12958,8 +13083,8 @@ Module UITK
 										EndIf
 									EndIf
 									;}
-								Case #PB_Shortcut_Right ;{ open the group
-									If SelectElement(\Items(), \State) And Not \Items()\Child And \Items()\Folded
+								Case #PB_Shortcut_Right ;{ open the row
+									If SelectElement(\Items(), \State) And \Items()\Folded
 										\Items()\Folded = #False
 										LayerList_UpdateScrollBar(*GadgetData)
 										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerFold)
@@ -12996,7 +13121,7 @@ Module UITK
 						;}
 				EndSelect
 				
-				If Cursor <> \EditCursor
+				If Cursor <> \EditCursor And Cursor <> CursorWas	; only a hover decided here wins; never undo EndEdit's clear
 					\EditCursor = Cursor
 					\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 				EndIf
@@ -13011,12 +13136,14 @@ Module UITK
 		
 		;- Items
 		Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l)
-			; Level 0 adds a group, anything above adds a child of the group above it. A child added when there's no group yet becomes a group, so the two-level shape always holds.
-			Protected *GadgetData.LayerListData = *this\vt, *NewItem.LayerList_Item, Child
-			
+			; Level is CLAMPED one step deeper than the row before, so no row is left without a parent
+			Protected *GadgetData.LayerListData = *this\vt, *NewItem.LayerList_Item, Depth, Ceiling
+
 			With *GadgetData
-				Child = Bool(Level > 0)
-				
+				If Level < 0
+					Level = 0
+				EndIf
+
 				If Position > -1 And Position < ListSize(\Items())
 					SelectElement(\Items(), Position)
 					*NewItem = InsertElement(\Items())
@@ -13024,12 +13151,20 @@ Module UITK
 					LastElement(\Items())
 					*NewItem = AddElement(\Items())
 				EndIf
-				
-				If Child And ListIndex(\Items()) = 0
-					Child = #False			; nothing above it to belong to
+
+				Depth = Level
+				If PreviousElement(\Items())
+					Ceiling = \Items()\Depth + 1
+					ChangeCurrentElement(\Items(), *NewItem)
+				Else
+					Ceiling = 0			; first in the list: nothing above it to belong to
+					ChangeCurrentElement(\Items(), *NewItem)
 				EndIf
-				
-				*NewItem\Child = Child
+				If Depth > Ceiling
+					Depth = Ceiling
+				EndIf
+
+				*NewItem\Depth = Depth
 				*NewItem\Visible = #True
 				*NewItem\Text\OriginalText = PeekS(*Text)
 				*NewItem\Text\Image = ImageID
@@ -13056,7 +13191,7 @@ Module UITK
 		EndProcedure
 		
 		Procedure LayerList_RemoveItem(*this.PB_Gadget, Position.l)
-			; Removing a group takes its children with it.
+			; Removing a row takes its whole subtree with it.
 			Protected *GadgetData.LayerListData = *this\vt, Count, Loop
 			
 			With *GadgetData
@@ -13066,11 +13201,7 @@ Module UITK
 				If Position > -1 And Position < ListSize(\Items())
 					SelectElement(\Items(), Position)
 					
-					If \Items()\Child
-						Count = 1
-					Else
-						Count = 1 + LayerList_ChildCount(*GadgetData, Position)
-					EndIf
+					Count = 1 + LayerList_ChildCount(*GadgetData, Position)
 					
 					For Loop = 1 To Count
 						If SelectElement(\Items(), Position)
@@ -13179,8 +13310,12 @@ Module UITK
 							EndIf
 						Case #Attribute_LayerList_IsChild
 							If SelectElement(\Items(), Position)
-								ProcedureReturn \Items()\Child
+								ProcedureReturn Bool(\Items()\Depth > 0)
 							EndIf
+						Case #Attribute_LayerList_Depth
+							ProcedureReturn LayerList_DepthAt(*GadgetData, Position)
+						Case #Attribute_LayerList_ScreenRow
+							ProcedureReturn LayerList_IndexToRow(*GadgetData, Position)
 						Case #Attribute_LayerList_Parent
 							ProcedureReturn LayerList_ParentOf(*GadgetData, Position)
 						Case #Attribute_LayerList_ChildCount
@@ -13209,7 +13344,7 @@ Module UITK
 							\Items()\Locked = Bool(Value)
 							RedrawObject()
 						Case #Attribute_LayerList_Folded
-							If Not \Items()\Child
+							If LayerList_ChildCount(*GadgetData, Position) And SelectElement(\Items(), Position)
 								\Items()\Folded = Bool(Value)
 								LayerList_UpdateScrollBar(*GadgetData)
 								RedrawObject()
@@ -14402,7 +14537,7 @@ Module UITK
 			EndSelect
 		EndProcedure
 		
-		Procedure TimeLine_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)	; …same as every other AddGadgetItem3 handler here
+		Procedure TimeLine_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 			Protected *GadgetData.TimeLineData = *this\vt, *NewItem.TimeLine_Line, Result
 			With *GadgetData
 				If Position > -1 And Position < ListSize(\Lines())
