@@ -13056,6 +13056,7 @@ Module UITK
 									If Row > -1 And Index > -1
 										LayerList_MoveFocus(*GadgetData, Index)
 										LayerList_StateFocus(*GadgetData)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 										Redraw = #True
 									EndIf
 									;}
@@ -13063,6 +13064,7 @@ Module UITK
 									If Row > 0
 										LayerList_MoveFocus(*GadgetData, LayerList_RowToIndex(*GadgetData, Row - 1))
 										LayerList_StateFocus(*GadgetData)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 										Redraw = #True
 									EndIf
 									;}
@@ -13073,6 +13075,7 @@ Module UITK
 											Index = LayerList_ParentOf(*GadgetData, \State)
 											If Index > -1
 												LayerList_SelectOnly(*GadgetData, Index)	; …and selects it, as every other arrow key does
+												PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 												Redraw = #True
 											EndIf
 										ElseIf SelectElement(\Items(), \State)
@@ -14820,8 +14823,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 11902
-; FirstLine = 16
-; Folding = AIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 13066
+; Folding = AIA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAwAAAAAAAAAAAw-
 ; EnableXP
 ; DPIAware
