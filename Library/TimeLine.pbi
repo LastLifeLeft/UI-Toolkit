@@ -27,6 +27,18 @@
 
 #TimeLine_Duration_Extension = 50		; slack left past a block that would otherwise run off the end
 
+#TimeLine_Hatch_Pitch = 6				; width of one bar of the hatching that strikes out a band a block has no use for
+#TimeLine_Hatch_Alpha = 90				; …how faint it is against the band, at the block's own opacity
+#TimeLine_Band_Alpha = 110				; how far a sub-row is shaded off its block's own back colour
+#TimeLine_Band_AltAlpha = 150			; …and the same for every other one, so a stack of bands reads apart
+#TimeLine_Band_RuleAlpha = 100			; …and of the hairline that separates two of them
+#TimeLine_Key_Diamond = 5				; half-height of a key drawn as a diamond
+#TimeLine_Key_Dot = 2.5					; radius of a key drawn as a dot
+#TimeLine_Key_Pip = 1.5					; …and of one drawn as a bare pip
+#TimeLine_Key_DiamondScale = 8			; pixels per unit from which keys are worth drawing as diamonds
+#TimeLine_Key_DotScale = 3				; …and from which they are worth more than a pip
+#TimeLine_Key_Grab = 4					; how close to a key the pointer counts as on it
+
 Enumeration ; Line fold state
 	#TimeLine_NoFold					; nothing under this line to reveal
 	#TimeLine_Folded
@@ -38,6 +50,8 @@ Enumeration ; What the pointer is currently doing over the body
 	#TimeLine_Action_BlockInitDrag
 	#TimeLine_Action_BlockDrag
 	#TimeLine_Action_BlockResize
+	#TimeLine_Action_KeyInitDrag
+	#TimeLine_Action_KeyDrag
 	#TimeLine_Action_PlayerDrag
 EndEnumeration
 
@@ -69,6 +83,14 @@ Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Segoe UI Semibold", 12, #PB
 Global TimeLine_Font = FontID(LoadFont(#PB_Any, "Segoe UI", 10, #PB_Font_HighQuality))
 Global TimeLine_RulerFont = FontID(LoadFont(#PB_Any, "Segoe UI", 8, #PB_Font_HighQuality))
 
+Structure TimeLine_Key
+	Track.b								; which keyable track it sits on
+	Time.i								; relative to its block's start, as the block is to its parent
+	Value.d								; the gadget only stores and draws it; interpolating is the caller's business
+	Selected.b
+	*Block.TimeLine_Block
+EndStructure
+
 Structure TimeLine_Block
 	Text.s
 	Color.l
@@ -79,10 +101,12 @@ Structure TimeLine_Block
 	Selected.b
 	Dragged.b							; drawn faded while its preview outline is being moved
 	Container.b							; can hold children, and so gives its line a sub-row
+	Tracks.l							; bitmask of the keyable tracks it animates, one sub-row each
 	*ParentLine.TimeLine_Line
 	*Parent.TimeLine_Block
 	*Data
 	List *Children.TimeLine_Block()
+	List Keys.TimeLine_Key()			; ordered by track, then by time
 EndStructure
 
 Structure TimeLine_Line
@@ -90,8 +114,9 @@ Structure TimeLine_Line
 	Height.l
 	Y.l
 	Fold.b								; #TimeLine_NoFold / _Folded / _Unfolded
-	SubRows.b							; extra bands the line shows when unfolded
+	SubRows.b							; bands the line shows when unfolded: the children band, then one per track
 	ContainerCount.l
+	Tracks.l							; every track any of its blocks animates
 	List *MediaBlocks.TimeLine_Block()
 EndStructure
 
@@ -136,10 +161,14 @@ Structure TimeLineData Extends GadgetData
 	HoverItem.l							; hovered line index, -1 when none (the base \MouseState stays a #Cold/#Warm/#Hot state)
 	HoverFold.b							; …and whether it is the fold chevron rather than the label
 	*HoverBlock.TimeLine_Block
+	*HoverKey.TimeLine_Key
+	
+	TrackName.s[#__TimeLine_Band_Count]	; what each band calls itself in the line list
 	
 	List Lines.TimeLine_Line()
 	List Blocks.TimeLine_Block()		; owns every block; the lines only hold pointers into it
 	List *Selection.TimeLine_Block()
+	List *KeySelection.TimeLine_Key()	; keys and blocks select apart: picking one clears the other
 	
 	VisibleVerticalScrollBar.b
 	*VScrollBar.ScrollBarData
@@ -154,6 +183,10 @@ EndStructure
 Declare TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 Declare TimeLine_Redraw(*GadgetData.TimeLineData)
 Declare TimeLine_SetState(*this.PB_Gadget, State)
+Declare TimeLine_FirstDisplayed(*GadgetData.TimeLineData)
+Declare TimeLine_TrackUsed(*Block.TimeLine_Block, Track)
+Declare TimeLine_SortKey(*Block.TimeLine_Block, *Key.TimeLine_Key)
+Declare TimeLine_BlockBands(*Block.TimeLine_Block)
 
 ;- Geometry
 Procedure TimeLine_SetScroll(*Bar.ScrollBarData, Value)
@@ -195,6 +228,70 @@ Procedure TimeLine_LineHeight(*Line.TimeLine_Line)
 	ProcedureReturn #TimeLine_List_LineHeight
 EndProcedure
 
+Procedure TimeLine_BandKind(*Line.TimeLine_Line, Band)
+	; What a line's Nth sub-row shows: #TimeLine_Track_Content for the children band, otherwise the
+	; keyable track it belongs to. -1 past the last band. Children come first, then tracks in order.
+	Protected Track
+	
+	If Band < 0
+		ProcedureReturn -1
+	EndIf
+	
+	If *Line\ContainerCount
+		If Band = 0
+			ProcedureReturn #TimeLine_Track_Content
+		EndIf
+		Band - 1
+	EndIf
+	
+	For Track = 0 To #__TimeLine_Track_Count - 1
+		If *Line\Tracks & (1 << Track)
+			If Band = 0
+				ProcedureReturn Track
+			EndIf
+			Band - 1
+		EndIf
+	Next
+	
+	ProcedureReturn -1
+EndProcedure
+
+Procedure TimeLine_BlockBands(*Block.TimeLine_Block)
+	; How far down its line's stack a block reaches: to the last band it actually uses, and no
+	; further. A block that uses none keeps its bare height, and the bands it steps over on the way
+	; down to one it does use are the only ones that get hatched.
+	Protected Band, Kind, Result, *Line.TimeLine_Line = *Block\ParentLine
+	
+	If Not *Line Or *Line\Fold <> #TimeLine_Unfolded
+		ProcedureReturn 0
+	EndIf
+	
+	For Band = 0 To *Line\SubRows - 1
+		Kind = TimeLine_BandKind(*Line, Band)
+		
+		If Kind = #TimeLine_Track_Content
+			If *Block\Container
+				Result = Band + 1
+			EndIf
+		ElseIf Kind > -1 And *Block\Tracks & (1 << Kind)
+			Result = Band + 1
+		EndIf
+	Next
+	
+	ProcedureReturn Result
+EndProcedure
+
+Procedure TimeLine_BandAt(*Line.TimeLine_Line, RowY, Y)
+	; Which sub-row a gadget-local Y falls in, -1 for the block row itself.
+	If *Line\Fold <> #TimeLine_Unfolded Or Y < RowY + #TimeLine_Body_BlockMargin + #TimeLine_Body_BlockHeight
+		ProcedureReturn -1
+	EndIf
+	
+	; Unclamped on purpose: the slack below the last band is not part of it, and an index past the
+	; end reads back as -1 from TimeLine_BandKind, which every caller already handles.
+	ProcedureReturn Floor((Y - RowY - #TimeLine_Body_BlockMargin - #TimeLine_Body_BlockHeight) / #TimeLine_Body_SubRowHeight)
+EndProcedure
+
 Procedure TimeLine_LayoutLines(*GadgetData.TimeLineData)
 	; Re-stack every line and hand the vertical scrollbar the new total.
 	Protected Y
@@ -215,10 +312,22 @@ Procedure TimeLine_LayoutLines(*GadgetData.TimeLineData)
 EndProcedure
 
 Procedure TimeLine_UpdateFold(*GadgetData.TimeLineData, *Line.TimeLine_Line)
-	; A line can only fold while something on it holds children.
-	Protected Previous = *Line\Fold
+	; Recount the bands a line owes its blocks. Counted from the blocks rather than kept as running
+	; totals, so no mutation path can leave the two disagreeing.
+	Protected Previous = *Line\Fold, Track
+	
+	*Line\Tracks = 0
+	*Line\ContainerCount = 0
+	
+	ForEach *Line\MediaBlocks()
+		*Line\Tracks | *Line\MediaBlocks()\Tracks
+		*Line\ContainerCount + Bool(*Line\MediaBlocks()\Container)
+	Next
 	
 	*Line\SubRows = Bool(*Line\ContainerCount > 0)
+	For Track = 0 To #__TimeLine_Track_Count - 1
+		*Line\SubRows + Bool(*Line\Tracks & (1 << Track))
+	Next
 	
 	If *Line\SubRows
 		If *Line\Fold = #TimeLine_NoFold
@@ -229,6 +338,20 @@ Procedure TimeLine_UpdateFold(*GadgetData.TimeLineData, *Line.TimeLine_Line)
 	EndIf
 	
 	ProcedureReturn Bool(*Line\Fold <> Previous)
+EndProcedure
+
+Procedure TimeLine_RefreshBands(*GadgetData.TimeLineData)
+	; Every path that adds, removes or retypes a block ends here.
+	With *GadgetData
+		ForEach \Lines()
+			TimeLine_UpdateFold(*GadgetData, @\Lines())
+		Next
+		
+		TimeLine_LayoutLines(*GadgetData)
+		TimeLine_FirstDisplayed(*GadgetData)
+		\RedrawList = #True
+		\RedrawBody = #True
+	EndWith
 EndProcedure
 
 Procedure TimeLine_UpdateHScrollBar(*GadgetData.TimeLineData)
@@ -295,7 +418,7 @@ EndProcedure
 
 Procedure TimeLine_BlockAt(*GadgetData.TimeLineData, X, Y)
 	; Geometric hit-test rather than a collision grid: a line carries few blocks, and this cannot disagree with what was drawn.
-	Protected Line, RowY, BlockX, BlockWidth, SubY, *Block.TimeLine_Block, *Child.TimeLine_Block
+	Protected Line, RowY, BlockX, BlockWidth, Band, *Block.TimeLine_Block, *Child.TimeLine_Block
 	
 	With *GadgetData
 		If X <= #TimeLine_List_Width
@@ -308,7 +431,11 @@ Procedure TimeLine_BlockAt(*GadgetData.TimeLineData, X, Y)
 		EndIf
 		
 		RowY = \Lines()\Y - \VScrollBar\State + #TimeLine_Header_Height
-		SubY = RowY + #TimeLine_Body_BlockMargin + #TimeLine_Body_BlockHeight
+		Band = TimeLine_BandAt(@\Lines(), RowY, Y)
+		
+		If Band = -1 And Y < RowY + #TimeLine_Body_BlockMargin
+			ProcedureReturn #Null						; the gap above the blocks
+		EndIf
 		
 		ForEach \Lines()\MediaBlocks()
 			*Block = \Lines()\MediaBlocks()
@@ -321,7 +448,13 @@ Procedure TimeLine_BlockAt(*GadgetData.TimeLineData, X, Y)
 				Continue
 			EndIf
 			
-			If \Lines()\Fold = #TimeLine_Unfolded And *Block\Container And Y >= SubY
+			If Band >= TimeLine_BlockBands(*Block)
+				Continue						; past where this block reaches, so it is bare row down here
+			EndIf
+			
+			; A band belonging to the children picks a child out; every other band the block spans,
+			; used or struck out, still belongs to the block itself.
+			If Band > -1 And TimeLine_BandKind(@\Lines(), Band) = #TimeLine_Track_Content And *Block\Container
 				ForEach *Block\Children()
 					*Child = *Block\Children()
 					BlockX = TimeLine_TimeToX(*GadgetData, *Block\Postion + *Child\Postion)
@@ -331,11 +464,9 @@ Procedure TimeLine_BlockAt(*GadgetData.TimeLineData, X, Y)
 						ProcedureReturn *Child
 					EndIf
 				Next
-				
-				ProcedureReturn #Null					; inside the sub-band but on no child
-			ElseIf Y >= RowY + #TimeLine_Body_BlockMargin And Y < SubY
-				ProcedureReturn *Block
 			EndIf
+			
+			ProcedureReturn *Block
 		Next
 	EndWith
 	
@@ -408,6 +539,145 @@ Procedure TimeLine_Deselect(*GadgetData.TimeLineData, *Block.TimeLine_Block)
 	ProcedureReturn #False
 EndProcedure
 
+Procedure TimeLine_ClearKeySelection(*GadgetData.TimeLineData)
+	With *GadgetData
+		ForEach \KeySelection()
+			\KeySelection()\Selected = #False
+		Next
+		ClearList(\KeySelection())
+	EndWith
+EndProcedure
+
+Procedure TimeLine_SelectKey(*GadgetData.TimeLineData, *Key.TimeLine_Key, Add)
+	With *GadgetData
+		If Not Add
+			TimeLine_ClearKeySelection(*GadgetData)
+		EndIf
+		
+		If Not *Key Or *Key\Selected
+			ProcedureReturn #False
+		EndIf
+		
+		AddElement(\KeySelection())
+		\KeySelection() = *Key
+		*Key\Selected = #True
+	EndWith
+	
+	ProcedureReturn #True
+EndProcedure
+
+Procedure TimeLine_DeselectKey(*GadgetData.TimeLineData, *Key.TimeLine_Key)
+	With *GadgetData
+		ForEach \KeySelection()
+			If \KeySelection() = *Key
+				*Key\Selected = #False
+				DeleteElement(\KeySelection())
+				ProcedureReturn #True
+			EndIf
+		Next
+	EndWith
+	
+	ProcedureReturn #False
+EndProcedure
+
+Procedure TimeLine_DropBlockKeys(*GadgetData.TimeLineData, *Block.TimeLine_Block)
+	; Keys go with their block, so nothing may be left pointing into one that is about to go.
+	With *GadgetData
+		ForEach \KeySelection()
+			If \KeySelection()\Block = *Block
+				\KeySelection()\Selected = #False
+				DeleteElement(\KeySelection())
+			EndIf
+		Next
+		
+		If \HoverKey And \HoverKey\Block = *Block
+			\HoverKey = #Null
+		EndIf
+	EndWith
+EndProcedure
+
+Procedure TimeLine_KeyAt(*GadgetData.TimeLineData, X, Y)
+	; Which key the pointer is on, if any. Only the band belonging to a key's own track can hold it.
+	Protected Line, RowY, Band, Track, BlockX, BlockWidth, KeyX, Start, *Block.TimeLine_Block
+	
+	With *GadgetData
+		If X <= #TimeLine_List_Width
+			ProcedureReturn #Null
+		EndIf
+		
+		Line = TimeLine_LineAt(*GadgetData, Y)
+		If Line = -1
+			ProcedureReturn #Null
+		EndIf
+		
+		RowY = \Lines()\Y - \VScrollBar\State + #TimeLine_Header_Height
+		Band = TimeLine_BandAt(@\Lines(), RowY, Y)
+		Track = TimeLine_BandKind(@\Lines(), Band)
+		
+		If Band < 0 Or Track < 0 Or Track = #TimeLine_Track_Content
+			ProcedureReturn #Null
+		EndIf
+		
+		ForEach \Lines()\MediaBlocks()
+			*Block = \Lines()\MediaBlocks()
+			BlockX = TimeLine_TimeToX(*GadgetData, *Block\Postion)
+			BlockWidth = Max(*Block\Duration * \Scale, 1)
+			
+			If BlockX > X + #TimeLine_Key_Grab
+				Break
+			ElseIf X > BlockX + BlockWidth + #TimeLine_Key_Grab Or Not (*Block\Tracks & (1 << Track))
+				Continue
+			EndIf
+			
+			Start = TimeLine_BlockStart(*Block)
+			
+			ForEach *Block\Keys()
+				If *Block\Keys()\Track <> Track
+					Continue
+				EndIf
+				
+				KeyX = TimeLine_TimeToX(*GadgetData, Start + *Block\Keys()\Time)
+				
+				If Abs(X - KeyX) <= #TimeLine_Key_Grab
+					ProcedureReturn @*Block\Keys()
+				EndIf
+			Next
+		Next
+	EndWith
+	
+	ProcedureReturn #Null
+EndProcedure
+
+Procedure TimeLine_ApplyKeyDrag(*GadgetData.TimeLineData)
+	; Commit the retime the band has been previewing. A key never leaves its own block.
+	Protected Changed, Time, *Key.TimeLine_Key
+	Protected NewList *Moving.TimeLine_Key()
+	
+	With *GadgetData
+		ForEach \KeySelection()
+			AddElement(*Moving())
+			*Moving() = \KeySelection()
+		Next
+		
+		ForEach *Moving()
+			*Key = *Moving()
+			Time = Clamp(*Key\Time + \DragTime, 0, *Key\Block\Duration)
+			
+			If Time <> *Key\Time
+				*Key\Time = Time
+				TimeLine_SortKey(*Key\Block, *Key)
+				Changed = #True
+			EndIf
+		Next
+		
+		\Action = #TimeLine_Action_None
+		\DragTime = 0
+		\RedrawBody = #True
+	EndWith
+	
+	ProcedureReturn Changed
+EndProcedure
+
 ;- Drawing
 Procedure TimeLine_DrawFold(X, Y, Size, Folded)
 	; The same triangle the LayerList uses: pointing right when shut, down when open.
@@ -428,6 +698,8 @@ Procedure TimeLine_DrawFold(X, Y, Size, Folded)
 EndProcedure
 
 Procedure TimeLine_Redraw_ListItem(*GadgetData.TimeLineData, X, Y, State)
+	Protected BandY, Band, Kind, Name.s
+	
 	With *GadgetData
 		If State > #Cold
 			AddPathBox(X, Y, #TimeLine_List_Width - 0.5, \Lines()\Height)
@@ -452,14 +724,104 @@ Procedure TimeLine_Redraw_ListItem(*GadgetData.TimeLineData, X, Y, State)
 		
 		DrawVectorTextBlock(@\Lines()\Text, X + #TimeLine_List_TextIndent, Y)
 		
-		If \Lines()\Fold = #TimeLine_Unfolded		; a marker for the band the body grows by, rather than a word to translate
-			AddPathBox(X + #TimeLine_List_TextIndent, Y + #TimeLine_List_LineHeight + #TimeLine_Body_SubRowHeight * 0.5 - 1, 12, 2)
-			VectorSourceColor(SetAlpha(\ThemeData\TextColor[#Cold], 120))
-			FillPath()
+		If \Lines()\Fold = #TimeLine_Unfolded ;{ Name each band the body grew by, right against the column edge
+			BandY = Y + #TimeLine_List_LineHeight
+			VectorFont(TimeLine_Font)
+			
+			For Band = 0 To \Lines()\SubRows - 1
+				Kind = TimeLine_BandKind(@\Lines(), Band)
+				
+				If Kind > -1
+					Name = \TrackName[Kind]
+					VectorSourceColor(SetAlpha(\ThemeData\TextColor[State], 170))
+					MovePathCursor(X + #TimeLine_List_Width - #TimeLine_List_TextMargin - VectorTextWidth(Name), BandY + (#TimeLine_Body_SubRowHeight - VectorTextHeight(Name)) * 0.5)
+					DrawVectorText(Name)
+				EndIf
+				
+				BandY + #TimeLine_Body_SubRowHeight
+			Next
+			;}
 		EndIf
 		
 		VectorSourceColor(\ThemeData\TextColor[#Cold])
 	EndWith
+EndProcedure
+
+Procedure TimeLine_DrawHatch(X, Y, Width, Height)
+	; Diagonal bars, the way PureTimeline struck out a band the block has nothing to put in it.
+	Protected Position
+	
+	For Position = - Height To Width Step #TimeLine_Hatch_Pitch * 2
+		MovePathCursor(X + Position, Y)
+		AddPathLine(Height, Height, #PB_Path_Relative)
+		AddPathLine(#TimeLine_Hatch_Pitch, 0, #PB_Path_Relative)
+		AddPathLine(- Height, - Height, #PB_Path_Relative)
+		ClosePath()
+	Next
+	
+	FillPath()
+EndProcedure
+
+Procedure TimeLine_Redraw_Keys(*GadgetData.TimeLineData, *Block.TimeLine_Block, Track, X, Y, Width, Alpha)
+	; One band's worth of keys. The shape comes from how close the tightest pair on the track sits,
+	; not from the zoom alone — sparse keys stay legible however far out the view is.
+	Protected KeyX.d, CY.d = Y + #TimeLine_Body_SubRowHeight * 0.5, Start = TimeLine_BlockStart(*Block)
+	Protected Previous = -1, Gap = 1 << 30, Drawn, Time
+	
+	With *GadgetData
+		ForEach *Block\Keys()
+			If *Block\Keys()\Track <> Track
+				Continue
+			ElseIf Previous > -1
+				Gap = Min(Gap, (*Block\Keys()\Time - Previous) * \Scale)
+			EndIf
+			
+			Previous = *Block\Keys()\Time
+		Next
+		
+		ForEach *Block\Keys()
+			If *Block\Keys()\Track <> Track
+				Continue
+			EndIf
+			
+			Time = *Block\Keys()\Time
+			
+			If *Block\Keys()\Selected And \Action = #TimeLine_Action_KeyDrag
+				Time = Clamp(Time + \DragTime, 0, *Block\Duration)		; the drag previews in place, no ghost outline
+			EndIf
+			
+			KeyX = \OriginX + TimeLine_TimeToX(*GadgetData, Start + Time) + 0.5
+			
+			If KeyX < X - #TimeLine_Key_Diamond Or KeyX > X + Width + #TimeLine_Key_Diamond
+				Continue
+			EndIf
+			
+			If Gap >= #TimeLine_Key_Diamond * 2 + 3
+				MovePathCursor(KeyX, CY - #TimeLine_Key_Diamond)
+				AddPathLine(#TimeLine_Key_Diamond, #TimeLine_Key_Diamond, #PB_Path_Relative)
+				AddPathLine(- #TimeLine_Key_Diamond, #TimeLine_Key_Diamond, #PB_Path_Relative)
+				AddPathLine(- #TimeLine_Key_Diamond, - #TimeLine_Key_Diamond, #PB_Path_Relative)
+				ClosePath()
+			ElseIf Gap >= #TimeLine_Key_Dot * 2 + 2
+				AddPathCircle(KeyX, CY, #TimeLine_Key_Dot)
+			Else
+				AddPathCircle(KeyX, CY, #TimeLine_Key_Pip)
+			EndIf
+			
+			If *Block\Keys()\Selected
+				VectorSourceColor(SetAlpha(\ThemeData\Special3[#Warm], Alpha))
+			ElseIf @*Block\Keys() = \HoverKey
+				VectorSourceColor(SetAlpha(\ThemeData\TextColor[#Hot], Alpha))
+			Else
+				VectorSourceColor(SetAlpha(\ThemeData\TextColor[*Block\State], Alpha))
+			EndIf
+			
+			FillPath()						; per key, since each can be picked out on its own
+			Drawn = #True
+		Next
+	EndWith
+	
+	ProcedureReturn Drawn
 EndProcedure
 
 Procedure TimeLine_Redraw_Child(*GadgetData.TimeLineData, *Child.TimeLine_Block, ParentStart, X, Y, Width, Alpha)
@@ -504,7 +866,7 @@ Procedure TimeLine_Redraw_Child(*GadgetData.TimeLineData, *Child.TimeLine_Block,
 EndProcedure
 
 Procedure TimeLine_Redraw_Block(*GadgetData.TimeLineData, *Block.TimeLine_Block, Y, Unfolded)
-	Protected X, Width, Height = #TimeLine_Body_BlockHeight, Alpha = 255, TextX
+	Protected X, Width, Height = #TimeLine_Body_BlockHeight, Alpha = 255, TextX, Bands, Band, Kind, Shade, Hatch, Rule
 	
 	With *GadgetData
 		X = \OriginX + TimeLine_TimeToX(*GadgetData, *Block\Postion)
@@ -514,10 +876,14 @@ Procedure TimeLine_Redraw_Block(*GadgetData.TimeLineData, *Block.TimeLine_Block,
 			Alpha = 80
 		EndIf
 		
+		Hatch = Alpha * #TimeLine_Hatch_Alpha / 255
+		Rule = Alpha * #TimeLine_Band_RuleAlpha / 255
+		
 		Y + #TimeLine_Body_BlockMargin
 		
-		If Unfolded And *Block\Container
-			Height + #TimeLine_Body_SubRowHeight
+		If Unfolded
+			Bands = TimeLine_BlockBands(*Block)
+			Height + Bands * #TimeLine_Body_SubRowHeight
 		EndIf
 		
 		If Width < #TimeLine_Block_MinWidth		; no room for chrome, and ClipPath() hates a degenerate rounded box
@@ -559,22 +925,52 @@ Procedure TimeLine_Redraw_Block(*GadgetData.TimeLineData, *Block.TimeLine_Block,
 			DrawVectorText(*Block\Text)
 		EndIf
 		
-		If Unfolded And *Block\Container
-			Y + #TimeLine_Body_BlockHeight
+		Y + #TimeLine_Body_BlockHeight
+		
+		For Band = 0 To Bands - 1
+			Kind = TimeLine_BandKind(*Block\ParentLine, Band)
+			
+			Shade = #TimeLine_Band_Alpha
+			If Band % 2
+				Shade = #TimeLine_Band_AltAlpha
+			EndIf
+			
 			AddPathBox(X, Y, Width, #TimeLine_Body_SubRowHeight)
-			VectorSourceColor(SetAlpha(\ThemeData\ShadeColor[#Cold], 160))
+			VectorSourceColor(SetAlpha(\ThemeData\ShadeColor[#Cold], Shade))
 			FillPath()
 			
-			ForEach *Block\Children()
-				TimeLine_Redraw_Child(*GadgetData, *Block\Children(), *Block\Postion, X, Y, Width, Alpha)
-			Next
+			MovePathCursor(X, Y + 0.5)					; a hairline, so a tall stack of bands still reads as separate rows
+			AddPathLine(Width, 0, #PB_Path_Relative)
+			VectorSourceColor(SetAlpha(\ThemeData\LineColor[#Cold], Rule))
+			StrokePath(1)
 			
-			If \DragParent = *Block
-				AddPathBox(X, Y, Width, #TimeLine_Body_SubRowHeight)
-				VectorSourceColor(SetAlpha(\ThemeData\TextColor[#Hot], 40))
-				FillPath()
+			If Kind = #TimeLine_Track_Content ;{ Children, or hatching where this block holds none
+				If *Block\Container
+					ForEach *Block\Children()
+						TimeLine_Redraw_Child(*GadgetData, *Block\Children(), *Block\Postion, X, Y, Width, Alpha)
+					Next
+					
+					If \DragParent = *Block
+						AddPathBox(X, Y, Width, #TimeLine_Body_SubRowHeight)
+						VectorSourceColor(SetAlpha(\ThemeData\TextColor[#Hot], 40))
+						FillPath()
+					EndIf
+				Else
+					VectorSourceColor(SetAlpha(\ThemeData\LineColor[#Cold], Hatch))
+					TimeLine_DrawHatch(X, Y, Width, #TimeLine_Body_SubRowHeight)
+				EndIf
+				;}
+			ElseIf *Block\Tracks & (1 << Kind) ;{ A track this block animates
+				TimeLine_Redraw_Keys(*GadgetData, *Block, Kind, X, Y, Width, Alpha)
+				;}
+			Else;{ A track it does not
+				VectorSourceColor(SetAlpha(\ThemeData\LineColor[#Cold], Hatch))
+				TimeLine_DrawHatch(X, Y, Width, #TimeLine_Body_SubRowHeight)
+				;}
 			EndIf
-		EndIf
+			
+			Y + #TimeLine_Body_SubRowHeight
+		Next
 		
 		RestoreVectorState()
 		EndVectorLayer()
@@ -667,8 +1063,8 @@ Procedure TimeLine_Redraw_Preview(*GadgetData.TimeLineData)
 			If \DragParent
 				Y + #TimeLine_Body_BlockHeight + 3
 				Height = #TimeLine_Body_SubRowHeight - 6
-			ElseIf \Lines()\Fold = #TimeLine_Unfolded And *Block\Container
-				Height + #TimeLine_Body_SubRowHeight
+			Else
+				Height + TimeLine_BlockBands(*Block) * #TimeLine_Body_SubRowHeight
 			EndIf
 			
 			X = \OriginX + TimeLine_TimeToX(*GadgetData, Start)
@@ -1179,9 +1575,6 @@ Procedure TimeLine_DetachBlock(*GadgetData.TimeLineData, *Block.TimeLine_Block)
 				EndIf
 			Next
 			
-			If *Block\Container
-				*Block\ParentLine\ContainerCount - 1
-			EndIf
 		EndIf
 		
 		*Block\ParentLine = #Null
@@ -1195,6 +1588,7 @@ Procedure TimeLine_FreeBlock(*GadgetData.TimeLineData, *Block.TimeLine_Block)
 		Wend
 		
 		TimeLine_Deselect(*GadgetData, *Block)
+		TimeLine_DropBlockKeys(*GadgetData, *Block)
 		TimeLine_DetachBlock(*GadgetData, *Block)
 		
 		If \HoverBlock = *Block
@@ -1289,20 +1683,13 @@ Procedure TimeLine_ApplyDrag(*GadgetData.TimeLineData)
 				*Block\ParentLine = *Target
 				*Block\Postion = Start
 				
-				If *Block\Container
-					*Target\ContainerCount + 1
-				EndIf
-				
 				TimeLine_SortBlock(*Target, *Block)
 				TimeLine_ExtendDuration(*GadgetData, Start + *Block\Duration)
 				Changed = #True
 			EndIf
 		Next
 		
-		ForEach \Lines()
-			TimeLine_UpdateFold(*GadgetData, @\Lines())
-		Next
-		TimeLine_LayoutLines(*GadgetData)
+		TimeLine_RefreshBands(*GadgetData)
 		
 		\Action = #TimeLine_Action_None
 		\DragTime = 0
@@ -1331,7 +1718,7 @@ EndProcedure
 
 ;- Event handling
 Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
-	Protected Time, Line, Delta, *Block.TimeLine_Block, Cursor = #PB_Cursor_Default
+	Protected Time, Line, Delta, Band, *Block.TimeLine_Block, *Key.TimeLine_Key, Cursor = #PB_Cursor_Default
 	
 	With *GadgetData
 		Time = TimeLine_XToTime(*GadgetData, X)
@@ -1360,6 +1747,22 @@ Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
 					
 					\DragTime = 0
 					\DragLine = 0
+					\RedrawBody = #True
+				EndIf
+				;}
+			Case #TimeLine_Action_KeyInitDrag ;{
+				If Abs(\DragOriginX - X) + Abs(\DragOriginY - Y) > #Drag_Distance
+					\Action = #TimeLine_Action_KeyDrag
+					\DragTime = 0
+					\RedrawBody = #True
+				EndIf
+				;}
+			Case #TimeLine_Action_KeyDrag ;{
+				Cursor = #PB_Cursor_LeftRight
+				Delta = Time - \DragGrabOffset
+				
+				If \DragTime <> Delta
+					\DragTime = Delta
 					\RedrawBody = #True
 				EndIf
 				;}
@@ -1398,9 +1801,10 @@ Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
 					
 					If Not (*Block And *Block\Container) Or *Block = \Selection()
 						*Block = #Null
-					Else
-						SelectElement(\Lines(), Line)
-						If \Lines()\Fold <> #TimeLine_Unfolded Or Y < \Lines()\Y - \VScrollBar\State + #TimeLine_Header_Height + #TimeLine_Body_BlockMargin + #TimeLine_Body_BlockHeight
+					ElseIf SelectElement(\Lines(), Line)
+						Band = TimeLine_BandAt(@\Lines(), \Lines()\Y - \VScrollBar\State + #TimeLine_Header_Height, Y)
+						
+						If TimeLine_BandKind(@\Lines(), Band) <> #TimeLine_Track_Content
 							*Block = #Null
 						EndIf
 					EndIf
@@ -1422,6 +1826,13 @@ Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
 				EndIf
 				;}
 			Default ;{
+				*Key = TimeLine_KeyAt(*GadgetData, X, Y)
+				
+				If \HoverKey <> *Key
+					\HoverKey = *Key
+					\RedrawBody = #True
+				EndIf
+				
 				*Block = TimeLine_BlockAt(*GadgetData, X, Y)
 				
 				If \HoverBlock <> *Block
@@ -1438,9 +1849,14 @@ Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
 					\RedrawBody = #True
 				EndIf
 				
-				\ResizeEdge = TimeLine_ResizeEdgeAt(*GadgetData, *Block, X)
-				If \ResizeEdge
+				If *Key							; a key sits inside its block, and takes the pointer from it
+					\ResizeEdge = #TimeLine_Resize_None
 					Cursor = #PB_Cursor_LeftRight
+				Else
+					\ResizeEdge = TimeLine_ResizeEdgeAt(*GadgetData, *Block, X)
+					If \ResizeEdge
+						Cursor = #PB_Cursor_LeftRight
+					EndIf
 				EndIf
 				;}
 		EndSelect
@@ -1451,7 +1867,7 @@ EndProcedure
 
 Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 	Protected HoverItem = -1, HoverFold, VScrollBar, HScrollBar, FirstDisplayedItem, LastDisplayedItem, Y, *Data, Zoom, Changed
-	Protected Cursor = *GadgetData\EditCursor, Time, *Block.TimeLine_Block
+	Protected Cursor = *GadgetData\EditCursor, Time, *Block.TimeLine_Block, *Key.TimeLine_Key
 	
 	With *GadgetData
 		Select *Event\EventType
@@ -1468,6 +1884,11 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						\HoverBlock\State = #Cold
 					EndIf
 					\HoverBlock = #Null
+					\RedrawBody = #True
+				EndIf
+				
+				If \HoverKey
+					\HoverKey = #Null
 					\RedrawBody = #True
 				EndIf
 				
@@ -1645,18 +2066,20 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						TimeLine_EndEdit(*GadgetData, #True)
 						;}
 					Case #PB_Shortcut_Delete ;{
-						If Not \Editing And ListSize(\Selection())
+						If \Editing
+						ElseIf ListSize(\KeySelection()) ;{ whichever of the two selections is live
+							While FirstElement(\KeySelection())
+								RemoveMediaBlockKey(\Gadget, \KeySelection())
+							Wend
+							
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_TimeLineKeyChange)
+							;}
+						ElseIf ListSize(\Selection())
 							While FirstElement(\Selection())
 								TimeLine_FreeBlock(*GadgetData, \Selection())
 							Wend
 							
-							ForEach \Lines()
-								TimeLine_UpdateFold(*GadgetData, @\Lines())
-							Next
-							TimeLine_LayoutLines(*GadgetData)
-							TimeLine_FirstDisplayed(*GadgetData)
-							\RedrawList = #True
-							\RedrawBody = #True
+							TimeLine_RefreshBands(*GadgetData)
 							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_TimeLineBlockChange)
 						EndIf
 						;}
@@ -1687,9 +2110,35 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						EndIf
 					Else
 						TimeLine_EndEdit(*GadgetData, #True)
+						*Key = TimeLine_KeyAt(*GadgetData, *Event\MouseX, *Event\MouseY)
 						*Block = TimeLine_BlockAt(*GadgetData, *Event\MouseX, *Event\MouseY)
 						
-						If *Block
+						If *Key ;{ A key takes the click before the block it sits in
+							TimeLine_ClearSelection(*GadgetData)
+							
+							If \OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #PB_Canvas_Control
+								If *Key\Selected
+									Changed = TimeLine_DeselectKey(*GadgetData, *Key)
+								Else
+									Changed = TimeLine_SelectKey(*GadgetData, *Key, #True)
+								EndIf
+							ElseIf Not *Key\Selected
+								Changed = TimeLine_SelectKey(*GadgetData, *Key, #False)
+							EndIf
+							
+							If Changed
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_TimeLineKeySelect)
+							EndIf
+							
+							\Action = #TimeLine_Action_KeyInitDrag
+							\DragOriginX = *Event\MouseX
+							\DragOriginY = *Event\MouseY
+							\DragGrabOffset = TimeLine_XToTime(*GadgetData, *Event\MouseX)
+							\RedrawBody = #True
+							;}
+						ElseIf *Block ;{
+							TimeLine_ClearKeySelection(*GadgetData)
+							
 							If \OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #PB_Canvas_Control
 								If *Block\Selected
 									Changed = TimeLine_Deselect(*GadgetData, *Block)
@@ -1710,10 +2159,13 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 							\DragGrabOffset = TimeLine_XToTime(*GadgetData, *Event\MouseX)
 							\DropLine = TimeLine_LineAt(*GadgetData, *Event\MouseY)
 							\RedrawBody = #True
-						ElseIf ListSize(\Selection())
+							;}
+						ElseIf ListSize(\Selection()) Or ListSize(\KeySelection()) ;{
 							TimeLine_ClearSelection(*GadgetData)
+							TimeLine_ClearKeySelection(*GadgetData)
 							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_TimeLineBlockSelect)
 							\RedrawBody = #True
+							;}
 						EndIf
 					EndIf
 					;}
@@ -1770,6 +2222,11 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 							EndIf
 							TimeLine_FirstDisplayed(*GadgetData)
 							\RedrawList = #True
+							
+						Case #TimeLine_Action_KeyDrag
+							If TimeLine_ApplyKeyDrag(*GadgetData)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_TimeLineKeyChange)
+							EndIf
 							
 						Default
 							\Action = #TimeLine_Action_None
@@ -2043,6 +2500,7 @@ Procedure TimeLine_ClearItems(*this.PB_Gadget)
 	With *GadgetData
 		TimeLine_EndEdit(*GadgetData, #False)
 		
+		ClearList(\KeySelection())
 		ClearList(\Selection())
 		ClearList(\Blocks())
 		ClearList(\Lines())
@@ -2191,14 +2649,7 @@ Procedure RemoveMediaBlock(Gadget, *Block.TimeLine_Block)
 	With *GadgetData
 		TimeLine_FreeBlock(*GadgetData, *Block)
 		
-		ForEach \Lines()
-			TimeLine_UpdateFold(*GadgetData, @\Lines())
-		Next
-		TimeLine_LayoutLines(*GadgetData)
-		TimeLine_FirstDisplayed(*GadgetData)
-		
-		\RedrawList = #True
-		\RedrawBody = #True
+		TimeLine_RefreshBands(*GadgetData)
 		TimeLine_Draw(*GadgetData)
 	EndWith
 	
@@ -2229,22 +2680,11 @@ Procedure MoveMediaBlock(Gadget, *Block.TimeLine_Block, Line, Position, *Parent 
 			*Block\ParentLine = @\Lines()
 			*Block\Postion = Max(Position, 0)
 			
-			If *Block\Container
-				\Lines()\ContainerCount + 1
-			EndIf
-			
 			TimeLine_SortBlock(@\Lines(), *Block)
 			TimeLine_ExtendDuration(*GadgetData, *Block\Postion + *Block\Duration)
 		EndIf
 		
-		ForEach \Lines()
-			TimeLine_UpdateFold(*GadgetData, @\Lines())
-		Next
-		TimeLine_LayoutLines(*GadgetData)
-		TimeLine_FirstDisplayed(*GadgetData)
-		
-		\RedrawList = #True
-		\RedrawBody = #True
+		TimeLine_RefreshBands(*GadgetData)
 		TimeLine_Draw(*GadgetData)
 	EndWith
 	
@@ -2301,6 +2741,8 @@ Procedure.i GetMediaBlockAttribute(Gadget, *Block.TimeLine_Block, Attribute)
 				Result = *Block\Icon
 			Case #Attribute_MediaBlock_Container
 				Result = *Block\Container
+			Case #Attribute_MediaBlock_Tracks
+				Result = *Block\Tracks
 			Case #Attribute_MediaBlock_Selected
 				Result = *Block\Selected
 			Case #Attribute_MediaBlock_Data
@@ -2326,7 +2768,7 @@ Procedure.i GetMediaBlockAttribute(Gadget, *Block.TimeLine_Block, Attribute)
 EndProcedure
 
 Procedure SetMediaBlockAttribute(Gadget, *Block.TimeLine_Block, Attribute, Value)
-	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData, Track
 	
 	If Not *this Or Not *Block
 		ProcedureReturn #False
@@ -2359,13 +2801,18 @@ Procedure SetMediaBlockAttribute(Gadget, *Block.TimeLine_Block, Attribute, Value
 				
 				*Block\Container = Bool(Value)
 				
-				If *Block\ParentLine
-					*Block\ParentLine\ContainerCount + Bool(*Block\Container) - Bool(Not *Block\Container)
-					TimeLine_UpdateFold(*GadgetData, *Block\ParentLine)
-					TimeLine_LayoutLines(*GadgetData)
-					TimeLine_FirstDisplayed(*GadgetData)
-					\RedrawList = #True
-				EndIf
+				TimeLine_RefreshBands(*GadgetData)
+				;}
+			Case #Attribute_MediaBlock_Tracks ;{
+				*Block\Tracks = Value & ((1 << #__TimeLine_Track_Count) - 1)
+				
+				For Track = 0 To #__TimeLine_Track_Count - 1
+					If TimeLine_TrackUsed(*Block, Track)		; a track holding keys always shows them
+						*Block\Tracks | (1 << Track)
+					EndIf
+				Next
+				
+				TimeLine_RefreshBands(*GadgetData)
 				;}
 			Default
 				ProcedureReturn #False
@@ -2477,6 +2924,273 @@ Procedure.i CountSelectedMediaBlocks(Gadget)
 	
 	*GadgetData = *this\vt
 	ProcedureReturn ListSize(*GadgetData\Selection())
+EndProcedure
+
+;- Keys
+Procedure TimeLine_TrackUsed(*Block.TimeLine_Block, Track)
+	ForEach *Block\Keys()
+		If *Block\Keys()\Track = Track
+			ProcedureReturn #True
+		EndIf
+	Next
+	
+	ProcedureReturn #False
+EndProcedure
+
+Procedure TimeLine_SortKey(*Block.TimeLine_Block, *Key.TimeLine_Key)
+	; Keep the list ordered by track, then by time. MoveElement relinks rather than reallocates,
+	; so a key the caller is holding survives being retimed.
+	Protected *Target
+	
+	With *Block
+		ForEach \Keys()
+			If @\Keys() = *Key
+				Continue
+			ElseIf \Keys()\Track > *Key\Track Or (\Keys()\Track = *Key\Track And \Keys()\Time > *Key\Time)
+				*Target = @\Keys()
+				Break
+			EndIf
+		Next
+		
+		ChangeCurrentElement(\Keys(), *Key)
+		
+		If *Target
+			MoveElement(\Keys(), #PB_List_Before, *Target)
+		Else
+			MoveElement(\Keys(), #PB_List_Last)
+		EndIf
+	EndWith
+EndProcedure
+
+Procedure.i AddMediaBlockKey(Gadget, *Block.TimeLine_Block, Track, Time, Value.d = 0)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData, *Key.TimeLine_Key
+	
+	If Not *this Or Not *Block Or Track < 0 Or Track >= #__TimeLine_Track_Count
+		ProcedureReturn #Null
+	EndIf
+	
+	*GadgetData = *this\vt
+	Time = Max(Time, 0)
+	*Key = FindMediaBlockKey(Gadget, *Block, Track, Time)
+	
+	If *Key							; one key per track per time; a second one just revalues the first
+		*Key\Value = Value
+		*GadgetData\RedrawBody = #True
+		TimeLine_Draw(*GadgetData)
+		ProcedureReturn *Key
+	EndIf
+	
+	LastElement(*Block\Keys())
+	*Key = AddElement(*Block\Keys())
+	*Key\Track = Track
+	*Key\Time = Time
+	*Key\Value = Value
+	*Key\Block = *Block
+	
+	TimeLine_SortKey(*Block, *Key)
+	*Block\Tracks | (1 << Track)
+	
+	TimeLine_RefreshBands(*GadgetData)
+	TimeLine_Draw(*GadgetData)
+	
+	ProcedureReturn *Key
+EndProcedure
+
+Procedure RemoveMediaBlockKey(Gadget, *Key.TimeLine_Key)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData, *Block.TimeLine_Block, Track
+	
+	If Not *this Or Not *Key
+		ProcedureReturn #False
+	EndIf
+	
+	*GadgetData = *this\vt
+	*Block = *Key\Block
+	Track = *Key\Track
+	
+	TimeLine_DeselectKey(*GadgetData, *Key)
+	
+	If *GadgetData\HoverKey = *Key
+		*GadgetData\HoverKey = #Null
+	EndIf
+	
+	ChangeCurrentElement(*Block\Keys(), *Key)
+	DeleteElement(*Block\Keys())
+	
+	If Not TimeLine_TrackUsed(*Block, Track)		; the row goes with the last key on it
+		*Block\Tracks & ~(1 << Track)
+	EndIf
+	
+	TimeLine_RefreshBands(*GadgetData)
+	TimeLine_Draw(*GadgetData)
+	
+	ProcedureReturn #True
+EndProcedure
+
+Procedure MoveMediaBlockKey(Gadget, *Key.TimeLine_Key, Time)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData
+	
+	If Not *this Or Not *Key
+		ProcedureReturn #False
+	EndIf
+	
+	*GadgetData = *this\vt
+	*Key\Time = Max(Time, 0)
+	TimeLine_SortKey(*Key\Block, *Key)
+	
+	*GadgetData\RedrawBody = #True
+	TimeLine_Draw(*GadgetData)
+	
+	ProcedureReturn #True
+EndProcedure
+
+Procedure.i FindMediaBlockKey(Gadget, *Block.TimeLine_Block, Track, Time)
+	If Not *Block
+		ProcedureReturn #Null
+	EndIf
+	
+	ForEach *Block\Keys()
+		If *Block\Keys()\Track = Track And *Block\Keys()\Time = Time
+			ProcedureReturn @*Block\Keys()
+		EndIf
+	Next
+	
+	ProcedureReturn #Null
+EndProcedure
+
+Procedure.i CountMediaBlockKeys(Gadget, *Block.TimeLine_Block, Track = -1)
+	Protected Count
+	
+	If Not *Block
+		ProcedureReturn 0
+	ElseIf Track < 0
+		ProcedureReturn ListSize(*Block\Keys())
+	EndIf
+	
+	ForEach *Block\Keys()
+		If *Block\Keys()\Track = Track
+			Count + 1
+		EndIf
+	Next
+	
+	ProcedureReturn Count
+EndProcedure
+
+Procedure.i GetMediaBlockKey(Gadget, *Block.TimeLine_Block, Track, Index)
+	; The Index'th key on a track, in time order.
+	If Not *Block Or Index < 0
+		ProcedureReturn #Null
+	EndIf
+	
+	ForEach *Block\Keys()
+		If *Block\Keys()\Track = Track
+			If Index = 0
+				ProcedureReturn @*Block\Keys()
+			EndIf
+			Index - 1
+		EndIf
+	Next
+	
+	ProcedureReturn #Null
+EndProcedure
+
+Procedure.i GetMediaBlockKeyTime(Gadget, *Key.TimeLine_Key)
+	If *Key
+		ProcedureReturn *Key\Time
+	EndIf
+	
+	ProcedureReturn 0
+EndProcedure
+
+Procedure.d GetMediaBlockKeyValue(Gadget, *Key.TimeLine_Key)
+	If *Key
+		ProcedureReturn *Key\Value
+	EndIf
+	
+	ProcedureReturn 0
+EndProcedure
+
+Procedure SetMediaBlockKeyValue(Gadget, *Key.TimeLine_Key, Value.d)
+	If Not *Key
+		ProcedureReturn #False
+	EndIf
+	
+	*Key\Value = Value				; nothing on screen reads it, so no redraw
+	ProcedureReturn #True
+EndProcedure
+
+Procedure SetMediaBlockKeySelected(Gadget, *Key.TimeLine_Key, State)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData
+	
+	If Not *this Or Not *Key
+		ProcedureReturn #False
+	EndIf
+	
+	*GadgetData = *this\vt
+	
+	If State
+		TimeLine_ClearSelection(*GadgetData)		; keys and blocks never hold the selection at once
+		TimeLine_SelectKey(*GadgetData, *Key, #True)
+	Else
+		TimeLine_DeselectKey(*GadgetData, *Key)
+	EndIf
+	
+	*GadgetData\RedrawBody = #True
+	TimeLine_Draw(*GadgetData)
+	
+	ProcedureReturn #True
+EndProcedure
+
+Procedure.i SelectedMediaBlockKey(Gadget, Index = 0)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData
+	
+	If Not *this Or Index < 0
+		ProcedureReturn #Null
+	EndIf
+	
+	*GadgetData = *this\vt
+	
+	If SelectElement(*GadgetData\KeySelection(), Index)
+		ProcedureReturn *GadgetData\KeySelection()
+	EndIf
+	
+	ProcedureReturn #Null
+EndProcedure
+
+Procedure.i CountSelectedMediaBlockKeys(Gadget)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData
+	
+	If Not *this
+		ProcedureReturn 0
+	EndIf
+	
+	*GadgetData = *this\vt
+	ProcedureReturn ListSize(*GadgetData\KeySelection())
+EndProcedure
+
+Procedure SetTimeLineTrackName(Gadget, Track, Text.s)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData
+	
+	If Not *this Or Track < 0 Or Track > #TimeLine_Track_Content
+		ProcedureReturn #False
+	EndIf
+	
+	*GadgetData = *this\vt
+	*GadgetData\TrackName[Track] = Text
+	*GadgetData\RedrawList = #True
+	TimeLine_Draw(*GadgetData)
+	
+	ProcedureReturn #True
+EndProcedure
+
+Procedure.s GetTimeLineTrackName(Gadget, Track)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData
+	
+	If Not *this Or Track < 0 Or Track > #TimeLine_Track_Content
+		ProcedureReturn ""
+	EndIf
+	
+	*GadgetData = *this\vt
+	ProcedureReturn *GadgetData\TrackName[Track]
 EndProcedure
 
 ;- Gadget attributes
@@ -2648,6 +3362,15 @@ Procedure TimeLine_Meta(*GadgetData.TimeLineData, *ThemeData, Gadget, x, y, Widt
 		\Zoom = #TimeLine_Zoom_Default
 		\Scale = TimeLine_ZoomLevel(\Zoom)
 		
+		; Starting points, not a vocabulary — SetTimeLineTrackName relabels any of them.
+		\TrackName[#TimeLine_Track_X] = "X"
+		\TrackName[#TimeLine_Track_Y] = "Y"
+		\TrackName[#TimeLine_Track_Width] = "Width"
+		\TrackName[#TimeLine_Track_Height] = "Height"
+		\TrackName[#TimeLine_Track_Opacity] = "Opacity"
+		\TrackName[#TimeLine_Track_Angle] = "Angle"
+		\TrackName[#TimeLine_Track_Content] = "Content"
+		
 		GadgetList = UseGadgetList(0)
 		\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, #TimeLine_List_LineHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
 		\ReorderCanvas = CanvasGadget(#PB_Any, 0, 0, Width, #TimeLine_List_LineHeight, #PB_Canvas_Keyboard)
@@ -2694,8 +3417,8 @@ EndProcedure
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 2694
-; FirstLine = 240
-; Folding = AAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 3416
+; FirstLine = 330
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware

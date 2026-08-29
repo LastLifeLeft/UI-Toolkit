@@ -8,13 +8,9 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-08-29 19:16" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-08-29 21:23" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
-    <file name="Examples\Debug.pb">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
-      <fingerprint md5="ac50841698bb5bd35bab33eb24d6b811"/>
-    </file>
     <file name="Examples\Example 5 - LayerList.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+-"/>
       <fingerprint md5="0902def228f8b5deefde6eecbb5243ab"/>
@@ -29,11 +25,15 @@
     </file>
     <file name="Examples\Example 3 - Timeline.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="4" panelstate="+-"/>
-      <fingerprint md5="fccdb33e2deaf3dfaf91192e3433af74"/>
+      <fingerprint md5="24ab8b91d2a4bf6ba41617a48c6dea91"/>
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="5" panelstate="+-"/>
-      <fingerprint md5="7cc4c286c55de1d777063fb200497467"/>
+      <fingerprint md5="e58ea51c7751b435995127e527b45991"/>
+    </file>
+    <file name="Examples\Debug.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
+      <fingerprint md5="ac50841698bb5bd35bab33eb24d6b811"/>
     </file>
     <file name="Examples\Example 2 - Gadget Example 2.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>

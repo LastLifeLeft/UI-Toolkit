@@ -1,4 +1,4 @@
-﻿DeclareModule UITK
+DeclareModule UITK
 	;{ Public variables, structures and constants
 	EnumerationBinary ; Gadget flags
 					  ; General
@@ -138,8 +138,25 @@
 			#Attribute_MediaBlock_Parent			; media block: the container it sits in, 0 when it sits straight on a line (read only)
 			#Attribute_MediaBlock_ChildCount		; media block: children it holds (read only)
 			#Attribute_MediaBlock_Line				; media block: index of the line it sits on, -1 when it is a child (read only)
+			#Attribute_MediaBlock_Tracks			; media block: bitmask of the tracks it animates, so 1 << #TimeLine_Track_X (read/write). Adding a key sets its bit, removing the last key on a track clears it.
 		CompilerEndIf
 	EndEnumeration
+	
+	CompilerIf Defined(EnableTimeline, #PB_Module)
+		Enumeration ; TimeLine keyable tracks — a block animates any subset, and each one it uses earns its line a sub-row
+			#TimeLine_Track_X
+			#TimeLine_Track_Y
+			#TimeLine_Track_Width
+			#TimeLine_Track_Height
+			#TimeLine_Track_Opacity
+			#TimeLine_Track_Angle
+			
+			#__TimeLine_Track_Count
+		EndEnumeration
+		
+		#TimeLine_Track_Content = #__TimeLine_Track_Count	; the children band - it holds blocks rather than keys, but names and folds like a track
+		#__TimeLine_Band_Count = #__TimeLine_Track_Count + 1
+	CompilerEndIf
 	
 	Enumeration ; Corners
 		#Corner_All
@@ -302,6 +319,8 @@
 			#EventType_TimeLineBlockChange		; TimeLine: the user moved, resized or deleted blocks
 			#EventType_TimeLineBlockEdit		; TimeLine: a block was double clicked - EventData is that block
 			#EventType_TimeLineFold				; TimeLine: a line was folded or unfolded - EventData is its index
+			#EventType_TimeLineKeySelect		; TimeLine: the key selection changed
+			#EventType_TimeLineKeyChange		; TimeLine: the user retimed or deleted keys
 		CompilerEndIf
 		
 		#EventType_PropertyBoxEditNext	; PropertyBox plumbing: PropertyBoxEditNext posts this to itself
@@ -505,6 +524,20 @@
 		Declare.i GetMediaBlockChild(Gadget, *Block, Index)
 		Declare.i SelectedMediaBlock(Gadget, Index = 0)
 		Declare.i CountSelectedMediaBlocks(Gadget)
+		Declare.i AddMediaBlockKey(Gadget, *Block, Track, Time, Value.d = 0)	; the new key, or the one already at that time
+		Declare RemoveMediaBlockKey(Gadget, *Key)
+		Declare MoveMediaBlockKey(Gadget, *Key, Time)
+		Declare.i FindMediaBlockKey(Gadget, *Block, Track, Time)		; the key at exactly that time, 0 when there is none
+		Declare.i CountMediaBlockKeys(Gadget, *Block, Track = -1)		; Track -1 counts every track of the block
+		Declare.i GetMediaBlockKey(Gadget, *Block, Track, Index)
+		Declare.i GetMediaBlockKeyTime(Gadget, *Key)			; relative to its block, like the block is to its parent
+		Declare.d GetMediaBlockKeyValue(Gadget, *Key)
+		Declare SetMediaBlockKeyValue(Gadget, *Key, Value.d)
+		Declare SetTimeLineTrackName(Gadget, Track, Text.s)		; the label a track shows in the line list; #TimeLine_Track_Content names the children band
+		Declare SetMediaBlockKeySelected(Gadget, *Key, State)	; selecting a key drops any block selection, and the other way round
+		Declare.i SelectedMediaBlockKey(Gadget, Index = 0)
+		Declare.i CountSelectedMediaBlockKeys(Gadget)
+		Declare.s GetTimeLineTrackName(Gadget, Track)
 	CompilerEndIf
 	
 	; LayerList
@@ -849,7 +882,7 @@ Module UITK
 	CompilerEndIf
 	
 	Macro SetAlpha(Color, Alpha)
-		(Alpha << 24) + Color
+		(((Alpha) << 24) + (Color))		; each argument on its own: << outranks + and *, so an unbracketed sum would be shredded
 	EndMacro
 	
 	Macro Floor(Number)
@@ -11925,7 +11958,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 11924
-; Folding = AAAA---HAAAAAAAAAAAAAAAAAA+wBA5PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 11900
+; Folding = AAAA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
