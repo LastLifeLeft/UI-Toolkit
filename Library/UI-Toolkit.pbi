@@ -1,4 +1,4 @@
-DeclareModule UITK
+﻿DeclareModule UITK
 	;{ Public variables, structures and constants
 	EnumerationBinary ; Gadget flags
 					  ; General
