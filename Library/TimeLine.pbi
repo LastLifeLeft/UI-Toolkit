@@ -438,37 +438,39 @@ Procedure TimeLine_BlockAt(*GadgetData.TimeLineData, X, Y)
 			ProcedureReturn #Null						; the gap above the blocks
 		EndIf
 		
-		ForEach \Lines()\MediaBlocks()
-			*Block = \Lines()\MediaBlocks()
-			BlockX = TimeLine_TimeToX(*GadgetData, *Block\Postion)
-			BlockWidth = Max(*Block\Duration * \Scale, 1)
-			
-			If BlockX > X
-				Break
-			ElseIf X > BlockX + BlockWidth
-				Continue
-			EndIf
-			
-			If Band >= TimeLine_BlockBands(*Block)
-				Continue						; past where this block reaches, so it is bare row down here
-			EndIf
-			
-			; A band belonging to the children picks a child out; every other band the block spans,
-			; used or struck out, still belongs to the block itself.
-			If Band > -1 And TimeLine_BandKind(@\Lines(), Band) = #TimeLine_Track_Content And *Block\Container
-				ForEach *Block\Children()
-					*Child = *Block\Children()
-					BlockX = TimeLine_TimeToX(*GadgetData, *Block\Postion + *Child\Postion)
-					BlockWidth = Max(*Child\Duration * \Scale, 1)
-					
-					If X >= BlockX And X <= BlockX + BlockWidth
-						ProcedureReturn *Child
+		If LastElement(\Lines()\MediaBlocks())
+			Repeat
+				*Block = \Lines()\MediaBlocks()
+				BlockX = TimeLine_TimeToX(*GadgetData, *Block\Postion)
+				BlockWidth = Max(*Block\Duration * \Scale, 1)
+				
+				If X < BlockX Or X > BlockX + BlockWidth
+					Continue
+				EndIf
+				
+				If Band >= TimeLine_BlockBands(*Block)
+					Continue
+				EndIf
+				
+				If Band > -1 And TimeLine_BandKind(@\Lines(), Band) = #TimeLine_Track_Content And *Block\Container
+					If LastElement(*Block\Children())
+						Repeat
+							*Child = *Block\Children()
+							BlockX = TimeLine_TimeToX(*GadgetData, *Block\Postion + *Child\Postion)
+							BlockWidth = Max(*Child\Duration * \Scale, 1)
+							
+							If X >= BlockX And X <= BlockX + BlockWidth
+								ProcedureReturn *Child
+							EndIf
+						Until Not PreviousElement(*Block\Children())
 					EndIf
-				Next
-			EndIf
-			
-			ProcedureReturn *Block
-		Next
+					
+					ChangeCurrentElement(\Lines()\MediaBlocks(), *Block)
+				EndIf
+				
+				ProcedureReturn *Block
+			Until Not PreviousElement(\Lines()\MediaBlocks())
+		EndIf
 	EndWith
 	
 	ProcedureReturn #Null
@@ -655,31 +657,34 @@ Procedure TimeLine_KeyAt(*GadgetData.TimeLineData, X, Y)
 			ProcedureReturn #Null
 		EndIf
 		
-		ForEach \Lines()\MediaBlocks()
-			*Block = \Lines()\MediaBlocks()
-			BlockX = TimeLine_TimeToX(*GadgetData, *Block\Postion)
-			BlockWidth = Max(*Block\Duration * \Scale, 1)
-			
-			If BlockX > X + #TimeLine_Key_Grab
-				Break
-			ElseIf X > BlockX + BlockWidth + #TimeLine_Key_Grab Or Not (*Block\Tracks & (1 << Track))
-				Continue
-			EndIf
-			
-			Start = TimeLine_BlockStart(*Block)
-			
-			ForEach *Block\Keys()
-				If *Block\Keys()\Track <> Track Or *Block\Keys()\Time < 0 Or *Block\Keys()\Time > *Block\Duration
+		; Back to front, like the blocks themselves: the key on top belongs to the block on top.
+		If LastElement(\Lines()\MediaBlocks())
+			Repeat
+				*Block = \Lines()\MediaBlocks()
+				BlockX = TimeLine_TimeToX(*GadgetData, *Block\Postion)
+				BlockWidth = Max(*Block\Duration * \Scale, 1)
+				
+				If X < BlockX - #TimeLine_Key_Grab Or X > BlockX + BlockWidth + #TimeLine_Key_Grab Or Not (*Block\Tracks & (1 << Track))
 					Continue
 				EndIf
 				
-				KeyX = TimeLine_TimeToX(*GadgetData, Start + *Block\Keys()\Time)
+				Start = TimeLine_BlockStart(*Block)
 				
-				If Abs(X - KeyX) <= #TimeLine_Key_Grab
-					ProcedureReturn @*Block\Keys()
-				EndIf
-			Next
-		Next
+				ForEach *Block\Keys()
+					If *Block\Keys()\Track <> Track Or *Block\Keys()\Time < 0 Or *Block\Keys()\Time > *Block\Duration
+						Continue
+					EndIf
+					
+					KeyX = TimeLine_TimeToX(*GadgetData, Start + *Block\Keys()\Time)
+					
+					If Abs(X - KeyX) <= #TimeLine_Key_Grab
+						ProcedureReturn @*Block\Keys()
+					EndIf
+				Next
+				
+				ChangeCurrentElement(\Lines()\MediaBlocks(), *Block)
+			Until Not PreviousElement(\Lines()\MediaBlocks())
+		EndIf
 	EndWith
 	
 	ProcedureReturn #Null
@@ -3493,8 +3498,8 @@ EndProcedure
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3492
-; FirstLine = 337
+; CursorPosition = 451
+; FirstLine = 223
 ; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware
