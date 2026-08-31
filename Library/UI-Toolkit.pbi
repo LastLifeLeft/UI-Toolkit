@@ -515,6 +515,7 @@
 		Declare RemoveMediaBlock(Gadget, *Block)
 		Declare MoveMediaBlock(Gadget, *Block, Line, Position, *Parent = 0)
 		Declare ResizeMediaBlock(Gadget, *Block, Position, Duration)
+		Declare ScaleMediaBlockContents(Gadget, *Block, Position, Duration)	; resize, stretching the keys and subclips inside to match
 		Declare.i GetMediaBlockAttribute(Gadget, *Block, Attribute)
 		Declare SetMediaBlockAttribute(Gadget, *Block, Attribute, Value)
 		Declare.s GetMediaBlockText(Gadget, *Block)

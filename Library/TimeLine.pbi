@@ -152,6 +152,7 @@ Structure TimeLineData Extends GadgetData
 	
 	Action.b							; #TimeLine_Action_*
 	ResizeEdge.b						; #TimeLine_Resize_*
+	ScaleContents.b						; shift held over a resize: stretch what is inside rather than trim it
 	DragGrabOffset.i					; time between the grabbed block's start and the pointer
 	DragTime.i							; time every selected block would shift by
 	DragLine.i							; lines every selected block would shift by
@@ -496,15 +497,38 @@ EndProcedure
 
 Procedure TimeLine_ResizedSpan(*Block.TimeLine_Block, Edge, Delta, *Start.Integer, *Duration.Integer)
 	Protected Start = *Block\Postion, Finish = Start + *Block\Duration
-
+	
 	If Edge = #TimeLine_Resize_Left
 		Start = Clamp(Start + Delta, 0, Finish - 1)
 	Else
 		Finish = Max(Finish + Delta, Start + 1)
 	EndIf
-
+	
 	*Start\i = Start
 	*Duration\i = Finish - Start
+EndProcedure
+
+Procedure TimeLine_ScaleContents(*Block.TimeLine_Block, OldDuration, NewDuration)
+	Protected Ratio.d, Span
+	
+	If OldDuration < 1 Or NewDuration < 1 Or OldDuration = NewDuration
+		ProcedureReturn #False
+	EndIf
+	
+	Ratio = NewDuration / OldDuration
+	
+	ForEach *Block\Keys()
+		*Block\Keys()\Time = Round(*Block\Keys()\Time * Ratio, #PB_Round_Nearest)
+	Next
+	
+	ForEach *Block\Children()
+		Span = Max(Round(*Block\Children()\Duration * Ratio, #PB_Round_Nearest), 1)
+		TimeLine_ScaleContents(*Block\Children(), *Block\Children()\Duration, Span)
+		*Block\Children()\Postion = Round(*Block\Children()\Postion * Ratio, #PB_Round_Nearest)
+		*Block\Children()\Duration = Span
+	Next
+	
+	ProcedureReturn #True
 EndProcedure
 
 ;- Selection
@@ -645,7 +669,7 @@ Procedure TimeLine_KeyAt(*GadgetData.TimeLineData, X, Y)
 			Start = TimeLine_BlockStart(*Block)
 			
 			ForEach *Block\Keys()
-				If *Block\Keys()\Track <> Track
+				If *Block\Keys()\Track <> Track Or *Block\Keys()\Time < 0 Or *Block\Keys()\Time > *Block\Duration
 					Continue
 				EndIf
 				
@@ -776,14 +800,18 @@ Procedure TimeLine_DrawHatch(X, Y, Width, Height)
 EndProcedure
 
 Procedure TimeLine_Redraw_Keys(*GadgetData.TimeLineData, *Block.TimeLine_Block, Track, X, Y, Width, Alpha)
-	; One band's worth of keys. The shape comes from how close the tightest pair on the track sits,
-	; not from the zoom alone — sparse keys stay legible however far out the view is.
 	Protected KeyX.d, CY.d = Y + #TimeLine_Body_SubRowHeight * 0.5, Start = TimeLine_BlockStart(*Block)
-	Protected Previous = -1, Gap = 1 << 30, Drawn, Time
+	Protected Previous = -1, Gap = 1 << 30, Drawn, Time, Ratio.d = 1, NewStart, NewDuration
 	
 	With *GadgetData
+		If \Action = #TimeLine_Action_BlockResize And \ScaleContents And *Block\Selected And *Block\Duration > 0
+			TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, @NewStart, @NewDuration)
+			Ratio = NewDuration / *Block\Duration
+			Start + NewStart - *Block\Postion
+		EndIf
 		ForEach *Block\Keys()
-			If *Block\Keys()\Track <> Track
+			; A key the trim left outside the span is kept but not shown, so it takes no part here.
+			If *Block\Keys()\Track <> Track Or *Block\Keys()\Time < 0 Or *Block\Keys()\Time > *Block\Duration
 				Continue
 			ElseIf Previous > -1
 				Gap = Min(Gap, (*Block\Keys()\Time - Previous) * \Scale)
@@ -793,14 +821,14 @@ Procedure TimeLine_Redraw_Keys(*GadgetData.TimeLineData, *Block.TimeLine_Block, 
 		Next
 		
 		ForEach *Block\Keys()
-			If *Block\Keys()\Track <> Track
+			If *Block\Keys()\Track <> Track Or *Block\Keys()\Time < 0 Or *Block\Keys()\Time > *Block\Duration
 				Continue
 			EndIf
 			
-			Time = *Block\Keys()\Time
+			Time = Round(*Block\Keys()\Time * Ratio, #PB_Round_Nearest)
 			
 			If *Block\Keys()\Selected And \Action = #TimeLine_Action_KeyDrag
-				Time = Clamp(Time + \DragTime, 0, *Block\Duration)		; the drag previews in place, no ghost outline
+				Time = Clamp(Time + \DragTime, 0, *Block\Duration)
 			EndIf
 			
 			KeyX = \OriginX + TimeLine_TimeToX(*GadgetData, Start + Time) + 0.5
@@ -829,7 +857,7 @@ Procedure TimeLine_Redraw_Keys(*GadgetData.TimeLineData, *Block.TimeLine_Block, 
 				VectorSourceColor(SetAlpha(\ThemeData\TextColor[*Block\State], Alpha))
 			EndIf
 			
-			FillPath()						; per key, since each can be picked out on its own
+			FillPath()
 			Drawn = #True
 		Next
 	EndWith
@@ -1041,7 +1069,7 @@ Procedure TimeLine_Redraw_Preview(*GadgetData.TimeLineData)
 					Offset = Start - *Block\Postion			; the parent chain, for a child block
 					TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, @Start, @Duration)
 					Start + Offset
-
+					
 				Case #TimeLine_Action_BlockDrag
 					Start = Max(Start + \DragTime, 0)
 					
@@ -1615,7 +1643,7 @@ EndProcedure
 
 Procedure TimeLine_ApplyDrag(*GadgetData.TimeLineData)
 	; Commit whatever the preview outline was showing. Returns #True when anything moved.
-	Protected Changed, Start, Duration, Index, *Block.TimeLine_Block, *Line.TimeLine_Line, *Target.TimeLine_Line
+	Protected Changed, Start, Duration, Shift, Span, Index, *Block.TimeLine_Block, *Line.TimeLine_Line, *Target.TimeLine_Line
 	Protected NewList *Moving.TimeLine_Block()
 	
 	With *GadgetData
@@ -1630,11 +1658,25 @@ Procedure TimeLine_ApplyDrag(*GadgetData.TimeLineData)
 			
 			If \Action = #TimeLine_Action_BlockResize
 				TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, @Start, @Duration)
-
+				Shift = *Block\Postion - Start		; how far the head moved; zero for a right-edge drag
+				Span = *Block\Duration				; …and what it covered before, for the scaling case
+				
 				If Start <> *Block\Postion Or Duration <> *Block\Duration
 					*Block\Postion = Start
 					*Block\Duration = Duration
 					Changed = #True
+				EndIf
+				
+				If \ScaleContents
+					TimeLine_ScaleContents(*Block, Span, Duration)
+				ElseIf Shift
+					ForEach *Block\Keys()
+						*Block\Keys()\Time + Shift
+					Next
+					
+					ForEach *Block\Children()
+						*Block\Children()\Postion + Shift
+					Next
 				EndIf
 				
 				If *Block\Parent
@@ -1696,6 +1738,7 @@ Procedure TimeLine_ApplyDrag(*GadgetData.TimeLineData)
 		\Action = #TimeLine_Action_None
 		\DragTime = 0
 		\DragLine = 0
+		\ScaleContents = #False
 		\DragParent = #Null
 		\DropLine = -1
 	EndWith
@@ -1712,6 +1755,7 @@ Procedure TimeLine_CancelDrag(*GadgetData.TimeLineData)
 		\Action = #TimeLine_Action_None
 		\DragTime = 0
 		\DragLine = 0
+		\ScaleContents = #False
 		\DragParent = #Null
 		\DropLine = -1
 		\RedrawBody = #True
@@ -1720,7 +1764,7 @@ EndProcedure
 
 ;- Event handling
 Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
-	Protected Time, Line, Delta, Band, *Block.TimeLine_Block, *Key.TimeLine_Key, Cursor = #PB_Cursor_Default
+	Protected Time, Line, Delta, Band, Scale, *Block.TimeLine_Block, *Key.TimeLine_Key, Cursor = #PB_Cursor_Default
 	
 	With *GadgetData
 		Time = TimeLine_XToTime(*GadgetData, X)
@@ -1771,9 +1815,11 @@ Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
 			Case #TimeLine_Action_BlockResize ;{
 				Cursor = #PB_Cursor_LeftRight
 				Delta = Time - \DragGrabOffset
+				Scale = Bool(\OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
 				
-				If \DragTime <> Delta
+				If \DragTime <> Delta Or \ScaleContents <> Scale
 					\DragTime = Delta
+					\ScaleContents = Scale		; read every move, so the outline and the commit cannot disagree
 					\RedrawBody = #True
 				EndIf
 				;}
@@ -2720,6 +2766,34 @@ Procedure ResizeMediaBlock(Gadget, *Block.TimeLine_Block, Position, Duration)
 	ProcedureReturn #True
 EndProcedure
 
+Procedure ScaleMediaBlockContents(Gadget, *Block.TimeLine_Block, Position, Duration)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData, Old
+	
+	If Not *this Or Not *Block
+		ProcedureReturn #False
+	EndIf
+	
+	*GadgetData = *this\vt
+	Old = *Block\Duration
+	*Block\Postion = Max(Position, 0)
+	*Block\Duration = Max(Duration, 1)
+	TimeLine_ScaleContents(*Block, Old, *Block\Duration)
+	
+	With *GadgetData
+		If *Block\Parent
+			TimeLine_SortChild(*Block\Parent, *Block)
+		ElseIf *Block\ParentLine
+			TimeLine_SortBlock(*Block\ParentLine, *Block)
+			TimeLine_ExtendDuration(*GadgetData, *Block\Postion + *Block\Duration)
+		EndIf
+		
+		\RedrawBody = #True
+		TimeLine_Draw(*GadgetData)
+	EndWith
+	
+	ProcedureReturn #True
+EndProcedure
+
 Procedure.i GetMediaBlockAttribute(Gadget, *Block.TimeLine_Block, Attribute)
 	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.TimeLineData, Result
 	
@@ -3419,8 +3493,8 @@ EndProcedure
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 496
-; FirstLine = 208
-; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAA5
+; CursorPosition = 3492
+; FirstLine = 337
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware

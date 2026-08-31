@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-08-31 21:38" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-08-31 22:02" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
     <file name="Examples\Example 5 - LayerList.pb">
@@ -29,7 +29,7 @@
     </file>
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
-      <fingerprint md5="3bf5715cc02f2a4dea8fa31ead43c90f"/>
+      <fingerprint md5="50bb127a6b47bdd97a5f9bbb541aa490"/>
     </file>
     <file name="Examples\Debug.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
