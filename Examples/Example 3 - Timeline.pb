@@ -149,14 +149,16 @@ UITK::AddMediaBlockKey(Timeline, *Group, UITK::#TimeLine_Track_Opacity, 280, 1)
 
 SetGadgetItemAttribute(Timeline, 1, UITK::#Attribute_TimeLine_Folded, #False)
 SetGadgetAttribute(Timeline, UITK::#Attribute_TimeLine_PlayerPosition, 120)
+SetGadgetAttribute(Timeline, UITK::#Attribute_TimeLine_FixedDuration, #True)
 
 Repeat
 	If WaitWindowEvent() = #PB_Event_CloseWindow
 		End
 	EndIf
 ForEver
-; IDE Options = PureBasic 6.40 (Windows - x64)
-; CursorPosition = 42
-; Folding = -
+; IDE Options = PureBasic 6.41 (Windows - x64)
+; CursorPosition = 151
+; FirstLine = 3
+; Folding = Dg
 ; EnableXP
 ; DPIAware

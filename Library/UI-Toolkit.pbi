@@ -119,6 +119,7 @@
 		
 		CompilerIf Defined(EnableTimeline, #PB_Module)
 			#Attribute_TimeLine_Duration			; TimeLine gadget: how many time units long it is (read/write)
+			#Attribute_TimeLine_FixedDuration		; TimeLine gadget: the length is final - blocks clamp to it at the far end, the way they already do at zero, and nothing can stretch it (read/write)
 			#Attribute_TimeLine_Zoom				; TimeLine gadget: rung of the zoom ladder, 0 the widest (read/write)
 			#Attribute_TimeLine_Scroll				; TimeLine gadget: leftmost visible time unit (read/write)
 			#Attribute_TimeLine_PlayerPosition		; TimeLine gadget: the playhead, in time units (read/write)

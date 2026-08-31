@@ -146,6 +146,7 @@ Structure TimeLineData Extends GadgetData
 	*FirstDisplayedLine
 	
 	Duration.i
+	FixedDuration.b						; the length is final: nothing stretches it, and blocks clamp to it
 	Zoom.b								; rung of TimeLine_ZoomLevel()
 	Scale.d								; pixels per time unit, ie. TimeLine_ZoomLevel(\Zoom)
 	PlayerPosition.i
@@ -368,7 +369,11 @@ Procedure TimeLine_UpdateHScrollBar(*GadgetData.TimeLineData)
 EndProcedure
 
 Procedure TimeLine_ExtendDuration(*GadgetData.TimeLineData, Time)
-	; Keep a little room past whatever was just dropped at the far end.
+	; Keep a little room past whatever was just dropped at the far end, unless the length is final.
+	If *GadgetData\FixedDuration
+		ProcedureReturn #False
+	EndIf
+	
 	If Time >= *GadgetData\Duration
 		*GadgetData\Duration = Time + #TimeLine_Duration_Extension
 		TimeLine_UpdateHScrollBar(*GadgetData)
@@ -418,7 +423,6 @@ Procedure TimeLine_LineAt(*GadgetData.TimeLineData, Y)
 EndProcedure
 
 Procedure TimeLine_BlockAt(*GadgetData.TimeLineData, X, Y)
-	; Geometric hit-test rather than a collision grid: a line carries few blocks, and this cannot disagree with what was drawn.
 	Protected Line, RowY, BlockX, BlockWidth, Band, *Block.TimeLine_Block, *Child.TimeLine_Block
 	
 	With *GadgetData
@@ -435,7 +439,7 @@ Procedure TimeLine_BlockAt(*GadgetData.TimeLineData, X, Y)
 		Band = TimeLine_BandAt(@\Lines(), RowY, Y)
 		
 		If Band = -1 And Y < RowY + #TimeLine_Body_BlockMargin
-			ProcedureReturn #Null						; the gap above the blocks
+			ProcedureReturn #Null
 		EndIf
 		
 		If LastElement(\Lines()\MediaBlocks())
@@ -497,13 +501,44 @@ Procedure TimeLine_ResizeEdgeAt(*GadgetData.TimeLineData, *Block.TimeLine_Block,
 	ProcedureReturn #TimeLine_Resize_None
 EndProcedure
 
-Procedure TimeLine_ResizedSpan(*Block.TimeLine_Block, Edge, Delta, *Start.Integer, *Duration.Integer)
+Procedure TimeLine_EndLimit(*GadgetData.TimeLineData, *Block.TimeLine_Block)
+	If *GadgetData\FixedDuration And Not *Block\Parent
+		ProcedureReturn *GadgetData\Duration
+	EndIf
+	
+	ProcedureReturn 0
+EndProcedure
+
+Procedure TimeLine_FitBlock(*GadgetData.TimeLineData, *Block.TimeLine_Block)
+	With *GadgetData
+		If \FixedDuration And Not *Block\Parent
+			*Block\Duration = Clamp(*Block\Duration, 1, Max(\Duration, 1))
+			*Block\Postion = Clamp(*Block\Postion, 0, Max(\Duration - *Block\Duration, 0))
+		EndIf
+	EndWith
+EndProcedure
+
+Procedure TimeLine_ClampStart(*GadgetData.TimeLineData, *Block.TimeLine_Block, Start)
+	With *GadgetData
+		If \FixedDuration And Not *Block\Parent
+			ProcedureReturn Clamp(Start, 0, Max(\Duration - *Block\Duration, 0))
+		EndIf
+	EndWith
+	
+	ProcedureReturn Max(Start, 0)
+EndProcedure
+
+Procedure TimeLine_ResizedSpan(*Block.TimeLine_Block, Edge, Delta, Limit, *Start.Integer, *Duration.Integer)
 	Protected Start = *Block\Postion, Finish = Start + *Block\Duration
 	
 	If Edge = #TimeLine_Resize_Left
 		Start = Clamp(Start + Delta, 0, Finish - 1)
 	Else
 		Finish = Max(Finish + Delta, Start + 1)
+		
+		If Limit And Finish > Limit
+			Finish = Max(Limit, Start + 1)
+		EndIf
 	EndIf
 	
 	*Start\i = Start
@@ -810,7 +845,7 @@ Procedure TimeLine_Redraw_Keys(*GadgetData.TimeLineData, *Block.TimeLine_Block, 
 	
 	With *GadgetData
 		If \Action = #TimeLine_Action_BlockResize And \ScaleContents And *Block\Selected And *Block\Duration > 0
-			TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, @NewStart, @NewDuration)
+			TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, TimeLine_EndLimit(*GadgetData, *Block), @NewStart, @NewDuration)
 			Ratio = NewDuration / *Block\Duration
 			Start + NewStart - *Block\Postion
 		EndIf
@@ -1072,11 +1107,11 @@ Procedure TimeLine_Redraw_Preview(*GadgetData.TimeLineData)
 			Select \Action
 				Case #TimeLine_Action_BlockResize
 					Offset = Start - *Block\Postion			; the parent chain, for a child block
-					TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, @Start, @Duration)
+					TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, TimeLine_EndLimit(*GadgetData, *Block), @Start, @Duration)
 					Start + Offset
 					
 				Case #TimeLine_Action_BlockDrag
-					Start = Max(Start + \DragTime, 0)
+					Start = TimeLine_ClampStart(*GadgetData, *Block, Start + \DragTime)
 					
 				Default
 					Continue
@@ -1662,7 +1697,7 @@ Procedure TimeLine_ApplyDrag(*GadgetData.TimeLineData)
 			*Block\Dragged = #False
 			
 			If \Action = #TimeLine_Action_BlockResize
-				TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, @Start, @Duration)
+				TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, TimeLine_EndLimit(*GadgetData, *Block), @Start, @Duration)
 				Shift = *Block\Postion - Start		; how far the head moved; zero for a right-edge drag
 				Span = *Block\Duration				; …and what it covered before, for the scaling case
 				
@@ -1694,7 +1729,7 @@ Procedure TimeLine_ApplyDrag(*GadgetData.TimeLineData)
 				Continue
 			EndIf
 			
-			Start = Max(TimeLine_BlockStart(*Block) + \DragTime, 0)
+			Start = TimeLine_ClampStart(*GadgetData, *Block, TimeLine_BlockStart(*Block) + \DragTime)
 			*Line = *Block\ParentLine
 			*Target = #Null
 			
@@ -2679,6 +2714,7 @@ Procedure.i AddMediaBlock(Gadget, Line, Position, Duration, Text.s, Color = 0, I
 			TimeLine_SortChild(*Owner, *NewBlock)
 		Else
 			*NewBlock\ParentLine = @\Lines()
+			TimeLine_FitBlock(*GadgetData, *NewBlock)
 			TimeLine_SortBlock(@\Lines(), *NewBlock)
 			TimeLine_ExtendDuration(*GadgetData, *NewBlock\Postion + *NewBlock\Duration)
 		EndIf
@@ -2733,6 +2769,7 @@ Procedure MoveMediaBlock(Gadget, *Block.TimeLine_Block, Line, Position, *Parent 
 			*Block\ParentLine = @\Lines()
 			*Block\Postion = Max(Position, 0)
 			
+			TimeLine_FitBlock(*GadgetData, *Block)
 			TimeLine_SortBlock(@\Lines(), *Block)
 			TimeLine_ExtendDuration(*GadgetData, *Block\Postion + *Block\Duration)
 		EndIf
@@ -2756,6 +2793,7 @@ Procedure ResizeMediaBlock(Gadget, *Block.TimeLine_Block, Position, Duration)
 	With *GadgetData
 		*Block\Postion = Max(Position, 0)
 		*Block\Duration = Max(Duration, 1)
+		TimeLine_FitBlock(*GadgetData, *Block)
 		
 		If *Block\Parent
 			TimeLine_SortChild(*Block\Parent, *Block)
@@ -2782,6 +2820,7 @@ Procedure ScaleMediaBlockContents(Gadget, *Block.TimeLine_Block, Position, Durat
 	Old = *Block\Duration
 	*Block\Postion = Max(Position, 0)
 	*Block\Duration = Max(Duration, 1)
+	TimeLine_FitBlock(*GadgetData, *Block)
 	TimeLine_ScaleContents(*Block, Old, *Block\Duration)
 	
 	With *GadgetData
@@ -3282,6 +3321,8 @@ Procedure TimeLine_GetAttribute(*This.PB_Gadget, Attribute)
 		Select Attribute
 			Case #Attribute_TimeLine_Duration
 				Result = \Duration
+			Case #Attribute_TimeLine_FixedDuration
+				Result = \FixedDuration
 			Case #Attribute_TimeLine_Zoom
 				Result = \Zoom
 			Case #Attribute_TimeLine_Scroll
@@ -3303,6 +3344,9 @@ Procedure TimeLine_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
 	
 	With *GadgetData
 		Select Attribute
+			Case #Attribute_TimeLine_FixedDuration ;{
+				\FixedDuration = Bool(Value)
+				;}
 			Case #Attribute_TimeLine_Duration ;{
 				\Duration = Max(Value, 1)
 				TimeLine_UpdateHScrollBar(*GadgetData)
@@ -3498,8 +3542,8 @@ EndProcedure
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 451
-; FirstLine = 223
-; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAA-
+; CursorPosition = 3541
+; FirstLine = 344
+; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
