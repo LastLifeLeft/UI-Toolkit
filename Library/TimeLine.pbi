@@ -494,6 +494,19 @@ Procedure TimeLine_ResizeEdgeAt(*GadgetData.TimeLineData, *Block.TimeLine_Block,
 	ProcedureReturn #TimeLine_Resize_None
 EndProcedure
 
+Procedure TimeLine_ResizedSpan(*Block.TimeLine_Block, Edge, Delta, *Start.Integer, *Duration.Integer)
+	Protected Start = *Block\Postion, Finish = Start + *Block\Duration
+
+	If Edge = #TimeLine_Resize_Left
+		Start = Clamp(Start + Delta, 0, Finish - 1)
+	Else
+		Finish = Max(Finish + Delta, Start + 1)
+	EndIf
+
+	*Start\i = Start
+	*Duration\i = Finish - Start
+EndProcedure
+
 ;- Selection
 Procedure TimeLine_ClearSelection(*GadgetData.TimeLineData)
 	With *GadgetData
@@ -1011,7 +1024,7 @@ EndProcedure
 
 Procedure TimeLine_Redraw_Preview(*GadgetData.TimeLineData)
 	; The white outline showing where a dragged or resized selection would land.
-	Protected X, Y, Width, Height, Start, Duration, Index, *Block.TimeLine_Block, *Line.TimeLine_Line
+	Protected X, Y, Width, Height, Start, Duration, Offset, Index, *Block.TimeLine_Block, *Line.TimeLine_Line
 	
 	With *GadgetData
 		If Not ListSize(\Selection())
@@ -1025,13 +1038,10 @@ Procedure TimeLine_Redraw_Preview(*GadgetData.TimeLineData)
 			
 			Select \Action
 				Case #TimeLine_Action_BlockResize
-					If \ResizeEdge = #TimeLine_Resize_Left
-						Duration = Max(Duration - \DragTime, 1)
-						Start = Max(Start + \DragTime, 0)
-					Else
-						Duration = Max(Duration + \DragTime, 1)
-					EndIf
-					
+					Offset = Start - *Block\Postion			; the parent chain, for a child block
+					TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, @Start, @Duration)
+					Start + Offset
+
 				Case #TimeLine_Action_BlockDrag
 					Start = Max(Start + \DragTime, 0)
 					
@@ -1619,16 +1629,8 @@ Procedure TimeLine_ApplyDrag(*GadgetData.TimeLineData)
 			*Block\Dragged = #False
 			
 			If \Action = #TimeLine_Action_BlockResize
-				Start = *Block\Postion
-				Duration = *Block\Duration
-				
-				If \ResizeEdge = #TimeLine_Resize_Left
-					Duration = Max(Duration - \DragTime, 1)
-					Start = Max(Start + \DragTime, 0)
-				Else
-					Duration = Max(Duration + \DragTime, 1)
-				EndIf
-				
+				TimeLine_ResizedSpan(*Block, \ResizeEdge, \DragTime, @Start, @Duration)
+
 				If Start <> *Block\Postion Or Duration <> *Block\Duration
 					*Block\Postion = Start
 					*Block\Duration = Duration
@@ -3417,8 +3419,8 @@ EndProcedure
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3416
-; FirstLine = 330
+; CursorPosition = 496
+; FirstLine = 208
 ; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
