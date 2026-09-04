@@ -1064,7 +1064,7 @@ Procedure ParameterList_GetAttribute(*this.PB_Gadget, Attribute.l)
 		EndSelect
 	EndWith
 	
-	ProcedureReturn 0
+	ProcedureReturn Default_GetAttribute(*this, Attribute)
 EndProcedure
 
 Procedure ParameterList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
@@ -1076,7 +1076,6 @@ Procedure ParameterList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 				\NameWidth = Value
 			Case #Attribute_ParameterList_ValueWidth
 				\ValueWidth = Value
-				; Writable so a host can STAGE a commit it makes on the gadget's behalf: the pair is how #EventType_ItemTextChange says which cell moved
 			Case #Attribute_ParameterList_EditedRow
 				\CommitRow = Value
 				ProcedureReturn
@@ -1246,8 +1245,8 @@ Procedure.i ParameterListEdit(Gadget, Row, Column)
 	ProcedureReturn #False
 EndProcedure
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 1246
-; FirstLine = 1168
+; CursorPosition = 1077
+; FirstLine = 1030
 ; Folding = ---------
 ; EnableXP
 ; DPIAware
