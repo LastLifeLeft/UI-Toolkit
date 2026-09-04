@@ -3654,6 +3654,7 @@ Module UITK
 				
 				\AlignmentOffset = Min(\AlignmentOffset, Margin - Start)
 				\AlignmentOffset = Max(\AlignmentOffset, Edge - Finish)
+			EndIf
 			
 			SelectElement(\CharacterData(), \CaretPosition)
 			
@@ -12016,7 +12017,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3661
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 3657
+; FirstLine = 73
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAASAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
