@@ -545,6 +545,8 @@
 	; LayerList
 	CompilerIf Defined(EnableLayerList, #PB_Module)
 		Declare LayerList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
+		Declare.i LayerListReveal(Gadget, Item)	; scroll one item into view; #False if it is folded away
+		Declare.i LayerListScrollOffset(Gadget)	; …and how far it is scrolled now, in pixels
 	CompilerEndIf
 	
 	; ParameterList
@@ -8946,7 +8948,9 @@ Module UITK
 					If \Editing
 						If \EditNumeric
 							c = *Event\Param
-							If (c >= '0' And c <= '9') Or c = '-' Or c = '.' Or c = ','
+							If c = '=' Or Left(\String\String, 1) = "="	; begun with =, so an expression and no longer a number
+								Redraw = \String\EventHandler(\String, *Event)
+							ElseIf (c >= '0' And c <= '9') Or c = '-' Or c = '.' Or c = ','
 								Redraw = \String\EventHandler(\String, *Event)
 							EndIf
 						Else

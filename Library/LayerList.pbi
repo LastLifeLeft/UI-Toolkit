@@ -446,6 +446,10 @@ Procedure LayerList_UpdateScrollBar(*GadgetData.LayerListData)
 	Protected Total
 	
 	With *GadgetData
+		If \Freeze	; a rebuild raises Maximum a row at a time and every raise clamps
+			ProcedureReturn	; State against a ceiling still climbing - see LayerList_Redraw
+		EndIf
+		
 		Total = LayerList_RowCount(*GadgetData) * \ItemHeight
 		
 		If Total > \Height
@@ -559,6 +563,7 @@ Procedure LayerList_Redraw(*GadgetData.LayerListData)
 			ProcedureReturn
 		EndIf
 		
+		LayerList_UpdateScrollBar(*GadgetData)	; …the rows that arrived while frozen
 		Rows = LayerList_RowCount(*GadgetData)
 		EyeX = \OriginX + LayerList_EyeX(*GadgetData)
 		
@@ -1244,7 +1249,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 							If Row > -1 And Index > -1
 								LayerList_MoveFocus(*GadgetData, Index)
 								LayerList_StateFocus(*GadgetData)
-								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)	; …and SAY so: the mouse paths all do
 								Redraw = #True
 							EndIf
 							;}
@@ -1252,7 +1257,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 							If Row > 0
 								LayerList_MoveFocus(*GadgetData, LayerList_RowToIndex(*GadgetData, Row - 1))
 								LayerList_StateFocus(*GadgetData)
-								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)	; …and SAY so: the mouse paths all do
 								Redraw = #True
 							EndIf
 							;}
@@ -1811,6 +1816,52 @@ Procedure LayerList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem =
 	EndIf
 	
 	ProcedureReturn Result
+EndProcedure
+
+Procedure.i LayerListScrollOffset(Gadget)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.LayerListData
+	
+	If Not *this
+		ProcedureReturn 0
+	EndIf
+	*GadgetData = *this\vt
+	
+	ProcedureReturn LayerList_ScrollOffset(*GadgetData)
+EndProcedure
+
+Procedure.i LayerListReveal(Gadget, Item)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.LayerListData
+	Protected Row, Top, Offset
+	
+	If Not *this
+		ProcedureReturn #False
+	EndIf
+	*GadgetData = *this\vt
+	
+	With *GadgetData
+		Row = LayerList_IndexToRow(*GadgetData, Item)
+		If Row < 0	; folded away: the host unfolds first, this only scrolls
+			ProcedureReturn #False
+		EndIf
+		LayerList_UpdateScrollBar(*GadgetData)	; the row count may have just changed
+		If Not \VisibleScrollBar	; every row already fits, so it is in view by definition
+			ProcedureReturn #True
+		EndIf
+		
+		Top = Row * \ItemHeight
+		Offset = LayerList_ScrollOffset(*GadgetData)
+		If Top < Offset
+			Offset = Top	; …to the top edge, which is the smaller move
+		ElseIf Top + \ItemHeight > Offset + \Height
+			Offset = Top + \ItemHeight - \Height	; …to the bottom, likewise
+		Else
+			ProcedureReturn #True	; already on screen: a scroll here would be a jump for nothing
+		EndIf
+		ScrollBar_SetState_Meta(\ScrollBar, Offset)	; clamps to the bar's own range
+	EndWith
+	
+	RedrawObject()
+	ProcedureReturn #True
 EndProcedure
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
