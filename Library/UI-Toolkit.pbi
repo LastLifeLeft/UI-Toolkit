@@ -1362,6 +1362,7 @@ Module UITK
 	
 	; Drawing functions
 	#TextBlock_ImageMargin = 4
+	#TextBlock_Ellipsis$ = "…"	; U+2026, one glyph rather than three dots - and a literal, so this file must keep its BOM
 	
 	Procedure AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
 		
@@ -1536,13 +1537,30 @@ Module UITK
 		EndIf
 	EndProcedure
 	
-	; Shared scratch surface for text measurement: resize paths re-prepare every item's
-	; text block, so a create/free pair per call added up to hundreds of image
-	; allocations per resize. Created lazily, lives for the program.
 	Global MeasuringImage
 	
+	Procedure.s TextBlock_Ellipsise(Text.s, Width, Force = #False)
+		Protected Low, High = Len(Text), Middle, Best
+		
+		If Not Force And VectorTextWidth(Text) <= Width
+			ProcedureReturn Text
+		EndIf
+		
+		While Low <= High
+			Middle = (Low + High) / 2
+			If VectorTextWidth(Left(Text, Middle) + #TextBlock_Ellipsis$) <= Width
+				Best = Middle
+				Low = Middle + 1
+			Else
+				High = Middle - 1
+			EndIf
+		Wend
+		
+		ProcedureReturn Left(Text, Best) + #TextBlock_Ellipsis$	; Best 0 leaves the ellipsis alone, which still says there is something here
+	EndProcedure
+	
 	Procedure PrepareVectorTextBlock(*TextData.Text)
-		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, HBitmap.UITK_BitmapInfo
+		Protected String.s, Word.s, NewList StringList.s(), Loop, Count, TextHeight, MaxLine, Width, FinalWidth, TextWidth, LineCount, Spent, HBitmap.UITK_BitmapInfo
 		
 		*TextData\RequiredHeight = 0
 		*TextData\RequiredWidth = 0
@@ -1599,6 +1617,16 @@ Module UITK
 				
 				If VectorTextWidth(String + Word) > Width
 					String = Trim(String)
+					Spent = #False
+					
+					If LineCount + 1 >= MaxLine	; the last line we may draw, and words still to come
+						String = TextBlock_Ellipsise(Trim(String + " " + Word), Width)
+						Spent = #True
+					ElseIf String = ""	; a word wider than the block itself, with lines to spare.
+						String = TextBlock_Ellipsise(Word, Width)
+						Spent = #True
+					EndIf
+					
 					TextWidth = VectorTextWidth(String)
 					
 					If TextWidth > FinalWidth
@@ -1607,18 +1635,16 @@ Module UITK
 					
 					*TextData\Text + String
 					LineCount + 1
-					
-					; edge case! What if a word is wider than the width of the whole thingy?
-					; 1) check if there is still space at the end of the previous string and put it there (at least 3 characters + ...)
-					
-					
-					; 2) If not, create a new line with just the current word (shortened and add ...)
 					String = ""
 					
 					If LineCount >= MaxLine
 						Break 2
 					EndIf
 					*TextData\Text + #CRLF$
+					
+					If Spent
+						Continue
+					EndIf
 				EndIf
 				
 				String + Word + " "
@@ -1628,6 +1654,10 @@ Module UITK
 			
 			If String <> ""
 				String = Trim(String)
+				If LineCount + 1 >= MaxLine And ListIndex(StringList()) < ListSize(StringList()) - 1
+					String = TextBlock_Ellipsise(String, Width, #True)
+				EndIf
+				
 				TextWidth = VectorTextWidth(String)
 				
 				If TextWidth > FinalWidth
@@ -1750,9 +1780,6 @@ Module UITK
 	ThemeColorOffset(Str(#Color_Parent))       = OffsetOf(Theme\WindowColor)
 	ThemeColorOffset(Str(#Color_WindowBorder)) = OffsetOf(Theme\WindowTitle)
 	
-	; PB's canvas events arrive in three contiguous #PB_EventType_* blocks (clicks,
-	; focus, everything else), each in the same relative order as the ordered #Event
-	; enum - asserted here at compile time, so a PB layout change fails loudly.
 	CompilerIf #PB_EventType_RightDoubleClick <> #PB_EventType_LeftClick + (#RightDoubleClick - #LeftClick) Or #PB_EventType_LostFocus <> #PB_EventType_Focus + 1 Or #PB_EventType_MouseWheel <> #PB_EventType_MouseEnter + (#MouseWheel - #MouseEnter) Or #PB_EventType_Input <> #PB_EventType_MouseEnter + (#Input - #MouseEnter)
 		CompilerError "PB's canvas #PB_EventType_* layout changed - review Default_EventHandle's range translation."
 	CompilerEndIf
@@ -1929,9 +1956,7 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	; The #SubClass_* enum lists GadgetVT's pointer fields in declaration order, so a
-	; slot's address is plain arithmetic off GadgetCallback - asserted right here, so
-	; enum or structure drift fails the build instead of patching the wrong slot.
+	; The #SubClass_* enum lists GadgetVT's pointer fields in declaration order, so a slot's address is plain arithmetic off GadgetCallback - asserted right here, so enum or structure drift fails the build instead of patching the wrong slot.
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 		CompilerIf OffsetOf(GadgetVT\FreeGadget) <> OffsetOf(GadgetVT\GadgetCallback) + (#SubClass_FreeGadget - #SubClass_GadgetCallback) * SizeOf(Integer) Or OffsetOf(GadgetVT\GetGadgetAttribute) <> OffsetOf(GadgetVT\GadgetCallback) + (#SubClass_GetGadgetAttribute - #SubClass_GadgetCallback) * SizeOf(Integer) Or OffsetOf(GadgetVT\SetGadgetItemImage) <> OffsetOf(GadgetVT\GadgetCallback) + (#SubClass_SetGadgetItemImage - #SubClass_GadgetCallback) * SizeOf(Integer)
 			CompilerError "The #SubClass_* enum no longer mirrors GadgetVT's field order - review SubClassFunction."
@@ -11964,7 +11989,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 11900
-; Folding = AAAA+--PAAAAAAAAAAAAAAAAAA9hDAwfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 1678
+; FirstLine = 139
+; Folding = AAIA+--PAAAgAAEAAAAAAAAAAA9jHAw-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAIg-
 ; EnableXP
 ; DPIAware
