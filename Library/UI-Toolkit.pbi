@@ -3607,6 +3607,67 @@ Module UITK
 		*GadgetData\SupportedEvent[#Input] = #True
 	EndMacro
 	
+	; The offset alignment alone asks for, 0 when left; Finish is the far end of the text
+	Procedure String_AlignOffset(*GadgetData.StringData, Finish)
+		With *GadgetData
+			If \TextBlock\HAlign = #HAlignCenter
+				\AlignmentOffset = (\Width - Finish) * 0.5
+			ElseIf \TextBlock\HAlign = #HAlignRight
+				\AlignmentOffset = \Width - Finish - BorderMargin
+			Else
+				\AlignmentOffset = 0
+			EndIf
+		EndWith
+	EndProcedure
+	
+	; Put the caret on its character, sliding the text under it to keep it in the box; #True when the text moved
+	Procedure.i String_PlaceCaret(*GadgetData.StringData, Anchor = -1)
+		Protected Caret, View, Start, Finish, Margin, Edge, Was, X
+		
+		With *GadgetData
+			If Not SelectElement(\CharacterData(), \CaretPosition)
+				ProcedureReturn #False
+			EndIf
+			Was = \AlignmentOffset
+			Caret = \CharacterData()\Position
+			View = Caret
+			
+			If Anchor >= 0 And SelectElement(\CharacterData(), Anchor)
+				View = \CharacterData()\Position
+			EndIf
+			
+			Start = \TextPositionX
+			LastElement(\CharacterData())
+			Finish = \CharacterData()\Position
+			
+			Margin = BorderMargin
+			Edge = \Width - Margin - 1
+			
+			If Finish - Start <= Edge - Margin
+				String_AlignOffset(*GadgetData, Finish)
+			Else
+				If View + \AlignmentOffset > Edge
+					\AlignmentOffset = Edge - View
+				ElseIf View + \AlignmentOffset < Margin
+					\AlignmentOffset = Margin - View
+				EndIf
+				
+				\AlignmentOffset = Min(\AlignmentOffset, Margin - Start)
+				\AlignmentOffset = Max(\AlignmentOffset, Edge - Finish)
+			
+			SelectElement(\CharacterData(), \CaretPosition)
+			
+			X = \AlignmentOffset + Caret
+			If X < Margin Or X > Edge
+				ResizeGadget(\Caret, -10, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			Else
+				ResizeGadget(\Caret, \OriginX + X, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			EndIf
+			
+			ProcedureReturn Bool(\AlignmentOffset <> Was)
+		EndWith
+	EndProcedure
+	
 	Procedure String_ProcessString(*GadgetData.StringData)
 		Protected Loop, CharacterCount, Position
 		
@@ -3631,11 +3692,7 @@ Module UITK
 				Position + \CharacterData()\Width
 			Next
 			
-			If \TextBlock\HAlign = #HAlignCenter
-				\AlignmentOffset = (\Width - Position) * 0.5
-			ElseIf \TextBlock\HAlign = #HAlignRight
-				\AlignmentOffset = \Width - Position - BorderMargin
-			EndIf
+			String_AlignOffset(*GadgetData, Position)
 			
 			AddElement(\CharacterData())
 			\CharacterData()\Position = Position
@@ -3649,7 +3706,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure String_Redraw(*GadgetData.StringData)
-		Protected Loop, Size, Position, Text.s
+		Protected Loop, Size, Position, Extent, Text.s
 		
 		With *GadgetData
 			If \Border
@@ -3670,9 +3727,12 @@ Module UITK
 				VectorFont(\TextBlock\FontID)
 			EndIf
 			
+			LastElement(\CharacterData())
+			Extent = \CharacterData()\Position - \TextPositionX	; the whole string's width: a paragraph narrower than this WRAPS, and the tail goes to a second line nobody can see
+			
 			VectorSourceColor(\ThemeData\TextColor[#Cold])
 			MovePathCursor(\TextPositionX + \AlignmentOffset + \OriginX, \TextPositionY + \OriginY)
-			DrawVectorParagraph(\String, \Width, \Height)
+			DrawVectorParagraph(\String, \Width + Extent, \Height)	; wide enough for all of it wherever it is scrolled to; the clip keeps it in the box
 			
 			If \SelectionPosition > -1 And \Focus
 				SelectElement(\CharacterData(), \SelectionPosition)
@@ -3702,7 +3762,7 @@ Module UITK
 				
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				MovePathCursor(Position, \OriginY + \TextPositionY)
-				DrawVectorParagraph(Text, \Width, \Height)
+				DrawVectorParagraph(Text, \Width + Extent, \Height)	; the selected run must not wrap either
 			EndIf
 			
 		EndWith
@@ -3741,11 +3801,8 @@ Module UITK
 				\CharacterData()\Position - Size
 			Wend
 			
-			If \TextBlock\HAlign = #HAlignCenter
-				\AlignmentOffset = (\Width - \CharacterData()\Position) * 0.5
-			ElseIf \TextBlock\HAlign = #HAlignRight
-				\AlignmentOffset = \Width - \CharacterData()\Position - BorderMargin
-			EndIf
+			LastElement(\CharacterData())	; the loop above walked the cursor off the end
+			String_AlignOffset(*GadgetData, \CharacterData()\Position)
 			
 			\SelectionLength = 0
 			\SelectionPosition = -1
@@ -3782,14 +3839,6 @@ Module UITK
 					EndIf
 					
 					\CharacterData()\Width = VectorTextWidth(\CharacterData()\Char)
-					If \TextBlock\HAlign = #HAlignCenter
-						\AlignmentOffset - \CharacterData()\Width * 0.5
-					ElseIf \TextBlock\HAlign = #HAlignRight
-						\AlignmentOffset - \CharacterData()\Width
-					EndIf
-					
-					ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position + \CharacterData()\Width, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-					
 					StopVectorDrawing()
 					
 					Size = \CharacterData()\Width
@@ -3802,6 +3851,7 @@ Module UITK
 					Redraw = #True
 					
 					\CaretPosition + 1
+					String_PlaceCaret(*GadgetData)
 					HideGadget(\Caret, #False)
 					\CaretVisible = #True
 					RemoveGadgetTimer(\Timer)
@@ -3817,7 +3867,7 @@ Module UITK
 					Next
 					
 					\CaretPosition = ListIndex(\CharacterData())
-					ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+					String_PlaceCaret(*GadgetData)
 					HideGadget(\Caret, #False)
 					\CaretVisible = #True
 					RemoveGadgetTimer(\Timer)
@@ -3853,8 +3903,7 @@ Module UITK
 								EndIf
 								
 								\CaretPosition - 1
-								SelectElement(\CharacterData(), \CaretPosition)
-								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								Redraw = Bool(Redraw Or String_PlaceCaret(*GadgetData))
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -3890,7 +3939,7 @@ Module UITK
 								EndIf
 								
 								\CaretPosition + 1
-								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								Redraw = Bool(Redraw Or String_PlaceCaret(*GadgetData))	; …a scroll is a repaint
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -3906,8 +3955,7 @@ Module UITK
 						Case #PB_Shortcut_Delete ;{
 							If \SelectionPosition > -1
 								String_RemoveSelection(*GadgetData.StringData)
-								SelectElement(\CharacterData(), \CaretPosition)
-								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								String_PlaceCaret(*GadgetData)
 								
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
@@ -3920,14 +3968,6 @@ Module UITK
 								SelectElement(\CharacterData(), \CaretPosition)
 								Size = \CharacterData()\Width
 								
-								If \TextBlock\HAlign = #HAlignCenter
-									\AlignmentOffset + \CharacterData()\Width * 0.5
-									ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								ElseIf \TextBlock\HAlign = #HAlignRight
-									\AlignmentOffset + \CharacterData()\Width
-									ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								EndIf
-								
 								DeleteElement(\CharacterData())
 								
 								While NextElement(\CharacterData())
@@ -3935,6 +3975,7 @@ Module UITK
 								Wend
 								
 								\String = Left(\String, \CaretPosition) + Right(\String, Len(\String) - \CaretPosition - 1)
+								String_PlaceCaret(*GadgetData)
 								
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
@@ -3948,8 +3989,7 @@ Module UITK
 						Case #PB_Shortcut_Back ;{
 							If \SelectionPosition > -1
 								String_RemoveSelection(*GadgetData.StringData)
-								SelectElement(\CharacterData(), \CaretPosition)
-								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								String_PlaceCaret(*GadgetData)
 								
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
@@ -3963,15 +4003,6 @@ Module UITK
 								SelectElement(\CharacterData(), \CaretPosition)
 								Size = \CharacterData()\Width
 								
-								If \TextBlock\HAlign = #HAlignCenter
-									\AlignmentOffset + \CharacterData()\Width * 0.5
-									ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								ElseIf \TextBlock\HAlign = #HAlignRight
-									\AlignmentOffset + \CharacterData()\Width
-								Else
-									ResizeGadget(\Caret, GadgetX(\Caret) - Size, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-								EndIf
-								
 								DeleteElement(\CharacterData())
 								
 								While NextElement(\CharacterData())
@@ -3979,6 +4010,7 @@ Module UITK
 								Wend
 								
 								\String = Left(\String, \CaretPosition) + Right(\String, Len(\String) - \CaretPosition - 1)
+								String_PlaceCaret(*GadgetData)
 								
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
@@ -4001,8 +4033,7 @@ Module UITK
 									\CaretPosition + Len(Text)
 									String_ProcessString(*GadgetData)
 									
-									SelectElement(\CharacterData(), \CaretPosition)
-									ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+									String_PlaceCaret(*GadgetData)
 									HideGadget(\Caret, #False)
 									\CaretVisible = #True
 									RemoveGadgetTimer(\Timer)
@@ -4046,7 +4077,6 @@ Module UITK
 									SelectElement(\CharacterData(), \SelectionPosition)
 								EndIf
 								
-								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -4059,6 +4089,7 @@ Module UITK
 								
 								SetClipboardText(Text)
 								String_RemoveSelection(*GadgetData.StringData)
+								String_PlaceCaret(*GadgetData)
 								
 								Redraw = #True
 								
@@ -4071,9 +4102,7 @@ Module UITK
 								\CaretPosition = ListSize(\CharacterData()) - 1
 								\SelectionLength = \CaretPosition
 								
-								LastElement(\CharacterData())
-								
-								ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+								String_PlaceCaret(*GadgetData)
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -4090,8 +4119,8 @@ Module UITK
 					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 					\Focus = #True
 					
-					SelectElement(\CharacterData(), \CaretPosition)
-					ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, \OriginY + \TextPositionY + \Border, #PB_Ignore, #PB_Ignore)
+					ResizeGadget(\Caret, #PB_Ignore, \OriginY + \TextPositionY + \Border, #PB_Ignore, #PB_Ignore)
+					Redraw = Bool(Redraw Or String_PlaceCaret(*GadgetData))
 					HideGadget(\Caret, #False)
 					\CaretVisible = #True
 					
@@ -4133,7 +4162,7 @@ Module UITK
 								\SelectionPosition = -1
 							EndIf
 							
-							ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+							String_PlaceCaret(*GadgetData)
 							HideGadget(\Caret, #False)
 							\CaretVisible = #True
 							RemoveGadgetTimer(\Timer)
@@ -4196,8 +4225,7 @@ Module UITK
 			String_ProcessString(*GadgetData)
 			RedrawObject()
 			
-			LastElement(\CharacterData())
-			ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			String_PlaceCaret(*GadgetData, 0)
 			
 			If \Focus
 				HideGadget(\Caret, #False)
@@ -4235,8 +4263,7 @@ Module UITK
 			\SelectionLength = Length
 			\CaretPosition = Position + Length
 			
-			SelectElement(\CharacterData(), \CaretPosition)
-			ResizeGadget(\Caret, \OriginX + \AlignmentOffset + \CharacterData()\Position, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+			String_PlaceCaret(*GadgetData, Position)	; a cell editor opening on its whole value reads from the start
 			HideGadget(\Caret, #False)
 			\CaretVisible = #True
 			RemoveGadgetTimer(\Timer)
@@ -11989,8 +12016,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 1678
-; FirstLine = 139
-; Folding = AAIA+--PAAAgAAEAAAAAAAAAAA9jHAw-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAIg-
+; CursorPosition = 3661
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware

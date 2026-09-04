@@ -235,9 +235,14 @@ Procedure ParameterList_ZoneAt(*GadgetData.ParameterListData, Index, MouseX)
 EndProcedure
 
 Procedure ParameterList_UpdateScrollBar(*GadgetData.ParameterListData)
-	Protected Rows = ParameterList_RowCount(*GadgetData)
+	Protected Rows
 	
 	With *GadgetData
+		If \Freeze	; a rebuild clamps the position against a ceiling still climbing, and zeroes it while the rows are too few to scroll
+			ProcedureReturn	; ParameterList_Redraw does it once, after the thaw
+		EndIf
+		
+		Rows = ParameterList_RowCount(*GadgetData)
 		\VisibleScrollBar = Bool(Rows * \ItemHeight > \Height - \Border * 2)
 		ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, Rows * \ItemHeight)
 		If Not \VisibleScrollBar
@@ -355,6 +360,7 @@ Procedure ParameterList_Redraw(*GadgetData.ParameterListData)
 			ProcedureReturn
 		EndIf
 		
+		ParameterList_UpdateScrollBar(*GadgetData)	; …the rows that arrived while frozen
 		ExprX = \OriginX + ParameterList_ExprX(*GadgetData)
 		ValueX = \OriginX + ParameterList_ValueX(*GadgetData)
 		RuleTop = \OriginY + \Border
@@ -1245,8 +1251,8 @@ Procedure.i ParameterListEdit(Gadget, Row, Column)
 	ProcedureReturn #False
 EndProcedure
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 1077
-; FirstLine = 1030
-; Folding = ---------
+; CursorPosition = 463
+; FirstLine = 78
+; Folding = AAAAAAAAg
 ; EnableXP
 ; DPIAware
