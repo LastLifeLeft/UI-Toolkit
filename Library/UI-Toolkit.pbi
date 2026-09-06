@@ -9116,8 +9116,10 @@ Module UITK
 				If \Editing And Position <= \EditItem	; a row AFTER the editor cannot disturb it
 					PropertyBox_CancelEdit(*GadgetData)
 				EndIf
-				HideWindow(\ComboPopupWindow, #True)
-				HideWindow(\ColorPopupWindow, #True)
+				If Position <= \PopupItem	; likewise a row AFTER the popup's own: closing it there shuts the picker mid-drag
+					HideWindow(\ComboPopupWindow, #True)
+					HideWindow(\ColorPopupWindow, #True)
+				EndIf
 				
 				DeleteElement(\Items())
 				
