@@ -91,7 +91,7 @@ Tab = UITK::Tab(#PB_Any, 320, 230, 210, 70)
 AddGadgetItem(Tab, -1, "Prululu 1", ImageID(Image))
 AddGadgetItem(Tab, -1, "Prululu 2", ImageID(Image))
 AddGadgetItem(Tab, -1, "Prululu 3", ImageID(Image))
-SetGadgetItemAttribute(Tab, 2, UITK::#Tab_Color, $FFFF00FF)
+SetGadgetItemColor(Tab, 2, UITK::#Color_Special3_Warm, $FF00FF)
 
 String = UITK::String(#PB_Any, 541, 220, 400, 20, "Editable Text", UITK::#Border)
 String = UITK::String(#PB_Any, 541, 250, 400, 20, "Editable Text", UITK::#Border | UITK::#HAlignRight)

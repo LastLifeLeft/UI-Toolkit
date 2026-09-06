@@ -78,8 +78,6 @@
 		#Attribute_TextSelectionPosition
 		#Attribute_TextSelectionLength
 		
-		#Tab_Color									; Tab item: the accent strip on the selected one. The older, narrower spelling of SetGadgetItemColor(Tab, Item, #Color_Special3_Warm, Color)
-		
 		#TrackBar_Scale
 		
 		#Attribute_Library_SectionHeight
@@ -7021,8 +7019,6 @@ Module UITK
 						Redraw = #True
 					EndIf
 					
-				Case #KeyDown
-					
 			EndSelect
 			
 			If Redraw
@@ -7870,8 +7866,6 @@ Module UITK
 						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					EndIf
 					;}
-				Case #LeftDoubleClick ;{
-									  ;}
 				Case #MouseWheel	  ;{
 					If \VisibleScrollBar
 						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
@@ -10513,20 +10507,6 @@ Module UITK
 		ProcedureReturn -1
 	EndProcedure
 	
-	Procedure FlatMenuWidth(FlatMenu)
-		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
-		
-		ProcedureReturn *MenuData\Width
-	EndProcedure
-	
-	Procedure FlatMenuHeight(FlatMenu)
-		Protected *MenuData.FlatMenu = GetProp_(WindowID(FlatMenu), "UITK_MenuData")
-		
-		ProcedureReturn *MenuData\Height
-	EndProcedure
-	
-	; Setters
-	
 	;}
 	
 	;{ Tab
@@ -10829,20 +10809,6 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure Tab_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
-		Protected *GadgetData.TabData = *this\vt
-		With *GadgetData
-			If Position > -1 And Position < ListSize(\Items())
-				SelectElement(\Items(), Position)
-				Select Attribute
-					Case #Tab_Color	; the older, narrower spelling - routed through the setter so the alpha rule lives in ONE place
-						Tab_SetItemColor(*this, Position, #Color_Special3_Warm, Value & $FFFFFFFF, 0)
-				EndSelect
-			EndIf
-		EndWith
-	EndProcedure
-	
-	
 	Procedure Tab_Meta(*GadgetData.TabData, *ThemeData, Gadget, x, y, Width, Height, Flags)
 		*GadgetData\ThemeData = *ThemeData
 		InitializeObject(Tab)
@@ -10859,7 +10825,6 @@ Module UITK
 			\VT\CountGadgetItems = @Tab_CountItem()
 			\VT\GetGadgetItemImage = @Tab_GetItemImage()
 			\VT\GetGadgetItemText = @Tab_GetItemText()
-			\VT\SetGadgetItemAttribute2 = @Tab_SetItemAttribute()
 			\VT\SetGadgetItemColor2 = @Tab_SetItemColor()
 			\VT\GetGadgetItemColor2 = @Tab_GetItemColor()
 			
@@ -10895,7 +10860,6 @@ Module UITK
 		#ColorPicker_Drag_None
 		#ColorPicker_Drag_Hue
 		#ColorPicker_Drag_Brightness
-		#ColorPicker_Drag_Alpha
 	EndEnumeration
 	
 	Structure ColorPickerData Extends GadgetData
@@ -10907,7 +10871,6 @@ Module UITK
 		BarWidth.l
 		BarX.l
 		BrightnessBarY.l
-		AlphaBarY.l
 		Color.l
 		Hue.f
 		HueX.l
@@ -10915,9 +10878,7 @@ Module UITK
 		Saturation.f
 		Brightness.f
 		BrightnessX.i
-		Alpha.b
 		Drag.i
-		AlphaSelection.b
 	EndStructure
 	
 	#ColorPickerBarHeight = 15
@@ -11070,8 +11031,6 @@ Module UITK
 								\State = HSBToRGB(\Hue, \Saturation, \Brightness)
 								Redraw = #True
 							EndIf
-						Case #ColorPicker_Drag_Alpha
-							
 					EndSelect
 				Case #LeftButtonDown ;{
 					If *Event\MouseY >= \WheelY
@@ -11082,8 +11041,6 @@ Module UITK
 						ElseIf *Event\MouseY >= \BrightnessBarY
 							If *Event\MouseY <=  \BrightnessBarY + #ColorPickerBarHeight
 								\Drag = #ColorPicker_Drag_Brightness
-							ElseIf \AlphaSelection And *Event\MouseY >= \AlphaBarY And *Event\MouseY <= \AlphaBarY + #ColorPickerBarHeight
-								\Drag = #ColorPicker_Drag_Alpha
 							EndIf
 						EndIf
 					EndIf
@@ -11196,7 +11153,6 @@ Module UITK
 			\BarWidth = \WheelSize - \BarX * 2
 			\BarX + \WheelX
 			\BrightnessBarY = \WheelSize + \WheelY + #ColorPickerVerticalMargin
-			\AlphaBarY = \BrightnessBarY + #ColorPickerVerticalMargin + #ColorPickerBarHeight
 			\WheelRadius = Round(\WheelSize * 0.5, #PB_Round_Down)
 			\Color = $FFFFFF
 			\State = $FFFFFF
@@ -11206,7 +11162,6 @@ Module UITK
 			\HueY = \WheelY	+ \WheelRadius + Round((\Saturation * \WheelRadius) * 0.01 * Sin(0), #PB_Round_Nearest)
 			\BrightnessX = \BarX + \BarWidth - 5
 			\Brightness = 100
-			\Alpha = 255	
 			ColorPicker_DrawWheel(*GadgetData)
 			
 			\SupportedEvent[#MouseMove] = #True
