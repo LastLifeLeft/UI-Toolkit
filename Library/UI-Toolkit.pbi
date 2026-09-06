@@ -3087,11 +3087,8 @@ Module UITK
 	CompilerEndIf
 	;}
 	
-	
 	;{ The Weird
-	; Those are bandaid on an open wound: fixes for problems that only emerged because
-	; of the strict adherence To PureBasic's internals. Might be worth reconsidering
-	; when the great refactor comes in.
+	; Those are bandaid on an open wound: fixes for problems that only emerged because of the strict adherence To PureBasic's internals. Might be worth reconsidering  when the great refactor comes in.
 	
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 		; "UITK_KeepKeys" is set by whatever is taking typed text — a String for
@@ -5277,6 +5274,11 @@ Module UITK
 			
 			\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 			
+			If \EditCursor
+				\EditCursor = #PB_Cursor_Default
+				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
+			EndIf
+			
 			If Keep And SelectElement(\Items(), \State)
 				\Items()\Text\OriginalText = \String\String
 				PrepareVectorTextBlock(@\Items()\Text)
@@ -5291,7 +5293,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_EventHandler(*GadgetData.VerticalListData, *Event.Event)
-		Protected Redraw, Item, *Element, Image, Cursor = *GadgetData\EditCursor
+		Protected Redraw, Item, *Element, Image, Cursor = *GadgetData\EditCursor, CursorWas = Cursor
 		With *GadgetData
 			
 			Select *Event\EventType
@@ -5501,14 +5503,12 @@ Module UITK
 					EndIf
 					;}
 				Case #MouseWheel ;{
+					Redraw = VerticalList_EndEdit(*GadgetData, #True)
+					
 					If \VisibleScrollBar
 						ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 0.5)
 						*Event\EventType = #MouseMove
-						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event))
-						
-						If VerticalList_EndEdit(*GadgetData, #True)
-							Redraw = #True
-						EndIf
+						Redraw = Bool(Not VerticalList_EventHandler(*GadgetData, *Event)) | Redraw
 					EndIf
 					;}
 				Case #KeyDown ;{
@@ -5560,7 +5560,7 @@ Module UITK
 					;}
 			EndSelect
 			
-			If Cursor <> \EditCursor
+			If Cursor <> \EditCursor And Cursor <> CursorWas
 				\EditCursor = Cursor
 				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 			EndIf
@@ -9445,6 +9445,11 @@ Module UITK
 			
 			\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 			
+			If \EditCursor
+				\EditCursor = #PB_Cursor_Default
+				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
+			EndIf
+			
 			If Keep And SelectElement(\Items(), \State)
 				\Items()\Text\OriginalText = \String\String
 				PrepareVectorTextBlock(@\Items()\Text)
@@ -9459,7 +9464,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree_EventHandler(*GadgetData.TreeData, *Event.Event)
-		Protected Redraw, Y, NewItem = -1, ItemRow, Cursor = *GadgetData\EditCursor
+		Protected Redraw, Y, NewItem = -1, ItemRow, Cursor = *GadgetData\EditCursor, CursorWas = Cursor
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -9540,10 +9545,12 @@ Module UITK
 					EndIf
 					;}
 				Case #MouseWheel ;{
+					Redraw = Tree_EndEdit(*GadgetData, #True)
+					
 					If \VisibleScrollBar
-						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 1.5)
+						Redraw = ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight * 1.5) | Redraw
 						*Event\EventType = #MouseMove
-						Redraw = Bool(Not Tree_EventHandler(*GadgetData, *Event))
+						Redraw = Bool(Not Tree_EventHandler(*GadgetData, *Event)) | Redraw
 					EndIf
 					;}	
 				Case #LeftDoubleClick ;{
@@ -9613,7 +9620,7 @@ Module UITK
 					;}
 			EndSelect
 			
-			If Cursor <> \EditCursor
+			If Cursor <> \EditCursor And Cursor <> CursorWas
 				\EditCursor = Cursor
 				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 			EndIf
@@ -10748,10 +10755,10 @@ Module UITK
 			EndIf
 			SelectElement(\Items(), Position)
 			Select ColorType
-				Case #Color_Special3_Warm : Result = \Items()\Color     : If Result = 0 : Result = \ThemeData\Special3[#Warm]   : EndIf
-				Case #Color_Shade_Hot     : Result = \Items()\Face      : If Result = 0 : Result = \ThemeData\ShadeColor[#Hot]  : EndIf
-				Case #Color_Shade_Warm    : Result = \Items()\HoverFace : If Result = 0 : Result = \ThemeData\ShadeColor[#Warm] : EndIf
-				Case #Color_Text_Cold     : Result = \Items()\Ink       : If Result = 0 : Result = \ThemeData\TextColor[#Cold]  : EndIf
+					Case #Color_Special3_Warm : Result = \Items()\Color     : If Result = 0 : Result = \ThemeData\Special3[#Warm]   : EndIf
+					Case #Color_Shade_Hot     : Result = \Items()\Face      : If Result = 0 : Result = \ThemeData\ShadeColor[#Hot]  : EndIf
+					Case #Color_Shade_Warm    : Result = \Items()\HoverFace : If Result = 0 : Result = \ThemeData\ShadeColor[#Warm] : EndIf
+					Case #Color_Text_Cold     : Result = \Items()\Ink       : If Result = 0 : Result = \ThemeData\TextColor[#Cold]  : EndIf
 			EndSelect
 		EndWith
 		
@@ -12072,8 +12079,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3656
-; FirstLine = 40
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAASAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 3088
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware

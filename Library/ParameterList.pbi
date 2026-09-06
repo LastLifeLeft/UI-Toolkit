@@ -629,6 +629,8 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 				Cursor = #PB_Cursor_Default
 				;}
 			Case #MouseWheel ;{
+				Redraw = ParameterList_EndEdit(*GadgetData, #True)
+				
 				If \VisibleScrollBar
 					ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight)
 					Redraw = #True
@@ -1251,7 +1253,7 @@ Procedure.i ParameterListEdit(Gadget, Row, Column)
 	ProcedureReturn #False
 EndProcedure
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 463
+; CursorPosition = 1253
 ; FirstLine = 78
 ; Folding = AAAAAAAAg
 ; EnableXP

@@ -1570,6 +1570,11 @@ Procedure TimeLine_EndEdit(*GadgetData.TimeLineData, Keep)
 		
 		\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 		
+		If \EditCursor
+			\EditCursor = #PB_Cursor_Default
+			\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
+		EndIf
+		
 		If Keep And \State >= 0 And SelectElement(\Lines(), \State)
 			If \Lines()\Text\OriginalText <> \String\String
 				\Lines()\Text\OriginalText = \String\String
@@ -1955,7 +1960,7 @@ EndProcedure
 
 Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 	Protected HoverItem = -1, HoverFold, VScrollBar, HScrollBar, FirstDisplayedItem, LastDisplayedItem, Y, *Data, Zoom, Changed
-	Protected Cursor = *GadgetData\EditCursor, Time, *Block.TimeLine_Block, *Key.TimeLine_Key
+	Protected Cursor = *GadgetData\EditCursor, CursorWas = Cursor, Time, *Block.TimeLine_Block, *Key.TimeLine_Key
 	
 	With *GadgetData
 		Select *Event\EventType
@@ -2446,7 +2451,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 				;}
 		EndSelect
 		
-		If Cursor <> \EditCursor
+		If Cursor <> \EditCursor And Cursor <> CursorWas
 			\EditCursor = Cursor
 			\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, \EditCursor)
 		EndIf
@@ -3542,7 +3547,7 @@ EndProcedure
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3541
+; CursorPosition = 3546
 ; FirstLine = 344
 ; Folding = AAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
