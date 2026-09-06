@@ -805,6 +805,7 @@ Module UITK
 		*GadgetData\VT\GetGadgetState = @Default_GetState()
 		*GadgetData\VT\GetRequiredSize = @Default_GetRequiredSize()
 		*GadgetData\VT\GetGadgetText = @Default_GetText()
+		*GadgetData\VT\GetGadgetAttribute = @Default_GetAttribute()
 		
 		; Setters
 		*GadgetData\VT\SetGadgetFont = @Default_SetFont()
@@ -830,7 +831,7 @@ Module UITK
 	EndMacro
 	
 	Macro RedrawObject()
-		If Not *GadgetData\Freeze And *GadgetData\Width > 0 And *GadgetData\Height > 0	; ClipPath() hangs on a 0-size gadget's degenerate rounded box
+		If *GadgetData\Redraw And Not *GadgetData\Freeze And *GadgetData\Width > 0 And *GadgetData\Height > 0	; ScrollArea has no painter and is no canvas, and ClipPath() hangs on a 0-size gadget's degenerate rounded box
 			If *GadgetData\MetaGadget
 				
 			Else
@@ -1909,7 +1910,9 @@ Module UITK
 				Case #Attribute_CornerType
 					Result = \CornerType
 				Default
-					Result = *GadgetData\OriginalVT\GetGadgetAttribute(*This, Attribute)
+					If *GadgetData\OriginalVT\GetGadgetAttribute
+						Result = *GadgetData\OriginalVT\GetGadgetAttribute(*This, Attribute)
+					EndIf
 			EndSelect
 		EndWith
 		
@@ -2010,7 +2013,9 @@ Module UITK
 					\TextBlock\HAlign = Value
 					PrepareVectorTextBlock(@\TextBlock)
 				Default
-					*GadgetData\OriginalVT\SetGadgetAttribute(*This, Attribute, Value)
+					If *GadgetData\OriginalVT\SetGadgetAttribute
+						*GadgetData\OriginalVT\SetGadgetAttribute(*This, Attribute, Value)
+					EndIf
 					ProcedureReturn #False
 			EndSelect
 		EndWith
@@ -4315,6 +4320,7 @@ Module UITK
 			HideGadget(\Caret, #True)
 			
 			\VT\GetGadgetText = @String_GetText()
+			\VT\GetGadgetAttribute = @String_GetAttribute()
 			\VT\SetGadgetText = @String_SetText()
 			\VT\SetGadgetFont = @String_SetFont()
 			
@@ -4578,7 +4584,7 @@ Module UITK
 			Case #ScrollBar_ScrollStep
 				Result = *GadgetData\ScrollStep
 			Default
-				Result = *GadgetData\OriginalVT\GetGadgetAttribute(*This, Attribute)
+				Result = Default_GetAttribute(*This, Attribute)
 		EndSelect
 		
 		ProcedureReturn Result
@@ -4900,37 +4906,46 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure ScrollArea_PBAttribute(Attribute.l)
+		Select Attribute
+			Case #ScrollArea_InnerWidth  : ProcedureReturn #PB_ScrollArea_InnerWidth
+			Case #ScrollArea_InnerHeight : ProcedureReturn #PB_ScrollArea_InnerHeight
+			Case #ScrollArea_X           : ProcedureReturn #PB_ScrollArea_X
+			Case #ScrollArea_Y           : ProcedureReturn #PB_ScrollArea_Y
+			Case #ScrollArea_ScrollStep  : ProcedureReturn #PB_ScrollArea_ScrollStep
+			Case #PB_ScrollArea_InnerWidth To #PB_ScrollArea_ScrollStep : ProcedureReturn Attribute
+		EndSelect
+		
+		ProcedureReturn -1
+	EndProcedure
+	
 	Procedure ScrollArea_GetAttribute(*This.PB_Gadget, Attribute.l)
-		Protected *GadgetData.ScrollAreaData = *this\vt, Result
+		Protected *GadgetData.ScrollAreaData = *this\vt, Native = ScrollArea_PBAttribute(Attribute)
 		
-		With *GadgetData
-			Result = GetGadgetAttribute(*GadgetData\ScrollArea, Attribute)
-		EndWith
+		If Native = -1
+			ProcedureReturn Default_GetAttribute(*This, Attribute)
+		EndIf
 		
-		ProcedureReturn Result
+		ProcedureReturn GetGadgetAttribute(*GadgetData\ScrollArea, Native)
 	EndProcedure
 	
 	Procedure ScrollArea_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
-		Protected *GadgetData.ScrollAreaData = *this\vt
-		
-		SetGadgetAttribute(*GadgetData\ScrollArea, Attribute, Value)
+		Protected *GadgetData.ScrollAreaData = *this\vt, Native = ScrollArea_PBAttribute(Attribute)
 		
 		With *GadgetData
+			If Native = -1
+				Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+				ProcedureReturn
+			EndIf
+			
+			SetGadgetAttribute(\ScrollArea, Native, Value)
+			
 			Select Attribute
 				Case #ScrollArea_InnerWidth
-					SetGadgetAttribute(*GadgetData\HorizontalScrollBar, #ScrollBar_Maximum, Value)
+					SetGadgetAttribute(\HorizontalScrollBar, #ScrollBar_Maximum, Value)
 					
 				Case #ScrollArea_InnerHeight
-					SetGadgetAttribute(*GadgetData\VerticalScrollBar, #ScrollBar_Maximum, Value)
-					
-				Case #ScrollArea_X
-					
-				Case #ScrollArea_Y
-					
-				Case #ScrollArea_ScrollStep
-					
-				Default	
-					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
+					SetGadgetAttribute(\VerticalScrollBar, #ScrollBar_Maximum, Value)
 			EndSelect
 		EndWith
 	EndProcedure
@@ -6491,6 +6506,7 @@ Module UITK
 			\VT\CountGadgetItems = @HorizontalList_CountItem()
 			\VT\GetGadgetItemImage = @HorizontalList_GetItemImage()
 			\VT\GetGadgetItemText = @HorizontalList_GetItemText()
+			\VT\FreeGadget = @HorizontalList_FreeGadget()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
@@ -11161,13 +11177,17 @@ Module UITK
 		
 		With *GadgetData
 			If Width > Height
-				
+				\WheelSize = Height - 12
 			Else
 				\WheelSize = Width - 12
 			EndIf
 			
 			If Not \WheelSize % 2
 				\WheelSize - 1
+			EndIf
+			
+			If \WheelSize < 1
+				\WheelSize = 1
 			EndIf
 			
 			\WheelX = (Width - \WheelSize) * 0.5
@@ -12079,7 +12099,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3088
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 10904
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
