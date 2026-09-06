@@ -78,7 +78,7 @@
 		#Attribute_TextSelectionPosition
 		#Attribute_TextSelectionLength
 		
-		#Tab_Color
+		#Tab_Color									; Tab item: the accent strip on the selected one. The older, narrower spelling of SetGadgetItemColor(Tab, Item, #Color_Special3_Warm, Color)
 		
 		#TrackBar_Scale
 		
@@ -3655,7 +3655,6 @@ Module UITK
 				\AlignmentOffset = Min(\AlignmentOffset, Margin - Start)
 				\AlignmentOffset = Max(\AlignmentOffset, Edge - Finish)
 			EndIf
-			
 			SelectElement(\CharacterData(), \CaretPosition)
 			
 			X = \AlignmentOffset + Caret
@@ -10509,11 +10508,15 @@ Module UITK
 	
 	;{ Tab
 	
+	; The four colors below are OVERRIDES: 0 means "the theme's", and each one names the very theme slot it replaces (see Tab_SetItemColor)
 	Structure Tab_Item
 		ImageX.l
 		ImageY.l
 		imageID.i
-		Color.i
+		Color.i			; #Color_Special3_Warm - the accent strip across the top of the selected item
+		Face.i			; #Color_Shade_Hot - the selected item's face
+		HoverFace.i		; #Color_Shade_Warm - a hovered item's face
+		Ink.i			; #Color_Text_Cold - the label
 		Text.Text
 	EndStructure
 	
@@ -10525,22 +10528,31 @@ Module UITK
 	EndStructure
 	
 	Procedure Tab_ItemRedraw(*Item.Tab_Item, X, Y, Width, Height, State, *Theme.Theme)
+		Protected Accent = *Item\Color, Face, Ink = *Item\Ink
+		
+		If Accent = 0 : Accent = *Theme\Special3[#Warm] : EndIf	; an unset override is 0, which no stored color can be - see Tab_SetItemColor
+		If Ink = 0 : Ink = *Theme\TextColor[#Cold] : EndIf
+		
 		If State = #Hot
+			Face = *Item\Face
+			If Face = 0 : Face = *Theme\ShadeColor[#Hot] : EndIf
 			AddPathRoundedBox(X,Y, Width, 10, 4, #Corner_Top)
-			VectorSourceColor(*Item\Color)
+			VectorSourceColor(Accent)
 			FillPath()
 			AddPathBox(X, Y + 5, Width, Height - 5)
-			VectorSourceColor(*Theme\ShadeColor[#Hot])
+			VectorSourceColor(Face)
 			FillPath()
-			VectorSourceColor(*Theme\TextColor[#Cold])
 			
 			Y - 4
 		ElseIf State = #Warm
+			Face = *Item\HoverFace
+			If Face = 0 : Face = *Theme\ShadeColor[#Warm] : EndIf
 			AddPathRoundedBox(X, Y + 4, Width, Height - 4, 4, #Corner_Top)
-			VectorSourceColor(*Theme\ShadeColor[#Warm])
+			VectorSourceColor(Face)
 			FillPath()
-			VectorSourceColor(*Theme\TextColor[#Cold])
 		EndIf
+		
+		VectorSourceColor(Ink)	; set for EVERY state, not just the two that filled over the caller's source color
 		
 		If *Item\imageID
 			MovePathCursor(X + *Item\ImageX, Y + *Item\ImageY)
@@ -10657,8 +10669,7 @@ Module UITK
 			
 			PrepareVectorTextBlock(@*NewItem\Text)
 			
-			*NewItem\imageID = ImageID
-			*NewItem\Color = \ThemeData\Special3[#Warm]
+			*NewItem\imageID = ImageID	; the four color fields stay 0, ie. the theme's - an item added before a SetGadgetColor now follows it
 			
 			If *NewItem\imageID
 				UITK_GetImageSize(*NewItem\imageID, @HBitmap)
@@ -10727,8 +10738,51 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	; The color that will actually be PAINTED, override or theme - asking an item what it looks like should not need a second call to find out whether it was overridden
+	Procedure Tab_GetItemColor(*this.PB_Gadget, Position.l, ColorType.l, Column.l)
+		Protected *GadgetData.TabData = *this\vt, Result
+		
+		With *GadgetData
+			If Position < 0 Or Position >= ListSize(\Items())
+				ProcedureReturn 0
+			EndIf
+			SelectElement(\Items(), Position)
+			Select ColorType
+				Case #Color_Special3_Warm : Result = \Items()\Color     : If Result = 0 : Result = \ThemeData\Special3[#Warm]   : EndIf
+				Case #Color_Shade_Hot     : Result = \Items()\Face      : If Result = 0 : Result = \ThemeData\ShadeColor[#Hot]  : EndIf
+				Case #Color_Shade_Warm    : Result = \Items()\HoverFace : If Result = 0 : Result = \ThemeData\ShadeColor[#Warm] : EndIf
+				Case #Color_Text_Cold     : Result = \Items()\Ink       : If Result = 0 : Result = \ThemeData\TextColor[#Cold]  : EndIf
+			EndSelect
+		EndWith
+		
+		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))	; alpha dropped, as Default_GetColor does
+	EndProcedure
+	
 	
 	; Setters
+	; ColorType is the THEME SLOT the item overrides, not a #PB_Gadget_* role - the Tab_Item fields name them
+	Procedure Tab_SetItemColor(*this.PB_Gadget, Position.l, ColorType.l, Color, Column.l)
+		Protected *GadgetData.TabData = *this\vt
+		
+		With *GadgetData
+			If Position < 0 Or Position >= ListSize(\Items())
+				ProcedureReturn
+			EndIf
+			If Alpha(Color) = 0	; forced opaque as Default_SetColor does, which is what leaves 0 free to mean "unset, use the theme's"
+				Color = SetAlpha(Color, 255)
+			EndIf
+			SelectElement(\Items(), Position)
+			Select ColorType
+				Case #Color_Special3_Warm : \Items()\Color = Color
+				Case #Color_Shade_Hot     : \Items()\Face = Color
+				Case #Color_Shade_Warm    : \Items()\HoverFace = Color
+				Case #Color_Text_Cold     : \Items()\Ink = Color
+				Default                   : ProcedureReturn	; a slot a tab item never paints from - say nothing rather than store a color nobody will read
+			EndSelect
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
 	Procedure Tab_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.TabData = *this\vt
 		
@@ -10758,9 +10812,8 @@ Module UITK
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
 				Select Attribute
-					Case #Tab_Color
-						\Items()\Color = Value
-						RedrawObject()
+					Case #Tab_Color	; the older, narrower spelling - routed through the setter so the alpha rule lives in ONE place
+						Tab_SetItemColor(*this, Position, #Color_Special3_Warm, Value & $FFFFFFFF, 0)
 				EndSelect
 			EndIf
 		EndWith
@@ -10784,6 +10837,8 @@ Module UITK
 			\VT\GetGadgetItemImage = @Tab_GetItemImage()
 			\VT\GetGadgetItemText = @Tab_GetItemText()
 			\VT\SetGadgetItemAttribute2 = @Tab_SetItemAttribute()
+			\VT\SetGadgetItemColor2 = @Tab_SetItemColor()
+			\VT\GetGadgetItemColor2 = @Tab_GetItemColor()
 			
 			; Enable only the needed events
 			\SupportedEvent[#MouseLeave] = #True
@@ -12017,8 +12072,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3657
-; FirstLine = 73
+; CursorPosition = 3656
+; FirstLine = 40
 ; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAASAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
