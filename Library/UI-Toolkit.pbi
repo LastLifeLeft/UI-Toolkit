@@ -3607,20 +3607,18 @@ Module UITK
 		*GadgetData\SupportedEvent[#Input] = #True
 	EndMacro
 	
-	; The offset alignment alone asks for, 0 when left; Finish is the far end of the text
 	Procedure String_AlignOffset(*GadgetData.StringData, Finish)
 		With *GadgetData
 			If \TextBlock\HAlign = #HAlignCenter
 				\AlignmentOffset = (\Width - Finish) * 0.5
 			ElseIf \TextBlock\HAlign = #HAlignRight
-				\AlignmentOffset = \Width - Finish - BorderMargin
+				\AlignmentOffset = \Width - Finish - BorderMargin - 1
 			Else
 				\AlignmentOffset = 0
 			EndIf
 		EndWith
 	EndProcedure
 	
-	; Put the caret on its character, sliding the text under it to keep it in the box; #True when the text moved
 	Procedure.i String_PlaceCaret(*GadgetData.StringData, Anchor = -1)
 		Protected Caret, View, Start, Finish, Margin, Edge, Was, X
 		
@@ -3702,6 +3700,89 @@ Module UITK
 			EndIf
 			
 			StopVectorDrawing()
+		EndWith
+	EndProcedure
+	
+	Declare String_CaretRedraw(*GadgetData.StringData, Timer)
+	
+	Procedure String_ShowCaret(*GadgetData.StringData)
+		With *GadgetData
+			HideGadget(\Caret, #False)
+			\CaretVisible = #True
+			RemoveGadgetTimer(\Timer)
+			\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
+		EndWith
+	EndProcedure
+	
+	Procedure String_HitTest(*GadgetData.StringData, MouseX)
+		Protected X, Index
+		
+		With *GadgetData
+			X = MouseX - \AlignmentOffset
+			Index = ListSize(\CharacterData()) - 1
+			ForEach \CharacterData()
+				If \CharacterData()\Position + \CharacterData()\Width * 0.5 > X
+					Index = ListIndex(\CharacterData())
+					Break
+				EndIf
+			Next
+		EndWith
+		
+		ProcedureReturn Index
+	EndProcedure
+	
+	Procedure String_MoveCaret(*GadgetData.StringData, Target, Extend)
+		With *GadgetData
+			Target = Max(0, Min(Target, ListSize(\CharacterData()) - 1))
+			
+			If Extend
+				If \SelectionPosition = -1
+					\SelectionPosition = \CaretPosition
+				EndIf
+				\SelectionLength = Target - \SelectionPosition
+				If \SelectionLength = 0
+					\SelectionPosition = -1
+				EndIf
+			Else
+				\SelectionPosition = -1
+				\SelectionLength = 0
+			EndIf
+			
+			\CaretPosition = Target
+			String_PlaceCaret(*GadgetData)
+			String_ShowCaret(*GadgetData)
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
+	Procedure String_Relayout(*GadgetData.StringData)
+		With *GadgetData
+			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			If \TextBlock\FontScale
+				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
+			Else
+				VectorFont(\TextBlock\FontID)
+			EndIf
+			\CaretHeight = Ceil( VectorTextHeight("Oh!"))
+			StopVectorDrawing()
+			
+			\TextPositionX = BorderMargin * Bool(\TextBlock\HAlign = #HAlignLeft)
+			\TextPositionY = Round((\Height - \CaretHeight) * 0.5, #PB_Round_Nearest) - 1
+			ResizeGadget(\Caret, #PB_Ignore, \OriginY + \TextPositionY + 1, #PB_Ignore, \CaretHeight)
+			
+			String_ProcessString(*GadgetData)
+			If \Focus
+				String_PlaceCaret(*GadgetData)
+			Else
+				String_PlaceCaret(*GadgetData, 0)	; nobody is typing: show the start of the text
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure String_CaretColor(*GadgetData.StringData)
+		With *GadgetData
+			SetGadgetColor(\Caret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]), Green(\ThemeData\TextColor[#Cold]), Blue(\ThemeData\TextColor[#Cold])))
 		EndWith
 	EndProcedure
 	
@@ -3810,7 +3891,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure String_EventHandler(*GadgetData.StringData, *Event.Event)
-		Protected Size, Selection, Modifiers, Text.s, Loop, Redraw
+		Protected Size, Selection, Modifiers, Text.s, Redraw
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -3860,13 +3941,7 @@ Module UITK
 					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					;}
 				Case #LeftButtonDown ;{
-					ForEach \CharacterData()
-						If \CharacterData()\Position + 2 > (*Event\MouseX - \AlignmentOffset)
-							Break
-						EndIf
-					Next
-					
-					\CaretPosition = ListIndex(\CharacterData())
+					\CaretPosition = String_HitTest(*GadgetData, *Event\MouseX)
 					String_PlaceCaret(*GadgetData)
 					HideGadget(\Caret, #False)
 					\CaretVisible = #True
@@ -4023,7 +4098,7 @@ Module UITK
 							;}
 						Case #PB_Shortcut_V ;{
 							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control 
-								Text = GetClipboardText()
+								Text = RemoveString(RemoveString(GetClipboardText(), #CR$), #LF$)
 								If Text <> ""
 									If \SelectionPosition > -1
 										String_RemoveSelection(*GadgetData)
@@ -4046,48 +4121,13 @@ Module UITK
 							;}
 						Case #PB_Shortcut_C ;{
 							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control And \SelectionPosition > -1
-								
-								If \SelectionLength < 0
-									\CaretPosition = \SelectionPosition + \SelectionLength
-									SelectElement(\CharacterData(), \CaretPosition)
-									\SelectionLength = Abs(\SelectionLength)
-								Else
-									\CaretPosition = \SelectionPosition
-									SelectElement(\CharacterData(), \SelectionPosition)
-								EndIf
-								
-								For Loop = 1 To \SelectionLength
-									Text + \CharacterData()\Char
-									NextElement(\CharacterData())
-								Next
-								
-								SetClipboardText(Text)
+								SetClipboardText(Mid(\String, Min(\SelectionPosition, \SelectionPosition + \SelectionLength) + 1, Abs(\SelectionLength)))	; a copy reads; the caret and the selection stay exactly as they were
 							EndIf
 							;}
 						Case #PB_Shortcut_X ;{
 							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control And \SelectionPosition > -1
-								
-								If \SelectionLength < 0
-									\CaretPosition = \SelectionPosition + \SelectionLength
-									SelectElement(\CharacterData(), \CaretPosition)
-									\SelectionLength = Abs(\SelectionLength)
-									\SelectionPosition = \CaretPosition
-								Else
-									\CaretPosition = \SelectionPosition
-									SelectElement(\CharacterData(), \SelectionPosition)
-								EndIf
-								
-								HideGadget(\Caret, #False)
-								\CaretVisible = #True
-								RemoveGadgetTimer(\Timer)
-								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
-								
-								For Loop = 1 To \SelectionLength
-									Text + \CharacterData()\Char
-									NextElement(\CharacterData())
-								Next
-								
-								SetClipboardText(Text)
+								SetClipboardText(Mid(\String, Min(\SelectionPosition, \SelectionPosition + \SelectionLength) + 1, Abs(\SelectionLength)))
+								String_ShowCaret(*GadgetData)
 								String_RemoveSelection(*GadgetData.StringData)
 								String_PlaceCaret(*GadgetData)
 								
@@ -4098,9 +4138,9 @@ Module UITK
 							;}
 						Case #PB_Shortcut_A ;{
 							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control
-								\SelectionPosition = 0
 								\CaretPosition = ListSize(\CharacterData()) - 1
 								\SelectionLength = \CaretPosition
+								\SelectionPosition = Bool(\SelectionLength = 0) * -1
 								
 								String_PlaceCaret(*GadgetData)
 								HideGadget(\Caret, #False)
@@ -4109,6 +4149,12 @@ Module UITK
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 							EndIf
+							;}
+						Case #PB_Shortcut_Home ;{
+							Redraw = String_MoveCaret(*GadgetData, 0, GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
+							;}
+						Case #PB_Shortcut_End ;{
+							Redraw = String_MoveCaret(*GadgetData, ListSize(\CharacterData()) - 1, GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Shift)
 							;}
 						Case #PB_Shortcut_Return ;{
 							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ForcefulChange)
@@ -4119,7 +4165,7 @@ Module UITK
 					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 					\Focus = #True
 					
-					ResizeGadget(\Caret, #PB_Ignore, \OriginY + \TextPositionY + \Border, #PB_Ignore, #PB_Ignore)
+					ResizeGadget(\Caret, #PB_Ignore, \OriginY + \TextPositionY + 1, #PB_Ignore, #PB_Ignore)
 					Redraw = Bool(Redraw Or String_PlaceCaret(*GadgetData))
 					HideGadget(\Caret, #False)
 					\CaretVisible = #True
@@ -4143,19 +4189,14 @@ Module UITK
 					;}
 				Case #MouseMove ;{
 					If \Selecting
-						ForEach \CharacterData()
-							If \CharacterData()\Position + 2 > (*Event\MouseX - \AlignmentOffset)
-								Break
-							EndIf
-						Next
-						Selection = ListIndex(\CharacterData())
+						Selection = String_HitTest(*GadgetData, *Event\MouseX)
 						
 						If Selection <> \CaretPosition
 							If \SelectionPosition = -1
 								\SelectionPosition = \CaretPosition
 							EndIf
 							
-							\CaretPosition = ListIndex(\CharacterData())
+							\CaretPosition = Selection
 							\SelectionLength = \CaretPosition - \SelectionPosition
 							
 							If \SelectionLength = 0
@@ -4223,51 +4264,81 @@ Module UITK
 			\SelectionPosition = -1
 			\CaretPosition = Len(\String)
 			String_ProcessString(*GadgetData)
-			RedrawObject()
-			
-			String_PlaceCaret(*GadgetData, 0)
 			
 			If \Focus
-				HideGadget(\Caret, #False)
-				\CaretVisible = #True
-				RemoveGadgetTimer(\Timer)
-				\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
+				String_PlaceCaret(*GadgetData)	; someone is typing: keep the caret in view
+				String_ShowCaret(*GadgetData)
+			Else
+				String_PlaceCaret(*GadgetData, 0)
 			EndIf
+			RedrawObject()	; after the placement, which may have scrolled the text
 		EndWith
 		
 	EndProcedure
 	
 	Procedure String_SetFont_Meta(*GadgetData.StringData, FontID)
-		With *GadgetData
-			\TextBlock\FontID = FontID
-			StartVectorDrawing(CanvasVectorOutput(\Gadget))
-			If \TextBlock\FontScale
-				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
-			Else
-				VectorFont(\TextBlock\FontID)
-			EndIf
-			\CaretHeight = Ceil( VectorTextHeight("Oh!"))
-			\TextPositionY = \OriginY + Round((\Height - \CaretHeight) * 0.5, #PB_Round_Nearest) - 1
-			ResizeGadget(\Caret, #PB_Ignore, #PB_Ignore, #PB_Ignore, \CaretHeight)
-			StopVectorDrawing()
-		EndWith
+		*GadgetData\TextBlock\FontID = FontID
+		String_Relayout(*GadgetData)
 	EndProcedure
 	
 	Procedure String_SetFont(*this.PB_Gadget, FontID)
-		String_SetFont_Meta(*this\vt, FontID)
+		Protected *GadgetData.StringData = *this\vt
+		
+		String_SetFont_Meta(*GadgetData, FontID)
+		RedrawObject()
+	EndProcedure
+	
+	Procedure String_ResizeGadget(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
+		Protected *GadgetData.StringData = *this\vt
+		
+		*this\VT = *GadgetData\OriginalVT
+		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
+		*this\VT = *GadgetData
+		
+		*GadgetData\Width = GadgetWidth(*GadgetData\Gadget)
+		*GadgetData\Height = GadgetHeight(*GadgetData\Gadget)
+		String_Relayout(*GadgetData)
+		RedrawObject()
+	EndProcedure
+	
+	Procedure String_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
+		Protected *GadgetData.StringData = *this\vt
+		
+		With *GadgetData
+			Select Attribute
+				Case #Attribute_TextHorizontalAlignment
+					\TextBlock\HAlign = Value
+				Case #Attribute_Border
+					\Border = Value
+				Case #Attribute_TextScale
+					\TextBlock\FontScale = Value
+				Default
+					ProcedureReturn Default_SetAttribute(*this, Attribute, Value)
+			EndSelect
+			
+			String_Relayout(*GadgetData)
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
+	Procedure String_SetColor(*this.PB_Gadget, ColorType.l, Color)
+		Protected *GadgetData.StringData = *this\vt
+		
+		Default_SetColor(*this, ColorType, Color)
+		String_CaretColor(*GadgetData)
 	EndProcedure
 	
 	Procedure StringSetSelection_Meta(*GadgetData.StringData, Position, Length)
 		With *GadgetData
-			\SelectionPosition = Position
 			\SelectionLength = Length
+			\SelectionPosition = Position
+			If Length = 0
+				\SelectionPosition = -1
+			EndIf
 			\CaretPosition = Position + Length
 			
-			String_PlaceCaret(*GadgetData, Position)	; a cell editor opening on its whole value reads from the start
-			HideGadget(\Caret, #False)
-			\CaretVisible = #True
-			RemoveGadgetTimer(\Timer)
-			\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
+			String_PlaceCaret(*GadgetData, Position)
+			String_ShowCaret(*GadgetData)
 			
 			RedrawObject()
 		EndWith
@@ -4295,17 +4366,15 @@ Module UITK
 			\CaretHeight = Ceil( VectorTextHeight("Oh!"))
 			
 			StopVectorDrawing()
-			\TextPositionX = \OriginX + BorderMargin * Bool(\TextBlock\HAlign = #HAlignLeft)						
-			\TextPositionY = \OriginY + Round((\Height - \CaretHeight) * 0.5, #PB_Round_Nearest) - 1
+			\TextPositionX = BorderMargin * Bool(\TextBlock\HAlign = #HAlignLeft)	; origin-relative, see String_Relayout
+			\TextPositionY = Round((\Height - \CaretHeight) * 0.5, #PB_Round_Nearest) - 1
 			\String = Text
 			\SelectionPosition = -1
 			
 			If \Caret = 0
-				\Caret = ContainerGadget(#PB_Any, \TextPositionX, \TextPositionY + 1, 1, \CaretHeight)
+				\Caret = ContainerGadget(#PB_Any, \OriginX + \TextPositionX, \OriginY + \TextPositionY + 1, 1, \CaretHeight)
 				CloseGadgetList()
-				SetGadgetColor(\Caret, #PB_Gadget_BackColor, RGB(Red(\ThemeData\TextColor[#Cold]),
-				                                                 Green(\ThemeData\TextColor[#Cold]),
-				                                                 Blue(\ThemeData\TextColor[#Cold])))
+				String_CaretColor(*GadgetData)
 			EndIf
 			
 			If Flags & #Gadget_Meta
@@ -4321,6 +4390,9 @@ Module UITK
 			\VT\GetGadgetAttribute = @String_GetAttribute()
 			\VT\SetGadgetText = @String_SetText()
 			\VT\SetGadgetFont = @String_SetFont()
+			\VT\SetGadgetAttribute = @String_SetAttribute()
+			\VT\SetGadgetColor = @String_SetColor()
+			\VT\ResizeGadget = @String_ResizeGadget()
 			
 			String_SupportedEvents()
 			*GadgetData\SupportedEvent[#MouseEnter] = #True
@@ -8578,7 +8650,7 @@ Module UITK
 			
 			; Prime the shared editor with the current value and drop it onto the row.
 			\String\String = \Items()\Value\OriginalText
-			\String\TextBlock\FontID = \TextBlock\FontID
+			String_SetFont_Meta(\String, \TextBlock\FontID)
 			String_ProcessString(\String)
 			
 			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
@@ -12056,7 +12128,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 10904
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 3769
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
