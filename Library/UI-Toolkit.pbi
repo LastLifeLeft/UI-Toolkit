@@ -32,6 +32,7 @@
 		#TrackBar_ShowState								; Display the numerical state on the trackbar
 		#Tree_NoLine
 		#Tree_StraightLine
+		#ParameterList_Header							; Give the ParameterList a band of column titles, which its rules can also be dragged from
 		
 		; DoNotUse
 		#Gadget_Meta
@@ -90,17 +91,23 @@
 			#Attribute_ParameterList_Kind			; ParameterList item: #ParameterList_Value, _Group or _Branch (read/write)
 			#Attribute_ParameterList_Depth			; ParameterList item: how deep it sits, 0 at the top (read only)
 			#Attribute_ParameterList_Folded			; ParameterList item: subtree hidden (read/write)
-			#Attribute_ParameterList_Editable		; ParameterList item: bit 0 the name cell, bit 1 the expression cell (read/write)
+			#Attribute_ParameterList_Editable		; ParameterList item: one bit per column, bit 0 the first cell (read/write)
 			#Attribute_ParameterList_Removable		; ParameterList item: shows a cross on hover (read/write)
 			#Attribute_ParameterList_Faulty			; ParameterList item: the reading is a complaint, not a number (read/write)
 			#Attribute_ParameterList_Adder			; ParameterList item: a group row that carries a plus (read/write)
 			#Attribute_ParameterList_ChildCount		; ParameterList item: rows held below it, at any depth (read only)
 			#Attribute_ParameterList_ScreenRow		; ParameterList item: which drawn row it is, -1 when folded away (read only)
-			#Attribute_ParameterList_NameWidth		; ParameterList gadget: the name column, in pixels (read/write)
-			#Attribute_ParameterList_ValueWidth		; ParameterList gadget: the reading column, in pixels (read/write)
+			#Attribute_ParameterList_ColumnWidth	; ParameterList COLUMN: its width in pixels, as PB's own #PB_ListIcon_ColumnWidth is addressed (read/write)
+			#Attribute_ParameterList_ColumnRole		; ParameterList COLUMN: #ParameterList_Tree, _Cell or _Derived (read/write)
+			#Attribute_ParameterList_NameWidth		; ParameterList gadget: the FIRST column, in pixels (read/write)
+			#Attribute_ParameterList_ValueWidth		; ParameterList gadget: the LAST column, in pixels (read/write)
+			#Attribute_ParameterList_ColumnCount	; ParameterList gadget: how many columns it has (read only)
+			#Attribute_ParameterList_StretchColumn	; ParameterList gadget: the column that absorbs the slack, -1 for the last (read/write)
+			#Attribute_ParameterList_ClickedColumn	; ParameterList gadget: the title the last #EventType_ParameterColumnClick came from (read only)
 			#Attribute_ParameterList_EditedRow		; ParameterList gadget: the row the last commit came from (read/write)
-			#Attribute_ParameterList_EditedColumn	; ParameterList gadget: 0 the name, 1 the expression (read/write)
+			#Attribute_ParameterList_EditedColumn	; ParameterList gadget: the column it came from (read/write)
 			#Attribute_ParameterList_HoverRow		; ParameterList gadget: the row under the pointer, -1 for none (read only)
+			#Attribute_ParameterList_HoverColumn	; ParameterList gadget: the column under it, -1 for none (read only)
 		CompilerEndIf
 		
 		CompilerIf Defined(EnableLayerList, #PB_Module)
@@ -310,6 +317,7 @@
 			#EventType_ParameterAdd				; ParameterList: the plus on a group row was clicked - GetGadgetState is that group
 			#EventType_ParameterRemove			; ParameterList: the cross on a row was clicked - GetGadgetState is that row
 			#EventType_ParameterFold			; ParameterList: a row was folded or unfolded - GetGadgetState is that row
+			#EventType_ParameterColumnClick		; ParameterList: a column title was clicked - #Attribute_ParameterList_ClickedColumn is which. Sorting is the host's: the rows carry a tree, and reordering them freely would break it.
 		CompilerEndIf
 		
 		CompilerIf Defined(EnableTimeline, #PB_Module)
@@ -488,6 +496,8 @@
 	Declare DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
 	Declare Disable(Gadget, State)
 	Declare Freeze(Gadget, State)
+	Declare BeginMeasuring()	; One text-measuring session for every item added until EndMeasuring - bracket a bulk AddGadgetItem in it
+	Declare EndMeasuring()
 	Declare AddPathRoundedBox(X, Y, Width, Height, Radius, Type = #Corner_All)
 	Declare LoadSvgIcon(FileName.s, Size, Color)
 	Declare CatchSvgIcon(*Buffer, BufferLength, Size, Color)
@@ -554,6 +564,14 @@
 			#ParameterList_Group				; a band across the table: foldable, and may carry a plus
 			#ParameterList_Branch				; a foldable name with no expression of its own
 		EndEnumeration
+		
+		Enumeration ; What a ParameterList COLUMN shows - set with #Attribute_ParameterList_ColumnRole
+			#ParameterList_Cell					; a plain cell, typed into when the row's #Attribute_ParameterList_Editable bit for it is set
+			#ParameterList_Tree					; the indented name; the first such column carries the chevron and the plus
+			#ParameterList_Derived				; a reading rather than something typed: greyed, never editable, and recoloured by #Attribute_ParameterList_Faulty
+		EndEnumeration
+		
+		; A gadget is born with three columns - Name, Expression and Value - which AddGadgetColumn adds to and RemoveGadgetColumn thins out.
 		
 		Declare ParameterList(Gadget, x, y, Width, Height, Flags = #Default)
 		Declare.i ParameterListEdit(Gadget, Row, Column)	; open a cell's editor from the host
@@ -1537,6 +1555,7 @@ Module UITK
 	EndProcedure
 	
 	Global MeasuringImage
+	Global MeasuringDepth
 	
 	Procedure.s TextBlock_Ellipsise(Text.s, Width, Force = #False)
 		Protected Low, High = Len(Text), Middle, Best
@@ -1570,10 +1589,12 @@ Module UITK
 		
 		Count = CountString(String, #CR$) + 1
 		
-		If Not IsImage(MeasuringImage)
-			MeasuringImage = CreateImage(#PB_Any, 10, 19)
+		If MeasuringDepth = 0
+			If Not IsImage(MeasuringImage)
+				MeasuringImage = CreateImage(#PB_Any, 10, 19)
+			EndIf
+			StartVectorDrawing(ImageVectorOutput(MeasuringImage))
 		EndIf
-		StartVectorDrawing(ImageVectorOutput(MeasuringImage))
 		If *TextData\FontScale
 			VectorFont(*TextData\FontID, *TextData\FontScale)
 		Else
@@ -1701,7 +1722,9 @@ Module UITK
 		
 		*TextData\RequiredWidth + 1
 		
-		StopVectorDrawing()
+		If MeasuringDepth = 0
+			StopVectorDrawing()
+		EndIf
 	EndProcedure
 	
 	Procedure DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
@@ -1736,6 +1759,25 @@ Module UITK
 		
 		*GadgetData\Freeze = Bool(State)
 		RedrawObject()
+	EndProcedure
+	
+	Procedure BeginMeasuring()
+		If MeasuringDepth = 0
+			If Not IsImage(MeasuringImage)
+				MeasuringImage = CreateImage(#PB_Any, 10, 19)
+			EndIf
+			StartVectorDrawing(ImageVectorOutput(MeasuringImage))
+		EndIf
+		MeasuringDepth + 1
+	EndProcedure
+	
+	Procedure EndMeasuring()
+		If MeasuringDepth > 0
+			MeasuringDepth - 1
+			If MeasuringDepth = 0
+				StopVectorDrawing()
+			EndIf
+		EndIf
 	EndProcedure
 	
 	Procedure EditGadgetItemText(Gadget)
@@ -10549,7 +10591,7 @@ Module UITK
 	Procedure DisableFlatMenuItem(Menu, Position, State)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
 		
-		If Position > -1 And SelectElement(*MenuData\Item(), Position)
+		If Position > -1 And SelectElement(*MenuData\Item(), Position) And *MenuData\Item()\Disabled <> State
 			*MenuData\Item()\Disabled = State
 			FlatMenu_Redraw(*MenuData)
 		EndIf
@@ -11829,8 +11871,10 @@ Module UITK
 			*GadgetData = *this\vt
 			With *GadgetData
 				If Item > -1 And SelectElement(\Items(), Item) And \Items()\Type = #ToolBar_ModeButton And Mode > -1 And Mode < \Items()\ModeCount
-					ToolBar_ModeApply(*GadgetData, @\Items(), Mode)
-					RedrawObject()
+					If \Items()\Mode <> Mode
+						ToolBar_ModeApply(*GadgetData, @\Items(), Mode)
+						RedrawObject()
+					EndIf
 					ProcedureReturn #True
 				EndIf
 			EndWith
@@ -11921,30 +11965,42 @@ Module UITK
 	EndProcedure
 	
 	Procedure ToolBar_SetItemState(*This.PB_Gadget, Position.l, State.l)
-		Protected *GadgetData.ToolBarData = *this\vt
+		Protected *GadgetData.ToolBarData = *this\vt, Changed
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position) And \Items()\Button
 				Select State
 					Case #Item_State_Untoggled		; also matches #False
-						If \Items()\Button\Toggle
+						If \Items()\Button\Toggle And \Items()\Button\State <> #False
 							\Items()\Button\State = #False
+							Changed = #True
 						EndIf
 					Case #Item_State_Toggled		; also matches #True
-						If \Items()\Button\Toggle
+						If \Items()\Button\Toggle And \Items()\Button\State <> #Hot
 							\Items()\Button\State = #Hot
+							Changed = #True
 						EndIf
 					Case #Item_State_Enabled
-						\Items()\Button\Enabled = #True
-						If \Items()\Type = #ToolBar_ModeButton
+						If Not \Items()\Button\Enabled
+							\Items()\Button\Enabled = #True
+							Changed = #True
+						EndIf
+						If \Items()\Type = #ToolBar_ModeButton And Not \Items()\ModeButton\Enabled
 							\Items()\ModeButton\Enabled = #True
+							Changed = #True
 						EndIf
 					Case #Item_State_Disabled
-						\Items()\Button\Enabled = #False
-						If \Items()\Type = #ToolBar_ModeButton
+						If \Items()\Button\Enabled
+							\Items()\Button\Enabled = #False
+							Changed = #True
+						EndIf
+						If \Items()\Type = #ToolBar_ModeButton And \Items()\ModeButton\Enabled
 							\Items()\ModeButton\Enabled = #False
+							Changed = #True
 						EndIf
 				EndSelect
-				RedrawObject()
+				If Changed
+					RedrawObject()
+				EndIf
 			EndIf
 		EndWith
 	EndProcedure
@@ -12128,7 +12184,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3769
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAA5DHAg-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 12183
+; Folding = AAAA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
 ; EnableXP
 ; DPIAware
