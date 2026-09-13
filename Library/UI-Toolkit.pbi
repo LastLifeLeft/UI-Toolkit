@@ -10879,6 +10879,20 @@ Module UITK
 	
 	
 	; Setters
+	Procedure Tab_SetItemText(*this.PB_Gadget, Position.l, *Text)
+		Protected *GadgetData.TabData = *this\vt
+		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				\Items()\Text\OriginalText = PeekS(*Text)
+				PrepareVectorTextBlock(@\Items()\Text)
+				RedrawObject()
+				ProcedureReturn #True
+			EndIf
+		EndWith
+	EndProcedure
+	
 	; ColorType is the THEME SLOT the item overrides, not a #PB_Gadget_* role - the Tab_Item fields name them
 	Procedure Tab_SetItemColor(*this.PB_Gadget, Position.l, ColorType.l, Color, Column.l)
 		Protected *GadgetData.TabData = *this\vt
@@ -10941,6 +10955,7 @@ Module UITK
 			\VT\CountGadgetItems = @Tab_CountItem()
 			\VT\GetGadgetItemImage = @Tab_GetItemImage()
 			\VT\GetGadgetItemText = @Tab_GetItemText()
+			\VT\SetGadgetItemText = @Tab_SetItemText()
 			\VT\SetGadgetItemColor2 = @Tab_SetItemColor()
 			\VT\GetGadgetItemColor2 = @Tab_GetItemColor()
 			
@@ -12184,7 +12199,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 12183
-; Folding = AAAA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+
+; CursorPosition = 10881
+; FirstLine = 27
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
