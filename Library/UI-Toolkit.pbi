@@ -9655,7 +9655,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree_Redraw(*GadgetData.TreeData)
-		Protected Y, X, FirstElement, PreviousLevel, Row, Hidden, Drawing, Level, HasChildren, Dim LastLevel(*GadgetData\MaxLevel), Height
+		Protected Y, X, FirstElement, PreviousLevel, PreviousFold, TrunkTop.d, Row, Hidden, Drawing, Level, HasChildren, Dim LastLevel(*GadgetData\MaxLevel), Height
 		
 		With *GadgetData
 			If \Border
@@ -9686,10 +9686,12 @@ Module UITK
 					Drawing = Tree_SelectRow(*GadgetData, Row - 1, @Hidden)
 					If Drawing
 						PreviousLevel = \Items()\Level
+						PreviousFold = Tree_HasChildren(*GadgetData, ListIndex(\Items()))
 						Drawing = Tree_NextVisible(*GadgetData, @Hidden)
 					EndIf
 				Else
 					PreviousLevel = 1
+					PreviousFold = #False
 					LastLevel(0) = #Tree_BranchHeight + Y
 					Hidden = -1
 					FirstElement(\Items())
@@ -9700,14 +9702,18 @@ Module UITK
 				
 				While Drawing
 					If PreviousLevel = \Items()\Level
-						MovePathCursor( X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, Y - 10)
-						AddPathLine(0, 10 + #Tree_BranchHeight, #PB_Path_Relative)
+						TrunkTop = Y - 10
+						If PreviousFold
+							TrunkTop = Y - \ItemHeight + #Tree_BranchHeight + #Tree_FoldRadius
+						EndIf
+						MovePathCursor( X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, TrunkTop)
+						AddPathLine(0, Y + #Tree_BranchHeight - TrunkTop, #PB_Path_Relative)
 					Else
 						If PreviousLevel > \Items()\Level
 							MovePathCursor( X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, LastLevel(\Items()\Level))
 							AddPathLine(0, Y - LastLevel(\Items()\Level) + #Tree_BranchHeight, #PB_Path_Relative)
 						Else
-							LastLevel(PreviousLevel) = Y + #Tree_BranchHeight - \ItemHeight
+							LastLevel(PreviousLevel) = Y + #Tree_BranchHeight - \ItemHeight + #Tree_FoldRadius
 							MovePathCursor( X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, Y)
 							AddPathLine(0, #Tree_BranchHeight, #PB_Path_Relative)
 						EndIf
@@ -9758,6 +9764,7 @@ Module UITK
 					EndIf
 					
 					PreviousLevel = \Items()\Level
+					PreviousFold = HasChildren
 					Y + \ItemHeight
 					
 					If Y > Height
@@ -9905,48 +9912,52 @@ Module UITK
 						*Event\MouseX - \String\OriginX
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
-					ElseIf \Editing
-						Redraw = Tree_EndEdit(*GadgetData, #True)
-					EndIf
-					
-					If \ScrollBar\MouseState
-						Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
-						Index = ListIndex(\Items())
-						TextX = \Border + \BranchWidth * (\Items()\Level + 1)
-						
-						If *Event\MouseX >= TextX - \BranchWidth And *Event\MouseX < TextX
-							Redraw = Tree_ToggleFold(*GadgetData, Index) | Redraw
-						ElseIf (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
-							If \State <> Index
-								\State = Index
-								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+					Else
+						If \Editing
+							Redraw = Tree_EndEdit(*GadgetData, #True)
+						EndIf
+
+						If \ScrollBar\MouseState
+							Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
+						ElseIf Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
+							Index = ListIndex(\Items())
+							TextX = \Border + \BranchWidth * (\Items()\Level + 1)
+
+							If *Event\MouseX >= TextX - \BranchWidth And *Event\MouseX < TextX
+								Redraw = Tree_ToggleFold(*GadgetData, Index) | Redraw
+							ElseIf (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
+								If \State <> Index
+									\State = Index
+									Redraw = #True
+									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								EndIf
 							EndIf
 						EndIf
 					EndIf
 					;}
 				Case #RightButtonDown ;{
 					If Cursor = #PB_Cursor_IBeam
-						*Event\MouseX - \String\OriginX
+						*Event\MouseX - \String\OriginX	; same rewrite, same reason to stop here
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
-					ElseIf \Editing
-						Redraw = Tree_EndEdit(*GadgetData, #True)
-					EndIf
-					
-					If Not \ScrollBar\MouseState
-						If Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
-							Index = ListIndex(\Items())
-							TextX = \Border + \BranchWidth * (\Items()\Level + 1)
-							
-							If (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
-								If \State <> Index
-									\State = Index
-									Redraw = #True
-									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+					Else
+						If \Editing
+							Redraw = Tree_EndEdit(*GadgetData, #True)
+						EndIf
+
+						If Not \ScrollBar\MouseState
+							If Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
+								Index = ListIndex(\Items())
+								TextX = \Border + \BranchWidth * (\Items()\Level + 1)
+
+								If (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
+									If \State <> Index
+										\State = Index
+										Redraw = #True
+										PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+									EndIf
+									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ItemRightClick)
 								EndIf
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ItemRightClick)
 							EndIf
 						EndIf
 					EndIf
@@ -12592,8 +12603,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 9596
-; FirstLine = 16
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 9534
+; FirstLine = 31
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
