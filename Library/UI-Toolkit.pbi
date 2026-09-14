@@ -9391,6 +9391,8 @@ Module UITK
 		List Items.Tree_Item()
 	EndStructure
 	
+	Declare Tree_EndEdit(*GadgetData.TreeData, Keep)
+	
 	;- Structure walking
 	Procedure.i Tree_Select(*GadgetData.TreeData, Index)
 		If Index < 0
@@ -9590,6 +9592,9 @@ Module UITK
 			If \Items()\Folded = Folded
 				ProcedureReturn #False
 			EndIf
+			
+			Tree_EndEdit(*GadgetData, #True)
+			Tree_Select(*GadgetData, Index)
 			
 			\Items()\Folded = Folded
 			Tree_UpdateScrollBar(*GadgetData)
@@ -10011,7 +10016,9 @@ Module UITK
 							EndIf
 							;}
 						Case #PB_Shortcut_Left ;{
-							If Tree_Select(*GadgetData, \State)
+							If \Editing
+								Redraw = \String\EventHandler(\String, *Event)
+							ElseIf Tree_Select(*GadgetData, \State)
 								If Tree_HasChildren(*GadgetData, \State) And Not \Items()\Folded
 									Redraw = Tree_ToggleFold(*GadgetData, \State)
 								Else
@@ -10025,11 +10032,13 @@ Module UITK
 							EndIf
 							;}
 						Case #PB_Shortcut_Right ;{
-							If Tree_Select(*GadgetData, \State) And Tree_HasChildren(*GadgetData, \State)
+							If \Editing
+								Redraw = \String\EventHandler(\String, *Event)
+							ElseIf Tree_Select(*GadgetData, \State) And Tree_HasChildren(*GadgetData, \State)
 								If \Items()\Folded
 									Redraw = Tree_ToggleFold(*GadgetData, \State)
 								Else
-									\State + 1	; Tree_HasChildren just said the next item is one
+									\State + 1
 									Redraw = #True
 									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 								EndIf
@@ -12583,8 +12592,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 10305
-; FirstLine = 127
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAgEAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 9596
+; FirstLine = 16
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
