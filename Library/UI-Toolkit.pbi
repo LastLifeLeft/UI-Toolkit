@@ -84,6 +84,9 @@
 		#Attribute_Library_SectionHeight
 		#Attribute_Library_ItemWidth
 		#Attribute_Tree_ItemDepth
+		#Attribute_Tree_Folded					; Tree item: branch closed, its subtree hidden (read/write)
+		#Attribute_Tree_ChildCount				; Tree item: items held below it, at any depth (read only)
+		#Attribute_Tree_ScreenRow				; Tree item: which drawn row it is, -1 when folded away (read only)
 		#Attribute_PropertyBox_FontSize			; #PropertyBox_Font row: point size (read/write)
 		#Attribute_PropertyBox_FontStyle		; #PropertyBox_Font row: #PB_Font_* style bits (read/write)
 		
@@ -306,6 +309,7 @@
 		#EventType_ForcefulChange
 		#EventType_ItemRightClick
 		#EventType_ItemTextChange
+		#EventType_TreeFold
 		
 		CompilerIf Defined(EnableLayerList, #PB_Module)
 			#EventType_LayerVisibility			; LayerList: a row's eye was clicked - GetGadgetState is that row
@@ -9361,10 +9365,12 @@ Module UITK
 	#Tree_BranchHeight = 9.5
 	#Tree_Dot = 2
 	#Tree_Straight = 1
+	#Tree_FoldRadius = 7
 	
 	Structure Tree_Item
 		Text.Text
 		Level.b
+		Folded.b
 		*data
 	EndStructure
 	
@@ -9385,8 +9391,266 @@ Module UITK
 		List Items.Tree_Item()
 	EndStructure
 	
+	;- Structure walking
+	Procedure.i Tree_Select(*GadgetData.TreeData, Index)
+		If Index < 0
+			ProcedureReturn #False
+		EndIf
+		ProcedureReturn SelectElement(*GadgetData\Items(), Index)
+	EndProcedure
+	
+	Procedure Tree_HasChildren(*GadgetData.TreeData, Index)
+		Protected Result, Level
+		
+		With *GadgetData
+			PushListPosition(\Items())
+			If Tree_Select(*GadgetData, Index)
+				Level = \Items()\Level
+				Result = Bool(NextElement(\Items()) And \Items()\Level > Level)
+			EndIf
+			PopListPosition(\Items())
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure Tree_ChildCount(*GadgetData.TreeData, Parent)
+		Protected Count, Level
+		
+		With *GadgetData
+			PushListPosition(\Items())
+			If Tree_Select(*GadgetData, Parent)
+				Level = \Items()\Level
+				While NextElement(\Items()) And \Items()\Level > Level
+					Count + 1
+				Wend
+			EndIf
+			PopListPosition(\Items())
+		EndWith
+		
+		ProcedureReturn Count
+	EndProcedure
+	
+	Procedure Tree_ParentOf(*GadgetData.TreeData, Index)
+		Protected Result = -1, Level
+		
+		With *GadgetData
+			PushListPosition(\Items())
+			If Tree_Select(*GadgetData, Index)
+				Level = \Items()\Level
+				While Level And PreviousElement(\Items())
+					If \Items()\Level < Level
+						Result = ListIndex(\Items())
+						Break
+					EndIf
+				Wend
+			EndIf
+			PopListPosition(\Items())
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure Tree_RowCount(*GadgetData.TreeData)
+		Protected Count, Hidden = -1
+		
+		With *GadgetData
+			ForEach \Items()
+				If Hidden >= 0
+					If \Items()\Level > Hidden
+						Continue
+					EndIf
+					Hidden = -1
+				EndIf
+				
+				Count + 1
+				If \Items()\Folded
+					Hidden = \Items()\Level
+				EndIf
+			Next
+		EndWith
+		
+		ProcedureReturn Count
+	EndProcedure
+	
+	Procedure Tree_SelectRow(*GadgetData.TreeData, Row, *Hidden.Integer)
+		; Cursor onto screen row Row, leaving the watermark where Tree_NextVisible can carry the walk on from
+		Protected Count = -1
+		
+		*Hidden\i = -1
+		With *GadgetData
+			ForEach \Items()
+				If *Hidden\i >= 0
+					If \Items()\Level > *Hidden\i
+						Continue
+					EndIf
+					*Hidden\i = -1
+				EndIf
+				
+				Count + 1
+				If Count = Row
+					ProcedureReturn #True
+				EndIf
+				If \Items()\Folded
+					*Hidden\i = \Items()\Level
+				EndIf
+			Next
+		EndWith
+		
+		ProcedureReturn #False
+	EndProcedure
+	
+	Procedure Tree_NextVisible(*GadgetData.TreeData, *Hidden.Integer)
+		With *GadgetData
+			If \Items()\Folded
+				*Hidden\i = \Items()\Level
+			EndIf
+			
+			While NextElement(\Items())
+				If *Hidden\i >= 0
+					If \Items()\Level > *Hidden\i
+						Continue
+					EndIf
+					*Hidden\i = -1
+				EndIf
+				ProcedureReturn #True
+			Wend
+		EndWith
+		
+		ProcedureReturn #False
+	EndProcedure
+	
+	Procedure Tree_RowToIndex(*GadgetData.TreeData, Row)
+		Protected Hidden
+		
+		If Row >= 0 And Tree_SelectRow(*GadgetData, Row, @Hidden)
+			ProcedureReturn ListIndex(*GadgetData\Items())
+		EndIf
+		
+		ProcedureReturn -1
+	EndProcedure
+	
+	Procedure Tree_IndexToRow(*GadgetData.TreeData, Index)
+		Protected Count = -1, Hidden = -1
+		
+		With *GadgetData
+			ForEach \Items()
+				If Hidden >= 0
+					If \Items()\Level > Hidden
+						If ListIndex(\Items()) = Index
+							ProcedureReturn -1
+						EndIf
+						Continue
+					EndIf
+					Hidden = -1
+				EndIf
+				
+				Count + 1
+				If ListIndex(\Items()) = Index
+					ProcedureReturn Count
+				EndIf
+				If \Items()\Folded
+					Hidden = \Items()\Level
+				EndIf
+			Next
+		EndWith
+		
+		ProcedureReturn -1
+	EndProcedure
+	
+	Procedure Tree_UpdateScrollBar(*GadgetData.TreeData)
+		With *GadgetData
+			If \Freeze
+				ProcedureReturn
+			EndIf
+			
+			\InternalHeight = Tree_RowCount(*GadgetData) * \ItemHeight
+			\VisibleScrollBar = Bool(\InternalHeight > \Height)
+			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
+			If Not \VisibleScrollBar
+				ScrollBar_SetState_Meta(\ScrollBar, 0)
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure Tree_ScrollOffset(*GadgetData.TreeData)
+		If *GadgetData\VisibleScrollBar
+			ProcedureReturn *GadgetData\ScrollBar\State
+		EndIf
+		ProcedureReturn 0
+	EndProcedure
+	
+	Procedure Tree_SetFolded(*GadgetData.TreeData, Index, Folded)
+		Folded = Bool(Folded)
+		
+		With *GadgetData
+			If Not Tree_Select(*GadgetData, Index) Or Not Tree_HasChildren(*GadgetData, Index)
+				ProcedureReturn #False
+			EndIf
+			If \Items()\Folded = Folded
+				ProcedureReturn #False
+			EndIf
+			
+			\Items()\Folded = Folded
+			Tree_UpdateScrollBar(*GadgetData)
+			
+			If Folded And \State >= 0 And Tree_IndexToRow(*GadgetData, \State) < 0
+				\State = Index
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+			EndIf
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
+	Procedure Tree_ToggleFold(*GadgetData.TreeData, Index)
+		Protected Folded
+		
+		With *GadgetData
+			If Not Tree_Select(*GadgetData, Index)
+				ProcedureReturn #False
+			EndIf
+			Folded = 1 - \Items()\Folded
+			
+			If Not Tree_SetFolded(*GadgetData, Index, Folded)
+				ProcedureReturn #False
+			EndIf
+			
+			PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_TreeFold, Index)
+		EndWith
+		
+		ProcedureReturn #True
+	EndProcedure
+	
+	Procedure Tree_FlushLines(DrawLine)
+		If DrawLine = #Tree_Dot
+			DotPath(1, 3)
+		ElseIf DrawLine = #Tree_Straight
+			StrokePath(1)
+		Else
+			ResetPath()
+		EndIf
+	EndProcedure
+	
+	Procedure Tree_DrawFold(X, Y, Size, Folded)
+		Protected CX.d = X + Size * 0.5, CY.d = Y + Size * 0.5
+		
+		If Folded
+			MovePathCursor(CX - 2.5, CY - 4)
+			AddPathLine(CX + 3.5, CY)
+			AddPathLine(CX - 2.5, CY + 4)
+		Else
+			MovePathCursor(CX - 4, CY - 2.5)
+			AddPathLine(CX + 4, CY - 2.5)
+			AddPathLine(CX, CY + 3.5)
+		EndIf
+		
+		ClosePath()
+		FillPath()
+	EndProcedure
+	
 	Procedure Tree_Redraw(*GadgetData.TreeData)
-		Protected Y, X, FirstElement, PreviousLevel, Dim LastLevel(*GadgetData\MaxLevel), Height
+		Protected Y, X, FirstElement, PreviousLevel, Row, Hidden, Drawing, Level, HasChildren, Dim LastLevel(*GadgetData\MaxLevel), Height
 		
 		With *GadgetData
 			If \Border
@@ -9402,24 +9666,34 @@ Module UITK
 			VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 			ClipPath(#PB_Path_Preserve)
 			FillPath()
+			Tree_UpdateScrollBar(*GadgetData)
 			
 			If ListSize(\Items())
 				X = \OriginX + \Border + \BranchWidth + 1
-				Y = *GadgetData\OriginY + \Border - (\ScrollBar\State % \ItemHeight)
+				Y = *GadgetData\OriginY + \Border - (Tree_ScrollOffset(*GadgetData) % \ItemHeight)
 				
-				If \VisibleScrollBar And Floor(\ScrollBar\State / \ItemHeight)
-					SelectElement(\Items(), Floor(\ScrollBar\State / \ItemHeight) - 1)
-					PreviousLevel = \Items()\Level
-					NextElement(\Items())
+				Row = 0
+				If \VisibleScrollBar
+					Row = Floor(Tree_ScrollOffset(*GadgetData) / \ItemHeight)
+				EndIf
+				
+				If Row
+					Drawing = Tree_SelectRow(*GadgetData, Row - 1, @Hidden)
+					If Drawing
+						PreviousLevel = \Items()\Level
+						Drawing = Tree_NextVisible(*GadgetData, @Hidden)
+					EndIf
 				Else
 					PreviousLevel = 1
 					LastLevel(0) = #Tree_BranchHeight + Y
+					Hidden = -1
 					FirstElement(\Items())
+					Drawing = #True
 				EndIf
 				
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
 				
-				Repeat
+				While Drawing
 					If PreviousLevel = \Items()\Level
 						MovePathCursor( X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, Y - 10)
 						AddPathLine(0, 10 + #Tree_BranchHeight, #PB_Path_Relative)
@@ -9435,14 +9709,13 @@ Module UITK
 					EndIf
 					AddPathLine(X + \Items()\Level * \BranchWidth, Y + #Tree_BranchHeight)
 					
-					If \State = ListIndex(\Items()) 
-						If \DrawLine = #Tree_Dot
-							DotPath(1, 3)
-						ElseIf \DrawLine = #Tree_Straight
-							StrokePath(1)
-						Else
-							ResetPath()
-						EndIf
+					PushListPosition(\Items())
+					Level = \Items()\Level
+					HasChildren = Bool(NextElement(\Items()) And \Items()\Level > Level)
+					PopListPosition(\Items())
+					
+					If \State = ListIndex(\Items())
+						Tree_FlushLines(\DrawLine)
 						AddPathBox(X + \Items()\Level * \BranchWidth - 2, Y + 1, \Items()\Text\RequiredWidth + 2, \ItemHeight - 1)
 						VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 						FillPath()
@@ -9461,27 +9734,36 @@ Module UITK
 					EndIf
 					
 					If \DropHover = ListIndex(\Items())
-						If \DrawLine = #Tree_Dot
-							DotPath(1, 3)
-						ElseIf \DrawLine = #Tree_Straight
-							StrokePath(1)
-						Else
-							ResetPath()
-						EndIf
+						Tree_FlushLines(\DrawLine)
 						AddPathBox(X + \Items()\Level * \BranchWidth - 2, Y + 1, \Items()\Text\RequiredWidth + 2, \ItemHeight - 1)
 						VectorSourceColor(SetAlpha(\ThemeData\TextColor[#Cold],40))
 						FillPath()
 						VectorSourceColor(\ThemeData\TextColor[#Cold])
 					EndIf
 					
+					If HasChildren
+						Tree_FlushLines(\DrawLine)
+						
+						AddPathCircle(X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, Y + #Tree_BranchHeight, #Tree_FoldRadius)
+						VectorSourceColor(\ThemeData\ShadeColor[#Cold])
+						FillPath()
+						
+						VectorSourceColor(\ThemeData\TextColor[#Cold])
+						Tree_DrawFold(X + \Items()\Level * \BranchWidth - \BranchWidth, Y + (\ItemHeight - \BranchWidth) / 2, \BranchWidth, \Items()\Folded)
+					EndIf
+					
 					PreviousLevel = \Items()\Level
 					Y + \ItemHeight
-				Until Y > Height Or Not NextElement(\Items()) 
-				
+					
+					If Y > Height
+						Break
+					EndIf
+					Drawing = Tree_NextVisible(*GadgetData, @Hidden)
+				Wend
 				
 				If \DrawLine
-					If PreviousLevel And Not (ListIndex(\Items()) + 1 = ListSize(\Items()))
-						Repeat
+					If Drawing And PreviousLevel
+						While Tree_NextVisible(*GadgetData, @Hidden)
 							If \Items()\Level < PreviousLevel
 								MovePathCursor( X + \Items()\Level * \BranchWidth - #Tree_BranchHeight, LastLevel(\Items()\Level))
 								AddPathLine(0, \Height - LastLevel(\Items()\Level) + #Tree_BranchHeight, #PB_Path_Relative)
@@ -9491,14 +9773,10 @@ Module UITK
 									PreviousLevel = \Items()\Level
 								EndIf
 							EndIf
-						Until Not NextElement(\Items()) 
+						Wend
 					EndIf
 					
-					If \DrawLine = #Tree_Dot
-						DotPath(1, 3)
-					Else
-						StrokePath(1)
-					EndIf
+					Tree_FlushLines(\DrawLine)
 				EndIf
 				
 				If \VisibleScrollBar
@@ -9526,12 +9804,7 @@ Module UITK
 			ScrollBar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
 			
-			If \InternalHeight > \Height
-				\VisibleScrollBar = #True
-				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
-			Else
-				\VisibleScrollBar = #False
-			EndIf
+			Tree_UpdateScrollBar(*GadgetData)
 			
 			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			RedrawObject()
@@ -9539,10 +9812,12 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree_BeginEdit(*GadgetData.TreeData)
-		Protected Event.Event
+		Protected Event.Event, Row
 		
 		With *GadgetData
-			If Not \Editable Or \Editing Or \State < 0 Or Not SelectElement(\Items(), \State)
+			Row = Tree_IndexToRow(*GadgetData, \State)	; -1 both with nothing picked and with the pick folded away, where the box would land on somebody else's row
+			
+			If Not \Editable Or \Editing Or Row < 0 Or Not Tree_Select(*GadgetData, \State)
 				ProcedureReturn #False
 			EndIf
 			
@@ -9551,7 +9826,7 @@ Module UITK
 			String_ProcessString(\String)
 			
 			\String\OriginX = \OriginX + \Border + \BranchWidth + 1 + \Items()\Level * \BranchWidth + \Items()\Text\TextX
-			\String\OriginY = \State * \ItemHeight - \ScrollBar\State + \Border + 1
+			\String\OriginY = Row * \ItemHeight - Tree_ScrollOffset(*GadgetData) + \Border + 1
 			
 			Event\EventType = #Focus
 			\String\EventHandler(\String, Event)
@@ -9590,7 +9865,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree_EventHandler(*GadgetData.TreeData, *Event.Event)
-		Protected Redraw, Y, NewItem = -1, ItemRow, Cursor = *GadgetData\EditCursor, CursorWas = Cursor
+		Protected Redraw, Row, Index, TextX, Cursor = *GadgetData\EditCursor, CursorWas = Cursor
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -9631,10 +9906,15 @@ Module UITK
 					
 					If \ScrollBar\MouseState
 						Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
-						If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
-							If \State <> ListIndex(\Items())
-								\State = ListIndex(\Items())
+					ElseIf Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
+						Index = ListIndex(\Items())
+						TextX = \Border + \BranchWidth * (\Items()\Level + 1)
+						
+						If *Event\MouseX >= TextX - \BranchWidth And *Event\MouseX < TextX
+							Redraw = Tree_ToggleFold(*GadgetData, Index) | Redraw
+						ElseIf (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
+							If \State <> Index
+								\State = Index
 								Redraw = #True
 								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 							EndIf
@@ -9651,10 +9931,13 @@ Module UITK
 					EndIf
 					
 					If Not \ScrollBar\MouseState
-						If SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
-							If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
-								If \State <> ListIndex(\Items())
-									\State = ListIndex(\Items())
+						If Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
+							Index = ListIndex(\Items())
+							TextX = \Border + \BranchWidth * (\Items()\Level + 1)
+							
+							If (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
+								If \State <> Index
+									\State = Index
 									Redraw = #True
 									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 								EndIf
@@ -9680,10 +9963,13 @@ Module UITK
 					EndIf
 					;}	
 				Case #LeftDoubleClick ;{
-					If (Not \ScrollBar\MouseState) And SelectElement(\Items(), Floor((*Event\MouseY + \ScrollBar\State) / \ItemHeight))
-						If (*Event\MouseX > \Border + \BranchWidth * (\Items()\Level + 1)) And (*Event\MouseX < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
-							If \State <> ListIndex(\Items())
-								\State = ListIndex(\Items())
+					If (Not \ScrollBar\MouseState) And Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
+						Index = ListIndex(\Items())
+						TextX = \Border + \BranchWidth * (\Items()\Level + 1)
+						
+						If (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
+							If \State <> Index
+								\State = Index
 								Redraw = #True
 								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)
 							EndIf
@@ -9693,29 +9979,60 @@ Module UITK
 				Case #KeyDown ;{
 					Select *Event\Param 
 						Case #PB_Shortcut_Up ;{
-							If \State > 0
+							Row = Tree_IndexToRow(*GadgetData, \State)
+							
+							If Row > 0
 								Tree_EndEdit(*GadgetData, #True)
 								
-								\State - 1
+								\State = Tree_RowToIndex(*GadgetData, Row - 1)
 								Redraw = #True
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 								
-								If \ScrollBar\State > \State * \ItemHeight
-									ScrollBar_SetState_Meta(\ScrollBar, \State * \ItemHeight)
+								If Tree_ScrollOffset(*GadgetData) > (Row - 1) * \ItemHeight
+									ScrollBar_SetState_Meta(\ScrollBar, (Row - 1) * \ItemHeight)
 								EndIf
 								
 							EndIf
 							;}
 						Case #PB_Shortcut_Down ;{
-							If \State < ListSize(\Items()) - 1
+							Row = Tree_IndexToRow(*GadgetData, \State)	; -1 with nothing picked, which steps onto the first row
+							
+							If Row < Tree_RowCount(*GadgetData) - 1
 								Tree_EndEdit(*GadgetData, #True)
 								
-								\State + 1
+								\State = Tree_RowToIndex(*GadgetData, Row + 1)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 								
-								If \ScrollBar\State + \Height < (\State + 1) * \ItemHeight
-									ScrollBar_SetState_Meta(\ScrollBar, (\State + 1) * \ItemHeight - \Height)
+								If Tree_ScrollOffset(*GadgetData) + \Height < (Row + 2) * \ItemHeight
+									ScrollBar_SetState_Meta(\ScrollBar, (Row + 2) * \ItemHeight - \Height)
 								EndIf
 								
 								Redraw = #True
+							EndIf
+							;}
+						Case #PB_Shortcut_Left ;{
+							If Tree_Select(*GadgetData, \State)
+								If Tree_HasChildren(*GadgetData, \State) And Not \Items()\Folded
+									Redraw = Tree_ToggleFold(*GadgetData, \State)
+								Else
+									Index = Tree_ParentOf(*GadgetData, \State)
+									If Index > -1
+										\State = Index
+										Redraw = #True
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+									EndIf
+								EndIf
+							EndIf
+							;}
+						Case #PB_Shortcut_Right ;{
+							If Tree_Select(*GadgetData, \State) And Tree_HasChildren(*GadgetData, \State)
+								If \Items()\Folded
+									Redraw = Tree_ToggleFold(*GadgetData, \State)
+								Else
+									\State + 1	; Tree_HasChildren just said the next item is one
+									Redraw = #True
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								EndIf
 							EndIf
 							;}
 						Case #PB_Shortcut_F2 ;{
@@ -9727,7 +10044,7 @@ Module UITK
 						Case #PB_Shortcut_Escape ;{
 							Redraw = Tree_EndEdit(*GadgetData, #False)	; keep the old name
 																		;}
-						Default											;{
+						Default ;{
 							If \Editing
 								Redraw = \String\EventHandler(\String, *Event)
 							EndIf
@@ -9787,14 +10104,7 @@ Module UITK
 			*NewItem\Text\VAlign = #VAlignCenter
 			
 			PrepareVectorTextBlock(@*NewItem\Text)
-			\InternalHeight + \ItemHeight
-			
-			If \InternalHeight > \Height
-				\VisibleScrollBar = #True
-				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
-			Else
-				\VisibleScrollBar = #False
-			EndIf
+			Tree_UpdateScrollBar(*GadgetData)
 			
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
@@ -9818,14 +10128,7 @@ Module UITK
 					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 				EndIf
 				
-				\InternalHeight - \ItemHeight
-				
-				If \InternalHeight > \Height
-					\VisibleScrollBar = #True
-					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, \InternalHeight)
-				Else
-					\VisibleScrollBar = #False
-				EndIf
+				Tree_UpdateScrollBar(*GadgetData)
 				
 				RedrawObject()
 				
@@ -9845,9 +10148,8 @@ Module UITK
 		With *GadgetData
 			ClearList(\Items())
 			\State = - 1
-			\InternalHeight = 0
 			\ScrollBar\State = 0
-			\VisibleScrollBar = #False
+			Tree_UpdateScrollBar(*GadgetData)
 			
 			RedrawObject()
 		EndWith
@@ -9859,7 +10161,7 @@ Module UITK
 		With *GadgetData
 			Select State
 				Case #PB_Drag_Enter, #PB_Drag_Update
-					If SelectElement(\Items(), Floor((y + \ScrollBar\State) / \ItemHeight))
+					If Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((y + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
 						If (x > \Border + \BranchWidth * (\Items()\Level + 1)) And (x < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
 							Hover = ListIndex(\Items())
 						EndIf
@@ -9917,10 +10219,39 @@ Module UITK
 			Select Attribute
 				Case #Attribute_Tree_ItemDepth
 					ProcedureReturn *GadgetData\Items()\Level
+				Case #Attribute_Tree_Folded
+					ProcedureReturn *GadgetData\Items()\Folded
+				Case #Attribute_Tree_ChildCount
+					ProcedureReturn Tree_ChildCount(*GadgetData, Position)
+				Case #Attribute_Tree_ScreenRow
+					ProcedureReturn Tree_IndexToRow(*GadgetData, Position)
 					
 			EndSelect
 		EndIf
 	EndProcedure
+	
+	Procedure Tree_GetItemState(*this.PB_Gadget, Position.l)
+		Protected *GadgetData.TreeData = *this\vt, Result
+		
+		With *GadgetData
+			If Not Tree_Select(*GadgetData, Position)
+				ProcedureReturn 0
+			EndIf
+			
+			If \State = Position
+				Result | #PB_Tree_Selected
+			EndIf
+			
+			If \Items()\Folded Or Not Tree_HasChildren(*GadgetData, Position)
+				Result | #PB_Tree_Collapsed
+			Else
+				Result | #PB_Tree_Expanded
+			EndIf
+		EndWith
+		
+		ProcedureReturn Result
+	EndProcedure
+	
 	
 	Procedure.s Tree_GetItemText(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.TreeData = *this\vt, *Result
@@ -9931,6 +10262,56 @@ Module UITK
 	EndProcedure
 	
 	; Setters
+	Procedure Tree_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		With *GadgetData
+			If Not Tree_Select(*GadgetData, Position)
+				ProcedureReturn
+			EndIf
+			
+			Select Attribute
+				Case #Attribute_Tree_Folded
+					Tree_SetFolded(*GadgetData, Position, Value)
+				Default
+					ProcedureReturn
+			EndSelect
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
+	Procedure Tree_SetItemState(*this.PB_Gadget, Position.l, State.l)
+		Protected *GadgetData.TreeData = *this\vt, Redraw
+		
+		With *GadgetData
+			If Not Tree_Select(*GadgetData, Position)
+				ProcedureReturn
+			EndIf
+			
+			If State & #PB_Tree_Selected
+				If \State <> Position
+					\State = Position
+					Redraw = #True
+				EndIf
+			ElseIf \State = Position
+				\State = -1
+				Redraw = #True
+			EndIf
+			
+			If State & #PB_Tree_Expanded
+				Redraw = Tree_SetFolded(*GadgetData, Position, #False) | Redraw
+			ElseIf State & #PB_Tree_Collapsed
+				Redraw = Tree_SetFolded(*GadgetData, Position, #True) | Redraw
+			EndIf
+			
+			If Redraw
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
+	
 	Procedure Tree_SetItemData(*this.PB_Gadget, Position.l, *Data)
 		Protected *GadgetData.TreeData = *this\vt
 		
@@ -9997,9 +10378,12 @@ Module UITK
 			
 			\VT\SetGadgetItemData = @Tree_SetItemData()
 			\VT\SetGadgetItemText = @Tree_SetItemText()
+			\VT\SetGadgetItemAttribute2 = @Tree_SetItemAttribute()
+			\VT\SetGadgetItemState = @Tree_SetItemState()
 			
 			\VT\GetGadgetItemData = @Tree_GetItemData()
 			\VT\GetGadgetItemAttribute2 = @Tree_GetItemAttribute()
+			\VT\GetGadgetItemState = @Tree_GetItemState()
 			\VT\GetGadgetItemText = @Tree_GetItemText()
 			\VT\GetGadgetItemImage = @Tree_GetItemImage()
 			
@@ -12199,8 +12583,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 10881
-; FirstLine = 27
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAA9
+; CursorPosition = 10305
+; FirstLine = 127
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAgEAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
