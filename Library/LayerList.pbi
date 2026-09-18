@@ -1340,6 +1340,10 @@ Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l
 			Level = 0
 		EndIf
 		
+		If \Editing And Position > -1 And Position <= \State
+			LayerList_EndEdit(*GadgetData, #True)
+		EndIf
+		
 		If Position > -1 And Position < ListSize(\Items())
 			SelectElement(\Items(), Position)
 			*NewItem = InsertElement(\Items())
@@ -1353,7 +1357,7 @@ Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l
 			Ceiling = \Items()\Depth + 1
 			ChangeCurrentElement(\Items(), *NewItem)
 		Else
-			Ceiling = 0			; first in the list: nothing above it to belong to
+			Ceiling = 0
 			ChangeCurrentElement(\Items(), *NewItem)
 		EndIf
 		If Depth > Ceiling
@@ -1484,6 +1488,7 @@ Procedure LayerList_SetState(*this.PB_Gadget, State)
 		State = -1
 	EndIf
 	
+	LayerList_EndEdit(*GadgetData, #True)
 	LayerList_SelectOnly(*GadgetData, State)
 	RedrawObject()
 EndProcedure
@@ -1844,7 +1849,7 @@ Procedure.i LayerListReveal(Gadget, Item)
 			ProcedureReturn #False
 		EndIf
 		LayerList_UpdateScrollBar(*GadgetData)	; the row count may have just changed
-		If Not \VisibleScrollBar	; every row already fits, so it is in view by definition
+		If Not \VisibleScrollBar				; every row already fits, so it is in view by definition
 			ProcedureReturn #True
 		EndIf
 		
@@ -1865,8 +1870,8 @@ Procedure.i LayerListReveal(Gadget, Item)
 EndProcedure
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 991
-; FirstLine = 115
-; Folding = AAAAAAAAAAAAAAw
+; CursorPosition = 1869
+; FirstLine = 119
+; Folding = AAAAAAAAAAAAAAA-
 ; EnableXP
 ; DPIAware

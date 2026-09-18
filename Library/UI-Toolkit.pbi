@@ -2114,8 +2114,9 @@ Module UITK
 	
 	Procedure Timer_Handler()
 		Protected Timer = EventTimer()
-		FindMapElement(Timers(), Hex(Timer))
-		Timers()\Callback(Timers()\Gadget, Timer)
+		If FindMapElement(Timers(), Hex(Timer))
+			Timers()\Callback(Timers()\Gadget, Timer)
+		EndIf
 	EndProcedure
 	
 	BindEvent(#PB_Event_Timer, @Timer_Handler(), TimerWindow)
@@ -2136,8 +2137,10 @@ Module UITK
 	EndProcedure
 	
 	Procedure RemoveGadgetTimer(Timer)
-		RemoveWindowTimer(TimerWindow, Timer)
-		DeleteMapElement(Timers(), Hex(Timer))
+		If Timer
+			RemoveWindowTimer(TimerWindow, Timer)
+			DeleteMapElement(Timers(), Hex(Timer))
+		EndIf
 	EndProcedure
 	
 	Procedure RemoveGadgetTimers(*Gadget)
@@ -3621,8 +3624,8 @@ Module UITK
 	;{ String
 	Structure String_CharacterData
 		Char.s
-		Width.i
-		Position.i
+		Width.d
+		Position.d
 	EndStructure
 	
 	Structure StringData Extends GadgetData
@@ -3653,7 +3656,7 @@ Module UITK
 		*GadgetData\SupportedEvent[#Input] = #True
 	EndMacro
 	
-	Procedure String_AlignOffset(*GadgetData.StringData, Finish)
+	Procedure String_AlignOffset(*GadgetData.StringData, Finish.d)
 		With *GadgetData
 			If \TextBlock\HAlign = #HAlignCenter
 				\AlignmentOffset = (\Width - Finish) * 0.5
@@ -3666,7 +3669,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure.i String_PlaceCaret(*GadgetData.StringData, Anchor = -1)
-		Protected Caret, View, Start, Finish, Margin, Edge, Was, X
+		Protected Caret.d, View.d, Start, Finish.d, Margin, Edge, Was, X.d
 		
 		With *GadgetData
 			If Not SelectElement(\CharacterData(), \CaretPosition)
@@ -3705,7 +3708,7 @@ Module UITK
 			If X < Margin Or X > Edge
 				ResizeGadget(\Caret, -10, #PB_Ignore, #PB_Ignore, #PB_Ignore)
 			Else
-				ResizeGadget(\Caret, \OriginX + X, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+				ResizeGadget(\Caret, \OriginX + Round(X, #PB_Round_Nearest), #PB_Ignore, #PB_Ignore, #PB_Ignore)
 			EndIf
 			
 			ProcedureReturn Bool(\AlignmentOffset <> Was)
@@ -3713,7 +3716,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure String_ProcessString(*GadgetData.StringData)
-		Protected Loop, CharacterCount, Position
+		Protected Loop, CharacterCount, Position.d
 		
 		With *GadgetData
 			Position = \TextPositionX
@@ -3761,7 +3764,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure String_HitTest(*GadgetData.StringData, MouseX)
-		Protected X, Index
+		Protected X.d, Index
 		
 		With *GadgetData
 			X = MouseX - \AlignmentOffset
@@ -3833,7 +3836,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure String_Redraw(*GadgetData.StringData)
-		Protected Loop, Size, Position, Extent, Text.s
+		Protected Loop, Size.d, Position.d, Extent.d, Text.s
 		
 		With *GadgetData
 			If \Border
@@ -3903,7 +3906,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure String_RemoveSelection(*GadgetData.StringData)
-		Protected Size, Loop
+		Protected Size.d, Loop
 		
 		With *GadgetData
 			If \SelectionLength < 0
@@ -3937,11 +3940,15 @@ Module UITK
 	EndProcedure
 	
 	Procedure String_EventHandler(*GadgetData.StringData, *Event.Event)
-		Protected Size, Selection, Modifiers, Text.s, Redraw
+		Protected Size.d, Selection, Modifiers, Text.s, Redraw
 		
 		With *GadgetData
 			Select *Event\EventType
 				Case #Input ;{
+					If *Event\Param < 32 Or *Event\Param = 127	; Ctrl+Backspace is the one control chord the canvas also reports as Input (DEL)
+						ProcedureReturn #False
+					EndIf
+					
 					If \SelectionPosition > -1
 						String_RemoveSelection(*GadgetData.StringData)
 					EndIf
@@ -4208,13 +4215,11 @@ Module UITK
 					EndSelect
 					;}
 				Case #Focus ;{
-					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 					\Focus = #True
 					
 					ResizeGadget(\Caret, #PB_Ignore, \OriginY + \TextPositionY + 1, #PB_Ignore, #PB_Ignore)
 					Redraw = Bool(Redraw Or String_PlaceCaret(*GadgetData))
-					HideGadget(\Caret, #False)
-					\CaretVisible = #True
+					String_ShowCaret(*GadgetData)
 					
 					If \SelectionPosition > -1
 						Redraw = #True
@@ -4222,12 +4227,14 @@ Module UITK
 					;}
 				Case #LostFocus ;{
 					RemoveGadgetTimer(\Timer)
+					\Timer = 0
 					If \CaretVisible
 						HideGadget(\Caret, #True)
 						\CaretVisible = #False
 					EndIf
 					
 					\Focus = #False
+					\Selecting = #False
 					
 					If \SelectionPosition > -1
 						Redraw = #True
@@ -6259,6 +6266,11 @@ Module UITK
 			EndIf
 			
 			\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
+			
+			If \EditCursor	; left standing it sends the next click into a String that is no longer open
+				\EditCursor = #PB_Cursor_Default
+				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
+			EndIf
 			
 			If Keep And SelectElement(\Items(), \State)
 				\Items()\Text\OriginalText = \String\String
@@ -9053,7 +9065,11 @@ Module UITK
 					;}
 				Case #LeftButtonDown ;{
 					If \ScrollBar\MouseState
-						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
+						If \Editing
+							PropertyBox_CommitEdit(*GadgetData)
+							Redraw = #True
+						EndIf
+						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event) | Redraw
 					ElseIf \Editing And *Event\MouseX >= \String\OriginX And *Event\MouseX < \String\OriginX + \String\Width And *Event\MouseY >= \String\OriginY And *Event\MouseY < \String\OriginY + \ItemHeight
 						; Click inside the active editor: place the caret / start a selection.
 						*Event\MouseX - \String\OriginX
@@ -9839,6 +9855,7 @@ Module UITK
 			
 			\String\OriginX = \OriginX + \Border + \BranchWidth + 1 + \Items()\Level * \BranchWidth + \Items()\Text\TextX
 			\String\OriginY = Row * \ItemHeight - Tree_ScrollOffset(*GadgetData) + \Border + 1
+			\String\Width = \Items()\Text\Width - \Items()\Text\TextX - \Border * 2 - 1
 			
 			Event\EventType = #Focus
 			\String\EventHandler(\String, Event)
@@ -12603,8 +12620,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 9534
-; FirstLine = 31
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 9857
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
 ; EnableXP
 ; DPIAware
