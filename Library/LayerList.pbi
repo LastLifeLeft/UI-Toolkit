@@ -622,6 +622,9 @@ Procedure LayerList_Redraw(*GadgetData.LayerListData)
 			
 			TextX = \OriginX + LayerList_TextX(*GadgetData, \Items()\Depth)
 			VectorSourceColor(\ThemeData\TextColor[TextState])
+			If \Items()\Text\Dirty
+				LayerList_PrepareItem(*GadgetData, @\Items())
+			EndIf
 			\ItemRedraw(@\Items(), TextX, Y, \Items()\Text\Width, \ItemHeight, TextState, \ThemeData)
 			
 			SelectElement(\Items(), Index)
@@ -904,6 +907,10 @@ Procedure LayerList_StartReorder(*GadgetData.LayerListData, *Event.Event)
 		\DragOriginX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginX
 		\DragOriginY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) - \DragOriginY + Row * \ItemHeight - LayerList_ScrollOffset(*GadgetData)
 		
+		SelectElement(\Items(), \DragIndex)
+		If \Items()\Text\Dirty
+			LayerList_PrepareItem(*GadgetData, @\Items())
+		EndIf
 		StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
 		AddPathBox(0, 0, \Width, \ItemHeight)
 		VectorSourceColor(\ThemeData\ShadeColor[#Hot])
@@ -924,9 +931,6 @@ EndProcedure
 
 ;- Inline renaming (#Editable)
 Procedure LayerList_BeginEdit(*GadgetData.LayerListData)
-	; Drop the editor over the selected row. Refused when there's nothing to edit, or when
-	; the row can't be seen - editing a row tucked inside a folded group would put the box
-	; nowhere useful.
 	Protected Event.Event, Row
 	
 	With *GadgetData
@@ -942,11 +946,10 @@ Procedure LayerList_BeginEdit(*GadgetData.LayerListData)
 		\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 		\String\String = \Items()\Text\OriginalText
 		String_ProcessString(\String)
+		If \Items()\Text\Dirty
+			LayerList_PrepareItem(*GadgetData, @\Items())
+		EndIf
 		
-		; Sit exactly where the row's text is drawn: the row's content origin plus the text
-		; block's own offset, which already accounts for the item's icon. That offset has to
-		; come back off the width too, or the box overshoots to the right by the width of the
-		; icon and covers the eye.
 		\String\OriginX = LayerList_TextX(*GadgetData, \Items()\Depth) + \Items()\Text\TextX
 		\String\OriginY = \Border + Row * \ItemHeight - LayerList_ScrollOffset(*GadgetData) + \Items()\Text\TextY - 2
 		\String\Width = \Items()\Text\Width - \Items()\Text\TextX
@@ -1374,7 +1377,7 @@ Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l
 		*NewItem\Text\VAlign = \TextBlock\VAlign
 		*NewItem\Text\HAlign = \TextBlock\HAlign
 		
-		LayerList_PrepareItem(*GadgetData, *NewItem)
+		*NewItem\Text\Dirty = #True
 		
 		ChangeCurrentElement(\Items(), *NewItem)
 		Position = ListIndex(\Items())
@@ -1589,7 +1592,7 @@ Procedure LayerList_SetItemText(*this.PB_Gadget, Position.l, *Text)
 	With *GadgetData
 		If Position > -1 And SelectElement(\Items(), Position)
 			\Items()\Text\OriginalText = PeekS(*Text)
-			LayerList_PrepareItem(*GadgetData, @\Items())
+			\Items()\Text\Dirty = #True
 			RedrawObject()
 			ProcedureReturn #True
 		EndIf
@@ -1610,7 +1613,7 @@ Procedure LayerList_SetItemImage(*this.PB_Gadget, Position.l, ImageID)
 	With *GadgetData
 		If Position > -1 And SelectElement(\Items(), Position)
 			\Items()\Text\Image = ImageID
-			LayerList_PrepareItem(*GadgetData, @\Items())
+			\Items()\Text\Dirty = #True
 			RedrawObject()
 		EndIf
 	EndWith
@@ -1626,9 +1629,9 @@ Procedure LayerList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_ScrollStep, \ItemHeight)
 				
 				ForEach \Items()
-					LayerList_PrepareItem(*GadgetData, @\Items())
+					\Items()\Text\Dirty = #True
 				Next
-				
+
 				If \Reorder
 					SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
 					ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
@@ -1654,7 +1657,7 @@ Procedure LayerList_SetFont(*this.PB_Gadget, FontID)
 		
 		ForEach \Items()
 			\Items()\Text\FontID = FontID
-			LayerList_PrepareItem(*GadgetData, @\Items())
+			\Items()\Text\Dirty = #True
 		Next
 		
 		RedrawObject()
@@ -1662,7 +1665,7 @@ Procedure LayerList_SetFont(*this.PB_Gadget, FontID)
 EndProcedure
 
 Procedure LayerList_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
-	Protected *GadgetData.LayerListData = *this\vt
+	Protected *GadgetData.LayerListData = *this\vt, PreviousWidth
 	
 	; The editor is placed against the current geometry, so settle it before moving things.
 	LayerList_EndEdit(*GadgetData, #True)
@@ -1672,13 +1675,16 @@ Procedure LayerList_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 	*this\VT = *GadgetData
 	
 	With *GadgetData
+		PreviousWidth = \Width
 		\Width = GadgetWidth(\Gadget)
 		\Height = GadgetHeight(\Gadget)
-		
-		ForEach \Items()
-			LayerList_PrepareItem(*GadgetData, @\Items())
-		Next
-		
+
+		If PreviousWidth <> \Width
+			ForEach \Items()
+				\Items()\Text\Dirty = #True
+			Next
+		EndIf
+
 		ScrollBar_ResizeMeta(\ScrollBar, \Width - #LayerList_ToolbarThickness - \Border - 1, \Border + 1, #LayerList_ToolbarThickness, \Height - \Border * 2 - 2)
 		ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
 		
@@ -1870,7 +1876,7 @@ Procedure.i LayerListReveal(Gadget, Item)
 EndProcedure
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 1869
+; CursorPosition = 932
 ; FirstLine = 119
 ; Folding = AAAAAAAAAAAAAAA-
 ; EnableXP

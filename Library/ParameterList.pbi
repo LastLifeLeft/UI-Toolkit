@@ -258,8 +258,13 @@ Procedure ParameterList_ScrollOffset(*GadgetData.ParameterListData)
 	ProcedureReturn 0
 EndProcedure
 
+Procedure ParameterList_DirtyItem(*Item.ParameterList_Item)
+	*Item\Text\Dirty = #True
+	*Item\Expression\Dirty = #True
+	*Item\Value\Dirty = #True
+EndProcedure
+
 Procedure ParameterList_PrepareItem(*GadgetData.ParameterListData, *Item.ParameterList_Item)
-	; (Re)lay out one row's three cells for the current column widths and its own indent
 	Protected NameWidth
 	
 	With *GadgetData
@@ -271,25 +276,30 @@ Procedure ParameterList_PrepareItem(*GadgetData.ParameterListData, *Item.Paramet
 			NameWidth = 1
 		EndIf
 		
-		*Item\Text\Width = NameWidth
-		*Item\Text\Height = \ItemHeight
-		PrepareVectorTextBlock(@*Item\Text)
-		
-		*Item\Expression\Width = ParameterList_ExprWidth(*GadgetData) - #ParameterList_Margin * 2
-		*Item\Expression\Height = \ItemHeight
-		PrepareVectorTextBlock(@*Item\Expression)
-		
-		*Item\Value\Width = \ValueWidth - #ParameterList_Margin * 2
-		*Item\Value\Height = \ItemHeight
-		PrepareVectorTextBlock(@*Item\Value)
+		If *Item\Text\Dirty
+			*Item\Text\Width = NameWidth
+			*Item\Text\Height = \ItemHeight
+			PrepareVectorTextBlock(@*Item\Text)
+		EndIf
+
+		If *Item\Expression\Dirty
+			*Item\Expression\Width = ParameterList_ExprWidth(*GadgetData) - #ParameterList_Margin * 2
+			*Item\Expression\Height = \ItemHeight
+			PrepareVectorTextBlock(@*Item\Expression)
+		EndIf
+
+		If *Item\Value\Dirty
+			*Item\Value\Width = \ValueWidth - #ParameterList_Margin * 2
+			*Item\Value\Height = \ItemHeight
+			PrepareVectorTextBlock(@*Item\Value)
+		EndIf
 	EndWith
 EndProcedure
 
 Procedure ParameterList_PrepareAll(*GadgetData.ParameterListData)
-	; Every row, after anything that moved a column rule
 	With *GadgetData
 		ForEach \Items()
-			ParameterList_PrepareItem(*GadgetData, @\Items())
+			ParameterList_DirtyItem(@\Items())
 		Next
 	EndWith
 EndProcedure
@@ -380,7 +390,8 @@ Procedure ParameterList_Redraw(*GadgetData.ParameterListData)
 			EndIf
 			
 			SelectElement(\Items(), Index)
-			
+			ParameterList_PrepareItem(*GadgetData, @\Items())	; on the open canvas context, the dirty cells of this row only
+
 			If Index = \State
 				ShadeState = #Hot
 			ElseIf Index = \ItemState
@@ -535,7 +546,7 @@ Procedure ParameterList_EndEdit(*GadgetData.ParameterListData, Keep)
 				Changed = Bool(\Items()\Expression\OriginalText <> \String\String)
 				\Items()\Expression\OriginalText = \String\String
 			EndIf
-			ParameterList_PrepareItem(*GadgetData, @\Items())
+			\Items()\Text\Dirty = #True : \Items()\Expression\Dirty = #True	; whichever was edited, measured by the paint that follows
 			
 			If Changed
 				\State = \EditRow
@@ -610,10 +621,7 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 						EndIf
 						
 						Zone = ParameterList_ZoneAt(*GadgetData, Index, *Event\MouseX)
-						If Zone <> \HoverZone
-							\HoverZone = Zone
-							Redraw = #True
-						EndIf
+						\HoverZone = Zone
 						If Zone = #ParameterList_Zone_GripName Or Zone = #ParameterList_Zone_GripValue
 							Cursor = #PB_Cursor_LeftRight
 						EndIf
@@ -844,7 +852,7 @@ Procedure ParameterList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Lev
 		*NewItem\Value\VAlign = \TextBlock\VAlign
 		*NewItem\Value\HAlign = \TextBlock\HAlign
 		
-		ParameterList_PrepareItem(*GadgetData, *NewItem)
+		ParameterList_DirtyItem(*NewItem)
 		
 		ChangeCurrentElement(\Items(), *NewItem)
 		Position = ListIndex(\Items())
@@ -939,12 +947,14 @@ Procedure ParameterList_SetItemText(*this.PB_Gadget, Position.l, *Text, Column.l
 			Select Column
 				Case 1
 					\Items()\Expression\OriginalText = PeekS(*Text)
+					\Items()\Expression\Dirty = #True
 				Case 2
 					\Items()\Value\OriginalText = PeekS(*Text)
+					\Items()\Value\Dirty = #True
 				Default
 					\Items()\Text\OriginalText = PeekS(*Text)
+					\Items()\Text\Dirty = #True
 			EndSelect
-			ParameterList_PrepareItem(*GadgetData, @\Items())
 			RedrawObject()
 		EndIf
 	EndWith
@@ -1036,8 +1046,8 @@ Procedure ParameterList_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.
 			Default
 				ProcedureReturn
 		EndSelect
-		
-		ParameterList_PrepareItem(*GadgetData, @\Items())
+
+		ParameterList_DirtyItem(@\Items())
 		RedrawObject()
 	EndWith
 EndProcedure
@@ -1108,7 +1118,7 @@ Procedure ParameterList_SetFont(*this.PB_Gadget, FontID)
 			\Items()\Text\FontID = FontID
 			\Items()\Expression\FontID = FontID
 			\Items()\Value\FontID = FontID
-			ParameterList_PrepareItem(*GadgetData, @\Items())
+			ParameterList_DirtyItem(@\Items())
 		Next
 		RedrawObject()
 	EndWith
@@ -1253,8 +1263,8 @@ Procedure.i ParameterListEdit(Gadget, Row, Column)
 	ProcedureReturn #False
 EndProcedure
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 1253
-; FirstLine = 78
-; Folding = AAAAAAAAg
+; CursorPosition = 1049
+; FirstLine = 80
+; Folding = AAAAAAAAA-
 ; EnableXP
 ; DPIAware

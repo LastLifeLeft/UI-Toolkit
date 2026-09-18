@@ -382,6 +382,7 @@
 		Height.l
 		RequiredWidth.w
 		RequiredHeight.w
+		Dirty.b				; raised by whoever changes the block's width, font or text; PrepareVectorTextBlock clears it, the row painters measure a dirty block on sight
 	EndStructure
 	
 	Structure VerticalListItem
@@ -851,7 +852,7 @@ Module UITK
 	EndMacro
 	
 	Macro RedrawObject()
-		If *GadgetData\Redraw And Not *GadgetData\Freeze And *GadgetData\Width > 0 And *GadgetData\Height > 0	; ScrollArea has no painter and is no canvas, and ClipPath() hangs on a 0-size gadget's degenerate rounded box
+		If *GadgetData\Redraw And Not *GadgetData\Freeze And *GadgetData\Width > 0 And *GadgetData\Height > 0
 			If *GadgetData\MetaGadget
 				
 			Else
@@ -860,7 +861,9 @@ Module UITK
 				ClipPath(#PB_Path_Preserve)
 				VectorSourceColor(*GadgetData\ThemeData\WindowColor)
 				FillPath()
+				MeasuringDepth + 1
 				*GadgetData\Redraw(*GadgetData)
+				MeasuringDepth - 1
 				StopVectorDrawing()
 			EndIf
 		EndIf
@@ -1725,12 +1728,19 @@ Module UITK
 		EndIf
 		
 		*TextData\RequiredWidth + 1
+		*TextData\Dirty = #False
 		
 		If MeasuringDepth = 0
 			StopVectorDrawing()
 		EndIf
 	EndProcedure
 	
+	Procedure TextBlock_Ensure(*TextData.Text)
+		If *TextData\Dirty
+			PrepareVectorTextBlock(*TextData)
+		EndIf
+	EndProcedure
+
 	Procedure DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
 		MovePathCursor(X + *TextData\TextX, Y + *TextData\TextY, #PB_Path_Default)
 		
@@ -5300,6 +5310,7 @@ Module UITK
 					
 					VectorSourceColor(\ThemeData\TextColor[State])
 					
+					TextBlock_Ensure(@\Items()\Text)
 					\ItemRedraw(@\Items(), \Border, Y, Width, \ItemHeight, State, \ThemeData)
 					
 					Y + \ItemHeight
@@ -5387,7 +5398,8 @@ Module UITK
 			\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 			\String\String = \Items()\Text\OriginalText
 			String_ProcessString(\String)
-			
+			TextBlock_Ensure(@\Items()\Text)	; TextX below must be current
+
 			\String\OriginX = \Items()\Text\TextX + #VerticalList_Margin + \Border
 			; TextX (the item icon's share of the row) is already in the origin, so it
 			; has to come off the width too, or the box overruns the row to the right.
@@ -5446,6 +5458,7 @@ Module UITK
 							If \Drag 
 								Image = CreateImage(#PB_Any, \Width, \ItemHeight, 32, \ThemeData\ShadeColor[#Hot])
 								SelectElement(\Items(),\State)
+								TextBlock_Ensure(@\Items()\Text)
 								
 								StartVectorDrawing(ImageVectorOutput(Image))
 								VectorSourceColor(\ThemeData\TextColor[#Hot])
@@ -5470,6 +5483,7 @@ Module UITK
 									\VisibleScrollBar = #False
 								EndIf
 								
+								SelectElement(\Items(), \State) : TextBlock_Ensure(@\Items()\Text)
 								StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
 								VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 								AddPathBox(0, 0, \Width, \ItemHeight)
@@ -5734,9 +5748,9 @@ Module UITK
 			\Items()\Text\Height = \ItemHeight
 			\Items()\Text\VAlign = \TextBlock\VAlign
 			\Items()\Text\HAlign = \TextBlock\HAlign
-			
-			PrepareVectorTextBlock(@\Items()\Text)
-			
+
+			\Items()\Text\Dirty = #True
+
 			If ListSize(\Items()) * \ItemHeight > \Height
 				\VisibleScrollBar = #True
 				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
@@ -5791,21 +5805,24 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
-		Protected *GadgetData.VerticalListData = *this\vt
+		Protected *GadgetData.VerticalListData = *this\vt, PreviousWidth
 		
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
 		*this\VT = *GadgetData
 		
 		With *GadgetData
+			PreviousWidth = \Width
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
-			
-			ForEach \Items()
-				\Items()\Text\Width = \Width - #VerticalList_Margin * 2
-				PrepareVectorTextBlock(@\Items()\Text)
-			Next
-			
+
+			If PreviousWidth <> \Width	; a height-only tick moves no text; a width change is measured by the painter, for the rows it shows
+				ForEach \Items()
+					\Items()\Text\Width = \Width - #VerticalList_Margin * 2
+					\Items()\Text\Dirty = #True
+				Next
+			EndIf
+
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 			
 			
@@ -5904,9 +5921,9 @@ Module UITK
 					
 					ForEach \Items()
 						\Items()\Text\Height = \ItemHeight
-						PrepareVectorTextBlock(@\Items()\Text)
+						\Items()\Text\Dirty = #True
 					Next
-					
+
 					If \Reorder
 						SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
 						ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
@@ -5920,7 +5937,7 @@ Module UITK
 					\TextBlock\FontScale = Value
 					ForEach \Items()
 						\Items()\Text\FontScale = Value
-						PrepareVectorTextBlock(@\Items()\Text)
+						\Items()\Text\Dirty = #True
 					Next
 					;}
 				Default ;{
@@ -5945,12 +5962,12 @@ Module UITK
 	
 	Procedure VerticalList_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.VerticalListData = *this\vt, *Result
-		
+
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
 				\Items()\Text\OriginalText = PeekS(*Text)
-				PrepareVectorTextBlock(@\Items()\Text)
+				\Items()\Text\Dirty = #True
 				RedrawObject()
 				ProcedureReturn #True
 			EndIf
@@ -5965,7 +5982,7 @@ Module UITK
 			
 			ForEach \Items()
 				\Items()\Text\FontID = FontID
-				PrepareVectorTextBlock(@\Items()\Text)
+				\Items()\Text\Dirty = #True
 			Next
 			
 			RedrawObject()
@@ -6198,10 +6215,12 @@ Module UITK
 			EndIf
 			
 			If PreviousHeight <> \Height
+				BeginMeasuring()	
 				ForEach \Items()
 					\Items()\Text\Height = \Height
 					PrepareVectorTextBlock(@\Items()\Text)
 				Next
+				EndMeasuring()
 			EndIf
 			
 			RedrawObject()
@@ -6598,10 +6617,12 @@ Module UITK
 						\VisibleScrollBar = #False
 					EndIf
 					
+					BeginMeasuring()	
 					ForEach \Items()
 						\Items()\Text\Width = \ItemWidth
 						PrepareVectorTextBlock(@\Items()\Text)
 					Next
+					EndMeasuring()
 					;}
 				Default ;{
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
@@ -7679,7 +7700,7 @@ Module UITK
 	EndStructure
 	
 	Procedure Library_Redraw(*GadgetData.LibraryData)
-		Protected Y, ItemX, ItemY, ItemCount
+		Protected Y, ItemX, ItemY, ItemCount, RowHeight, Skip
 		
 		With *GadgetData
 			
@@ -7716,17 +7737,28 @@ Module UITK
 						ItemY = Y + \SectionHeight
 						ItemX = \ItemHMargin
 						ItemCount = 0
-						
-						ForEach \Sections()\Items()
-							\RedrawItem(\Sections()\Items(), ItemX, ItemY, \ItemWidth, \ItemHeight, 0, \ThemeData)
-							ItemX + (\ItemHMargin + \ItemWidth)
-							ItemCount + 1
-							If ItemCount = \ItemPerLine
-								ItemY + (\ItemHeight + \ItemVMargin)
-								ItemCount = 0
-								ItemX = \ItemHMargin
-							EndIf
-						Next
+						RowHeight = \ItemHeight + \ItemVMargin
+						Skip = 0
+						If ItemY + RowHeight < 0
+							Skip = Floor(-ItemY / RowHeight)
+							ItemY + Skip * RowHeight
+						EndIf
+
+						If SelectElement(\Sections()\Items(), Skip * \ItemPerLine)
+							Repeat
+								\RedrawItem(\Sections()\Items(), ItemX, ItemY, \ItemWidth, \ItemHeight, 0, \ThemeData)
+								ItemX + (\ItemHMargin + \ItemWidth)
+								ItemCount + 1
+								If ItemCount = \ItemPerLine
+									ItemY + RowHeight
+									ItemCount = 0
+									ItemX = \ItemHMargin
+									If ItemY > \Height
+										Break
+									EndIf
+								EndIf
+							Until Not NextElement(\Sections()\Items())
+						EndIf
 						
 						Y + \Sections()\Height
 					EndIf
@@ -8613,9 +8645,9 @@ Module UITK
 			EndIf
 			
 			ForEach \Items()
-				PropertyBox_PrepareValue(*GadgetData, @\Items())
+				\Items()\Value\Dirty = #True
 			Next
-			
+
 			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			RedrawObject()
 		EndWith
@@ -8663,6 +8695,9 @@ Module UITK
 							VectorSourceColor(\ThemeData\TextColor[#Cold])
 							DrawVectorTextBlock(@\Items()\Text, X + 3, Y - 2)
 							
+							If \Items()\Value\Dirty
+								PropertyBox_PrepareValue(*GadgetData, @\Items())	; on the open canvas context
+							EndIf
 							PropertyBox_DrawValue(*GadgetData, @\Items(), ValueX, Y)
 						EndIf
 						
@@ -9228,7 +9263,7 @@ Module UITK
 			If \VisibleScrollBar <> WasScrollBarVisible
 				; The scrollbar appearing / disappearing changes every row's value-cell width.
 				ForEach \Items()
-					PropertyBox_PrepareValue(*GadgetData, @\Items())
+					\Items()\Value\Dirty = #True
 				Next
 			Else
 				PropertyBox_PrepareValue(*GadgetData, *NewItem)
@@ -10523,12 +10558,14 @@ Module UITK
 	
 	Procedure FlatMenu_ReflowShortcuts(*MenuData.FlatMenu)
 		With *MenuData
+			BeginMeasuring()
 			ForEach \Item()
 				If \Item()\Type = #Item And \Item()\Shortcut\OriginalText <> ""
 					\Item()\Shortcut\Width = \Width - #MenuMargin * 2 - Bool(\Item()\SubMenu <> 0) * #MenuSubMenuArrowWidth
 					PrepareVectorTextBlock(@\Item()\Shortcut)
 				EndIf
 			Next
+			EndMeasuring()
 		EndWith
 	EndProcedure
 	
@@ -11140,10 +11177,12 @@ Module UITK
 			\Height = GadgetHeight(\Gadget)
 			
 			If PreviousHeight <> \Height
+				BeginMeasuring()
 				ForEach \Items()
 					\Items()\Text\Height = \Height
 					PrepareVectorTextBlock(@\Items()\Text)
 				Next
+				EndMeasuring()
 			EndIf
 			
 			RedrawObject()
@@ -11346,10 +11385,12 @@ Module UITK
 					\ItemWidth = Value
 					\InternalWidth = ListSize(\Items()) * \ItemWidth
 					
+					BeginMeasuring()	
 					ForEach \Items()
 						\Items()\Text\Width = \ItemWidth
 						PrepareVectorTextBlock(@\Items()\Text)
 					Next
+					EndMeasuring()
 					;}
 				Default ;{
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
@@ -12469,7 +12510,8 @@ Module UITK
 				\ButtonSize = \Height - \Border * 2
 			EndIf
 			BtnSize = \ButtonSize - #ToolBar_Margin * 2
-			
+
+			BeginMeasuring()	
 			ForEach \Items()
 				If \Items()\Button
 					\Items()\Button\Width = BtnSize
@@ -12491,7 +12533,8 @@ Module UITK
 					PrepareVectorTextBlock(@\Items()\ModeButton\TextBlock)
 				EndIf
 			Next
-			
+			EndMeasuring()
+
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -12620,7 +12663,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 9857
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAgPcAA+DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw
+; CursorPosition = 3183
+; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAAf5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
