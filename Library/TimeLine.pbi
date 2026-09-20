@@ -128,7 +128,11 @@ Structure TimeLineData Extends GadgetData
 	RedrawBody.b
 	RedrawHeader.b
 	RedrawAll.b
-	
+	RedrawPlayer.b						; the playhead moved and nothing else: blit the body cache and draw the line over it
+	BodyCache.i							; the body's rows and blocks as last painted, so an overlay-only paint blits instead of redrawing them
+	BodyCacheValid.b
+	InDraw.b							; inside TimeLine_Draw, where the cache is current; a bare RedrawObject() paints direct instead
+
 	InternalHeight.l
 	
 	DragState.i
@@ -974,9 +978,8 @@ Procedure TimeLine_Redraw_Block(*GadgetData.TimeLineData, *Block.TimeLine_Block,
 			ProcedureReturn
 		EndIf
 		
-		BeginVectorLayer()
 		SaveVectorState()
-		
+
 		AddPathRoundedBox(X, Y, Width, Height, #TimeLine_Block_Radius)
 		VectorSourceColor(SetAlpha(\ThemeData\LineColor[#Cold], Alpha))
 		StrokePath(1.7, #PB_Path_Preserve)
@@ -1054,7 +1057,6 @@ Procedure TimeLine_Redraw_Block(*GadgetData.TimeLineData, *Block.TimeLine_Block,
 		Next
 		
 		RestoreVectorState()
-		EndVectorLayer()
 	EndWith
 EndProcedure
 
@@ -1316,17 +1318,17 @@ Procedure TimeLine_Redraw_List(*GadgetData.TimeLineData)
 	EndWith
 EndProcedure
 
-Procedure TimeLine_Redraw_Body(*GadgetData.TimeLineData)
+Procedure TimeLine_Redraw_BodyContent(*GadgetData.TimeLineData)
+	; The rows and their blocks, everything the body shows that is not an overlay: into the cache from TimeLine_Redraw_BodyCache, or straight onto the canvas when the cache cannot be trusted
 	Protected Y, X, Alt, State
-	
+
 	With *GadgetData
-		SaveVectorState()
 		X = \OriginX + #TimeLine_List_Width
 		AddPathBox(X, \OriginY + #TimeLine_Header_Height, \BodyWidth, \BodyHeight)
 		ClipPath(#PB_Path_Preserve)
 		VectorSourceColor(\ThemeData\ShadeColor[#Cold])
 		FillPath()
-		
+
 		If \FirstDisplayedLine
 			ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
 			Y = \OriginY + \Lines()\Y - \VScrollBar\State + #TimeLine_Header_Height
@@ -1357,11 +1359,57 @@ Procedure TimeLine_Redraw_Body(*GadgetData.TimeLineData)
 				Alt = Bool(Not Alt)
 			Until Y > \OriginY + \Height Or Not NextElement(\Lines())
 		EndIf
-		
+	EndWith
+EndProcedure
+
+Procedure TimeLine_Redraw_BodyCache(*GadgetData.TimeLineData)
+	; Paints the body content into its own image, outside the canvas context (vector contexts do not nest), so a playhead move can blit it
+	With *GadgetData
+		If \BodyWidth < 1 Or \BodyHeight < 1
+			ProcedureReturn
+		EndIf
+		If \BodyCache
+			If ImageWidth(\BodyCache) <> \BodyWidth Or ImageHeight(\BodyCache) <> \BodyHeight
+				FreeImage(\BodyCache)
+				\BodyCache = 0
+			EndIf
+		EndIf
+		If Not \BodyCache
+			\BodyCache = CreateImage(#PB_Any, \BodyWidth, \BodyHeight, 24)
+		EndIf
+
+		If \BodyCache
+			If StartVectorDrawing(ImageVectorOutput(\BodyCache))
+				TranslateCoordinates(-(\OriginX + #TimeLine_List_Width), -(\OriginY + #TimeLine_Header_Height))	; the painters think in canvas coordinates
+				TimeLine_Redraw_BodyContent(*GadgetData)
+				StopVectorDrawing()
+				\BodyCacheValid = #True
+			EndIf
+		EndIf
+	EndWith
+EndProcedure
+
+Procedure TimeLine_Redraw_Body(*GadgetData.TimeLineData)
+	Protected X
+
+	With *GadgetData
+		SaveVectorState()
+		X = \OriginX + #TimeLine_List_Width
+		AddPathBox(X, \OriginY + #TimeLine_Header_Height, \BodyWidth, \BodyHeight)
+		ClipPath()
+
+		If \InDraw And \BodyCacheValid And \BodyCache
+			MovePathCursor(X, \OriginY + #TimeLine_Header_Height)
+			DrawVectorImage(ImageID(\BodyCache))
+		Else
+			TimeLine_Redraw_BodyContent(*GadgetData)	; a bare RedrawObject(), or no cache yet: paint direct, and the next TimeLine_Draw rebuilds the cache
+			\BodyCacheValid = #False
+		EndIf
+
 		If \Action = #TimeLine_Action_BlockDrag Or \Action = #TimeLine_Action_BlockResize
 			TimeLine_Redraw_Preview(*GadgetData)
 		EndIf
-		
+
 		TimeLine_Redraw_Player(*GadgetData, #False)
 		
 		If \VisibleVerticalScrollBar
@@ -1378,7 +1426,7 @@ EndProcedure
 
 Procedure TimeLine_Redraw(*GadgetData.TimeLineData)
 	With *GadgetData
-		If Not (\RedrawAll Or \RedrawList Or \RedrawHeader Or \RedrawBody)
+		If Not (\RedrawAll Or \RedrawList Or \RedrawHeader Or \RedrawBody Or \RedrawPlayer)
 			\RedrawAll = #True					; a bare RedrawObject() - SetGadgetColor, Freeze, ... - means all of it
 		EndIf
 		
@@ -1415,11 +1463,12 @@ Procedure TimeLine_Redraw(*GadgetData.TimeLineData)
 			\RedrawHeader = #False
 		EndIf
 		
-		If \RedrawBody
+		If \RedrawBody Or \RedrawPlayer
 			SaveVectorState()
 			TimeLine_Redraw_Body(*GadgetData)
 			RestoreVectorState()
 			\RedrawBody = #False
+			\RedrawPlayer = #False
 		EndIf
 	EndWith
 EndProcedure
@@ -1429,13 +1478,19 @@ Procedure TimeLine_Draw(*GadgetData.TimeLineData)
 	With *GadgetData
 		If \Freeze Or \Width <= 0 Or \Height <= 0
 			ProcedureReturn
-		ElseIf Not (\RedrawAll Or \RedrawList Or \RedrawHeader Or \RedrawBody)
+		ElseIf Not (\RedrawAll Or \RedrawList Or \RedrawHeader Or \RedrawBody Or \RedrawPlayer)
 			ProcedureReturn
 		EndIf
-		
+
+		If \RedrawAll Or \RedrawBody Or Not \BodyCacheValid	; the content changed, or was never cached: paint it into the cache first, before the canvas context opens
+			TimeLine_Redraw_BodyCache(*GadgetData)
+		EndIf
+
+		\InDraw = #True
 		StartVectorDrawing(CanvasVectorOutput(\Gadget))
 		TimeLine_Redraw(*GadgetData)
 		StopVectorDrawing()
+		\InDraw = #False
 	EndWith
 EndProcedure
 
@@ -1820,7 +1875,7 @@ Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
 				If \PlayerPosition <> Time
 					\PlayerPosition = Time
 					\RedrawHeader = #True
-					\RedrawBody = #True
+					\RedrawPlayer = #True	; the line alone: the body underneath is blitted from its cache
 					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_TimeLinePlayerMove, \PlayerPosition)
 				EndIf
 				;}
@@ -1959,7 +2014,7 @@ Procedure TimeLine_Handle_BodyMove(*GadgetData.TimeLineData, X, Y)
 EndProcedure
 
 Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
-	Protected HoverItem = -1, HoverFold, VScrollBar, HScrollBar, FirstDisplayedItem, LastDisplayedItem, Y, *Data, Zoom, Changed
+	Protected HoverItem = -1, HoverFold, VScrollBar, HScrollBar, FirstDisplayedItem, LastDisplayedItem, Y, *Data, Zoom, Changed, ReorderWas, ScrollWas
 	Protected Cursor = *GadgetData\EditCursor, CursorWas = Cursor, Time, *Block.TimeLine_Block, *Key.TimeLine_Key
 	
 	With *GadgetData
@@ -2101,6 +2156,8 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 					EndIf
 					;}
 				Else;{
+					ReorderWas = \ReorderPosition
+					ScrollWas = \VScrollBar\State
 					ChangeCurrentElement(\Lines(), \FirstDisplayedLine)
 					FirstDisplayedItem = ListIndex(\Lines())
 					LastDisplayedItem = FirstDisplayedItem + Ceil(\BodyHeight / #TimeLine_List_LineHeight)
@@ -2134,8 +2191,10 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						\ReorderPosition = Max(Min(Round((*Event\MouseY + \VScrollBar\State - #TimeLine_Header_Height) / #TimeLine_List_LineHeight, #PB_Round_Nearest), ListSize(\Lines()) - 1), 0)
 					EndIf
 					
-					\RedrawBody = #True
-					\RedrawList = #True
+					If \ReorderPosition <> ReorderWas Or \VScrollBar\State <> ScrollWas	; the ghost follows every move; the marker and the gap only when the drop row or the scroll changed
+						\RedrawBody = #True
+						\RedrawList = #True
+					EndIf
 					SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
 					;}
 				EndIf
@@ -3374,10 +3433,10 @@ Procedure TimeLine_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
 			Case #Attribute_TimeLine_PlayerPosition ;{
 				\PlayerPosition = Clamp(Value, 0, \Duration)
 				If TimeLine_HorizontalFocus(*GadgetData, \PlayerPosition)
-					\RedrawBody = #True
+					\RedrawBody = #True	; it scrolled the body along
 				EndIf
 				\RedrawHeader = #True
-				\RedrawBody = #True
+				\RedrawPlayer = #True	; otherwise the line alone, over the cached body
 				;}
 			Default
 				ProcedureReturn Default_SetAttribute(*This, Attribute, Value)
@@ -3440,6 +3499,9 @@ Procedure TimeLine_Free(*this.PB_Gadget)
 		
 		RemoveGadgetTimers(\String)
 		FreeStructureX(\String)		; its ThemeData is the gadget's own theme, freed once in Default_FreeGadget
+		If \BodyCache
+			FreeImage(\BodyCache)
+		EndIf
 		FreeStructureX(\VScrollBar)
 		FreeStructureX(\HScrollBar)
 	EndWith

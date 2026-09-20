@@ -89,7 +89,8 @@
 		#Attribute_Tree_ScreenRow				; Tree item: which drawn row it is, -1 when folded away (read only)
 		#Attribute_PropertyBox_FontSize			; #PropertyBox_Font row: point size (read/write)
 		#Attribute_PropertyBox_FontStyle		; #PropertyBox_Font row: #PB_Font_* style bits (read/write)
-		
+		#Attribute_VerticalList_HoverRow		; VerticalList gadget: the row under the pointer, -1 for none (read only)
+
 		CompilerIf Defined(EnableParameterList, #PB_Module)
 			#Attribute_ParameterList_Kind			; ParameterList item: #ParameterList_Value, _Group or _Branch (read/write)
 			#Attribute_ParameterList_Depth			; ParameterList item: how deep it sits, 0 at the top (read only)
@@ -439,6 +440,8 @@
 	; Getters
 	Declare GetAccessibilityMode()							; Returns the current accessibility state.
 	Declare GetCurrentTheme()								; Returns the current theme address
+	Declare.i GadgetParentWindow(Gadget)
+	Declare.i GetGadgetTheme(Gadget)
 	
 	; Window
 	Declare Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags = #Default, Parent = #Null)
@@ -496,6 +499,11 @@
 	Declare ToolBarSetMode(Gadget, Item, Mode)					; Set the active mode of a mode button item (does not post a change event)
 	Declare.i PropertyBoxEditNext(Gadget, Backwards = #False)	; Commit the open editor and move it to the next text row. #False if it could not
 	
+	; Tooltip
+	Declare ShowTooltip(Text.s, X, Y, *ThemeData.Theme)
+	Declare HideTooltip()
+	Declare.i TooltipWindowID()
+
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
 	Declare DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
@@ -1300,6 +1308,28 @@ Module UITK
 		ProcedureReturn *DefaultTheme
 	EndProcedure
 	
+	Procedure.i GadgetParentWindow(Gadget)
+		Protected *this.PB_Gadget = IsGadget(Gadget)
+		Protected *GadgetData.GadgetData
+
+		If *this = 0 Or FindMapElement(GadgetHandler(), Str(GadgetID(Gadget))) = 0
+			ProcedureReturn -1
+		EndIf
+		*GadgetData = *this\vt
+		ProcedureReturn *GadgetData\ParentWindow
+	EndProcedure
+
+	Procedure.i GetGadgetTheme(Gadget)
+		Protected *this.PB_Gadget = IsGadget(Gadget)
+		Protected *GadgetData.GadgetData
+
+		If *this = 0 Or FindMapElement(GadgetHandler(), Str(GadgetID(Gadget))) = 0
+			ProcedureReturn 0	; not one of ours: its vt is not a GadgetData
+		EndIf
+		*GadgetData = *this\vt
+		ProcedureReturn *GadgetData\ThemeData
+	EndProcedure
+	
 	Procedure SetCurrentTheme(*Theme.Theme)
 		*DefaultTheme = *Theme
 	EndProcedure
@@ -1370,18 +1400,31 @@ Module UITK
 	
 	; Misc
 	Procedure CurrentWindow()
-		Protected Window = -1
-		PB_Object_EnumerateStart(PB_Window_Objects)
-		If PB_Window_Objects
+		Protected Window = -1, Found = -1, Handle = UseGadgetList(0)
+		
+		If PB_Window_Objects = 0
+			ProcedureReturn -1
+		EndIf
+		While Handle
+			PB_Object_EnumerateStart(PB_Window_Objects)
 			While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
-				If WindowID(Window) = UseGadgetList(0)
+				If WindowID(Window) = Handle
+					Found = Window
 					Break
 				EndIf
 			Wend
-			PB_Object_EnumerateAbort(PB_Window_Objects) 
-		EndIf
+			PB_Object_EnumerateAbort(PB_Window_Objects)
+			If Found >= 0
+				Break
+			EndIf
+			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+				Handle = GetParent_(Handle)	; a container: try whatever holds it
+			CompilerElse
+				Handle = 0
+			CompilerEndIf
+		Wend
 		
-		ProcedureReturn Window
+		ProcedureReturn Found
 	EndProcedure
 	
 	; Drawing functions
@@ -2190,6 +2233,16 @@ Module UITK
 		EndIf
 	EndProcedure
 	
+	Procedure.i TooltipWindowID()
+		If TooltipWindow = -1 Or Not IsWindow(TooltipWindow)
+			ProcedureReturn 0
+		EndIf
+		If Not IsWindowVisible_(WindowID(TooltipWindow))
+			ProcedureReturn 0
+		EndIf
+		ProcedureReturn WindowID(TooltipWindow)
+	EndProcedure
+
 	Procedure ShowTooltip(Text.s, X, Y, *ThemeData.Theme)
 		Protected Width, Height, PreviousList
 		
@@ -5398,7 +5451,7 @@ Module UITK
 			\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
 			\String\String = \Items()\Text\OriginalText
 			String_ProcessString(\String)
-			TextBlock_Ensure(@\Items()\Text)	; TextX below must be current
+			TextBlock_Ensure(@\Items()\Text)
 
 			\String\OriginX = \Items()\Text\TextX + #VerticalList_Margin + \Border
 			; TextX (the item icon's share of the row) is already in the origin, so it
@@ -5949,6 +6002,21 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
+	Procedure VerticalList_GetAttribute(*this.PB_Gadget, Attribute.l)
+		Protected *GadgetData.VerticalListData = *this\vt
+
+		With *GadgetData
+			Select Attribute
+				Case #Attribute_ItemHeight
+					ProcedureReturn \ItemHeight
+				Case #Attribute_VerticalList_HoverRow
+					ProcedureReturn \ItemState
+			EndSelect
+		EndWith
+
+		ProcedureReturn Default_GetAttribute(*this, Attribute)
+	EndProcedure
+
 	Procedure VerticalList_SetItemData(*this.PB_Gadget, Position.l, *Data)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
@@ -6031,6 +6099,7 @@ Module UITK
 			ScrollBar_Meta(\ScrollBar, *ThemeData, - 1, Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height , #Gadget_Vertical)
 			
 			\VT\SetGadgetAttribute = @VerticalList_SetAttribute()
+			\VT\GetGadgetAttribute = @VerticalList_GetAttribute()
 			\VT\CountGadgetItems = @VerticalList_CountItem()
 			\VT\SetGadgetItemData = @VerticalList_SetItemData()
 			\VT\GetGadgetItemData = @VerticalList_GetItemData()
@@ -8181,8 +8250,9 @@ Module UITK
 	
 	Procedure Library_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.LibraryData = *this\vt
-		
+
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			SelectElement(*GadgetData\Items(), Position)
 			*GadgetData\Items()\Text\OriginalText = PeekS(*Text)
 			PrepareVectorTextBlock(@*GadgetData\Items()\Text)
 			
@@ -9775,6 +9845,7 @@ Module UITK
 					Level = \Items()\Level
 					HasChildren = Bool(NextElement(\Items()) And \Items()\Level > Level)
 					PopListPosition(\Items())
+					TextBlock_Ensure(@\Items()\Text)
 					
 					If \State = ListIndex(\Items())
 						Tree_FlushLines(\DrawLine)
@@ -9888,6 +9959,7 @@ Module UITK
 			\String\String = \Items()\Text\OriginalText
 			String_ProcessString(\String)
 			
+			TextBlock_Ensure(@\Items()\Text)
 			\String\OriginX = \OriginX + \Border + \BranchWidth + 1 + \Items()\Level * \BranchWidth + \Items()\Text\TextX
 			\String\OriginY = Row * \ItemHeight - Tree_ScrollOffset(*GadgetData) + \Border + 1
 			\String\Width = \Items()\Text\Width - \Items()\Text\TextX - \Border * 2 - 1
@@ -9973,6 +10045,7 @@ Module UITK
 							Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
 						ElseIf Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
 							Index = ListIndex(\Items())
+							TextBlock_Ensure(@\Items()\Text)
 							TextX = \Border + \BranchWidth * (\Items()\Level + 1)
 
 							If *Event\MouseX >= TextX - \BranchWidth And *Event\MouseX < TextX
@@ -10000,6 +10073,7 @@ Module UITK
 						If Not \ScrollBar\MouseState
 							If Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
 								Index = ListIndex(\Items())
+								TextBlock_Ensure(@\Items()\Text)
 								TextX = \Border + \BranchWidth * (\Items()\Level + 1)
 
 								If (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
@@ -10033,6 +10107,7 @@ Module UITK
 				Case #LeftDoubleClick ;{
 					If (Not \ScrollBar\MouseState) And Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
 						Index = ListIndex(\Items())
+						TextBlock_Ensure(@\Items()\Text)
 						TextX = \Border + \BranchWidth * (\Items()\Level + 1)
 						
 						If (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
@@ -10175,7 +10250,7 @@ Module UITK
 			*NewItem\Text\Height = \ItemHeight
 			*NewItem\Text\VAlign = #VAlignCenter
 			
-			PrepareVectorTextBlock(@*NewItem\Text)
+			*NewItem\Text\Dirty = #True
 			Tree_UpdateScrollBar(*GadgetData)
 			
 			ChangeCurrentElement(\Items(), *NewItem)
@@ -10234,6 +10309,7 @@ Module UITK
 			Select State
 				Case #PB_Drag_Enter, #PB_Drag_Update
 					If Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((y + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
+						TextBlock_Ensure(@\Items()\Text)
 						If (x > \Border + \BranchWidth * (\Items()\Level + 1)) And (x < \Border + \BranchWidth * (\Items()\Level + 1) + \Items()\Text\RequiredWidth)
 							Hover = ListIndex(\Items())
 						EndIf
@@ -10397,10 +10473,11 @@ Module UITK
 	
 	Procedure Tree_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.TreeData = *this\vt
-		
+
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
+			SelectElement(*GadgetData\Items(), Position)
 			*GadgetData\Items()\Text\OriginalText = PeekS(*Text)
-			PrepareVectorTextBlock(@*GadgetData\Items()\Text)
+			*GadgetData\Items()\Text\Dirty = #True
 			
 			RedrawObject()
 		EndIf
@@ -12663,7 +12740,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 3183
-; Folding = AAIA+--PAAAAAAAAAAAAAAAAAAAf5AA9HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 6012
+; Folding = BAIA+--PAAAAAAAAAAAAAAAAAAA--OA9-BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgy
 ; EnableXP
 ; DPIAware
