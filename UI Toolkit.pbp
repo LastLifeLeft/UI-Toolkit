@@ -8,12 +8,12 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-10-01 05:01" user="poshu" host="MacBook-Air-de-Yolande.local"/>
+    <lastopen date="2026-10-01 05:34" user="poshu" host="MacBook-Air-de-Yolande.local"/>
   </section>
   <section name="files">
     <file name="Library/UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+-"/>
-      <fingerprint md5="df4b846abafcdd10d36112732b563ebf"/>
+      <fingerprint md5="d42befd709612832c785f8fb2bb2549f"/>
     </file>
     <file name="Examples/Example 5 - LayerList.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+-"/>
@@ -31,13 +31,13 @@
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="5" panelstate="+-"/>
       <fingerprint md5="08cf52bfc189b79e149172b563c9faf7"/>
     </file>
+    <file name="Examples/Example 2 - Gadget Example 2.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="6" panelstate="+-"/>
+      <fingerprint md5="b18a287a5cca0c4138e7af514d9ded61"/>
+    </file>
     <file name="Examples/Debug.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
       <fingerprint md5="47d0cdb1664f8bb5c29abbf37e9a2a29"/>
-    </file>
-    <file name="Examples/Example 2 - Gadget Example 2.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
-      <fingerprint md5="b18a287a5cca0c4138e7af514d9ded61"/>
     </file>
     <file name="Examples/AeroSnapTest.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
@@ -70,7 +70,7 @@
       <inputfile value="Examples\Example 2 - Gadget Example 2.pbi"/>
       <outputfile value="Examples\Example 2.exe"/>
       <executable value="Examples/Example 2.exe"/>
-      <options xpskin="1" debug="1" optimizer="1"/>
+      <options xpskin="1" optimizer="1"/>
       <temporaryexe value="source"/>
       <format exe="default" cpu="-1"/>
     </target>

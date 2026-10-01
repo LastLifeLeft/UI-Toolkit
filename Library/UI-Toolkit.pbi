@@ -3791,8 +3791,8 @@ Module UITK
 		Procedure Window(Window, X, Y, InnerWidth, InnerHeight, Title.s, Flags.i = #Default, Parent = #Null)
 			Protected Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title,
 			                              (Bool(Flags & #Window_CloseButton)    * #PB_Window_SystemMenu) |
-			                              (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize)   |
-			                              (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize)   |
+			                              (Bool(Flags & #Window_MaximizeButton) * #PB_Window_MaximizeGadget) |
+			                              (Bool(Flags & #Window_MinimizeButton) * #PB_Window_MinimizeGadget) |
 			                              (Bool(Flags & #Window_Sizable)        * #PB_Window_SizeGadget) |
 			                              (Bool(Flags & #Window_Invisible)      * #PB_Window_Invisible)  |
 			                              (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
@@ -13662,9 +13662,9 @@ EndModule
 
 
 
-
-; IDE Options = PureBasic 6.41 (Windows - x64)
-; CursorPosition = 6012
-; Folding = BAIA+--PAAAAAAAAAAAAAAAAAAA--OA9-BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgy
+; IDE Options = PureBasic 6.41 - C Backend (MacOS X - arm64)
+; CursorPosition = 3793
+; FirstLine = 164
+; Folding = BAIA+---HAAAAAAAAAAAAAAAAAA--OA9-BAAADAAAA+xBAA9fADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgy-----------------
 ; EnableXP
 ; DPIAware
