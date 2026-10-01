@@ -10,4 +10,4 @@ Its API will change with no warning; it has memory leaks and bugs that won't be 
 ## Showcase
 Here are some projects using UITK :
 - ![Icon](https://raw.githubusercontent.com/LastLifeLeft/Inputify/main/Media/Icon/18.png) [Inputify](https://github.com/LastLifeLeft/Inputify), a tool to display your inputs on screen.
-- ![Icon](https://lastlife.net/ForumUpload/Abra_Icon.png) [Abra](https://lastlife.net/article?abraCADabra), a CAD for people who can't learn CAD.
+- ![Icon](https://lastlife.net/ForumUpload/Abra_Icon.png) [Abra](https://lastlife.net/article?abraCADabra), CAD for people who can't learn normal CAD software.
