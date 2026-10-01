@@ -83,6 +83,10 @@ CompilerIf #PB_Compiler_OS = #PB_OS_MacOS		; 4/3 of the Windows sizes, as the co
 	Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Helvetica Neue", 16, #PB_Font_HighQuality | #PB_Font_Bold))
 	Global TimeLine_Font = FontID(LoadFont(#PB_Any, "Helvetica Neue", 13, #PB_Font_HighQuality))
 	Global TimeLine_RulerFont = FontID(LoadFont(#PB_Any, "Helvetica Neue", 11, #PB_Font_HighQuality))
+CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux
+	Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Sans", 12, #PB_Font_HighQuality | #PB_Font_Bold))
+	Global TimeLine_Font = FontID(LoadFont(#PB_Any, "Sans", 10, #PB_Font_HighQuality))
+	Global TimeLine_RulerFont = FontID(LoadFont(#PB_Any, "Sans", 8, #PB_Font_HighQuality))
 CompilerElse
 	Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Segoe UI Semibold", 12, #PB_Font_HighQuality))
 	Global TimeLine_Font = FontID(LoadFont(#PB_Any, "Segoe UI", 10, #PB_Font_HighQuality))
@@ -2567,7 +2571,7 @@ Procedure TimeLine_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		
 		Result = ListIndex(\Lines())
 		
-		*NewItem\Text\OriginalText = PeekS(*Text)
+		*NewItem\Text\OriginalText = PeekGadgetText(*Text)
 		*NewItem\Text\Image = ImageID
 		*NewItem\Text\LineLimit = 1
 		*NewItem\Text\FontID = TimeLine_ListFont
@@ -2647,7 +2651,7 @@ Procedure TimeLine_SetItemText(*this.PB_Gadget, Position.l, *Text)
 	
 	With *GadgetData
 		If Position >= 0 And SelectElement(\Lines(), Position)
-			\Lines()\Text\OriginalText = PeekS(*Text)
+			\Lines()\Text\OriginalText = PeekGadgetText(*Text)
 			PrepareVectorTextBlock(@\Lines()\Text)
 			\RedrawList = #True
 			TimeLine_Draw(*GadgetData)

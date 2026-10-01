@@ -974,6 +974,16 @@ Module UITK
 		GadgetHandler() = Gadget
 	EndMacro
 	
+	CompilerIf #PB_Compiler_OS = #PB_OS_Linux		; PB's GTK gadget vtable hands text over as UTF-8
+		Macro PeekGadgetText(Text)
+			PeekS(Text, -1, #PB_UTF8)
+		EndMacro
+	CompilerElse
+		Macro PeekGadgetText(Text)
+			PeekS(Text)
+		EndMacro
+	CompilerEndIf
+	
 	Macro SetAlpha(Color, Alpha)
 		(((Alpha) << 24) + (Color))		; each argument on its own: << outranks + and *, so an unbracketed sum would be shredded
 	EndMacro
@@ -2140,6 +2150,15 @@ Module UITK
 		#Glyph_Edit = "✎"
 		#Shortcut_Erase = #PB_Shortcut_Back			; a Mac keyboard's delete key: what removes a selection there
 		#Modifier_Shortcut = #PB_Canvas_Command		; the Mac's shortcut and multi-select key (Ctrl-click is a right click there)
+	CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux		; Windows' point sizes: GTK sizes a point as Windows does, not as Cocoa's 1pt = 1px
+		Global DefaultFont = FontID(LoadFont(#PB_Any, "Sans", 9, #PB_Font_HighQuality))
+		Global BoldFont = FontID(LoadFont(#PB_Any, "Sans", 7, #PB_Font_HighQuality | #PB_Font_Bold))
+		Global IconFont = FontID(LoadFont(#PB_Any, "Sans", 10, #PB_Font_HighQuality))
+		#Glyph_ChevronUp = "▴"
+		#Glyph_ChevronDown = "▾"
+		#Glyph_Edit = "✎"
+		#Modifier_Shortcut = #PB_Canvas_Control
+		#Shortcut_Erase = #PB_Shortcut_Delete
 	CompilerElse
 		Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 		Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
@@ -3147,8 +3166,8 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure Default_SetText(*this.PB_Gadget, Text.s)
-		Protected *GadgetData.GadgetData = *this\vt
+	Procedure Default_SetText(*this.PB_Gadget, *Text)
+		Protected *GadgetData.GadgetData = *this\vt, Text.s = PeekGadgetText(*Text)
 		*GadgetData\TextBlock\OriginalText = Text
 		PrepareVectorTextBlock(@*GadgetData\TextBlock)
 		RedrawObject()
@@ -5560,8 +5579,8 @@ Module UITK
 	EndProcedure
 	
 	; Setters
-	Procedure String_SetText(*this.PB_Gadget, Text.s)
-		Protected *GadgetData.StringData = *this\vt
+	Procedure String_SetText(*this.PB_Gadget, *Text)
+		Protected *GadgetData.StringData = *this\vt, Text.s = PeekGadgetText(*Text)
 		
 		With *GadgetData
 			\String = Text
@@ -6980,7 +6999,7 @@ Module UITK
 				*NewItem = AddElement(\Items())
 			EndIf
 			
-			\Items()\Text\OriginalText = PeekS(*Text)
+			\Items()\Text\OriginalText = PeekGadgetText(*Text)
 			\Items()\Text\Image = ImageID
 			\Items()\Text\LineLimit = 1
 			\Items()\Text\FontID = \TextBlock\FontID
@@ -7223,7 +7242,7 @@ Module UITK
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
-				\Items()\Text\OriginalText = PeekS(*Text)
+				\Items()\Text\OriginalText = PeekGadgetText(*Text)
 				\Items()\Text\Dirty = #True
 				RedrawObject()
 				ProcedureReturn #True
@@ -7749,7 +7768,7 @@ Module UITK
 				*NewItem = AddElement(\Items())
 			EndIf
 			
-			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\OriginalText = PeekGadgetText(*Text)
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Text\FontID = \TextBlock\FontID
 			*NewItem\Text\Width = \ItemWidth
@@ -7990,6 +8009,11 @@ Module UITK
 		Protected Progress, X, Y, Ratio.d, TextHeight, Height, Width, Text.s, TextWidth
 		
 		With *GadgetData
+			If \TextBlock\FontScale
+				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
+			Else
+				VectorFont(\TextBlock\FontID)
+			EndIf
 			VectorSourceColor(\ThemeData\LineColor[#Cold])
 			TextHeight = VectorTextHeight("a")
 			
@@ -8265,15 +8289,15 @@ Module UITK
 				AddElement(\Items())
 			EndIf
 			
-			\Items()\Text = PeekS(*Text)
+			\Items()\Text = PeekGadgetText(*Text)
 			\Items()\Position = Position
 			
 			RedrawObject()
 		EndWith
 	EndProcedure
 	
-	Procedure TrackBar_SetText(*this.PB_Gadget, Text.s)
-		Protected *GadgetData.TrackBarData = *this\vt
+	Procedure TrackBar_SetText(*this.PB_Gadget, *Text)
+		Protected *GadgetData.TrackBarData = *this\vt, Text.s = PeekGadgetText(*Text)
 		*GadgetData\Unit = Text
 		RedrawObject()
 	EndProcedure
@@ -8465,8 +8489,8 @@ Module UITK
 	Procedure Combo_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.ComboData = *this\vt
 		With *GadgetData
-			If SetGadgetItemText(\MenuCanvas, Position, PeekS(*Text)) And \State = Position
-				\TextBlock\OriginalText = PeekS(*Text)
+			If SetGadgetItemText(\MenuCanvas, Position, PeekGadgetText(*Text)) And \State = Position
+				\TextBlock\OriginalText = PeekGadgetText(*Text)
 				PrepareVectorTextBlock(@\TextBlock)
 				RedrawObject()
 			EndIf
@@ -8534,7 +8558,7 @@ Module UITK
 			ResizeWindow(*GadgetData\MenuWindow, #PB_Ignore, #PB_Ignore, #PB_Ignore, *GadgetData\ItemCount * #Combo_ItemHeight + *GadgetData\Border)
 		EndIf
 		
-		AddGadgetItem(*GadgetData\MenuCanvas, Position, PeekS(*Text), ImageID, Flag)
+		AddGadgetItem(*GadgetData\MenuCanvas, Position, PeekGadgetText(*Text), ImageID, Flag)
 	EndProcedure
 	
 	Procedure Combo_RemoveItem(*this.PB_Gadget, Position.l)
@@ -9070,7 +9094,7 @@ Module UITK
 				*NewSection = AddElement(\Sections())
 			EndIf
 			
-			*NewSection\Text\OriginalText = PeekS(*Text)
+			*NewSection\Text\OriginalText = PeekGadgetText(*Text)
 			*NewSection\Text\LineLimit = 1
 			*NewSection\Text\FontID = \TextBlock\FontID
 			*NewSection\Text\FontScale = 20
@@ -9097,7 +9121,7 @@ Module UITK
 			*NewItem = AddElement(\Items())
 			
 			*NewItem\ImageID = ImageID
-			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\OriginalText = PeekGadgetText(*Text)
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Text\FontID = \TextBlock\FontID
 			*NewItem\Text\Width = \ItemWidth
@@ -9443,7 +9467,7 @@ Module UITK
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
 			SelectElement(*GadgetData\Items(), Position)
-			*GadgetData\Items()\Text\OriginalText = PeekS(*Text)
+			*GadgetData\Items()\Text\OriginalText = PeekGadgetText(*Text)
 			PrepareVectorTextBlock(@*GadgetData\Items()\Text)
 			
 			RedrawObject()
@@ -9789,19 +9813,19 @@ Module UITK
 				*Item = @\Items()
 				
 				If Column = 0
-					*Item\Text\OriginalText = PeekS(*Text)
+					*Item\Text\OriginalText = PeekGadgetText(*Text)
 					PrepareVectorTextBlock(@*Item\Text)
 				ElseIf *Item\Type = #PropertyBox_Combo
-					*Item\Options = PeekS(*Text)
+					*Item\Options = PeekGadgetText(*Text)
 					If *Item\State > CountString(*Item\Options, #LF$)
 						*Item\State = 0
 					EndIf
 					PropertyBox_PrepareValue(*GadgetData, *Item)
 				ElseIf *Item\Type = #PropertyBox_Font
-					*Item\FontName = PeekS(*Text)
+					*Item\FontName = PeekGadgetText(*Text)
 					PropertyBox_PrepareValue(*GadgetData, *Item)
 				Else
-					*Item\Value\OriginalText = PeekS(*Text)
+					*Item\Value\OriginalText = PeekGadgetText(*Text)
 					PropertyBox_PrepareValue(*GadgetData, *Item)
 				EndIf
 				
@@ -10548,7 +10572,7 @@ Module UITK
 				*NewItem = AddElement(\Items())
 			EndIf
 			
-			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\OriginalText = PeekGadgetText(*Text)
 			*NewItem\Text\Image = ImageID
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Type = Flags
@@ -11480,7 +11504,7 @@ Module UITK
 				*NewItem = AddElement(\Items())
 			EndIf
 			
-			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\OriginalText = PeekGadgetText(*Text)
 			*NewItem\Text\Image = ImageID
 			*NewItem\Text\LineLimit = 1
 			
@@ -11723,7 +11747,7 @@ Module UITK
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
 			SelectElement(*GadgetData\Items(), Position)
-			*GadgetData\Items()\Text\OriginalText = PeekS(*Text)
+			*GadgetData\Items()\Text\OriginalText = PeekGadgetText(*Text)
 			*GadgetData\Items()\Text\Dirty = #True
 			
 			RedrawObject()
@@ -12569,7 +12593,7 @@ Module UITK
 				*NewItem = AddElement(\Items())
 			EndIf
 			
-			*NewItem\Text\OriginalText = PeekS(*Text)
+			*NewItem\Text\OriginalText = PeekGadgetText(*Text)
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Text\FontID = \TextBlock\FontID
 			*NewItem\Text\Width = \ItemWidth
@@ -12676,7 +12700,7 @@ Module UITK
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
-				\Items()\Text\OriginalText = PeekS(*Text)
+				\Items()\Text\OriginalText = PeekGadgetText(*Text)
 				PrepareVectorTextBlock(@\Items()\Text)
 				RedrawObject()
 				ProcedureReturn #True
@@ -13593,7 +13617,7 @@ Module UITK
 				*NewItem = AddElement(\Items())
 			EndIf
 			
-			*NewItem\Text = PeekS(*Text)
+			*NewItem\Text = PeekGadgetText(*Text)
 			*NewItem\Type = Flags
 			
 			Select Flags

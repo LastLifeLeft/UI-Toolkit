@@ -1013,7 +1013,7 @@ Procedure ParameterList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Lev
 			Depth = Ceiling
 		EndIf
 		
-		Line = PeekS(*Text)
+		Line = PeekGadgetText(*Text)
 		*NewItem\Depth = Depth
 		*NewItem\Kind = #ParameterList_Value
 		ParameterList_SizeCells(*GadgetData, *NewItem)
@@ -1118,7 +1118,7 @@ Procedure ParameterList_AddColumn(*this.PB_Gadget, Position.l, *Text, Width.l)
 		
 		\Columns(Position)\Role = #ParameterList_Cell
 		\Columns(Position)\Width = Width
-		\Columns(Position)\Text\OriginalText = PeekS(*Text)
+		\Columns(Position)\Text\OriginalText = PeekGadgetText(*Text)
 		\Columns(Position)\Text\LineLimit = 1
 		\Columns(Position)\Text\FontID = \TextBlock\FontID
 		\Columns(Position)\Text\FontScale = \TextBlock\FontScale
@@ -1232,7 +1232,7 @@ Procedure ParameterList_SetItemText(*this.PB_Gadget, Position.l, *Text, Column.l
 		If Position > -1 And Position < ListSize(\Items()) And Column < \ColumnCount
 			SelectElement(\Items(), Position)
 			*Cell = ParameterList_Cell(@\Items(), Column)
-			*Cell\OriginalText = PeekS(*Text)
+			*Cell\OriginalText = PeekGadgetText(*Text)
 			*Cell\Dirty = #True
 			RedrawObject()
 		EndIf

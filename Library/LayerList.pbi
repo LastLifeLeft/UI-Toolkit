@@ -1377,7 +1377,7 @@ Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l
 		
 		*NewItem\Depth = Depth
 		*NewItem\Visible = #True
-		*NewItem\Text\OriginalText = PeekS(*Text)
+		*NewItem\Text\OriginalText = PeekGadgetText(*Text)
 		*NewItem\Text\Image = ImageID
 		*NewItem\Text\LineLimit = 1
 		*NewItem\Text\FontID = \TextBlock\FontID
@@ -1599,7 +1599,7 @@ Procedure LayerList_SetItemText(*this.PB_Gadget, Position.l, *Text)
 	
 	With *GadgetData
 		If Position > -1 And SelectElement(\Items(), Position)
-			\Items()\Text\OriginalText = PeekS(*Text)
+			\Items()\Text\OriginalText = PeekGadgetText(*Text)
 			\Items()\Text\Dirty = #True
 			RedrawObject()
 			ProcedureReturn #True
