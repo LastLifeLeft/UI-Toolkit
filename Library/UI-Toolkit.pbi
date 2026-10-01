@@ -1965,12 +1965,78 @@ Module UITK
 		EndMacro
 	CompilerEndIf ;}
 	
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+		Prototype.l DpiForWindow(hWnd)
+		Global DpiForWindow.DpiForWindow = GetFunction(OpenLibrary(#PB_Any, "user32.dll"), "GetDpiForWindow")
+		
+		Procedure.d WindowScale(hWnd)		; physical pixels per point on that window's monitor, 1 when the exe isn't DPI-aware
+			Protected Dpi
+			
+			If DpiForWindow And hWnd
+				Dpi = DpiForWindow(hWnd)
+			EndIf
+			
+			If Dpi > 0
+				ProcedureReturn Dpi / 96.0
+			EndIf
+			ProcedureReturn DesktopResolutionX()
+		EndProcedure
+		
+		Procedure SetWindowPosPoints(hWnd, After, X, Y, Width, Height, Flags)		; SetWindowPos_ from PB coordinates: a DPI-aware process places windows in physical pixels
+			Protected Scale.d = WindowScale(hWnd)
+			
+			ProcedureReturn SetWindowPos_(hWnd, After, X * Scale, Y * Scale, Width * Scale, Height * Scale, Flags)
+		EndProcedure
+		
+		Procedure UnscaledVectorFont(FontID, Size.d = 0)		; a DPI-aware LoadFont is already scaled to physical pixels: size it in points, like the canvas coordinates
+			Protected Font.LOGFONT
+			
+			If Size = 0 And DesktopResolutionY() <> 1 And GetObject_(FontID, SizeOf(LOGFONT), @Font)
+				Size = Abs(Font\lfHeight) / DesktopResolutionY()
+			EndIf
+			
+			If Size
+				VectorFont(FontID, Size)
+			Else
+				VectorFont(FontID)
+			EndIf
+		EndProcedure
+		
+		Macro VectorFont(FontID, Size = 0)
+			UnscaledVectorFont(FontID, Size)
+		EndMacro
+		
+		Macro DesktopPointX(Value)		; Desktop*() answer in pixels, PB windows are placed in points
+			DesktopUnscaledX(Value)
+		EndMacro
+		
+		Macro DesktopPointY(Value)
+			DesktopUnscaledY(Value)
+		EndMacro
+	CompilerElse
+		Macro SetWindowPosPoints(hWnd, After, X, Y, Width, Height, Flags)
+			SetWindowPos_(hWnd, After, X, Y, Width, Height, Flags)
+		EndMacro
+		
+		Macro DesktopPointX(Value)
+			(Value)
+		EndMacro
+		
+		Macro DesktopPointY(Value)
+			(Value)
+		EndMacro
+	CompilerEndIf
+	
 	Procedure.d CanvasScale(Gadget)		; canvas bitmap pixels per point
 		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
 			Protected *this.PB_Gadget = IsGadget(Gadget)
 			
 			If *this And GadgetWidth(Gadget) > 0 And CocoaMessage(0, *this\Functions, "respondsToSelector:", Sel_CreateImage)
 				ProcedureReturn PeekL(Cocoa_IvarAddress(*this\Functions, "ImageWidth")) / GadgetWidth(Gadget)
+			EndIf
+		CompilerElseIf #PB_Compiler_OS = #PB_OS_Windows
+			If IsGadget(Gadget)
+				ProcedureReturn WindowScale(GadgetID(Gadget))
 			EndIf
 		CompilerEndIf
 		
@@ -1981,7 +2047,13 @@ Module UITK
 		Protected Scale.d = CanvasScale(Gadget), Result = StartVectorDrawing(CanvasVectorOutput(Gadget))
 		
 		If Result And Scale <> 1
-			ScaleCoordinates(Scale, Scale)
+			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+				If GadgetWidth(Gadget) > 0 And GadgetHeight(Gadget) > 0		; the canvas is a whole number of pixels: fill all of it, or its last column shows through
+					ScaleCoordinates(VectorOutputWidth() / GadgetWidth(Gadget), VectorOutputHeight() / GadgetHeight(Gadget))
+				EndIf
+			CompilerElse
+				ScaleCoordinates(Scale, Scale)
+			CompilerEndIf
 		EndIf
 		
 		ProcedureReturn Result
@@ -2850,8 +2922,14 @@ Module UITK
 		Select Event\EventType
 			Case #Focus, #LostFocus, #KeyDown, #KeyUp, #Input, #Resize
 			Default
-				Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
-				Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+				CompilerIf #PB_Compiler_OS = #PB_OS_Windows		; PB reports physical pixels, gadgets lay out in points
+					Protected Scale.d = CanvasScale(*GadgetData\Gadget)
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX) / Scale
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY) / Scale
+				CompilerElse
+					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX)
+					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY)
+				CompilerEndIf
 		EndSelect
 		
 		*GadgetData\EventHandler(*GadgetData, Event)
@@ -2915,10 +2993,14 @@ Module UITK
 	EndProcedure
 	
 	Procedure Default_GetRequiredSize(*This.PB_Gadget, *Width, *Height)
-		Protected *GadgetData.GadgetData = *this\vt
+		Protected *GadgetData.GadgetData = *this\vt, Scale.d = 1
 		
-		PokeW(*Width, *GadgetData\TextBlock\RequiredWidth + *GadgetData\HMargin * 2)
-		PokeW(*Height, *GadgetData\TextBlock\RequiredHeight + *GadgetData\VMargin * 2)
+		CompilerIf #PB_Compiler_OS = #PB_OS_Windows		; PB unscales the answer as if it were in pixels, like a native gadget's
+			Scale = CanvasScale(*GadgetData\Gadget)
+		CompilerEndIf
+		
+		PokeW(*Width, Round((*GadgetData\TextBlock\RequiredWidth + *GadgetData\HMargin * 2) * Scale, #PB_Round_Up))
+		PokeW(*Height, Round((*GadgetData\TextBlock\RequiredHeight + *GadgetData\VMargin * 2) * Scale, #PB_Round_Up))
 	EndProcedure
 	
 	Procedure Default_GetAttribute(*This.PB_Gadget, Attribute)
@@ -3201,8 +3283,8 @@ Module UITK
 			StopVectorDrawing()
 		EndIf
 		ExamineDesktops()	; ...keep it on screen...
-		If X + Width > DesktopX(0) + DesktopWidth(0)
-			X = DesktopX(0) + DesktopWidth(0) - Width
+		If X + Width > DesktopPointX(DesktopX(0) + DesktopWidth(0))
+			X = DesktopPointX(DesktopX(0) + DesktopWidth(0)) - Width
 		EndIf
 		ResizeWindow(TooltipWindow, X, Y, Width, Height)
 		ResizeGadget(TooltipCanvas, 0, 0, Width, Height)
@@ -3344,11 +3426,12 @@ Module UITK
 						*mmi\ptMaxSize\x = Abs(mie\rcWork\right - mie\rcWork\left)
 						*mmi\ptMaxSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) - 1
 					EndIf
-					If *WindowData\MaxWidth > 0 : *mmi\ptMaxSize\x = *WindowData\MaxWidth : EndIf
-					If *WindowData\MaxHeight > 0 : *mmi\ptMaxSize\y = *WindowData\MaxHeight : EndIf
-
-					*mmi\ptMinTrackSize\x = *WindowData\MinWidth
-					*mmi\ptMinTrackSize\y = *WindowData\MinHeight
+					Protected Scale.d = WindowScale(hWnd)	; bounds are in points, MINMAXINFO in pixels
+					If *WindowData\MaxWidth > 0 : *mmi\ptMaxSize\x = *WindowData\MaxWidth * Scale : EndIf
+					If *WindowData\MaxHeight > 0 : *mmi\ptMaxSize\y = *WindowData\MaxHeight * Scale : EndIf
+					
+					*mmi\ptMinTrackSize\x = *WindowData\MinWidth * Scale
+					*mmi\ptMinTrackSize\y = *WindowData\MinHeight * Scale
 					If *mmi\ptMinTrackSize\x > Abs(mie\rcWork\right - mie\rcWork\left) : *mmi\ptMinTrackSize\x = Abs(mie\rcWork\right - mie\rcWork\left) : EndIf ; DefWindowProc would otherwise leave the edge under the taskbar
 					If *mmi\ptMinTrackSize\y > Abs(mie\rcWork\bottom - mie\rcWork\top) : *mmi\ptMinTrackSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) : EndIf
 					If *WindowData\MaxWidth > 0 And *mmi\ptMinTrackSize\x > *WindowData\MaxWidth : *mmi\ptMinTrackSize\x = *WindowData\MaxWidth : EndIf
@@ -3378,9 +3461,9 @@ Module UITK
 					Protected cRect.RECT
 					GetClientRect_(hWnd, @cRect)
 					MapWindowPoints_(hWnd, 0, @cRect, 2)
-					Protected x = ptX - cRect\left
-					Protected y = ptY - cRect\top
-					Protected w = cRect\right - cRect\left
+					Protected x = (ptX - cRect\left) / WindowScale(hWnd)	; in points, like the border and bar constants
+					Protected y = (ptY - cRect\top) / WindowScale(hWnd)
+					Protected w = (cRect\right - cRect\left) / WindowScale(hWnd)
 
 					If *WindowData\Sizable And IsZoomed_(hWnd) = 0
 						If x < 0 Or x >= w Or ptY >= cRect\bottom ; the frame is Windows'
@@ -3404,8 +3487,8 @@ Module UITK
 					ProcedureReturn *WindowData\Brush
 					;}
 				Case #WM_SIZE ;{
-					*WindowData\Width = lParam & $FFFF
-					*WindowData\Height = (lParam >> 16) & $FFFF
+					*WindowData\Width = (lParam & $FFFF) / WindowScale(hWnd)	; WM_SIZE is in pixels, gadgets are placed in points
+					*WindowData\Height = ((lParam >> 16) & $FFFF) / WindowScale(hWnd)
 					
 					If *WindowData\ButtonClose
 						OffsetX + #WindowButtonWidth
@@ -3431,12 +3514,12 @@ Module UITK
 					EndIf
 					
 					If *WindowData\LabelAlign = #HAlignRight
-						SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, 1, 0, 0, #SWP_NOSIZE)
+						SetWindowPosPoints(GadgetID(*WindowData\Label), 0, *WindowData\Width - OffsetX, 1, 0, 0, #SWP_NOSIZE)
 					ElseIf *WindowData\LabelAlign = #HAlignCenter
-						SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
+						SetWindowPosPoints(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
 					EndIf
 					
-					SetWindowPos_(GadgetID(*WindowData\Container), 0, 0, 0, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #SWP_NOMOVE | #SWP_NOZORDER)
+					SetWindowPosPoints(GadgetID(*WindowData\Container), 0, 0, 0, *WindowData\Width, *WindowData\Height - #WindowBarHeight, #SWP_NOMOVE | #SWP_NOZORDER)
 					;}
 				Case #WM_NCACTIVATE ;{
 					ProcedureReturn 1
@@ -3765,9 +3848,9 @@ Module UITK
 			ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
 			
 			If *WindowData\LabelAlign = #HAlignRight
-				SetWindowPos_(GadgetID(*WindowData\Label), 0, *WindowData\Width - (*WindowData\ButtonClose + *WindowData\ButtonMaximize + *WindowData\ButtonMinimize) * #WindowButtonWidth, 1, 0, 0, #SWP_NOSIZE)
+				SetWindowPosPoints(GadgetID(*WindowData\Label), 0, *WindowData\Width - (*WindowData\ButtonClose + *WindowData\ButtonMaximize + *WindowData\ButtonMinimize) * #WindowButtonWidth, 1, 0, 0, #SWP_NOSIZE)
 			ElseIf *WindowData\LabelAlign = #HAlignCenter
-				SetWindowPos_(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
+				SetWindowPosPoints(GadgetID(*WindowData\Label), 0, (*WindowData\Width - *WindowData\LabelWidth) * 0.5, 1, 0, 0, #SWP_NOSIZE)
 			ElseIf ListSize(*WindowData\MenuList())
 				; Icon · Title · Menus: the wider label pushes the menu row along
 				With *WindowData
@@ -3990,21 +4073,20 @@ Module UITK
 		Global ADNDHook, *DropCallback
 		Global ADND_OffsetX, ADND_OffsetY
 		Global ADND_User32 = OpenLibrary(#PB_Any, "user32.dll"), ADND_Shcore = OpenLibrary(#PB_Any, "shcore.dll")
-		Global *ADND_SetThreadDpiContext, *ADND_DpiForMonitor, *ADND_DpiForWindow
-		If ADND_User32 : *ADND_SetThreadDpiContext = GetFunction(ADND_User32, "SetThreadDpiAwarenessContext") : *ADND_DpiForWindow = GetFunction(ADND_User32, "GetDpiForWindow") : EndIf
+		Global *ADND_SetThreadDpiContext, *ADND_DpiForMonitor
+		If ADND_User32 : *ADND_SetThreadDpiContext = GetFunction(ADND_User32, "SetThreadDpiAwarenessContext") : EndIf
 		If ADND_Shcore : *ADND_DpiForMonitor = GetFunction(ADND_Shcore, "GetDpiForMonitor") : EndIf
 
 		; MSLLHOOKSTRUCT\pt is in physical pixels whatever the process's DPI awareness
 		Procedure ADND_Hook(nCode, wParam, *p.POINT)
-			Protected Old, DpiX.l, DpiY.l, CardDpi, OffsetX = ADND_OffsetX, OffsetY = ADND_OffsetY
+			Protected Old, DpiX.l, DpiY.l, OffsetX = ADND_OffsetX, OffsetY = ADND_OffsetY
 			If nCode >= 0
-				If *ADND_SetThreadDpiContext And *ADND_DpiForMonitor And *ADND_DpiForWindow ; an unaware process's SetWindowPos takes logical units: place the card from a per-monitor context
+				If *ADND_SetThreadDpiContext And *ADND_DpiForMonitor ; place the card in pixels from a per-monitor context, whatever the process's awareness
 					Old = CallFunctionFast(*ADND_SetThreadDpiContext, -4) ; PER_MONITOR_AWARE_V2
 					If Old = 0 : Old = CallFunctionFast(*ADND_SetThreadDpiContext, -3) : EndIf ; PER_MONITOR_AWARE
-					CardDpi = CallFunctionFast(*ADND_DpiForWindow, WindowID(ADNDWindow))
-					If Old And CardDpi > 0 And CallFunctionFast(*ADND_DpiForMonitor, MonitorFromWindow_(WindowID(ADNDWindow), #MONITOR_DEFAULTTONEAREST), 0, @DpiX, @DpiY) = 0
-						OffsetX = OffsetX * DpiX / CardDpi
-						OffsetY = OffsetY * DpiY / CardDpi
+					If Old And CallFunctionFast(*ADND_DpiForMonitor, MonitorFromWindow_(WindowID(ADNDWindow), #MONITOR_DEFAULTTONEAREST), 0, @DpiX, @DpiY) = 0
+						OffsetX = OffsetX * DpiX / 96 ; the offsets are in points
+						OffsetY = OffsetY * DpiY / 96
 					EndIf
 				EndIf
 				SetWindowPos_(WindowID(ADNDWindow), 0, *p\x + OffsetX, *p\y + OffsetY, 0, 0, #SWP_NOSIZE | #SWP_NOACTIVATE | #SWP_NOREDRAW)
@@ -4017,7 +4099,7 @@ Module UITK
 			Protected HBitmap.BITMAP
 			
 			GetObject_(ImageID, SizeOf(BITMAP), @HBitmap)
-			ResizeWindow(ADNDWindow, DesktopMouseX() + ADND_OffsetX, DesktopMouseY() + ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
+			ResizeWindow(ADNDWindow, DesktopUnscaledX(DesktopMouseX()) + ADND_OffsetX, DesktopUnscaledY(DesktopMouseY()) + ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
 			SetGadgetState(ADNDGadget, ImageID)	
 			HideWindow(ADNDWindow, #False)
 			ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
@@ -6675,7 +6757,7 @@ Module UITK
 						EndIf
 						;}
 					ElseIf \DragState = #Drag_Active ;{
-						SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+						SetWindowPosPoints(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
 						
 						If \VisibleScrollBar
 							If (*Event\MouseY < 0)
@@ -7007,7 +7089,7 @@ Module UITK
 			EndIf
 			
 			If \Reorder
-				SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
+				SetWindowPosPoints(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
 				ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
 			EndIf
 			
@@ -7096,7 +7178,7 @@ Module UITK
 					Next
 
 					If \Reorder
-						SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
+						SetWindowPosPoints(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
 						ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
 					EndIf
 					
@@ -8350,7 +8432,7 @@ Module UITK
 						\Unfolded = #False
 						Redraw = #True
 					Else
-						SetWindowPos_(WindowID(\MenuWindow), 0, GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate), GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Height - #Combo_Corner, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
+						SetWindowPosPoints(WindowID(\MenuWindow), 0, GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate), GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Height - #Combo_Corner, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
 						HideWindow(\MenuWindow, #False)
 						SetActiveGadget(\MenuCanvas)
 						\Unfolded = #True
@@ -10187,7 +10269,7 @@ Module UITK
 			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
 			ScreenX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin
 			ScreenY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Border + ItemRow * \ItemHeight - ScrollOffset + \ItemHeight
-			SetWindowPos_(WindowID(\ComboPopupWindow), 0, ScreenX, ScreenY, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
+			SetWindowPosPoints(WindowID(\ComboPopupWindow), 0, ScreenX, ScreenY, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
 			HideWindow(\ComboPopupWindow, #False)
 			SetActiveGadget(\ComboPopupList)
 		EndWith
@@ -10227,7 +10309,7 @@ Module UITK
 			ScrollOffset = Bool(\VisibleScrollBar) * \ScrollBar\State
 			ScreenX = GadgetX(\Gadget, #PB_Gadget_ScreenCoordinate) + \Width - WindowWidth(\ColorPopupWindow) - \Border
 			ScreenY = GadgetY(\Gadget, #PB_Gadget_ScreenCoordinate) + \Border + ItemRow * \ItemHeight - ScrollOffset + \ItemHeight
-			SetWindowPos_(WindowID(\ColorPopupWindow), 0, ScreenX, ScreenY, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
+			SetWindowPosPoints(WindowID(\ColorPopupWindow), 0, ScreenX, ScreenY, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
 			HideWindow(\ColorPopupWindow, #False)
 			SetActiveGadget(\ColorPopupPicker)
 		EndWith
@@ -11975,7 +12057,7 @@ Module UITK
 			
 			X = WindowX(\Window) + WindowWidth(\Window) - 2
 			ExamineDesktops()	; flip to the left side when the child would leave the screen
-			If X + WindowWidth(*SubData\Window) > DesktopX(0) + DesktopWidth(0)
+			If X + WindowWidth(*SubData\Window) > DesktopPointX(DesktopX(0) + DesktopWidth(0))
 				X = WindowX(\Window) - WindowWidth(*SubData\Window) + 2
 			EndIf
 			
@@ -12172,8 +12254,8 @@ Module UITK
 		ExamineDesktops()
 		
 		If X = -1 And Y = -1
-			X = DesktopMouseX()
-			Y = DesktopMouseY()
+			X = DesktopPointX(DesktopMouseX())
+			Y = DesktopPointY(DesktopMouseY())
 		EndIf
 		
 		*MenuData\ParentMenu = 0
@@ -13319,7 +13401,7 @@ Module UITK
 				X + Offset
 				Y + \Height + 2
 			EndIf
-			SetWindowPos_(WindowID(*Item\ModeWindow), 0, X, Y, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
+			SetWindowPosPoints(WindowID(*Item\ModeWindow), 0, X, Y, 0, 0, #SWP_NOZORDER | #SWP_NOREDRAW | #SWP_NOSIZE)
 			HideWindow(*Item\ModeWindow, #False)
 			SetActiveGadget(*Item\ModeList)
 			\ModeOpenItem = *Item

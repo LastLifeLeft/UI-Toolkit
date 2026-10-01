@@ -2204,7 +2204,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						\RedrawBody = #True
 						\RedrawList = #True
 					EndIf
-					SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+					SetWindowPosPoints(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
 					;}
 				EndIf
 				;}

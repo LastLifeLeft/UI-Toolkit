@@ -1025,7 +1025,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 					EndIf
 					;}
 				ElseIf \DragState = #Drag_Active ;{ carrying a row
-					SetWindowPos_(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
+					SetWindowPosPoints(WindowID(\ReorderWindow), 0, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, 0, 0, #SWP_NOSIZE | #SWP_NOZORDER | #SWP_NOREDRAW)
 					
 					If \VisibleScrollBar
 						If *Event\MouseY < 0
@@ -1650,7 +1650,7 @@ Procedure LayerList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 				Next
 
 				If \Reorder
-					SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
+					SetWindowPosPoints(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
 					ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
 				EndIf
 				
@@ -1706,7 +1706,7 @@ Procedure LayerList_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
 		
 		If \Reorder
-			SetWindowPos_(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
+			SetWindowPosPoints(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
 			ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
 		EndIf
 		
