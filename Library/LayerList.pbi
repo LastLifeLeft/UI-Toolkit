@@ -913,7 +913,7 @@ Procedure LayerList_StartReorder(*GadgetData.LayerListData, *Event.Event)
 		If \Items()\Text\Dirty
 			LayerList_PrepareItem(*GadgetData, @\Items())
 		EndIf
-		StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
+		StartCanvasVectorDrawing(\ReorderCanvas)
 		AddPathBox(0, 0, \Width, \ItemHeight)
 		VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 		FillPath()

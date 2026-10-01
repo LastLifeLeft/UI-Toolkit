@@ -926,7 +926,7 @@ Module UITK
 			If *GadgetData\MetaGadget
 				
 			Else
-				StartVectorDrawing(CanvasVectorOutput(*GadgetData\Gadget))
+				StartCanvasVectorDrawing(*GadgetData\Gadget)
 				AddPathBox(*GadgetData\OriginX, *GadgetData\OriginY, *GadgetData\Width, *GadgetData\Height, #PB_Path_Default)
 				ClipPath(#PB_Path_Preserve)
 				VectorSourceColor(*GadgetData\ThemeData\WindowColor)
@@ -1247,6 +1247,8 @@ Module UITK
 			class_getMethodImplementation(*Class, *Selector)
 			method_getTypeEncoding(*Method)
 			sel_registerName(Name.p-ascii)
+			class_getInstanceVariable(*Class, Name.p-ascii)
+			ivar_getOffset(*Ivar)
 		EndImport
 		
 		PrototypeC   Cocoa_V(*Self, *Sel)
@@ -1331,6 +1333,7 @@ Module UITK
 		EndProcedure
 		
 		Global Sel_FreeGadget = sel_registerName("FreeGadget")
+		Global Sel_CreateImage = sel_registerName("createImage:height:")
 		Global Sel_SetActiveGadget = sel_registerName("ActivateGadget")
 		Global Sel_ClearGadgetItemList = sel_registerName("ClearGadgetItems")
 		Global Sel_CountGadgetItems = sel_registerName("CountGadgetItems")
@@ -1814,6 +1817,45 @@ Module UITK
 			ProcedureReturn Native_AddGadgetItem3(*this, Position, Text, *Image, 0)
 		EndProcedure
 		
+		Global Cocoa_Scale.d
+		
+		Procedure.d Cocoa_BackingScale()		; the densest screen's, so a window moved onto it stays sharp
+			Protected *Screens, Loop, Scale.d
+			
+			If Cocoa_Scale = 0
+				Cocoa_Scale = 1
+				*Screens = CocoaMessage(0, 0, "NSScreen screens")
+				For Loop = 0 To CocoaMessage(0, *Screens, "count") - 1
+					CocoaMessage(@Scale, CocoaMessage(0, *Screens, "objectAtIndex:", Loop), "backingScaleFactor")
+					If Scale > Cocoa_Scale
+						Cocoa_Scale = Scale
+					EndIf
+				Next
+			EndIf
+			
+			ProcedureReturn Cocoa_Scale
+		EndProcedure
+		
+		Procedure Cocoa_IvarAddress(*Object, Name.s)
+			ProcedureReturn *Object + ivar_getOffset(class_getInstanceVariable(object_getClass(*Object), Name))
+		EndProcedure
+		
+		Procedure Cocoa_Ivar(*Object, Name.s)
+			ProcedureReturn PeekI(Cocoa_IvarAddress(*Object, Name))
+		EndProcedure
+		
+		ProcedureC Imp_CreateImage(*Self, *Sel, Width.l, Height.l)		; the canvas view draws its NSImage at the image's point size, so the bitmap behind it can hold more pixels
+			Protected Super.Cocoa_I_LL = Cocoa_Super(*Self, *Sel), Result, Size.CGSize, Scale.d = Cocoa_BackingScale()
+			
+			Result = Super(*Self, *Sel, Width * Scale, Height * Scale)
+			Size\width = Width
+			Size\height = Height
+			CocoaMessage(0, Cocoa_Ivar(*Self, "Image"), "setSize:@", @Size)
+			CocoaMessage(0, Cocoa_Ivar(*Self, "Bitmap"), "setSize:@", @Size)
+			
+			ProcedureReturn Result
+		EndProcedure
+		
 		ProcedureC Imp_Dealloc(*Self, *Sel)		; the shadow dies with PB's object, whichever path freed it
 			Protected *Shadow.PB_Gadget = Cocoa_Lookup(*Self), Super.Cocoa_V = Cocoa_Super(*Self, *Sel)
 			If *Shadow
@@ -1866,9 +1908,10 @@ Module UITK
 		Cocoa_Register(Sel_AddGadgetItem, @Imp_AddGadgetItem(), OffsetOf(GadgetVT\AddGadgetItem3), @Native_AddGadgetItem3())
 		NativeVT\AddGadgetItem2 = @Native_AddGadgetItem2()
 		Cocoa_Register(sel_registerName("dealloc"), @Imp_Dealloc())
+		Cocoa_Register(Sel_CreateImage, @Imp_CreateImage())
 		
 		Procedure Cocoa_Subclass(*Class)		; one UITK_ subclass per PB functions class, no ivars added, so swapping an instance's class in place is safe
-			Protected Name.s = PeekS(class_getName(*Class), -1, #PB_UTF8), SubName.s, *Sub
+			Protected Name.s = PeekS(class_getName(*Class), -1, #PB_UTF8), SubName.s, *Sub, *Method
 			
 			If Left(Name, 5) = "UITK_"
 				ProcedureReturn *Class
@@ -1879,7 +1922,10 @@ Module UITK
 			If *Sub = 0
 				*Sub = objc_allocateClassPair(*Class, SubName, 0)
 				ForEach Cocoa_Method()
-					class_addMethod(*Sub, Cocoa_Method()\Sel, Cocoa_Method()\Imp, method_getTypeEncoding(class_getInstanceMethod(*Class, Cocoa_Method()\Sel)))
+					*Method = class_getInstanceMethod(*Class, Cocoa_Method()\Sel)
+					If *Method
+						class_addMethod(*Sub, Cocoa_Method()\Sel, Cocoa_Method()\Imp, method_getTypeEncoding(*Method))
+					EndIf
 				Next
 				objc_registerClassPair(*Sub)
 			EndIf
@@ -1907,6 +1953,9 @@ Module UITK
 			Cocoa_Shadow(Key) = *Shadow
 			
 			object_setClass(*Real\Functions, Cocoa_Subclass(object_getClass(*Real\Functions)))
+			If CocoaMessage(0, *Real\Functions, "respondsToSelector:", Sel_CreateImage)
+				CocoaMessage(0, *Real\Functions, "createImage:", GadgetWidth(Gadget), "height:", GadgetHeight(Gadget))
+			EndIf
 			
 			ProcedureReturn *Shadow
 		EndProcedure
@@ -1915,6 +1964,28 @@ Module UITK
 			Cocoa_IsGadget(Gadget)
 		EndMacro
 	CompilerEndIf ;}
+	
+	Procedure.d CanvasScale(Gadget)		; canvas bitmap pixels per point
+		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
+			Protected *this.PB_Gadget = IsGadget(Gadget)
+			
+			If *this And GadgetWidth(Gadget) > 0 And CocoaMessage(0, *this\Functions, "respondsToSelector:", Sel_CreateImage)
+				ProcedureReturn PeekL(Cocoa_IvarAddress(*this\Functions, "ImageWidth")) / GadgetWidth(Gadget)
+			EndIf
+		CompilerEndIf
+		
+		ProcedureReturn 1
+	EndProcedure
+	
+	Procedure StartCanvasVectorDrawing(Gadget)		; in points, whatever the canvas bitmap's density
+		Protected Scale.d = CanvasScale(Gadget), Result = StartVectorDrawing(CanvasVectorOutput(Gadget))
+		
+		If Result And Scale <> 1
+			ScaleCoordinates(Scale, Scale)
+		EndIf
+		
+		ProcedureReturn Result
+	EndProcedure
 	
 	Enumeration ;DragState
 		#Drag_None
@@ -3123,7 +3194,7 @@ Module UITK
 			UseGadgetList(PreviousList)
 		EndIf
 		
-		If StartVectorDrawing(CanvasVectorOutput(TooltipCanvas))	; Measure first...
+		If StartCanvasVectorDrawing(TooltipCanvas)	; Measure first...
 			VectorFont(DefaultFont)
 			Width = VectorTextWidth(Text) + 16
 			Height = VectorTextHeight(Text) + 8
@@ -3135,7 +3206,7 @@ Module UITK
 		EndIf
 		ResizeWindow(TooltipWindow, X, Y, Width, Height)
 		ResizeGadget(TooltipCanvas, 0, 0, Width, Height)
-		If StartVectorDrawing(CanvasVectorOutput(TooltipCanvas))	; ...then draw
+		If StartCanvasVectorDrawing(TooltipCanvas)	; ...then draw
 			VectorFont(DefaultFont)
 			AddPathBox(0, 0, Width, Height)
 			VectorSourceColor(*ThemeData\BackColor[#Cold])
@@ -4830,7 +4901,7 @@ Module UITK
 			ClearList(\CharacterData())
 			CharacterCount = Len(\String)
 			
-			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			StartCanvasVectorDrawing(\Gadget)
 			
 			If \TextBlock\FontScale
 				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
@@ -4914,7 +4985,7 @@ Module UITK
 	
 	Procedure String_Relayout(*GadgetData.StringData)
 		With *GadgetData
-			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			StartCanvasVectorDrawing(\Gadget)
 			If \TextBlock\FontScale
 				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
 			Else
@@ -5072,7 +5143,7 @@ Module UITK
 					
 					\CharacterData()\Char = Chr(*Event\Param)
 					\CharacterData()\Position = Size
-					StartVectorDrawing(CanvasVectorOutput(\Gadget))
+					StartCanvasVectorDrawing(\Gadget)
 					If \TextBlock\FontScale
 						VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
 					Else
@@ -5520,7 +5591,7 @@ Module UITK
 		
 		With *GadgetData
 			
-			StartVectorDrawing(CanvasVectorOutput(\Gadget))
+			StartCanvasVectorDrawing(\Gadget)
 			If \TextBlock\FontScale
 				VectorFont(\TextBlock\FontID, \TextBlock\FontScale)
 			Else
@@ -6584,7 +6655,7 @@ Module UITK
 								EndIf
 								
 								SelectElement(\Items(), \State) : TextBlock_Ensure(@\Items()\Text)
-								StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
+								StartCanvasVectorDrawing(\ReorderCanvas)
 								VectorSourceColor(\ThemeData\ShadeColor[#Hot])
 								AddPathBox(0, 0, \Width, \ItemHeight)
 								
@@ -11755,7 +11826,7 @@ Module UITK
 		Protected Y = 0, VerticalOffset
 		
 		With *MenuData
-			StartVectorDrawing(CanvasVectorOutput(\Canvas))
+			StartCanvasVectorDrawing(\Canvas)
 			AddPathBox(0, 0, \Width, \Height)
 			VectorSourceColor(\Theme\ShadeColor[#Cold])
 			FillPath()

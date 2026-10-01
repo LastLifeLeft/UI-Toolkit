@@ -1370,22 +1370,25 @@ EndProcedure
 
 Procedure TimeLine_Redraw_BodyCache(*GadgetData.TimeLineData)
 	; Paints the body content into its own image, outside the canvas context (vector contexts do not nest), so a playhead move can blit it
+	Protected Scale.d = CanvasScale(*GadgetData\Gadget)
+	
 	With *GadgetData
 		If \BodyWidth < 1 Or \BodyHeight < 1
 			ProcedureReturn
 		EndIf
 		If \BodyCache
-			If ImageWidth(\BodyCache) <> \BodyWidth Or ImageHeight(\BodyCache) <> \BodyHeight
+			If ImageWidth(\BodyCache) <> Int(\BodyWidth * Scale) Or ImageHeight(\BodyCache) <> Int(\BodyHeight * Scale)
 				FreeImage(\BodyCache)
 				\BodyCache = 0
 			EndIf
 		EndIf
 		If Not \BodyCache
-			\BodyCache = CreateImage(#PB_Any, \BodyWidth, \BodyHeight, 24)
+			\BodyCache = CreateImage(#PB_Any, \BodyWidth * Scale, \BodyHeight * Scale, 24)
 		EndIf
 
 		If \BodyCache
 			If StartVectorDrawing(ImageVectorOutput(\BodyCache))
+				ScaleCoordinates(Scale, Scale)
 				TranslateCoordinates(-(\OriginX + #TimeLine_List_Width), -(\OriginY + #TimeLine_Header_Height))	; the painters think in canvas coordinates
 				TimeLine_Redraw_BodyContent(*GadgetData)
 				StopVectorDrawing()
@@ -1406,7 +1409,7 @@ Procedure TimeLine_Redraw_Body(*GadgetData.TimeLineData)
 
 		If \InDraw And \BodyCacheValid And \BodyCache
 			MovePathCursor(X, \OriginY + #TimeLine_Header_Height)
-			DrawVectorImage(ImageID(\BodyCache))
+			DrawVectorImage(ImageID(\BodyCache), 255, \BodyWidth, \BodyHeight)
 		Else
 			TimeLine_Redraw_BodyContent(*GadgetData)	; a bare RedrawObject(), or no cache yet: paint direct, and the next TimeLine_Draw rebuilds the cache
 			\BodyCacheValid = #False
@@ -1493,7 +1496,7 @@ Procedure TimeLine_Draw(*GadgetData.TimeLineData)
 		EndIf
 
 		\InDraw = #True
-		StartVectorDrawing(CanvasVectorOutput(\Gadget))
+		StartCanvasVectorDrawing(\Gadget)
 		TimeLine_Redraw(*GadgetData)
 		StopVectorDrawing()
 		\InDraw = #False
@@ -2134,7 +2137,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						
 						ResizeWindow(\ReorderWindow, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, \Width, #PB_Ignore)
 						
-						StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
+						StartCanvasVectorDrawing(\ReorderCanvas)
 						AddPathBox(#TimeLine_List_Width - 1, 0, 3, #TimeLine_List_LineHeight)
 						VectorSourceColor(\ThemeData\WindowColor)
 						FillPath()
