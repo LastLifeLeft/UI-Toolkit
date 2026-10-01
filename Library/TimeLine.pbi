@@ -79,9 +79,15 @@ TimeLine_ZoomLevel(9) = 16
 TimeLine_ZoomLevel(10) = 24
 TimeLine_ZoomLevel(11) = 32
 
-Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Segoe UI Semibold", 12, #PB_Font_HighQuality))
-Global TimeLine_Font = FontID(LoadFont(#PB_Any, "Segoe UI", 10, #PB_Font_HighQuality))
-Global TimeLine_RulerFont = FontID(LoadFont(#PB_Any, "Segoe UI", 8, #PB_Font_HighQuality))
+CompilerIf #PB_Compiler_OS = #PB_OS_MacOS		; 4/3 of the Windows sizes, as the core fonts
+	Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Helvetica Neue", 16, #PB_Font_HighQuality | #PB_Font_Bold))
+	Global TimeLine_Font = FontID(LoadFont(#PB_Any, "Helvetica Neue", 13, #PB_Font_HighQuality))
+	Global TimeLine_RulerFont = FontID(LoadFont(#PB_Any, "Helvetica Neue", 11, #PB_Font_HighQuality))
+CompilerElse
+	Global TimeLine_ListFont = FontID(LoadFont(#PB_Any, "Segoe UI Semibold", 12, #PB_Font_HighQuality))
+	Global TimeLine_Font = FontID(LoadFont(#PB_Any, "Segoe UI", 10, #PB_Font_HighQuality))
+	Global TimeLine_RulerFont = FontID(LoadFont(#PB_Any, "Segoe UI", 8, #PB_Font_HighQuality))
+CompilerEndIf
 
 Structure TimeLine_Key
 	Track.b								; which keyable track it sits on
@@ -1364,22 +1370,25 @@ EndProcedure
 
 Procedure TimeLine_Redraw_BodyCache(*GadgetData.TimeLineData)
 	; Paints the body content into its own image, outside the canvas context (vector contexts do not nest), so a playhead move can blit it
+	Protected Scale.d = CanvasScale(*GadgetData\Gadget)
+	
 	With *GadgetData
 		If \BodyWidth < 1 Or \BodyHeight < 1
 			ProcedureReturn
 		EndIf
 		If \BodyCache
-			If ImageWidth(\BodyCache) <> \BodyWidth Or ImageHeight(\BodyCache) <> \BodyHeight
+			If ImageWidth(\BodyCache) <> Int(\BodyWidth * Scale) Or ImageHeight(\BodyCache) <> Int(\BodyHeight * Scale)
 				FreeImage(\BodyCache)
 				\BodyCache = 0
 			EndIf
 		EndIf
 		If Not \BodyCache
-			\BodyCache = CreateImage(#PB_Any, \BodyWidth, \BodyHeight, 24)
+			\BodyCache = CreateImage(#PB_Any, \BodyWidth * Scale, \BodyHeight * Scale, 24)
 		EndIf
 
 		If \BodyCache
 			If StartVectorDrawing(ImageVectorOutput(\BodyCache))
+				ScaleCoordinates(Scale, Scale)
 				TranslateCoordinates(-(\OriginX + #TimeLine_List_Width), -(\OriginY + #TimeLine_Header_Height))	; the painters think in canvas coordinates
 				TimeLine_Redraw_BodyContent(*GadgetData)
 				StopVectorDrawing()
@@ -1400,7 +1409,7 @@ Procedure TimeLine_Redraw_Body(*GadgetData.TimeLineData)
 
 		If \InDraw And \BodyCacheValid And \BodyCache
 			MovePathCursor(X, \OriginY + #TimeLine_Header_Height)
-			DrawVectorImage(ImageID(\BodyCache))
+			DrawVectorImage(ImageID(\BodyCache), 255, \BodyWidth, \BodyHeight)
 		Else
 			TimeLine_Redraw_BodyContent(*GadgetData)	; a bare RedrawObject(), or no cache yet: paint direct, and the next TimeLine_Draw rebuilds the cache
 			\BodyCacheValid = #False
@@ -1487,7 +1496,7 @@ Procedure TimeLine_Draw(*GadgetData.TimeLineData)
 		EndIf
 
 		\InDraw = #True
-		StartVectorDrawing(CanvasVectorOutput(\Gadget))
+		StartCanvasVectorDrawing(\Gadget)
 		TimeLine_Redraw(*GadgetData)
 		StopVectorDrawing()
 		\InDraw = #False
@@ -2128,7 +2137,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						
 						ResizeWindow(\ReorderWindow, *Event\MouseX + \DragOriginX, *Event\MouseY + \DragOriginY, \Width, #PB_Ignore)
 						
-						StartVectorDrawing(CanvasVectorOutput(\ReorderCanvas))
+						StartCanvasVectorDrawing(\ReorderCanvas)
 						AddPathBox(#TimeLine_List_Width - 1, 0, 3, #TimeLine_List_LineHeight)
 						VectorSourceColor(\ThemeData\WindowColor)
 						FillPath()
@@ -2217,7 +2226,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 					Case #PB_Shortcut_Return ;{
 						TimeLine_EndEdit(*GadgetData, #True)
 						;}
-					Case #PB_Shortcut_Delete ;{
+					Case #PB_Shortcut_Delete, #Shortcut_Erase ;{
 						If \Editing
 						ElseIf ListSize(\KeySelection()) ;{ whichever of the two selections is live
 							While FirstElement(\KeySelection())
@@ -2268,7 +2277,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						If *Key ;{ A key takes the click before the block it sits in
 							TimeLine_ClearSelection(*GadgetData)
 							
-							If \OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #PB_Canvas_Control
+							If \OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #Modifier_Shortcut
 								If *Key\Selected
 									Changed = TimeLine_DeselectKey(*GadgetData, *Key)
 								Else
@@ -2291,7 +2300,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						ElseIf *Block ;{
 							TimeLine_ClearKeySelection(*GadgetData)
 							
-							If \OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #PB_Canvas_Control
+							If \OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #Modifier_Shortcut
 								If *Block\Selected
 									Changed = TimeLine_Deselect(*GadgetData, *Block)
 								Else
@@ -2463,7 +2472,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 			Case #MouseWheel	  ;{
 				TimeLine_EndEdit(*GadgetData, #True)
 				
-				If \OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #PB_Canvas_Control ;{ Zoom about the pointer
+				If \OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #Modifier_Shortcut ;{ Zoom about the pointer
 					Zoom = Clamp(\Zoom + Bool(*Event\Param > 0) - Bool(*Event\Param < 0), 0, #__TimeLine_Zoom_Count - 1)
 					
 					If Zoom <> \Zoom

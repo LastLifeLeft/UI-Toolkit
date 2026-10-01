@@ -1,30 +1,36 @@
 ﻿#ParameterList_ItemHeight = 24
+#ParameterList_HeaderHeight = 24
 #ParameterList_Margin = 6
 #ParameterList_FoldWidth = 14			; the chevron column, and the indent one child step costs
 #ParameterList_ButtonWidth = 20			; the plus on a group row and the cross on a removable one
 #ParameterList_ToolbarThickness = 7		; scrollbar - always reserved, so no column moves when it appears
 #ParameterList_MinColumn = 48			; narrowest a column may be dragged
 #ParameterList_GripWidth = 4			; grab zone either side of a column rule
+#ParameterList_MaxColumn = 32
 
 Enumeration ; Which part of a row the pointer is over
 	#ParameterList_Zone_Body
 	#ParameterList_Zone_Fold
 	#ParameterList_Zone_Add
 	#ParameterList_Zone_Remove
-	#ParameterList_Zone_Name
-	#ParameterList_Zone_Expression
-	#ParameterList_Zone_GripName		; the rule between the name and the expression
-	#ParameterList_Zone_GripValue		; and the one between the expression and the reading
+	#ParameterList_Zone_Cell
+	#ParameterList_Zone_Grip
+	#ParameterList_Zone_Header
 EndEnumeration
 
+Structure ParameterList_Column
+	Text.Text
+	Width.l
+	Role.b
+EndStructure
+
 Structure ParameterList_Item
-	Text.Text							; the NAME cell - stays first, where a VerticalList-style callback expects it
-	Expression.Text
-	Value.Text
+	Text.Text							; cell 0, kept first for the VerticalList-style callbacks
+	Array Cells.Text(0)					; column c is Cells(c - 1)
 	Kind.b
 	Depth.b								; 0 = top level, 1 = inside the nearest shallower row above, and so on
 	Folded.b
-	Editable.b							; bit 0 the name cell, bit 1 the expression cell
+	Editable.l
 	Removable.b
 	Faulty.b
 	Adder.b								; a group row that offers a plus
@@ -33,19 +39,25 @@ EndStructure
 
 Structure ParameterListData Extends GadgetData
 	ItemHeight.l
+	HeaderHeight.l
 	VisibleScrollBar.b
 	ItemState.i							; hovered row as a list index, or -1
 	HoverZone.b
-	NameWidth.l
-	ValueWidth.l						; the expression column is whatever is left between the two
-	DragGrip.b							; the rule being dragged, #ParameterList_Zone_Body for none
+	HoverColumn.b
+	ColumnCount.l
+	StretchColumn.l
+	ClickedColumn.b
+	Array Columns.ParameterList_Column(0)
+	DragGrip.b
+	DragColumn.b
+	DragSign.b
 	DragOriginX.i
 	DragOriginWidth.l
 	
 	Editable.l
 	Editing.b
 	EditRow.i							; list index under the LIVE editor
-	EditColumn.b						; …and which of its cells, 0 the name and 1 the expression
+	EditColumn.b
 	CommitRow.i							; …and the LAST COMMIT: read after the posted event, by when the editor may have moved on
 	CommitColumn.b
 	EditCursor.b						; the cursor in force, and so also "the pointer is inside the editor"
@@ -59,6 +71,8 @@ EndStructure
 Declare ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event)
 Declare ParameterList_EndEdit(*GadgetData.ParameterListData, Keep)
 Declare ParameterList_PrepareItem(*GadgetData.ParameterListData, *Item.ParameterList_Item)
+Declare ParameterList_DirtyItem(*GadgetData.ParameterListData, *Item.ParameterList_Item)
+Declare ParameterList_ColumnX(*GadgetData.ParameterListData, Column)
 
 ;- Structure walking
 ; SelectElement() is only HALF a guard: an index past the end answers #False, but a NEGATIVE one is a runtime error
@@ -165,69 +179,147 @@ Procedure ParameterList_IndexToRow(*GadgetData.ParameterListData, Index)
 	ProcedureReturn -1
 EndProcedure
 
+;- Columns
+Procedure.i ParameterList_Cell(*Item.ParameterList_Item, Column)
+	If Column <= 0
+		ProcedureReturn @*Item\Text
+	EndIf
+	ProcedureReturn @*Item\Cells(Column - 1)
+EndProcedure
+
+Procedure ParameterList_SizeCells(*GadgetData.ParameterListData, *Item.ParameterList_Item)
+	; one spare either side of every index
+	ReDim *Item\Cells(*GadgetData\ColumnCount)
+EndProcedure
+
+Procedure ParameterList_StretchIndex(*GadgetData.ParameterListData)
+	With *GadgetData
+		If \StretchColumn >= 0 And \StretchColumn < \ColumnCount
+			ProcedureReturn \StretchColumn
+		EndIf
+		ProcedureReturn \ColumnCount - 1
+	EndWith
+EndProcedure
+
+Procedure ParameterList_TreeColumn(*GadgetData.ParameterListData)
+	Protected Loop
+	
+	With *GadgetData
+		For Loop = 0 To \ColumnCount - 1
+			If \Columns(Loop)\Role = #ParameterList_Tree
+				ProcedureReturn Loop
+			EndIf
+		Next
+	EndWith
+	
+	ProcedureReturn -1
+EndProcedure
+
 ;- Geometry
 Procedure ParameterList_ContentWidth(*GadgetData.ParameterListData)
 	ProcedureReturn *GadgetData\Width - *GadgetData\Border * 2 - #ParameterList_ToolbarThickness - 2
 EndProcedure
 
-Procedure ParameterList_ExprWidth(*GadgetData.ParameterListData)
-	Protected Width = ParameterList_ContentWidth(*GadgetData) - *GadgetData\NameWidth - *GadgetData\ValueWidth
+Procedure ParameterList_ColumnWidth(*GadgetData.ParameterListData, Column)
+	Protected Width, Loop
 	
-	If Width < #ParameterList_MinColumn
-		Width = #ParameterList_MinColumn
-	EndIf
+	With *GadgetData
+		If Column < 0 Or Column >= \ColumnCount
+			ProcedureReturn 0
+		EndIf
+		If Column <> ParameterList_StretchIndex(*GadgetData)
+			ProcedureReturn \Columns(Column)\Width
+		EndIf
+		
+		Width = ParameterList_ContentWidth(*GadgetData)
+		For Loop = 0 To \ColumnCount - 1
+			If Loop <> Column
+				Width - \Columns(Loop)\Width
+			EndIf
+		Next
+		If Width < #ParameterList_MinColumn
+			Width = #ParameterList_MinColumn
+		EndIf
+	EndWith
+	
 	ProcedureReturn Width
 EndProcedure
 
-Procedure ParameterList_ExprX(*GadgetData.ParameterListData)
-	ProcedureReturn *GadgetData\Border + *GadgetData\NameWidth
-EndProcedure
-
-Procedure ParameterList_ValueX(*GadgetData.ParameterListData)
-	ProcedureReturn ParameterList_ExprX(*GadgetData) + ParameterList_ExprWidth(*GadgetData)
-EndProcedure
-
-Procedure ParameterList_TextX(*GadgetData.ParameterListData, Depth)
-	; The name cell's own text, indented by depth with the chevron in the step left of it
-	ProcedureReturn *GadgetData\Border + #ParameterList_Margin + (Depth + 1) * #ParameterList_FoldWidth
-EndProcedure
-
-Procedure ParameterList_ZoneAt(*GadgetData.ParameterListData, Index, MouseX)
-	Protected TextX, AddX, RemoveX
+Procedure ParameterList_ColumnX(*GadgetData.ParameterListData, Column)
+	Protected X, Loop
 	
 	With *GadgetData
-		If Abs(MouseX - ParameterList_ExprX(*GadgetData)) <= #ParameterList_GripWidth
-			ProcedureReturn #ParameterList_Zone_GripName
+		X = \Border
+		For Loop = 0 To Column - 1
+			X + ParameterList_ColumnWidth(*GadgetData, Loop)
+		Next
+	EndWith
+	
+	ProcedureReturn X
+EndProcedure
+
+Procedure ParameterList_TextX(*GadgetData.ParameterListData, Column, Depth)
+	ProcedureReturn ParameterList_ColumnX(*GadgetData, Column) + #ParameterList_Margin + (Depth + 1) * #ParameterList_FoldWidth
+EndProcedure
+
+Procedure ParameterList_RowTop(*GadgetData.ParameterListData)
+	ProcedureReturn *GadgetData\Border + *GadgetData\HeaderHeight
+EndProcedure
+
+Procedure ParameterList_ZoneAt(*GadgetData.ParameterListData, Index, MouseX, MouseY, *Column.Long)
+	Protected Loop, TextX, AddX, RemoveX, Tree, *Item.ParameterList_Item
+	
+	With *GadgetData
+		*Column\l = -1
+		
+		For Loop = 1 To \ColumnCount - 1
+			If Abs(MouseX - ParameterList_ColumnX(*GadgetData, Loop)) <= #ParameterList_GripWidth
+				*Column\l = Loop
+				ProcedureReturn #ParameterList_Zone_Grip
+			EndIf
+		Next
+		
+		For Loop = 0 To \ColumnCount - 1
+			If MouseX >= ParameterList_ColumnX(*GadgetData, Loop) And MouseX < ParameterList_ColumnX(*GadgetData, Loop + 1)
+				*Column\l = Loop
+				Break
+			EndIf
+		Next
+		
+		If \HeaderHeight And MouseY < ParameterList_RowTop(*GadgetData)
+			ProcedureReturn #ParameterList_Zone_Header
 		EndIf
-		If Abs(MouseX - ParameterList_ValueX(*GadgetData)) <= #ParameterList_GripWidth
-			ProcedureReturn #ParameterList_Zone_GripValue
-		EndIf
+		
 		If Not ParameterList_Select(*GadgetData, Index)
 			ProcedureReturn #ParameterList_Zone_Body	; …including the empty space below the last row
 		EndIf
+		*Item = @\Items()
+		Tree = ParameterList_TreeColumn(*GadgetData)
 		
-		TextX = ParameterList_TextX(*GadgetData, \Items()\Depth)
-		If ParameterList_ChildCount(*GadgetData, Index) And MouseX >= TextX - #ParameterList_FoldWidth And MouseX < TextX
-			ProcedureReturn #ParameterList_Zone_Fold
+		If Tree > -1 And ParameterList_ChildCount(*GadgetData, Index)
+			TextX = ParameterList_TextX(*GadgetData, Tree, *Item\Depth)
+			If MouseX >= TextX - #ParameterList_FoldWidth And MouseX < TextX
+				ProcedureReturn #ParameterList_Zone_Fold
+			EndIf
 		EndIf
 		
-		If \Items()\Kind = #ParameterList_Group
-			AddX = ParameterList_ExprX(*GadgetData) - #ParameterList_ButtonWidth
-			If \Items()\Adder And MouseX >= AddX And MouseX < AddX + #ParameterList_ButtonWidth
-				ProcedureReturn #ParameterList_Zone_Add
+		If *Item\Kind = #ParameterList_Group
+			If *Item\Adder And Tree > -1
+				AddX = ParameterList_ColumnX(*GadgetData, Tree + 1) - #ParameterList_ButtonWidth
+				If MouseX >= AddX And MouseX < AddX + #ParameterList_ButtonWidth
+					ProcedureReturn #ParameterList_Zone_Add
+				EndIf
 			EndIf
 			ProcedureReturn #ParameterList_Zone_Body
 		EndIf
 		
 		RemoveX = \Border + ParameterList_ContentWidth(*GadgetData) - #ParameterList_ButtonWidth
-		If \Items()\Removable And Index = \ItemState And MouseX >= RemoveX
+		If *Item\Removable And Index = \ItemState And MouseX >= RemoveX
 			ProcedureReturn #ParameterList_Zone_Remove
 		EndIf
 		
-		If MouseX < ParameterList_ExprX(*GadgetData)
-			ProcedureReturn #ParameterList_Zone_Name
-		ElseIf MouseX < ParameterList_ValueX(*GadgetData)
-			ProcedureReturn #ParameterList_Zone_Expression
+		If *Column\l > -1
+			ProcedureReturn #ParameterList_Zone_Cell
 		EndIf
 	EndWith
 	
@@ -243,7 +335,7 @@ Procedure ParameterList_UpdateScrollBar(*GadgetData.ParameterListData)
 		EndIf
 		
 		Rows = ParameterList_RowCount(*GadgetData)
-		\VisibleScrollBar = Bool(Rows * \ItemHeight > \Height - \Border * 2)
+		\VisibleScrollBar = Bool(Rows * \ItemHeight > \Height - ParameterList_RowTop(*GadgetData) - \Border)
 		ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, Rows * \ItemHeight)
 		If Not \VisibleScrollBar
 			ScrollBar_SetState_Meta(\ScrollBar, 0)
@@ -258,48 +350,81 @@ Procedure ParameterList_ScrollOffset(*GadgetData.ParameterListData)
 	ProcedureReturn 0
 EndProcedure
 
-Procedure ParameterList_DirtyItem(*Item.ParameterList_Item)
-	*Item\Text\Dirty = #True
-	*Item\Expression\Dirty = #True
-	*Item\Value\Dirty = #True
+Procedure ParameterList_RowAt(*GadgetData.ParameterListData, MouseY)
+	With *GadgetData
+		If MouseY < ParameterList_RowTop(*GadgetData)
+			ProcedureReturn -1
+		EndIf
+		ProcedureReturn Floor((MouseY - ParameterList_RowTop(*GadgetData) + ParameterList_ScrollOffset(*GadgetData)) / \ItemHeight)
+	EndWith
+EndProcedure
+
+Procedure ParameterList_DirtyItem(*GadgetData.ParameterListData, *Item.ParameterList_Item)
+	Protected Loop, *Cell.Text
+	
+	With *GadgetData
+		For Loop = 0 To \ColumnCount - 1
+			*Cell = ParameterList_Cell(*Item, Loop)
+			*Cell\Dirty = #True
+		Next
+	EndWith
 EndProcedure
 
 Procedure ParameterList_PrepareItem(*GadgetData.ParameterListData, *Item.ParameterList_Item)
-	Protected NameWidth
+	Protected Loop, Width, Tree, *Cell.Text
 	
 	With *GadgetData
-		NameWidth = ParameterList_ExprX(*GadgetData) - ParameterList_TextX(*GadgetData, *Item\Depth) - #ParameterList_Margin
-		If *Item\Adder
-			NameWidth - #ParameterList_ButtonWidth
-		EndIf
-		If NameWidth < 1
-			NameWidth = 1
+		Tree = ParameterList_TreeColumn(*GadgetData)
+	
+		For Loop = 0 To \ColumnCount - 1
+			*Cell = ParameterList_Cell(*Item, Loop)
+			If Not *Cell\Dirty
+				Continue
+			EndIf
+			
+			If \Columns(Loop)\Role = #ParameterList_Tree
+				Width = ParameterList_ColumnX(*GadgetData, Loop + 1) - ParameterList_TextX(*GadgetData, Loop, *Item\Depth) - #ParameterList_Margin
+				If *Item\Adder And Loop = Tree
+					Width - #ParameterList_ButtonWidth
+				EndIf
+			Else
+				Width = ParameterList_ColumnWidth(*GadgetData, Loop) - #ParameterList_Margin * 2
+			EndIf
+			If Width < 1
+				Width = 1
+			EndIf
+			
+			*Cell\Width = Width
+			*Cell\Height = \ItemHeight
+			PrepareVectorTextBlock(*Cell)
+		Next
+	EndWith
+EndProcedure
+
+Procedure ParameterList_PrepareColumns(*GadgetData.ParameterListData)
+	Protected Loop
+	
+	With *GadgetData
+		If Not \HeaderHeight
+			ProcedureReturn
 		EndIf
 		
-		If *Item\Text\Dirty
-			*Item\Text\Width = NameWidth
-			*Item\Text\Height = \ItemHeight
-			PrepareVectorTextBlock(@*Item\Text)
-		EndIf
-
-		If *Item\Expression\Dirty
-			*Item\Expression\Width = ParameterList_ExprWidth(*GadgetData) - #ParameterList_Margin * 2
-			*Item\Expression\Height = \ItemHeight
-			PrepareVectorTextBlock(@*Item\Expression)
-		EndIf
-
-		If *Item\Value\Dirty
-			*Item\Value\Width = \ValueWidth - #ParameterList_Margin * 2
-			*Item\Value\Height = \ItemHeight
-			PrepareVectorTextBlock(@*Item\Value)
-		EndIf
+		For Loop = 0 To \ColumnCount - 1
+			\Columns(Loop)\Text\Width = ParameterList_ColumnWidth(*GadgetData, Loop) - #ParameterList_Margin * 2
+			If \Columns(Loop)\Text\Width < 1
+				\Columns(Loop)\Text\Width = 1
+			EndIf
+			\Columns(Loop)\Text\Height = \HeaderHeight
+			PrepareVectorTextBlock(@\Columns(Loop)\Text)
+		Next
 	EndWith
 EndProcedure
 
 Procedure ParameterList_PrepareAll(*GadgetData.ParameterListData)
 	With *GadgetData
+		ParameterList_PrepareColumns(*GadgetData)
 		ForEach \Items()
-			ParameterList_DirtyItem(@\Items())
+			ParameterList_DirtyItem(*GadgetData, @\Items())
 		Next
 	EndWith
 EndProcedure
@@ -350,8 +475,28 @@ Procedure ParameterList_DrawRemove(X, Y, Width, Height)
 	StrokePath(1.6)
 EndProcedure
 
+Procedure ParameterList_DrawHeader(*GadgetData.ParameterListData)
+	Protected Loop
+	
+	With *GadgetData
+		AddPathBox(\OriginX + \Border, \OriginY + \Border, \Width - \Border * 2, \HeaderHeight)
+		VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+		FillPath()
+		
+		VectorSourceColor(\ThemeData\TextColor[#Cold])
+		For Loop = 0 To \ColumnCount - 1
+			DrawVectorTextBlock(@\Columns(Loop)\Text, \OriginX + ParameterList_ColumnX(*GadgetData, Loop) + #ParameterList_Margin, \OriginY + \Border)
+		Next
+		
+		VectorSourceColor(\ThemeData\LineColor[#Cold])
+		AddPathBox(\OriginX + \Border, \OriginY + ParameterList_RowTop(*GadgetData), \Width - \Border * 2, 1)
+		FillPath()
+	EndWith
+EndProcedure
+
 Procedure ParameterList_Redraw(*GadgetData.ParameterListData)
-	Protected Y, Row, FirstRow, Index, ShadeState, TextState, TextX, ExprX, ValueX, RuleTop, RuleBottom
+	Protected Y, Row, FirstRow, Index, Column, ShadeState, TextState, X, RuleTop, RuleBottom, Tree
+	Protected *Item.ParameterList_Item
 	
 	With *GadgetData
 		If \Border
@@ -367,16 +512,18 @@ Procedure ParameterList_Redraw(*GadgetData.ParameterListData)
 		FillPath()
 		
 		If Not ListSize(\Items())
+			If \HeaderHeight
+				ParameterList_DrawHeader(*GadgetData)
+			EndIf
 			ProcedureReturn
 		EndIf
 		
 		ParameterList_UpdateScrollBar(*GadgetData)	; …the rows that arrived while frozen
-		ExprX = \OriginX + ParameterList_ExprX(*GadgetData)
-		ValueX = \OriginX + ParameterList_ValueX(*GadgetData)
+		Tree = ParameterList_TreeColumn(*GadgetData)
 		RuleTop = \OriginY + \Border
 		RuleBottom = \OriginY + \Height - \Border
 		
-		Y = \OriginY + \Border
+		Y = \OriginY + ParameterList_RowTop(*GadgetData)
 		If \VisibleScrollBar
 			FirstRow = Floor(\ScrollBar\State / \ItemHeight)
 			Y - (\ScrollBar\State % \ItemHeight)
@@ -390,13 +537,14 @@ Procedure ParameterList_Redraw(*GadgetData.ParameterListData)
 			EndIf
 			
 			SelectElement(\Items(), Index)
-			ParameterList_PrepareItem(*GadgetData, @\Items())	; on the open canvas context, the dirty cells of this row only
-
+			*Item = @\Items()				; by pointer: helpers move the list cursor
+			ParameterList_PrepareItem(*GadgetData, *Item)
+			
 			If Index = \State
 				ShadeState = #Hot
 			ElseIf Index = \ItemState
 				ShadeState = #Warm
-			ElseIf \Items()\Kind = #ParameterList_Group
+			ElseIf *Item\Kind = #ParameterList_Group
 				ShadeState = #Warm			; a group band stands off the field even when nothing is on it
 			Else
 				ShadeState = #Cold
@@ -414,52 +562,59 @@ Procedure ParameterList_Redraw(*GadgetData.ParameterListData)
 				FillPath()
 			EndIf
 			
-			SelectElement(\Items(), Index)
-			If ParameterList_ChildCount(*GadgetData, Index)
-				VectorSourceColor(\ThemeData\TextColor[TextState])
-				ParameterList_DrawFold(\OriginX + ParameterList_TextX(*GadgetData, \Items()\Depth) - #ParameterList_FoldWidth, Y, #ParameterList_FoldWidth, \Items()\Folded)
-			EndIf
+			For Column = 0 To \ColumnCount - 1
+				Select \Columns(Column)\Role
+					Case #ParameterList_Tree ;{
+						X = \OriginX + ParameterList_TextX(*GadgetData, Column, *Item\Depth)
+						VectorSourceColor(\ThemeData\TextColor[TextState])
+						
+						If Column = Tree And ParameterList_ChildCount(*GadgetData, Index)
+							ParameterList_DrawFold(X - #ParameterList_FoldWidth, Y, #ParameterList_FoldWidth, *Item\Folded)
+						EndIf
+						
+						DrawVectorTextBlock(ParameterList_Cell(*Item, Column), X, Y)
+						
+						If Column = Tree And *Item\Adder
+							ParameterList_DrawAdd(\OriginX + ParameterList_ColumnX(*GadgetData, Column + 1) - #ParameterList_ButtonWidth, Y, #ParameterList_ButtonWidth, \ItemHeight)
+						EndIf
+						;}
+					Case #ParameterList_Derived ;{
+						If *Item\Kind = #ParameterList_Value
+							If *Item\Faulty
+								VectorSourceColor(\ThemeData\TextColor[#Hot])
+							Else
+								VectorSourceColor(\ThemeData\TextColor[#Disabled])
+							EndIf
+							DrawVectorTextBlock(ParameterList_Cell(*Item, Column), \OriginX + ParameterList_ColumnX(*GadgetData, Column) + #ParameterList_Margin, Y)
+						EndIf
+						;}
+					Default ;{
+						If *Item\Kind = #ParameterList_Value
+							VectorSourceColor(\ThemeData\TextColor[TextState])
+							DrawVectorTextBlock(ParameterList_Cell(*Item, Column), \OriginX + ParameterList_ColumnX(*GadgetData, Column) + #ParameterList_Margin, Y)
+						EndIf
+						;}
+				EndSelect
+			Next
 			
-			SelectElement(\Items(), Index)
-			TextX = \OriginX + ParameterList_TextX(*GadgetData, \Items()\Depth)
-			VectorSourceColor(\ThemeData\TextColor[TextState])
-			DrawVectorTextBlock(@\Items()\Text, TextX, Y)
-			
-			SelectElement(\Items(), Index)
-			If \Items()\Adder
+			If *Item\Kind = #ParameterList_Value And *Item\Removable And Index = \ItemState
 				VectorSourceColor(\ThemeData\TextColor[TextState])
-				ParameterList_DrawAdd(ExprX - #ParameterList_ButtonWidth, Y, #ParameterList_ButtonWidth, \ItemHeight)
-			EndIf
-			
-			SelectElement(\Items(), Index)
-			If \Items()\Kind = #ParameterList_Value
-				VectorSourceColor(\ThemeData\TextColor[TextState])
-				DrawVectorTextBlock(@\Items()\Expression, ExprX + #ParameterList_Margin, Y)
-				
-				SelectElement(\Items(), Index)
-				If \Items()\Faulty		; a complaint is ink the eye stops on, the way a number is not
-					VectorSourceColor(\ThemeData\TextColor[#Hot])
-				Else
-					VectorSourceColor(\ThemeData\TextColor[#Disabled])
-				EndIf
-				DrawVectorTextBlock(@\Items()\Value, ValueX + #ParameterList_Margin, Y)
-				
-				SelectElement(\Items(), Index)
-				If \Items()\Removable And Index = \ItemState
-					VectorSourceColor(\ThemeData\TextColor[TextState])
-					ParameterList_DrawRemove(\OriginX + \Border + ParameterList_ContentWidth(*GadgetData) - #ParameterList_ButtonWidth, Y, #ParameterList_ButtonWidth, \ItemHeight)
-				EndIf
+				ParameterList_DrawRemove(\OriginX + \Border + ParameterList_ContentWidth(*GadgetData) - #ParameterList_ButtonWidth, Y, #ParameterList_ButtonWidth, \ItemHeight)
 			EndIf
 			
 			Y + \ItemHeight
 			Row + 1
 		Wend
 		
+		If \HeaderHeight
+			ParameterList_DrawHeader(*GadgetData)
+		EndIf
+		
 		VectorSourceColor(\ThemeData\LineColor[#Cold])
-		AddPathBox(ExprX, RuleTop, 1, RuleBottom - RuleTop)
-		FillPath()
-		AddPathBox(ValueX, RuleTop, 1, RuleBottom - RuleTop)
-		FillPath()
+		For Column = 1 To \ColumnCount - 1
+			AddPathBox(\OriginX + ParameterList_ColumnX(*GadgetData, Column), RuleTop, 1, RuleBottom - RuleTop)
+			FillPath()
+		Next
 		
 		If \VisibleScrollBar
 			\ScrollBar\Redraw(\ScrollBar)
@@ -474,9 +629,17 @@ Procedure ParameterList_Redraw(*GadgetData.ParameterListData)
 EndProcedure
 
 ;- Editing
+Procedure ParameterList_CellEditable(*GadgetData.ParameterListData, *Item.ParameterList_Item, Column)
+	With *GadgetData
+		If Column < 0 Or Column >= \ColumnCount Or \Columns(Column)\Role = #ParameterList_Derived
+			ProcedureReturn #False
+		EndIf
+		ProcedureReturn Bool(*Item\Kind = #ParameterList_Value And *Item\Editable & (1 << Column))
+	EndWith
+EndProcedure
+
 Procedure ParameterList_StartEdit(*GadgetData.ParameterListData, Index, Column)
-	; Park the editor over one cell - column 0 the name, 1 the expression; a cell the row is not editable for is left alone
-	Protected Event.Event, Row
+	Protected Event.Event, Row, *Item.ParameterList_Item, *Cell.Text
 	
 	With *GadgetData
 		If Not \Editable Or \Editing Or Index < 0
@@ -487,7 +650,8 @@ Procedure ParameterList_StartEdit(*GadgetData.ParameterListData, Index, Column)
 		If Row < 0 Or Not SelectElement(\Items(), Index)
 			ProcedureReturn #False
 		EndIf
-		If \Items()\Kind <> #ParameterList_Value Or Not (\Items()\Editable & (1 << Column))
+		*Item = @\Items()
+		If Not ParameterList_CellEditable(*GadgetData, *Item, Column)
 			ProcedureReturn #False
 		EndIf
 		
@@ -495,18 +659,19 @@ Procedure ParameterList_StartEdit(*GadgetData.ParameterListData, Index, Column)
 		\EditRow = Index
 		\EditColumn = Column
 		
-		If Column = 0
-			\String\String = \Items()\Text\OriginalText
-			\String\OriginX = ParameterList_TextX(*GadgetData, \Items()\Depth)
-			\String\Width = ParameterList_ExprX(*GadgetData) - \String\OriginX - #ParameterList_Margin
+		*Cell = ParameterList_Cell(*Item, Column)
+		\String\String = *Cell\OriginalText
+		
+		If \Columns(Column)\Role = #ParameterList_Tree
+			\String\OriginX = ParameterList_TextX(*GadgetData, Column, *Item\Depth)
+			\String\Width = ParameterList_ColumnX(*GadgetData, Column + 1) - \String\OriginX - #ParameterList_Margin
 		Else
-			\String\String = \Items()\Expression\OriginalText
-			\String\OriginX = ParameterList_ExprX(*GadgetData) + #ParameterList_Margin
-			\String\Width = ParameterList_ExprWidth(*GadgetData) - #ParameterList_Margin * 2
+			\String\OriginX = ParameterList_ColumnX(*GadgetData, Column) + #ParameterList_Margin
+			\String\Width = ParameterList_ColumnWidth(*GadgetData, Column) - #ParameterList_Margin * 2
 		EndIf
 		
 		String_ProcessString(\String)
-		\String\OriginY = \Border + Row * \ItemHeight - ParameterList_ScrollOffset(*GadgetData) + 1
+		\String\OriginY = ParameterList_RowTop(*GadgetData) + Row * \ItemHeight - ParameterList_ScrollOffset(*GadgetData) + 1
 		
 		Event\EventType = #Focus
 		\String\EventHandler(\String, Event)
@@ -517,8 +682,7 @@ Procedure ParameterList_StartEdit(*GadgetData.ParameterListData, Index, Column)
 EndProcedure
 
 Procedure ParameterList_EndEdit(*GadgetData.ParameterListData, Keep)
-	; Fold the editor away; Keep writes the typed text back and reports it with #EventType_ItemTextChange, the row in GetGadgetState and the cell in #Attribute_ParameterList_EditedColumn
-	Protected Event.Event, Changed
+	Protected Event.Event, Changed, *Cell.Text
 	
 	With *GadgetData
 		If Not \Editing
@@ -539,14 +703,10 @@ Procedure ParameterList_EndEdit(*GadgetData.ParameterListData, Keep)
 		\CommitColumn = \EditColumn
 		
 		If Keep And ParameterList_Select(*GadgetData, \EditRow)
-			If \EditColumn = 0
-				Changed = Bool(\Items()\Text\OriginalText <> \String\String)
-				\Items()\Text\OriginalText = \String\String
-			Else
-				Changed = Bool(\Items()\Expression\OriginalText <> \String\String)
-				\Items()\Expression\OriginalText = \String\String
-			EndIf
-			\Items()\Text\Dirty = #True : \Items()\Expression\Dirty = #True	; whichever was edited, measured by the paint that follows
+			*Cell = ParameterList_Cell(@\Items(), \EditColumn)
+			Changed = Bool(*Cell\OriginalText <> \String\String)
+			*Cell\OriginalText = \String\String
+			*Cell\Dirty = #True
 			
 			If Changed
 				\State = \EditRow
@@ -558,6 +718,14 @@ Procedure ParameterList_EndEdit(*GadgetData.ParameterListData, Keep)
 	ProcedureReturn #True
 EndProcedure
 
+; Events carry the row's item data: committing the open cell may let the host renumber the rows
+Procedure.i ParameterList_ItemDataAt(*GadgetData.ParameterListData, Index)
+	If ParameterList_Select(*GadgetData, Index)
+		ProcedureReturn *GadgetData\Items()\Data
+	EndIf
+	ProcedureReturn 0
+EndProcedure
+
 Procedure ParameterList_ToggleFold(*GadgetData.ParameterListData, Index)
 	With *GadgetData
 		If Not ParameterList_Select(*GadgetData, Index) Or Not ParameterList_ChildCount(*GadgetData, Index)
@@ -567,7 +735,7 @@ Procedure ParameterList_ToggleFold(*GadgetData.ParameterListData, Index)
 		\Items()\Folded = 1 - \Items()\Folded
 		ParameterList_UpdateScrollBar(*GadgetData)
 		\State = Index
-		PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ParameterFold)
+		PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ParameterFold, ParameterList_ItemDataAt(*GadgetData, Index))	; by index: the scroll-bar update above moved the list cursor
 	EndWith
 	
 	ProcedureReturn #True
@@ -575,7 +743,7 @@ EndProcedure
 
 ;- Events
 Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event)
-	Protected Redraw, Row, Index, Zone, Cursor = *GadgetData\EditCursor, CursorWas = Cursor
+	Protected Redraw, Row, Index, Zone, Width, Stretch, Column.l, Cursor = *GadgetData\EditCursor, CursorWas = Cursor
 	
 	With *GadgetData
 		Select *Event\EventType
@@ -585,17 +753,11 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 					*Event\MouseY - \String\OriginY
 					Redraw = \String\EventHandler(\String, *Event)
 				ElseIf \DragGrip
-					If \DragGrip = #ParameterList_Zone_GripName
-						\NameWidth = \DragOriginWidth + *Event\MouseX - \DragOriginX
-						If \NameWidth < #ParameterList_MinColumn
-							\NameWidth = #ParameterList_MinColumn
-						EndIf
-					Else
-						\ValueWidth = \DragOriginWidth - (*Event\MouseX - \DragOriginX)
-						If \ValueWidth < #ParameterList_MinColumn
-							\ValueWidth = #ParameterList_MinColumn
-						EndIf
+					Width = \DragOriginWidth + (*Event\MouseX - \DragOriginX) * \DragSign
+					If Width < #ParameterList_MinColumn
+						Width = #ParameterList_MinColumn
 					EndIf
+					\Columns(\DragColumn)\Width = Width
 					ParameterList_PrepareAll(*GadgetData)
 					Redraw = #True
 				Else
@@ -614,15 +776,16 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 							Redraw = #True
 						EndIf
 					Else
-						Index = ParameterList_RowToIndex(*GadgetData, Floor((*Event\MouseY + ParameterList_ScrollOffset(*GadgetData)) / \ItemHeight))
+						Index = ParameterList_RowToIndex(*GadgetData, ParameterList_RowAt(*GadgetData, *Event\MouseY))
 						If Index <> \ItemState
 							\ItemState = Index
 							Redraw = #True
 						EndIf
 						
-						Zone = ParameterList_ZoneAt(*GadgetData, Index, *Event\MouseX)
+						Zone = ParameterList_ZoneAt(*GadgetData, Index, *Event\MouseX, *Event\MouseY, @Column)
 						\HoverZone = Zone
-						If Zone = #ParameterList_Zone_GripName Or Zone = #ParameterList_Zone_GripValue
+						\HoverColumn = Column
+						If Zone = #ParameterList_Zone_Grip
 							Cursor = #PB_Cursor_LeftRight
 						EndIf
 					EndIf
@@ -632,6 +795,7 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 				If \ItemState > -1
 					\ItemState = -1
 					\HoverZone = #ParameterList_Zone_Body
+					\HoverColumn = -1
 					Redraw = #True
 				EndIf
 				Cursor = #PB_Cursor_Default
@@ -660,27 +824,37 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 					ProcedureReturn Redraw
 				EndIf
 				
-				Index = ParameterList_RowToIndex(*GadgetData, Floor((*Event\MouseY + ParameterList_ScrollOffset(*GadgetData)) / \ItemHeight))
-				Zone = ParameterList_ZoneAt(*GadgetData, Index, *Event\MouseX)
+				Index = ParameterList_RowToIndex(*GadgetData, ParameterList_RowAt(*GadgetData, *Event\MouseY))
+				Zone = ParameterList_ZoneAt(*GadgetData, Index, *Event\MouseX, *Event\MouseY, @Column)
 				
 				Select Zone
-					Case #ParameterList_Zone_GripName, #ParameterList_Zone_GripValue
-						\DragGrip = Zone
-						\DragOriginX = *Event\MouseX
-						If Zone = #ParameterList_Zone_GripName
-							\DragOriginWidth = \NameWidth
+					Case #ParameterList_Zone_Grip ;{
+						Stretch = ParameterList_StretchIndex(*GadgetData)
+						If Column <= Stretch
+							\DragColumn = Column - 1
+							\DragSign = 1
 						Else
-							\DragOriginWidth = \ValueWidth
+							\DragColumn = Column
+							\DragSign = -1
+						EndIf
+						\DragGrip = #True
+						\DragOriginX = *Event\MouseX
+						\DragOriginWidth = \Columns(\DragColumn)\Width
+						;}
+					Case #ParameterList_Zone_Header
+						If Column > -1
+							\ClickedColumn = Column
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ParameterColumnClick)
 						EndIf
 					Case #ParameterList_Zone_Fold
 						Redraw = ParameterList_ToggleFold(*GadgetData, Index) | Redraw
 					Case #ParameterList_Zone_Add
 						\State = Index
-						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ParameterAdd)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ParameterAdd, ParameterList_ItemDataAt(*GadgetData, Index))
 						Redraw = #True
 					Case #ParameterList_Zone_Remove
 						\State = Index
-						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ParameterRemove)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ParameterRemove, ParameterList_ItemDataAt(*GadgetData, Index))
 						Redraw = #True
 					Default
 						If Index <> \State
@@ -688,16 +862,14 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							Redraw = #True
 						EndIf
-						If Zone = #ParameterList_Zone_Name
-							Redraw = ParameterList_StartEdit(*GadgetData, Index, 0) | Redraw
-						ElseIf Zone = #ParameterList_Zone_Expression
-							Redraw = ParameterList_StartEdit(*GadgetData, Index, 1) | Redraw
+						If Zone = #ParameterList_Zone_Cell
+							Redraw = ParameterList_StartEdit(*GadgetData, Index, Column) | Redraw
 						EndIf
 				EndSelect
 				;}
 			Case #LeftButtonUp ;{
 				If \DragGrip
-					\DragGrip = #ParameterList_Zone_Body
+					\DragGrip = #False
 					ParameterList_UpdateScrollBar(*GadgetData)
 					Redraw = #True
 				ElseIf \Editing And \String\Selecting
@@ -714,7 +886,7 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 					*Event\MouseY - \String\OriginY
 					Redraw = \String\EventHandler(\String, *Event)
 				Else
-					Index = ParameterList_RowToIndex(*GadgetData, Floor((*Event\MouseY + ParameterList_ScrollOffset(*GadgetData)) / \ItemHeight))
+					Index = ParameterList_RowToIndex(*GadgetData, ParameterList_RowAt(*GadgetData, *Event\MouseY))
 					If ParameterList_ChildCount(*GadgetData, Index)
 						Redraw = ParameterList_ToggleFold(*GadgetData, Index)
 					EndIf
@@ -730,12 +902,21 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 						Case #PB_Shortcut_Tab ;{ straight on to the next cell, which is how a table is filled in
 							Index = \EditRow
 							Zone = \EditColumn
+							Row = ParameterList_IndexToRow(*GadgetData, Index)
 							Redraw = ParameterList_EndEdit(*GadgetData, #True)
-							If Zone = 0
-								ParameterList_StartEdit(*GadgetData, Index, 1)
-							Else
-								Row = ParameterList_IndexToRow(*GadgetData, Index)
-								ParameterList_StartEdit(*GadgetData, ParameterList_RowToIndex(*GadgetData, Row + 1), 0)
+							
+							For Column = Zone + 1 To \ColumnCount - 1
+								If ParameterList_StartEdit(*GadgetData, Index, Column)
+									Break
+								EndIf
+							Next
+							If Not \Editing
+								Index = ParameterList_RowToIndex(*GadgetData, Row + 1)
+								For Column = 0 To \ColumnCount - 1
+									If ParameterList_StartEdit(*GadgetData, Index, Column)
+										Break
+									EndIf
+								Next
 							EndIf
 							;}
 						Default
@@ -767,9 +948,15 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 								Redraw = ParameterList_ToggleFold(*GadgetData, \State)
 							EndIf
 						Case #PB_Shortcut_F2
-							Redraw = ParameterList_StartEdit(*GadgetData, \State, 0)
-						Case #PB_Shortcut_Return
-							Redraw = ParameterList_StartEdit(*GadgetData, \State, 1)
+							Redraw = ParameterList_StartEdit(*GadgetData, \State, ParameterList_TreeColumn(*GadgetData))
+						Case #PB_Shortcut_Return ;{
+							For Column = 0 To \ColumnCount - 1
+								If \Columns(Column)\Role <> #ParameterList_Tree And ParameterList_StartEdit(*GadgetData, \State, Column)
+									Redraw = #True
+									Break
+								EndIf
+							Next
+							;}
 					EndSelect
 				EndIf
 				;}
@@ -800,8 +987,7 @@ EndProcedure
 
 ;- Gadget interface
 Procedure ParameterList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l)
-	; Level is CLAMPED one step deeper than the row before, so no row is left without a parent; the text is the three cells joined by #LF$, as a ListIcon row is written
-	Protected *GadgetData.ParameterListData = *this\vt, *NewItem.ParameterList_Item, Depth, Ceiling, Line.s
+	Protected *GadgetData.ParameterListData = *this\vt, *NewItem.ParameterList_Item, *Cell.Text, Loop, Depth, Ceiling, Line.s
 	
 	With *GadgetData
 		If Level < 0
@@ -830,29 +1016,19 @@ Procedure ParameterList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Lev
 		Line = PeekS(*Text)
 		*NewItem\Depth = Depth
 		*NewItem\Kind = #ParameterList_Value
-		*NewItem\Text\OriginalText = StringField(Line, 1, #LF$)
-		*NewItem\Expression\OriginalText = StringField(Line, 2, #LF$)
-		*NewItem\Value\OriginalText = StringField(Line, 3, #LF$)
+		ParameterList_SizeCells(*GadgetData, *NewItem)
 		
-		*NewItem\Text\LineLimit = 1
-		*NewItem\Text\FontID = \TextBlock\FontID
-		*NewItem\Text\FontScale = \TextBlock\FontScale
-		*NewItem\Text\VAlign = \TextBlock\VAlign
-		*NewItem\Text\HAlign = \TextBlock\HAlign
+		For Loop = 0 To \ColumnCount - 1
+			*Cell = ParameterList_Cell(*NewItem, Loop)
+			*Cell\OriginalText = StringField(Line, Loop + 1, #LF$)
+			*Cell\LineLimit = 1
+			*Cell\FontID = \TextBlock\FontID
+			*Cell\FontScale = \TextBlock\FontScale
+			*Cell\VAlign = \TextBlock\VAlign
+			*Cell\HAlign = \TextBlock\HAlign
+		Next
 		
-		*NewItem\Expression\LineLimit = 1
-		*NewItem\Expression\FontID = \TextBlock\FontID
-		*NewItem\Expression\FontScale = \TextBlock\FontScale
-		*NewItem\Expression\VAlign = \TextBlock\VAlign
-		*NewItem\Expression\HAlign = \TextBlock\HAlign
-		
-		*NewItem\Value\LineLimit = 1
-		*NewItem\Value\FontID = \TextBlock\FontID
-		*NewItem\Value\FontScale = \TextBlock\FontScale
-		*NewItem\Value\VAlign = \TextBlock\VAlign
-		*NewItem\Value\HAlign = \TextBlock\HAlign
-		
-		ParameterList_DirtyItem(*NewItem)
+		ParameterList_DirtyItem(*GadgetData, *NewItem)
 		
 		ChangeCurrentElement(\Items(), *NewItem)
 		Position = ListIndex(\Items())
@@ -918,20 +1094,128 @@ Procedure ParameterList_CountItem(*this.PB_Gadget)
 	ProcedureReturn ListSize(*GadgetData\Items())
 EndProcedure
 
-Procedure.s ParameterList_GetItemText(*this.PB_Gadget, Position.l, Column.l)
-	Protected *GadgetData.ParameterListData = *this\vt, Result.s
+Procedure ParameterList_AddColumn(*this.PB_Gadget, Position.l, *Text, Width.l)
+	Protected *GadgetData.ParameterListData = *this\vt, *Item.ParameterList_Item, *From.Text, *To.Text, Loop, Mask
 	
 	With *GadgetData
-		If Position > -1 And Position < ListSize(\Items())
+		If \ColumnCount >= #ParameterList_MaxColumn
+			ProcedureReturn -1
+		EndIf
+		If Position < 0 Or Position > \ColumnCount
+			Position = \ColumnCount
+		EndIf
+		If \Editing
+			ParameterList_EndEdit(*GadgetData, #True)
+		EndIf
+		Mask = (1 << Position) - 1
+		
+		ReDim \Columns(\ColumnCount)
+		For Loop = \ColumnCount - 1 To Position Step -1
+			ClearStructure(@\Columns(Loop + 1), ParameterList_Column)
+			CopyStructure(@\Columns(Loop), @\Columns(Loop + 1), ParameterList_Column)
+		Next
+		ClearStructure(@\Columns(Position), ParameterList_Column)
+		
+		\Columns(Position)\Role = #ParameterList_Cell
+		\Columns(Position)\Width = Width
+		\Columns(Position)\Text\OriginalText = PeekS(*Text)
+		\Columns(Position)\Text\LineLimit = 1
+		\Columns(Position)\Text\FontID = \TextBlock\FontID
+		\Columns(Position)\Text\FontScale = \TextBlock\FontScale
+		\Columns(Position)\Text\VAlign = \TextBlock\VAlign
+		\Columns(Position)\Text\HAlign = \TextBlock\HAlign
+		
+		ForEach \Items()
+			*Item = @\Items()
+			ReDim *Item\Cells(\ColumnCount + 1)
+			
+			For Loop = \ColumnCount - 1 To Position Step -1
+				*To = ParameterList_Cell(*Item, Loop + 1)
+				*From = ParameterList_Cell(*Item, Loop)
+				ClearStructure(*To, Text)
+				CopyStructure(*From, *To, Text)
+			Next
+			
+			*From = ParameterList_Cell(*Item, Position)
+			ClearStructure(*From, Text)
+			*From\LineLimit = 1
+			*From\FontID = \TextBlock\FontID
+			*From\FontScale = \TextBlock\FontScale
+			*From\VAlign = \TextBlock\VAlign
+			*From\HAlign = \TextBlock\HAlign
+			
+			*Item\Editable = (*Item\Editable & Mask) | ((*Item\Editable & ~Mask) << 1)
+		Next
+		
+		\ColumnCount + 1
+		If \StretchColumn >= Position
+			\StretchColumn + 1
+		EndIf
+		
+		ParameterList_PrepareAll(*GadgetData)
+		RedrawObject()
+	EndWith
+	
+	ProcedureReturn Position
+EndProcedure
+
+Procedure ParameterList_RemoveColumn(*this.PB_Gadget, Position.l)
+	Protected *GadgetData.ParameterListData = *this\vt, *Item.ParameterList_Item, *From.Text, *To.Text, Loop, Mask
+	
+	With *GadgetData
+		If \ColumnCount <= 1 Or Position < 0 Or Position >= \ColumnCount
+			ProcedureReturn
+		EndIf
+		If \Editing
+			ParameterList_EndEdit(*GadgetData, #True)
+		EndIf
+		Mask = (1 << Position) - 1
+		
+		For Loop = Position To \ColumnCount - 2
+			ClearStructure(@\Columns(Loop), ParameterList_Column)
+			CopyStructure(@\Columns(Loop + 1), @\Columns(Loop), ParameterList_Column)
+		Next
+		ClearStructure(@\Columns(\ColumnCount - 1), ParameterList_Column)
+		
+		ForEach \Items()
+			*Item = @\Items()
+			
+			For Loop = Position To \ColumnCount - 2
+				*To = ParameterList_Cell(*Item, Loop)
+				*From = ParameterList_Cell(*Item, Loop + 1)
+				ClearStructure(*To, Text)
+				CopyStructure(*From, *To, Text)
+			Next
+			ClearStructure(ParameterList_Cell(*Item, \ColumnCount - 1), Text)
+			
+			*Item\Editable = (*Item\Editable & Mask) | ((*Item\Editable >> 1) & ~Mask)
+		Next
+		
+		\ColumnCount - 1
+		If \StretchColumn > Position
+			\StretchColumn - 1
+		ElseIf \StretchColumn = Position
+			\StretchColumn = -1
+		EndIf
+		ReDim \Columns(\ColumnCount)
+		
+		ParameterList_PrepareAll(*GadgetData)
+		ParameterList_UpdateScrollBar(*GadgetData)
+		RedrawObject()
+	EndWith
+EndProcedure
+
+Procedure.s ParameterList_GetItemText(*this.PB_Gadget, Position.l, Column.l)
+	Protected *GadgetData.ParameterListData = *this\vt, *Cell.Text, Result.s
+	
+	With *GadgetData
+		If Column < 0
+			Column = 0
+		EndIf
+		If Position > -1 And Position < ListSize(\Items()) And Column < \ColumnCount
 			SelectElement(\Items(), Position)
-			Select Column
-				Case 1
-					Result = \Items()\Expression\OriginalText
-				Case 2
-					Result = \Items()\Value\OriginalText
-				Default
-					Result = \Items()\Text\OriginalText
-			EndSelect
+			*Cell = ParameterList_Cell(@\Items(), Column)
+			Result = *Cell\OriginalText
 		EndIf
 	EndWith
 	
@@ -939,22 +1223,17 @@ Procedure.s ParameterList_GetItemText(*this.PB_Gadget, Position.l, Column.l)
 EndProcedure
 
 Procedure ParameterList_SetItemText(*this.PB_Gadget, Position.l, *Text, Column.l)
-	Protected *GadgetData.ParameterListData = *this\vt
+	Protected *GadgetData.ParameterListData = *this\vt, *Cell.Text
 	
 	With *GadgetData
-		If Position > -1 And Position < ListSize(\Items())
+		If Column < 0
+			Column = 0
+		EndIf
+		If Position > -1 And Position < ListSize(\Items()) And Column < \ColumnCount
 			SelectElement(\Items(), Position)
-			Select Column
-				Case 1
-					\Items()\Expression\OriginalText = PeekS(*Text)
-					\Items()\Expression\Dirty = #True
-				Case 2
-					\Items()\Value\OriginalText = PeekS(*Text)
-					\Items()\Value\Dirty = #True
-				Default
-					\Items()\Text\OriginalText = PeekS(*Text)
-					\Items()\Text\Dirty = #True
-			EndSelect
+			*Cell = ParameterList_Cell(@\Items(), Column)
+			*Cell\OriginalText = PeekS(*Text)
+			*Cell\Dirty = #True
 			RedrawObject()
 		EndIf
 	EndWith
@@ -988,6 +1267,16 @@ Procedure ParameterList_GetItemAttribute(*this.PB_Gadget, Position.l, Attribute.
 	Protected *GadgetData.ParameterListData = *this\vt
 	
 	With *GadgetData
+		Select Attribute ;{
+			Case #Attribute_ParameterList_ColumnWidth
+				ProcedureReturn ParameterList_ColumnWidth(*GadgetData, Position)
+			Case #Attribute_ParameterList_ColumnRole
+				If Position > -1 And Position < \ColumnCount
+					ProcedureReturn \Columns(Position)\Role
+				EndIf
+				ProcedureReturn 0
+		EndSelect ;}
+		
 		If Position < 0 Or Position >= ListSize(\Items())
 			ProcedureReturn 0
 		EndIf
@@ -1025,6 +1314,21 @@ Procedure ParameterList_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.
 	Protected *GadgetData.ParameterListData = *this\vt
 	
 	With *GadgetData
+		Select Attribute ;{
+			Case #Attribute_ParameterList_ColumnWidth, #Attribute_ParameterList_ColumnRole
+				If Position < 0 Or Position >= \ColumnCount
+					ProcedureReturn
+				EndIf
+				If Attribute = #Attribute_ParameterList_ColumnWidth
+					\Columns(Position)\Width = Value
+				Else
+					\Columns(Position)\Role = Value
+				EndIf
+				ParameterList_PrepareAll(*GadgetData)
+				RedrawObject()
+				ProcedureReturn
+		EndSelect ;}
+		
 		If Position < 0 Or Position >= ListSize(\Items()) Or Not SelectElement(\Items(), Position)
 			ProcedureReturn
 		EndIf
@@ -1046,8 +1350,8 @@ Procedure ParameterList_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.
 			Default
 				ProcedureReturn
 		EndSelect
-
-		ParameterList_DirtyItem(@\Items())
+		
+		ParameterList_DirtyItem(*GadgetData, @\Items())
 		RedrawObject()
 	EndWith
 EndProcedure
@@ -1070,15 +1374,33 @@ Procedure ParameterList_GetAttribute(*this.PB_Gadget, Attribute.l)
 	With *GadgetData
 		Select Attribute
 			Case #Attribute_ParameterList_NameWidth
-				ProcedureReturn \NameWidth
+				ProcedureReturn ParameterList_ColumnWidth(*GadgetData, 0)
 			Case #Attribute_ParameterList_ValueWidth
-				ProcedureReturn \ValueWidth
+				ProcedureReturn ParameterList_ColumnWidth(*GadgetData, \ColumnCount - 1)
+			Case #Attribute_ParameterList_ColumnCount
+				ProcedureReturn \ColumnCount
+			Case #Attribute_ParameterList_StretchColumn
+				ProcedureReturn ParameterList_StretchIndex(*GadgetData)
+			Case #Attribute_ParameterList_ClickedColumn
+				ProcedureReturn \ClickedColumn
 			Case #Attribute_ParameterList_EditedRow
 				ProcedureReturn \CommitRow
 			Case #Attribute_ParameterList_EditedColumn
 				ProcedureReturn \CommitColumn
+			Case #Attribute_ParameterList_EditingRow
+				If \Editing
+					ProcedureReturn \EditRow
+				EndIf
+				ProcedureReturn -1
+			Case #Attribute_ParameterList_EditingColumn
+				If \Editing
+					ProcedureReturn \EditColumn
+				EndIf
+				ProcedureReturn -1
 			Case #Attribute_ParameterList_HoverRow
 				ProcedureReturn \ItemState
+			Case #Attribute_ParameterList_HoverColumn
+				ProcedureReturn \HoverColumn
 		EndSelect
 	EndWith
 	
@@ -1091,9 +1413,14 @@ Procedure ParameterList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 	With *GadgetData
 		Select Attribute
 			Case #Attribute_ParameterList_NameWidth
-				\NameWidth = Value
+				\Columns(0)\Width = Value
 			Case #Attribute_ParameterList_ValueWidth
-				\ValueWidth = Value
+				\Columns(\ColumnCount - 1)\Width = Value
+			Case #Attribute_ParameterList_StretchColumn
+				If Value < 0 Or Value >= \ColumnCount
+					Value = -1
+				EndIf
+				\StretchColumn = Value
 			Case #Attribute_ParameterList_EditedRow
 				\CommitRow = Value
 				ProcedureReturn
@@ -1110,16 +1437,24 @@ Procedure ParameterList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 EndProcedure
 
 Procedure ParameterList_SetFont(*this.PB_Gadget, FontID)
-	Protected *GadgetData.ParameterListData = *this\vt
+	Protected *GadgetData.ParameterListData = *this\vt, *Cell.Text, Loop
 	
 	With *GadgetData
 		\TextBlock\FontID = FontID
-		ForEach \Items()
-			\Items()\Text\FontID = FontID
-			\Items()\Expression\FontID = FontID
-			\Items()\Value\FontID = FontID
-			ParameterList_DirtyItem(@\Items())
+		
+		For Loop = 0 To \ColumnCount - 1
+			\Columns(Loop)\Text\FontID = FontID
 		Next
+		
+		ForEach \Items()
+			For Loop = 0 To \ColumnCount - 1
+				*Cell = ParameterList_Cell(@\Items(), Loop)
+				*Cell\FontID = FontID
+			Next
+			ParameterList_DirtyItem(*GadgetData, @\Items())
+		Next
+		
+		ParameterList_PrepareColumns(*GadgetData)
 		RedrawObject()
 	EndWith
 EndProcedure
@@ -1138,8 +1473,8 @@ Procedure ParameterList_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		\Width = GadgetWidth(\Gadget)
 		\Height = GadgetHeight(\Gadget)
 		
-		ScrollBar_ResizeMeta(\ScrollBar, \Width - #ParameterList_ToolbarThickness - \Border - 1, \Border + 1, #ParameterList_ToolbarThickness, \Height - \Border * 2 - 2)
-		ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
+		ScrollBar_ResizeMeta(\ScrollBar, \Width - #ParameterList_ToolbarThickness - \Border - 1, ParameterList_RowTop(*GadgetData) + 1, #ParameterList_ToolbarThickness, \Height - ParameterList_RowTop(*GadgetData) - \Border - 2)
+		ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height - ParameterList_RowTop(*GadgetData) - \Border)
 		
 		ParameterList_PrepareAll(*GadgetData)
 		ParameterList_UpdateScrollBar(*GadgetData)
@@ -1167,6 +1502,32 @@ Procedure ParameterList_FreeGadget(*this.PB_Gadget)
 	Default_FreeGadget(*this)
 EndProcedure
 
+Procedure ParameterList_DefaultColumns(*GadgetData.ParameterListData, Width)
+	Protected Loop
+	
+	With *GadgetData
+		\ColumnCount = 3
+		Dim \Columns(\ColumnCount)
+		
+		\Columns(0)\Role = #ParameterList_Tree
+		\Columns(1)\Role = #ParameterList_Cell
+		\Columns(2)\Role = #ParameterList_Derived
+		\Columns(0)\Width = Width * 0.4
+		\Columns(2)\Width = Width * 0.22
+		\Columns(0)\Text\OriginalText = "Name"
+		\Columns(1)\Text\OriginalText = "Expression"
+		\Columns(2)\Text\OriginalText = "Value"
+		
+		For Loop = 0 To \ColumnCount - 1
+			\Columns(Loop)\Text\LineLimit = 1
+			\Columns(Loop)\Text\FontID = \TextBlock\FontID
+			\Columns(Loop)\Text\FontScale = \TextBlock\FontScale
+			\Columns(Loop)\Text\VAlign = \TextBlock\VAlign
+			\Columns(Loop)\Text\HAlign = \TextBlock\HAlign
+		Next
+	EndWith
+EndProcedure
+
 Procedure ParameterList_Meta(*GadgetData.ParameterListData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags)
 	Protected *StringThemeData.Theme
 	*GadgetData\ThemeData = *ThemeData
@@ -1178,15 +1539,20 @@ Procedure ParameterList_Meta(*GadgetData.ParameterListData, *ThemeData.Theme, Ga
 		EndIf
 		
 		\ItemHeight = #ParameterList_ItemHeight
+		\HeaderHeight = Bool(Flags & #ParameterList_Header) * #ParameterList_HeaderHeight
 		\State = -1
 		\ItemState = -1
-		\NameWidth = Width * 0.4			; a starting split, dragged from there by the rules between the columns
-		\ValueWidth = Width * 0.22
+		\HoverColumn = -1
+		\StretchColumn = 1
+		ParameterList_DefaultColumns(*GadgetData, Width)
+		ParameterList_PrepareColumns(*GadgetData)
 		
 		AllocateStructureX(\ScrollBar, ScrollBarData)
-		ScrollBar_Meta(\ScrollBar, *ThemeData, -1, Width - #ParameterList_ToolbarThickness - \Border - 1, \Border + 1, #ParameterList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height, #Gadget_Vertical)
+		ScrollBar_Meta(\ScrollBar, *ThemeData, -1, Width - #ParameterList_ToolbarThickness - \Border - 1, ParameterList_RowTop(*GadgetData) + 1, #ParameterList_ToolbarThickness, Height - ParameterList_RowTop(*GadgetData) - \Border - 2, 0, \ItemHeight, Height - ParameterList_RowTop(*GadgetData) - \Border, #Gadget_Vertical)
 		
 		\VT\AddGadgetItem3 = @ParameterList_AddItem()
+		\VT\AddGadgetColumn = @ParameterList_AddColumn()
+		\VT\RemoveGadgetColumn = @ParameterList_RemoveColumn()
 		\VT\RemoveGadgetItem = @ParameterList_RemoveItem()
 		\VT\ClearGadgetItemList = @ParameterList_ClearItems()
 		\VT\CountGadgetItems = @ParameterList_CountItem()
@@ -1259,8 +1625,56 @@ Procedure.i ParameterListEdit(Gadget, Row, Column)
 		RedrawObject()
 		ProcedureReturn #True
 	EndIf
-	
+
 	ProcedureReturn #False
+EndProcedure
+
+Procedure.i ParameterListPoint(Gadget, Row, What, Column, *X.Integer, *Y.Integer)
+	Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.ParameterListData
+	Protected Screen, Tree, Top
+
+	If Not *this
+		ProcedureReturn #False
+	EndIf
+	*GadgetData = *this\vt
+
+	With *GadgetData
+		Screen = ParameterList_IndexToRow(*GadgetData, Row)
+		If Screen < 0 Or Not ParameterList_Select(*GadgetData, Row)
+			ProcedureReturn #False
+		EndIf
+		Top = ParameterList_RowTop(*GadgetData) + Screen * \ItemHeight - ParameterList_ScrollOffset(*GadgetData)
+		If Top < ParameterList_RowTop(*GadgetData) Or Top + \ItemHeight > \Height
+			ProcedureReturn #False
+		EndIf
+		*Y\i = Top + \ItemHeight / 2
+		Tree = ParameterList_TreeColumn(*GadgetData)
+		Select What
+			Case #ParameterList_PointCell
+				If Column < 0 Or Column >= \ColumnCount
+					ProcedureReturn #False
+				EndIf
+				*X\i = (ParameterList_ColumnX(*GadgetData, Column) + ParameterList_ColumnX(*GadgetData, Column + 1)) / 2
+			Case #ParameterList_PointButton
+				If \Items()\Kind = #ParameterList_Group
+					If Tree < 0
+						ProcedureReturn #False
+					EndIf
+					*X\i = ParameterList_ColumnX(*GadgetData, Tree + 1) - #ParameterList_ButtonWidth / 2
+				Else
+					*X\i = \Border + ParameterList_ContentWidth(*GadgetData) - #ParameterList_ButtonWidth / 2
+				EndIf
+			Case #ParameterList_PointFold
+				If Tree < 0
+					ProcedureReturn #False
+				EndIf
+				*X\i = ParameterList_TextX(*GadgetData, Tree, \Items()\Depth) - #ParameterList_FoldWidth / 2
+			Default
+				ProcedureReturn #False
+		EndSelect
+	EndWith
+
+	ProcedureReturn #True
 EndProcedure
 ; IDE Options = PureBasic 6.41 (Windows - x64)
 ; CursorPosition = 1049
