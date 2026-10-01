@@ -351,6 +351,7 @@
 		#Event_Drag_Leave
 		#Event_Drag_Finish
 		#Event_MenuDeactivated
+		#Event_CloseWindowLater		; private: see CloseWindowLater()
 		
 		#Event_FirstAvailableCustomValue
 	EndEnumeration
@@ -656,6 +657,8 @@ Module UITK
 				gdk_pixbuf_get_width(pixbuf.i)
 				gdk_pixbuf_get_height(pixbuf.i)
 				gtk_widget_get_visible(widget.i)
+				gtk_widget_in_destruction(widget.i)
+				gtk_widget_get_toplevel(widget.i)
 			EndImport
 			
 			ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
@@ -973,6 +976,31 @@ Module UITK
 		AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
 		GadgetHandler() = Gadget
 	EndMacro
+	
+	CompilerIf #PB_Compiler_OS = #PB_OS_Linux
+		Global NewList ClosePending()
+		
+		Procedure ClosePendingWindows()
+			ForEach ClosePending()
+				If IsWindow(ClosePending())
+					CloseWindow(ClosePending())
+				EndIf
+			Next
+			ClearList(ClosePending())
+		EndProcedure
+		BindEvent(#Event_CloseWindowLater, @ClosePendingWindows())
+		
+		Procedure CloseWindowLater(Window)		; a free procedure's popup: at End it runs inside PB's walk of the window list, which closing a window corrupts
+			HideWindow(Window, #True)
+			AddElement(ClosePending())
+			ClosePending() = Window
+			PostEvent(#Event_CloseWindowLater)
+		EndProcedure
+	CompilerElse
+		Macro CloseWindowLater(Window)
+			CloseWindow(Window)
+		EndMacro
+	CompilerEndIf
 	
 	CompilerIf #PB_Compiler_OS = #PB_OS_Linux		; PB's GTK gadget vtable hands text over as UTF-8
 		Macro PeekGadgetText(Text)
@@ -6289,14 +6317,28 @@ Module UITK
 		
 		With *GadgetData
 			DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
-			If IsGadget(\VerticalScrollBar) : FreeGadget(\VerticalScrollBar) : EndIf
-			If IsGadget(\HorizontalScrollBar) : FreeGadget(\HorizontalScrollBar) : EndIf
-			If IsGadget(\ScrollArea) : FreeGadget(\ScrollArea) : EndIf
+			CompilerIf #PB_Compiler_OS = #PB_OS_Linux		; GTK destroys these with their dying parent: freeing one mid-teardown corrupts the child list it walks
+				Protected WindowDying, ContainerDying = gtk_widget_in_destruction(GadgetID(\Gadget))
+				If IsGadget(\VerticalScrollBar)		; asked of a bar: the container is already unparented when its destroy handler runs
+					WindowDying = gtk_widget_in_destruction(gtk_widget_get_toplevel(GadgetID(\VerticalScrollBar)))
+				EndIf
+			CompilerElse
+				Protected WindowDying = #False, ContainerDying = #False
+			CompilerEndIf
+			If Not WindowDying
+				If IsGadget(\VerticalScrollBar) : FreeGadget(\VerticalScrollBar) : EndIf
+				If IsGadget(\HorizontalScrollBar) : FreeGadget(\HorizontalScrollBar) : EndIf
+			EndIf
+			If Not ContainerDying And IsGadget(\ScrollArea)
+				FreeGadget(\ScrollArea)
+			EndIf
 			
 			*this\vt = \OriginalVT
 			FreeStructureX(\ThemeData)
 			FreeStructureX(*GadgetData)
-			CallFunctionFast(*this\vt\FreeGadget, *this)
+			If *this\vt\FreeGadget		; a GTK container has none
+				CallFunctionFast(*this\vt\FreeGadget, *this)
+			EndIf
 		EndWith
 	EndProcedure
 	
@@ -7109,7 +7151,7 @@ Module UITK
 	Procedure VerticalList_FreeGadget(*this.PB_Gadget)
 		Protected *GadgetData.VerticalListData = *this\vt
 		If *GadgetData\Reorder And IsWindow(*GadgetData\ReorderWindow)
-			CloseWindow(*GadgetData\ReorderWindow)
+			CloseWindowLater(*GadgetData\ReorderWindow)
 		EndIf
 		DeleteMapElement(GadgetHandler(), Str(GadgetID(*GadgetData\Gadget)))
 		FreeStructureX(*GadgetData\ScrollBar)
@@ -8531,7 +8573,7 @@ Module UITK
 			
 			If IsWindow(\MenuWindow)
 				UnbindEvent(#PB_Event_DeactivateWindow, @Combo_WindowHandler(), \MenuWindow)
-				CloseWindow(\MenuWindow)
+				CloseWindowLater(\MenuWindow)
 			EndIf
 			
 			If \DefaultEventHandler
@@ -10377,13 +10419,13 @@ Module UITK
 			If IsWindow(\ComboPopupWindow)
 				UnbindGadgetEvent(\ComboPopupList, @PropertyBox_ComboPopup_Select(), #PB_EventType_Change)
 				FreeGadget(\ComboPopupList)
-				CloseWindow(\ComboPopupWindow)
+				CloseWindowLater(\ComboPopupWindow)
 			EndIf
 			
 			If IsWindow(\ColorPopupWindow)
 				UnbindGadgetEvent(\ColorPopupPicker, @PropertyBox_ColorPopup_Change(), #PB_EventType_Change)
 				FreeGadget(\ColorPopupPicker)
-				CloseWindow(\ColorPopupWindow)
+				CloseWindowLater(\ColorPopupWindow)
 			EndIf
 			
 			If \String
@@ -13734,7 +13776,7 @@ Module UITK
 				EndIf
 				If IsWindow(\ModeWindow)
 					UnbindEvent(#PB_Event_DeactivateWindow, @ToolBar_ModeWindowHandler(), \ModeWindow)
-					CloseWindow(\ModeWindow)
+					CloseWindowLater(\ModeWindow)
 				EndIf
 			EndIf
 		EndWith

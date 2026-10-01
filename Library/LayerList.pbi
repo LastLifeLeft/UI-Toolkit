@@ -1726,7 +1726,7 @@ Procedure LayerList_FreeGadget(*this.PB_Gadget)
 		EndIf
 		
 		If \Reorder And IsWindow(\ReorderWindow)
-			CloseWindow(\ReorderWindow)
+			CloseWindowLater(\ReorderWindow)
 		EndIf
 		
 		DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))

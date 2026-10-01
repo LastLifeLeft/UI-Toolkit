@@ -3507,7 +3507,7 @@ Procedure TimeLine_Free(*this.PB_Gadget)
 	
 	With *GadgetData
 		If IsWindow(\ReorderWindow)
-			CloseWindow(\ReorderWindow)
+			CloseWindowLater(\ReorderWindow)
 		EndIf
 		
 		RemoveGadgetTimers(\String)
