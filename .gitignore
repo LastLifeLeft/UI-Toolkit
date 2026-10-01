@@ -14,3 +14,4 @@ Examples/_phase3_cleanup_test
 
 # Birdfont / Electron GPU log, written into Font/ by the font editor
 debug.log
+/Examples/PureBasic.0.app

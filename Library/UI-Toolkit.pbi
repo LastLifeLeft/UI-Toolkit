@@ -3059,7 +3059,13 @@ Module UITK
 			ProcedureReturn
 		EndIf
 		If TooltipWindow = -1	; Lazily built: piggy-backs the timer window like ADND
-			TooltipWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(TimerWindow))
+			CompilerIf #PB_Compiler_OS = #PB_OS_MacOS		; no owner: a Cocoa child window drags its parent on screen, here the hidden TimerWindow
+				TooltipWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_BorderLess | #PB_Window_Invisible)
+				CocoaMessage(0, WindowID(TooltipWindow), "setLevel:", 101)		; NSPopUpMenuWindowLevel: topmost
+				CocoaMessage(0, WindowID(TooltipWindow), "setIgnoresMouseEvents:", #YES)	; click-through
+			CompilerElse
+				TooltipWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(TimerWindow))
+			CompilerEndIf
 			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 				SetWindowLongPtr_(WindowID(TooltipWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(TooltipWindow), #GWL_EXSTYLE) | #WS_EX_NOACTIVATE | #WS_EX_TOOLWINDOW | #WS_EX_TRANSPARENT)
 			CompilerEndIf
@@ -3960,6 +3966,136 @@ Module UITK
 			ADND_HidePreview()
 		EndProcedure
 		
+		
+		Procedure.i AdvancedDragActive()
+			ProcedureReturn Bool(ADNDHook <> 0)
+		EndProcedure
+		
+		Procedure DragPreviewVisible(State)
+			If ADNDHook	; Only meaningful during an active AdvancedDrag
+				If State
+					SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
+				Else
+					SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 0, #LWA_ALPHA)
+				EndIf
+			EndIf
+		EndProcedure
+		
+	CompilerElseIf #PB_Compiler_OS = #PB_OS_MacOS
+		; Cocoa: PB's Drag*() only fill a pasteboard, a drag source exists only for its table/outline gadgets. A canvas starts the session itself, and Cocoa draws the preview.
+		ImportC ""
+			objc_getProtocol(Name.p-ascii)
+			class_addProtocol(*Class, *Protocol)
+		EndImport
+		
+		Global *Cocoa_DragSource, Cocoa_DragMask, *DropCallback
+		
+		ProcedureC.i Cocoa_DragSourceMask(*Self, *Sel, *Session, Context)
+			ProcedureReturn Cocoa_DragMask		; PB's #PB_Drag_Copy / Link / Move are NSDragOperationCopy / Link / Move
+		EndProcedure
+		
+		Procedure Cocoa_PasteboardItem()
+			ProcedureReturn CocoaMessage(0, CocoaMessage(0, CocoaMessage(0, 0, "NSPasteboardItem alloc"), "init"), "autorelease")
+		EndProcedure
+		
+		Procedure Cocoa_Drag(*Items, ImageID, OffsetX, OffsetY, Action)	; *Items: NSArray of pasteboard writers. The preview's top-left sits at the cursor + Offset, as on Windows
+			Protected *Event = CocoaMessage(0, CocoaMessage(0, 0, "NSApplication sharedApplication"), "currentEvent"), *Window, *Content, *View
+			Protected Point.NSPoint, Frame.NSRect, Size.NSSize, *Dragging, *Writer, *DraggingItems, Index, *Class
+			
+			If *Event = 0 Or CocoaMessage(0, *Items, "count") = 0
+				ProcedureReturn #PB_Drag_None
+			EndIf
+			*Window = CocoaMessage(0, *Event, "window")
+			If *Window = 0
+				ProcedureReturn #PB_Drag_None
+			EndIf
+			
+			*Content = CocoaMessage(0, *Window, "contentView")
+			CocoaMessage(@Point, *Event, "locationInWindow")
+			CocoaMessage(@Point, CocoaMessage(0, *Content, "superview"), "convertPoint:@", @Point, "fromView:", 0)
+			*View = CocoaMessage(0, *Content, "hitTest:@", @Point)
+			If *View = 0
+				ProcedureReturn #PB_Drag_None
+			EndIf
+			CocoaMessage(@Point, *Event, "locationInWindow")
+			CocoaMessage(@Point, *View, "convertPoint:@", @Point, "fromView:", 0)
+			
+			If *Cocoa_DragSource = 0
+				*Class = objc_allocateClassPair(objc_getClass("NSObject"), "UITK_DragSource", 0)
+				class_addMethod(*Class, sel_registerName("draggingSession:sourceOperationMaskForDraggingContext:"), @Cocoa_DragSourceMask(), UTF8("Q32@0:8@16q24"))	; a C string, kept for the class's lifetime
+				class_addProtocol(*Class, objc_getProtocol("NSDraggingSource"))
+				objc_registerClassPair(*Class)
+				*Cocoa_DragSource = CocoaMessage(0, CocoaMessage(0, *Class, "alloc"), "init")
+			EndIf
+			Cocoa_DragMask = Action
+			
+			If ImageID
+				CocoaMessage(@Size, ImageID, "size")
+			EndIf
+			Frame\origin\x = Point\x + OffsetX
+			Frame\size\width = Size\width
+			Frame\size\height = Size\height
+			If CocoaMessage(0, *View, "isFlipped")
+				Frame\origin\y = Point\y + OffsetY
+			Else
+				Frame\origin\y = Point\y - OffsetY - Size\height
+			EndIf
+			
+			*DraggingItems = CocoaMessage(0, 0, "NSMutableArray array")
+			For Index = 0 To CocoaMessage(0, *Items, "count") - 1
+				*Writer = CocoaMessage(0, *Items, "objectAtIndex:", Index)
+				*Dragging = CocoaMessage(0, CocoaMessage(0, CocoaMessage(0, 0, "NSDraggingItem alloc"), "initWithPasteboardWriter:", *Writer), "autorelease")
+				CocoaMessage(0, *Dragging, "setDraggingFrame:@", @Frame, "contents:", Bool(Index = 0) * ImageID)	; one preview, for the first item
+				CocoaMessage(0, *DraggingItems, "addObject:", *Dragging)
+			Next
+			
+			CocoaMessage(0, *View, "beginDraggingSessionWithItems:", *DraggingItems, "event:", *Event, "source:", *Cocoa_DragSource)
+			ProcedureReturn Action		; the session runs on after this returns: Cocoa drags are not modal
+		EndProcedure
+		
+		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+			Protected *Item = Cocoa_PasteboardItem(), Value.s = Str(Type), Format.s = "pb.private." + Str(Type)	; the type PB's EnableGadgetDrop() registers, see PB_DragDrop_GetPrivateType
+			CocoaMessage(0, *Item, "setString:$", @Value, "forType:$", @Format)
+			ProcedureReturn Cocoa_Drag(CocoaMessage(0, 0, "NSArray arrayWithObject:", *Item), ImageID, OffsetX, OffsetY, Action)
+		EndProcedure
+		
+		Procedure AdvancedDragFiles(File.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)	; File: one path per line, as DragFiles()
+			Protected *Items = CocoaMessage(0, 0, "NSMutableArray array"), Index, Path.s
+			For Index = 1 To CountString(File, Chr(10)) + 1
+				Path = StringField(File, Index, Chr(10))
+				If Path <> ""
+					CocoaMessage(0, *Items, "addObject:", CocoaMessage(0, 0, "NSURL fileURLWithPath:$", @Path))
+				EndIf
+			Next
+			ProcedureReturn Cocoa_Drag(*Items, ImageID, OffsetX, OffsetY, Action)
+		EndProcedure
+		
+		Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+			Protected *Item = Cocoa_PasteboardItem(), Format.s = "public.utf8-plain-text"
+			CocoaMessage(0, *Item, "setString:$", @Text, "forType:$", @Format)
+			ProcedureReturn Cocoa_Drag(CocoaMessage(0, 0, "NSArray arrayWithObject:", *Item), ImageID, OffsetX, OffsetY, Action)
+		EndProcedure
+		
+		Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
+			Protected *Item = Cocoa_PasteboardItem(), Format.s = "public.tiff"
+			CocoaMessage(0, *Item, "setData:", CocoaMessage(0, ImageID, "TIFFRepresentation"), "forType:$", @Format)
+			ProcedureReturn Cocoa_Drag(CocoaMessage(0, 0, "NSArray arrayWithObject:", *Item), ImageID, OffsetX, OffsetY, Action)
+		EndProcedure
+		
+		Procedure DragPreviewVisible(State) : EndProcedure
+		Procedure.i AdvancedDragActive() : ProcedureReturn #False : EndProcedure
+	CompilerElse
+		; ---- Linux stubs for advanced drag & drop ----
+		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragFiles(File.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)  : ProcedureReturn 0 : EndProcedure
+		Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)         : ProcedureReturn 0 : EndProcedure
+		Procedure RegisterDropCallback(*Callback) : EndProcedure
+		Procedure DragPreviewVisible(State) : EndProcedure
+		Procedure.i AdvancedDragActive() : ProcedureReturn #False : EndProcedure
+	CompilerEndIf
+	
+	CompilerIf #PB_Compiler_OS <> #PB_OS_Linux		; PB documents SetDropCallback() for every OS: TargetHandle is an HWND on Windows, an NSView on macOS
 		Procedure DropCallback(TargetHandle, State, Format, Action, x, y)
 			Protected *this.PB_Gadget, *GadgetData.GadgetData, Result = #True
 			
@@ -3983,30 +4119,7 @@ Module UITK
 			*DropCallback = *Callback
 		EndProcedure
 		
-		Procedure.i AdvancedDragActive()
-			ProcedureReturn Bool(ADNDHook <> 0)
-		EndProcedure
-		
-		Procedure DragPreviewVisible(State)
-			If ADNDHook	; Only meaningful during an active AdvancedDrag
-				If State
-					SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
-				Else
-					SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 0, #LWA_ALPHA)
-				EndIf
-			EndIf
-		EndProcedure
-		
 		SetDropCallback(@DropCallback())
-	CompilerElse
-		; ---- Linux/Mac stubs for advanced drag & drop ----
-		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
-		Procedure AdvancedDragFiles(File.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
-		Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)  : ProcedureReturn 0 : EndProcedure
-		Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)         : ProcedureReturn 0 : EndProcedure
-		Procedure RegisterDropCallback(*Callback) : EndProcedure
-		Procedure DragPreviewVisible(State) : EndProcedure
-		Procedure.i AdvancedDragActive() : ProcedureReturn #False : EndProcedure
 	CompilerEndIf
 	;}
 	
