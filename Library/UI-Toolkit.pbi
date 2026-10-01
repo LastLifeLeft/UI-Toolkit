@@ -79,7 +79,7 @@
 		#Attribute_TextSelectionPosition
 		#Attribute_TextSelectionLength
 		#Attribute_TextCaretPosition		; String gadget: caret position, in characters (read only)
-
+		
 		#TrackBar_Scale
 		
 		#Attribute_Library_SectionHeight
@@ -92,7 +92,7 @@
 		#Attribute_PropertyBox_FontStyle		; #PropertyBox_Font row: #PB_Font_* style bits (read/write)
 		#Attribute_VerticalList_HoverRow		; VerticalList gadget: the row under the pointer, -1 for none (read only)
 		#Attribute_PropertyBox_EditRow			; PropertyBox gadget: the row the open editor is on, -1 for none (read only)
-
+		
 		CompilerIf Defined(EnableParameterList, #PB_Module)
 			#Attribute_ParameterList_Kind			; ParameterList item: #ParameterList_Value, _Group or _Branch (read/write)
 			#Attribute_ParameterList_Depth			; ParameterList item: how deep it sits, 0 at the top (read only)
@@ -503,14 +503,14 @@
 	Declare ToolBarGetMode(Gadget, Item)						; Active mode index of a mode button item (-1 if it has no mode yet)
 	Declare ToolBarSetMode(Gadget, Item, Mode)					; Set the active mode of a mode button item (does not post a change event)
 	Declare.i PropertyBoxEditNext(Gadget, Backwards = #False)	; Commit the open editor and move it to the next text row. #False if it could not
-	Declare.i PropertyBoxEdit(Gadget, Row)	; Open a text row's editor. #False if the row has none
+	Declare.i PropertyBoxEdit(Gadget, Row)						; Open a text row's editor. #False if the row has none
 	Declare.i PropertyBoxValuePoint(Gadget, Row, *X.Integer, *Y.Integer)	; Where to click a row's value, in gadget pixels. #False if the row is not on screen
-
+	
 	; Tooltip
 	Declare ShowTooltip(Text.s, X, Y, *ThemeData.Theme)
 	Declare HideTooltip()
 	Declare.i TooltipWindowID()
-
+	
 	; Misc
 	Declare PrepareVectorTextBlock(*TextData.Text)
 	Declare DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
@@ -599,7 +599,7 @@
 			#ParameterList_PointButton			; the cross only answers on the hovered row
 			#ParameterList_PointFold
 		EndEnumeration
-
+		
 		Declare ParameterList(Gadget, x, y, Width, Height, Flags = #Default)
 		Declare.i ParameterListEdit(Gadget, Row, Column)	; open a cell's editor from the host
 		Declare.i ParameterListPoint(Gadget, Row, What, Column, *X.Integer, *Y.Integer)	; #False if the row is not on screen
@@ -2046,14 +2046,8 @@ Module UITK
 	Procedure StartCanvasVectorDrawing(Gadget)		; in points, whatever the canvas bitmap's density
 		Protected Scale.d = CanvasScale(Gadget), Result = StartVectorDrawing(CanvasVectorOutput(Gadget))
 		
-		If Result And Scale <> 1
-			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-				If GadgetWidth(Gadget) > 0 And GadgetHeight(Gadget) > 0		; the canvas is a whole number of pixels: fill all of it, or its last column shows through
-					ScaleCoordinates(VectorOutputWidth() / GadgetWidth(Gadget), VectorOutputHeight() / GadgetHeight(Gadget))
-				EndIf
-			CompilerElse
-				ScaleCoordinates(Scale, Scale)
-			CompilerEndIf
+		If Result And Scale <> 1 And GadgetWidth(Gadget) > 0 And GadgetHeight(Gadget) > 0
+			ScaleCoordinates(VectorOutputWidth() / GadgetWidth(Gadget), VectorOutputHeight() / GadgetHeight(Gadget))
 		EndIf
 		
 		ProcedureReturn Result
@@ -2276,18 +2270,18 @@ Module UITK
 	Procedure.i GadgetParentWindow(Gadget)
 		Protected *this.PB_Gadget = IsGadget(Gadget)
 		Protected *GadgetData.GadgetData
-
+		
 		If *this = 0 Or FindMapElement(GadgetHandler(), Str(GadgetID(Gadget))) = 0
 			ProcedureReturn -1
 		EndIf
 		*GadgetData = *this\vt
 		ProcedureReturn *GadgetData\ParentWindow
 	EndProcedure
-
+	
 	Procedure.i GetGadgetTheme(Gadget)
 		Protected *this.PB_Gadget = IsGadget(Gadget)
 		Protected *GadgetData.GadgetData
-
+		
 		If *this = 0 Or FindMapElement(GadgetHandler(), Str(GadgetID(Gadget))) = 0
 			ProcedureReturn 0	; not one of ours: its vt is not a GadgetData
 		EndIf
@@ -2753,7 +2747,7 @@ Module UITK
 			PrepareVectorTextBlock(*TextData)
 		EndIf
 	EndProcedure
-
+	
 	Procedure DrawVectorTextBlock(*TextData.Text, X, Y, Alpha = 255)
 		MovePathCursor(X + *TextData\TextX, Y + *TextData\TextY, #PB_Path_Default)
 		
@@ -2867,10 +2861,10 @@ Module UITK
 		EndSelect
 		ProcedureReturn -1
 	EndProcedure
-
+	
 	Procedure SimulateGadgetEvent(Gadget, PBEventType, MouseX = 0, MouseY = 0, Param = 0)
 		Protected Event.Event, *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData
-
+		
 		If Not *this
 			ProcedureReturn
 		EndIf
@@ -2884,26 +2878,26 @@ Module UITK
 		Event\Param = Param
 		*GadgetData\EventHandler(*GadgetData, Event)
 	EndProcedure
-
+	
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
 		Protected PBType = EventType()
-
+		
 		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
 			If *GadgetData = @NativeVT		; raised synchronously by Cocoa inside a native call, while *this\VT is swapped to OriginalVT
 				ProcedureReturn
 			EndIf
 		CompilerEndIf
-
+		
 		If Not *GadgetData\Enabled
 			ProcedureReturn
 		EndIf
-
+		
 		Event\EventType = TranslateCanvasEventType(PBType)
 		If Event\EventType < 0
 			ProcedureReturn
 		EndIf
-
+		
 		If Not *GadgetData\SupportedEvent[Event\EventType]
 			ProcedureReturn
 		EndIf
@@ -3252,7 +3246,7 @@ Module UITK
 		EndIf
 		ProcedureReturn WindowID(TooltipWindow)
 	EndProcedure
-
+	
 	Procedure ShowTooltip(Text.s, X, Y, *ThemeData.Theme)
 		Protected Width, Height, PreviousList
 		
@@ -3434,8 +3428,8 @@ Module UITK
 					*mmi\ptMinTrackSize\y = *WindowData\MinHeight * Scale
 					If *mmi\ptMinTrackSize\x > Abs(mie\rcWork\right - mie\rcWork\left) : *mmi\ptMinTrackSize\x = Abs(mie\rcWork\right - mie\rcWork\left) : EndIf ; DefWindowProc would otherwise leave the edge under the taskbar
 					If *mmi\ptMinTrackSize\y > Abs(mie\rcWork\bottom - mie\rcWork\top) : *mmi\ptMinTrackSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) : EndIf
-					If *WindowData\MaxWidth > 0 And *mmi\ptMinTrackSize\x > *WindowData\MaxWidth : *mmi\ptMinTrackSize\x = *WindowData\MaxWidth : EndIf
-					If *WindowData\MaxHeight > 0 And *mmi\ptMinTrackSize\y > *WindowData\MaxHeight : *mmi\ptMinTrackSize\y = *WindowData\MaxHeight : EndIf
+					If *WindowData\MaxWidth > 0 And *mmi\ptMinTrackSize\x > *WindowData\MaxWidth * Scale : *mmi\ptMinTrackSize\x = *WindowData\MaxWidth * Scale : EndIf
+					If *WindowData\MaxHeight > 0 And *mmi\ptMinTrackSize\y > *WindowData\MaxHeight * Scale : *mmi\ptMinTrackSize\y = *WindowData\MaxHeight * Scale : EndIf
 					ProcedureReturn 0
 					;}
 				Case #WM_NCCALCSIZE ;{
@@ -3464,7 +3458,7 @@ Module UITK
 					Protected x = (ptX - cRect\left) / WindowScale(hWnd)	; in points, like the border and bar constants
 					Protected y = (ptY - cRect\top) / WindowScale(hWnd)
 					Protected w = (cRect\right - cRect\left) / WindowScale(hWnd)
-
+					
 					If *WindowData\Sizable And IsZoomed_(hWnd) = 0
 						If x < 0 Or x >= w Or ptY >= cRect\bottom ; the frame is Windows'
 							ProcedureReturn CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
@@ -3475,7 +3469,7 @@ Module UITK
 							ProcedureReturn #HTTOP
 						EndIf
 					EndIf
-
+					
 					If y < #WindowBarHeight
 						ProcedureReturn #HTCAPTION
 					EndIf
@@ -3541,7 +3535,7 @@ Module UITK
 			ProcedureReturn CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
 		EndProcedure
 		
-	
+		
 		; - SHORTCUT BUBBLING: window shortcuts work from ANY focused gadget. An
 		;   unmodified letter the child doesn't claim is forwarded to its
 		;   top-level window, whose callback treats it like a viewport keypress.
@@ -4076,7 +4070,7 @@ Module UITK
 		Global *ADND_SetThreadDpiContext, *ADND_DpiForMonitor
 		If ADND_User32 : *ADND_SetThreadDpiContext = GetFunction(ADND_User32, "SetThreadDpiAwarenessContext") : EndIf
 		If ADND_Shcore : *ADND_DpiForMonitor = GetFunction(ADND_Shcore, "GetDpiForMonitor") : EndIf
-
+		
 		; MSLLHOOKSTRUCT\pt is in physical pixels whatever the process's DPI awareness
 		Procedure ADND_Hook(nCode, wParam, *p.POINT)
 			Protected Old, DpiX.l, DpiY.l, OffsetX = ADND_OffsetX, OffsetY = ADND_OffsetY
@@ -5558,10 +5552,10 @@ Module UITK
 					
 				Case #Attribute_TextSelectionLength
 					Result = \SelectionLength
-
+					
 				Case #Attribute_TextCaretPosition
 					Result = \CaretPosition
-
+					
 				Default
 					Result = Default_GetAttribute(*this.PB_Gadget, Attribute)
 			EndSelect
@@ -6652,7 +6646,7 @@ Module UITK
 			\String\String = \Items()\Text\OriginalText
 			String_ProcessString(\String)
 			TextBlock_Ensure(@\Items()\Text)
-
+			
 			\String\OriginX = \Items()\Text\TextX + #VerticalList_Margin + \Border
 			; TextX (the item icon's share of the row) is already in the origin, so it
 			; has to come off the width too, or the box overruns the row to the right.
@@ -7001,9 +6995,9 @@ Module UITK
 			\Items()\Text\Height = \ItemHeight
 			\Items()\Text\VAlign = \TextBlock\VAlign
 			\Items()\Text\HAlign = \TextBlock\HAlign
-
+			
 			\Items()\Text\Dirty = #True
-
+			
 			If ListSize(\Items()) * \ItemHeight > \Height
 				\VisibleScrollBar = #True
 				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
@@ -7068,14 +7062,14 @@ Module UITK
 			PreviousWidth = \Width
 			\Width = GadgetWidth(\Gadget)
 			\Height = GadgetHeight(\Gadget)
-
+			
 			If PreviousWidth <> \Width	; a height-only tick moves no text; a width change is measured by the painter, for the rows it shows
 				ForEach \Items()
 					\Items()\Text\Width = \Width - #VerticalList_Margin * 2
 					\Items()\Text\Dirty = #True
 				Next
 			EndIf
-
+			
 			\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
 			
 			
@@ -7176,7 +7170,7 @@ Module UITK
 						\Items()\Text\Height = \ItemHeight
 						\Items()\Text\Dirty = #True
 					Next
-
+					
 					If \Reorder
 						SetWindowPosPoints(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
 						ResizeGadget(\ReorderCanvas, 0, 0, \Width, \ItemHeight)
@@ -7204,7 +7198,7 @@ Module UITK
 	
 	Procedure VerticalList_GetAttribute(*this.PB_Gadget, Attribute.l)
 		Protected *GadgetData.VerticalListData = *this\vt
-
+		
 		With *GadgetData
 			Select Attribute
 				Case #Attribute_ItemHeight
@@ -7213,10 +7207,10 @@ Module UITK
 					ProcedureReturn \ItemState
 			EndSelect
 		EndWith
-
+		
 		ProcedureReturn Default_GetAttribute(*this, Attribute)
 	EndProcedure
-
+	
 	Procedure VerticalList_SetItemData(*this.PB_Gadget, Position.l, *Data)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
@@ -7230,7 +7224,7 @@ Module UITK
 	
 	Procedure VerticalList_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.VerticalListData = *this\vt, *Result
-
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -9012,7 +9006,7 @@ Module UITK
 							Skip = Floor(-ItemY / RowHeight)
 							ItemY + Skip * RowHeight
 						EndIf
-
+						
 						If SelectElement(\Sections()\Items(), Skip * \ItemPerLine)
 							Repeat
 								\RedrawItem(\Sections()\Items(), ItemX, ItemY, \ItemWidth, \ItemHeight, 0, \ThemeData)
@@ -9268,7 +9262,7 @@ Module UITK
 							\Items()\Selected = #False
 						EndIf
 						\State = \ItemState
-
+						
 						SelectElement(\Items(), \State)
 						\Items()\Selected = #True
 						Redraw = #True
@@ -9373,17 +9367,17 @@ Module UITK
 		With *GadgetData
 			ClearList(\Items())
 			ClearList(\Sections())
-
+			
 			\State = -1
 			\ItemState = -1
 			\DragState = #Drag_None
 			\InternalHeight = 0
 			\VisibleScrollBar = #False
 			\ScrollBar\State = 0
-
+			
 			RedrawObject()
 		EndWith
-
+		
 	EndProcedure
 	
 	Procedure Library_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
@@ -9451,7 +9445,7 @@ Module UITK
 	
 	Procedure Library_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.LibraryData = *this\vt
-
+		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
 			SelectElement(*GadgetData\Items(), Position)
 			*GadgetData\Items()\Text\OriginalText = PeekS(*Text)
@@ -9918,7 +9912,7 @@ Module UITK
 			ForEach \Items()
 				\Items()\Value\Dirty = #True
 			Next
-
+			
 			PrepareVectorTextBlock(@*GadgetData\TextBlock)
 			RedrawObject()
 		EndWith
@@ -10031,11 +10025,11 @@ Module UITK
 	; EventData is the edited row + 1: a click may have moved the state before the event is read
 	Procedure PropertyBox_CommitEdit(*GadgetData.PropertyBoxData)
 		Protected Event.Event
-
+		
 		With *GadgetData
 			If \Editing
 				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-
+				
 				SelectElement(\Items(), \EditItem)
 				\Items()\Value\OriginalText = \String\String
 				PropertyBox_PrepareValue(*GadgetData, @\Items())
@@ -10078,7 +10072,7 @@ Module UITK
 	
 	Procedure PropertyBox_GetAttribute(*this.PB_Gadget, Attribute)
 		Protected *GadgetData.PropertyBoxData = *this\vt
-
+		
 		If Attribute = #Attribute_PropertyBox_EditRow
 			If *GadgetData\Editing
 				ProcedureReturn *GadgetData\EditItem
@@ -10087,10 +10081,10 @@ Module UITK
 		EndIf
 		ProcedureReturn Default_GetAttribute(*this, Attribute)
 	EndProcedure
-
+	
 	Procedure.i PropertyBoxEdit(Gadget, Row)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.PropertyBoxData
-
+		
 		If *this = 0
 			ProcedureReturn #False
 		EndIf
@@ -10109,10 +10103,10 @@ Module UITK
 		EndWith
 		ProcedureReturn #True
 	EndProcedure
-
+	
 	Procedure.i PropertyBoxValuePoint(Gadget, Row, *X.Integer, *Y.Integer)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.PropertyBoxData, Top
-
+		
 		If *this = 0
 			ProcedureReturn #False
 		EndIf
@@ -10130,7 +10124,7 @@ Module UITK
 		EndWith
 		ProcedureReturn #True
 	EndProcedure
-
+	
 	; One pass later than PropertyBoxEditNext, so the queued commit is answered first
 	Procedure PropertyBox_EditNextHandler()
 		Protected *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.PropertyBoxData, Row = EventData() - 1
@@ -10688,7 +10682,7 @@ Module UITK
 			\VT\GetGadgetItemState = @PropertyBox_GetItemState()
 			\VT\SetGadgetItemState = @PropertyBox_SetItemState()
 			\VT\GetGadgetAttribute = @PropertyBox_GetAttribute()
-
+			
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
 			\SupportedEvent[#MouseLeave] = #True
@@ -11298,14 +11292,14 @@ Module UITK
 						If \Editing
 							Redraw = Tree_EndEdit(*GadgetData, #True)
 						EndIf
-
+						
 						If \ScrollBar\MouseState
 							Redraw + ScrollBar_EventHandler(\ScrollBar, *Event)
 						ElseIf Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
 							Index = ListIndex(\Items())
 							TextBlock_Ensure(@\Items()\Text)
 							TextX = \Border + \BranchWidth * (\Items()\Level + 1)
-
+							
 							If *Event\MouseX >= TextX - \BranchWidth And *Event\MouseX < TextX
 								Redraw = Tree_ToggleFold(*GadgetData, Index) | Redraw
 							ElseIf (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
@@ -11327,13 +11321,13 @@ Module UITK
 						If \Editing
 							Redraw = Tree_EndEdit(*GadgetData, #True)
 						EndIf
-
+						
 						If Not \ScrollBar\MouseState
 							If Tree_Select(*GadgetData, Tree_RowToIndex(*GadgetData, Floor((*Event\MouseY + Tree_ScrollOffset(*GadgetData)) / \ItemHeight)))
 								Index = ListIndex(\Items())
 								TextBlock_Ensure(@\Items()\Text)
 								TextX = \Border + \BranchWidth * (\Items()\Level + 1)
-
+								
 								If (*Event\MouseX > TextX) And (*Event\MouseX < TextX + \Items()\Text\RequiredWidth)
 									If \State <> Index
 										\State = Index
@@ -11449,7 +11443,7 @@ Module UITK
 						Case #PB_Shortcut_Escape ;{
 							Redraw = Tree_EndEdit(*GadgetData, #False)	; keep the old name
 																		;}
-						Default ;{
+						Default											;{
 							If \Editing
 								Redraw = \String\EventHandler(\String, *Event)
 							EndIf
@@ -11731,7 +11725,7 @@ Module UITK
 	
 	Procedure Tree_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.TreeData = *this\vt
-
+		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
 			SelectElement(*GadgetData\Items(), Position)
 			*GadgetData\Items()\Text\OriginalText = PeekS(*Text)
@@ -12212,14 +12206,21 @@ Module UITK
 	Procedure FlatMenu(Flags = #Default)
 		Protected Result, *MenuData.FlatMenu, GadgetList = UseGadgetList(0)
 		
-		If Not MenuWindow
-			MenuWindow = WindowID(OpenWindow(#PB_Any, 0, 0, 100, 100, "Menu Parent", #PB_Window_Invisible | #PB_Window_SystemMenu))
-		EndIf
+		CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+			If Not MenuWindow
+				MenuWindow = WindowID(OpenWindow(#PB_Any, 0, 0, 100, 100, "Menu Parent", #PB_Window_Invisible | #PB_Window_SystemMenu))
+			EndIf
+		CompilerEndIf
 		
 		AllocateStructureX(*MenuData, FlatMenu)
 		
 		With *MenuData
-			\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, MenuWindow)
+			CompilerIf #PB_Compiler_OS = #PB_OS_MacOS		; no owner: a Cocoa child window drags its parent on screen, here the hidden "Menu Parent"
+				\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible)
+				CocoaMessage(0, WindowID(\Window), "setLevel:", 101)		; NSPopUpMenuWindowLevel: above the app's windows
+			CompilerElse
+				\Window = OpenWindow(#PB_Any, 0, 0, #MenuMinimumWidth, 0, "", #PB_Window_BorderLess | #PB_Window_Invisible, MenuWindow)
+			CompilerEndIf
 			\Canvas = CanvasGadget(#PB_Any, 1, 1, #MenuMinimumWidth, 0, #PB_Canvas_Keyboard)
 			\FontID = DefaultFont
 			\Width = #MenuMinimumWidth
@@ -13845,7 +13846,7 @@ Module UITK
 				\ButtonSize = \Height - \Border * 2
 			EndIf
 			BtnSize = \ButtonSize - #ToolBar_Margin * 2
-
+			
 			BeginMeasuring()	
 			ForEach \Items()
 				If \Items()\Button
@@ -13869,7 +13870,7 @@ Module UITK
 				EndIf
 			Next
 			EndMeasuring()
-
+			
 			RedrawObject()
 		EndWith
 	EndProcedure
@@ -13995,10 +13996,8 @@ EndModule
 
 
 
-
-; IDE Options = PureBasic 6.41 - C Backend (MacOS X - arm64)
-; CursorPosition = 3793
-; FirstLine = 164
-; Folding = BAIA+---HAAAAAAAAAAAAAAAAAA--OA9-BAAADAAAA+xBAA9fADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgy-----------------
+; IDE Options = PureBasic 6.50 beta 1 - C Backend (MacOS X - arm64)
+; CursorPosition = 2032
+; Folding = AAIAwP--ZAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAgPcAAAo-AYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
 ; EnableXP
 ; DPIAware
