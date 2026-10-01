@@ -49,7 +49,9 @@ Structure LayerListData Extends GadgetData
 	Editable.l
 	Editing.b
 	EditCursor.b					; the cursor shape in force, and so also "pointer inside the editor"
-	
+	EditIndex.i
+	CommitIndex.i
+
 	*String.StringData				; inline rename editor, only allocated with #Editable
 	*ItemRedraw.ItemRedraw
 	*ScrollBar.ScrollBarData
@@ -944,6 +946,7 @@ Procedure LayerList_BeginEdit(*GadgetData.LayerListData)
 		EndIf
 		
 		\Editing = #True : SetProp_(GadgetID(\Gadget), "UITK_KeepKeys", 1)
+		\EditIndex = \State
 		\String\String = \Items()\Text\OriginalText
 		String_ProcessString(\String)
 		If \Items()\Text\Dirty
@@ -966,7 +969,8 @@ Procedure LayerList_EndEdit(*GadgetData.LayerListData, Keep)
 	; Fold the editor away. Keep writes the typed text back into the row and reports it
 	; with #EventType_ItemTextChange; otherwise the row keeps the text it had (Escape, or
 	; the row being removed from under the editor).
-	Protected Event.Event
+	; Reports the row the editor was opened on: a click may have moved the state
+	Protected Event.Event, Changed
 	
 	With *GadgetData
 		If Not \Editing
@@ -985,10 +989,14 @@ Procedure LayerList_EndEdit(*GadgetData.LayerListData, Keep)
 			\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, #PB_Cursor_Default)
 		EndIf
 		
-		If Keep And SelectElement(\Items(), \State)
+		If Keep And \EditIndex > -1 And SelectElement(\Items(), \EditIndex)
+			Changed = Bool(\Items()\Text\OriginalText <> \String\String)
 			\Items()\Text\OriginalText = \String\String
 			LayerList_PrepareItem(*GadgetData, @\Items())
-			PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+			If Changed
+				\CommitIndex = \EditIndex
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange, \EditIndex + 1)
+			EndIf
 		EndIf
 		
 		Event\EventType = #LostFocus
@@ -1343,7 +1351,7 @@ Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l
 			Level = 0
 		EndIf
 		
-		If \Editing And Position > -1 And Position <= \State
+		If \Editing And Position > -1 And Position <= \EditIndex
 			LayerList_EndEdit(*GadgetData, #True)
 		EndIf
 		
@@ -1619,6 +1627,15 @@ Procedure LayerList_SetItemImage(*this.PB_Gadget, Position.l, ImageID)
 	EndWith
 EndProcedure
 
+Procedure LayerList_GetAttribute(*this.PB_Gadget, Attribute.l)
+	Protected *GadgetData.LayerListData = *this\vt
+
+	If Attribute = #Attribute_LayerList_EditedRow
+		ProcedureReturn *GadgetData\CommitIndex
+	EndIf
+	ProcedureReturn Default_GetAttribute(*this, Attribute)
+EndProcedure
+
 Procedure LayerList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 	Protected *GadgetData.LayerListData = *this\vt
 	
@@ -1781,6 +1798,8 @@ Procedure LayerList_Meta(*GadgetData.LayerListData, *ThemeData.Theme, Gadget, x,
 		\VT\GetGadgetItemImage = @LayerList_GetItemImage()
 		\VT\SetGadgetItemImage = @LayerList_SetItemImage()
 		\VT\SetGadgetAttribute = @LayerList_SetAttribute()
+		\VT\GetGadgetAttribute = @LayerList_GetAttribute()
+		\CommitIndex = -1
 		\VT\SetGadgetFont = @LayerList_SetFont()
 		\VT\ResizeGadget = @LayerList_Resize()
 		\VT\FreeGadget = @LayerList_FreeGadget()

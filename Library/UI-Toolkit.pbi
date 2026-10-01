@@ -78,7 +78,8 @@
 		#Attribute_CornerType
 		#Attribute_TextSelectionPosition
 		#Attribute_TextSelectionLength
-		
+		#Attribute_TextCaretPosition		; String gadget: caret position, in characters (read only)
+
 		#TrackBar_Scale
 		
 		#Attribute_Library_SectionHeight
@@ -90,6 +91,7 @@
 		#Attribute_PropertyBox_FontSize			; #PropertyBox_Font row: point size (read/write)
 		#Attribute_PropertyBox_FontStyle		; #PropertyBox_Font row: #PB_Font_* style bits (read/write)
 		#Attribute_VerticalList_HoverRow		; VerticalList gadget: the row under the pointer, -1 for none (read only)
+		#Attribute_PropertyBox_EditRow			; PropertyBox gadget: the row the open editor is on, -1 for none (read only)
 
 		CompilerIf Defined(EnableParameterList, #PB_Module)
 			#Attribute_ParameterList_Kind			; ParameterList item: #ParameterList_Value, _Group or _Branch (read/write)
@@ -112,6 +114,8 @@
 			#Attribute_ParameterList_EditedColumn	; ParameterList gadget: the column it came from (read/write)
 			#Attribute_ParameterList_HoverRow		; ParameterList gadget: the row under the pointer, -1 for none (read only)
 			#Attribute_ParameterList_HoverColumn	; ParameterList gadget: the column under it, -1 for none (read only)
+			#Attribute_ParameterList_EditingRow		; ParameterList gadget: the row the open editor is on, -1 for none (read only)
+			#Attribute_ParameterList_EditingColumn	; ParameterList gadget: the column the open editor is on, -1 for none (read only)
 		CompilerEndIf
 		
 		CompilerIf Defined(EnableLayerList, #PB_Module)
@@ -124,6 +128,7 @@
 			#Attribute_LayerList_Parent				; LayerList item: list index of the owning group, -1 for a group (read only)
 			#Attribute_LayerList_ChildCount			; LayerList item: children held by the group (read only)
 			#Attribute_LayerList_Locked				; LayerList item: this row's own padlock (read/write)
+			#Attribute_LayerList_EditedRow			; LayerList gadget: the row the last rename came from, -1 before any (read only)
 		CompilerEndIf
 		
 		CompilerIf Defined(EnableTimeline, #PB_Module)
@@ -498,7 +503,9 @@
 	Declare ToolBarGetMode(Gadget, Item)						; Active mode index of a mode button item (-1 if it has no mode yet)
 	Declare ToolBarSetMode(Gadget, Item, Mode)					; Set the active mode of a mode button item (does not post a change event)
 	Declare.i PropertyBoxEditNext(Gadget, Backwards = #False)	; Commit the open editor and move it to the next text row. #False if it could not
-	
+	Declare.i PropertyBoxEdit(Gadget, Row)	; Open a text row's editor. #False if the row has none
+	Declare.i PropertyBoxValuePoint(Gadget, Row, *X.Integer, *Y.Integer)	; Where to click a row's value, in gadget pixels. #False if the row is not on screen
+
 	; Tooltip
 	Declare ShowTooltip(Text.s, X, Y, *ThemeData.Theme)
 	Declare HideTooltip()
@@ -517,6 +524,7 @@
 	Declare DragPreviewVisible(State)						; Show/hide the floating drag preview mid-drag (in-place preview takes over)
 	Declare EditGadgetItemText(Gadget)
 	Declare ToggleGadgetItemVisibility(Gadget)				; Flip the focused row's eye, as clicking it does
+	Declare SimulateGadgetEvent(Gadget, PBEventType, MouseX = 0, MouseY = 0, Param = 0) ; Run a canvas event through the gadget's handler, bypassing the OS input queue
 	
 	; Drag & drop
 	Declare AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
@@ -586,8 +594,15 @@
 		
 		; A gadget is born with three columns - Name, Expression and Value - which AddGadgetColumn adds to and RemoveGadgetColumn thins out.
 		
+		Enumeration
+			#ParameterList_PointCell
+			#ParameterList_PointButton			; the cross only answers on the hovered row
+			#ParameterList_PointFold
+		EndEnumeration
+
 		Declare ParameterList(Gadget, x, y, Width, Height, Flags = #Default)
 		Declare.i ParameterListEdit(Gadget, Row, Column)	; open a cell's editor from the host
+		Declare.i ParameterListPoint(Gadget, Row, What, Column, *X.Integer, *Y.Integer)	; #False if the row is not on screen
 	CompilerEndIf
 	
 	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
@@ -2694,36 +2709,58 @@ Module UITK
 		CompilerError "PB's canvas #PB_EventType_* layout changed - review Default_EventHandle's range translation."
 	CompilerEndIf
 	
+	Procedure.i TranslateCanvasEventType(PBType)
+		Select PBType
+			Case #PB_EventType_LeftClick To #PB_EventType_RightDoubleClick
+				ProcedureReturn #LeftClick + PBType - #PB_EventType_LeftClick
+			Case #PB_EventType_Focus
+				ProcedureReturn #Focus
+			Case #PB_EventType_LostFocus		; not Focus + 1 on macOS (256 / 512)
+				ProcedureReturn #LostFocus
+			Case #PB_EventType_Resize
+				ProcedureReturn #Resize
+			Case #PB_EventType_MouseEnter To #PB_EventType_Input
+				ProcedureReturn #MouseEnter + PBType - #PB_EventType_MouseEnter
+		EndSelect
+		ProcedureReturn -1
+	EndProcedure
+
+	Procedure SimulateGadgetEvent(Gadget, PBEventType, MouseX = 0, MouseY = 0, Param = 0)
+		Protected Event.Event, *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData
+
+		If Not *this
+			ProcedureReturn
+		EndIf
+		*GadgetData = *this\vt
+		Event\EventType = TranslateCanvasEventType(PBEventType)
+		If Event\EventType < 0 Or Not *GadgetData\Enabled Or Not *GadgetData\SupportedEvent[Event\EventType]
+			ProcedureReturn
+		EndIf
+		Event\MouseX = MouseX
+		Event\MouseY = MouseY
+		Event\Param = Param
+		*GadgetData\EventHandler(*GadgetData, Event)
+	EndProcedure
+
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
 		Protected PBType = EventType()
-		
+
 		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
 			If *GadgetData = @NativeVT		; raised synchronously by Cocoa inside a native call, while *this\VT is swapped to OriginalVT
 				ProcedureReturn
 			EndIf
 		CompilerEndIf
-		
+
 		If Not *GadgetData\Enabled
 			ProcedureReturn
 		EndIf
-		
-		; Translate the PB event to our 0-based #Event constant, block by block
-		Select PBType
-			Case #PB_EventType_LeftClick To #PB_EventType_RightDoubleClick
-				Event\EventType = #LeftClick + PBType - #PB_EventType_LeftClick
-			Case #PB_EventType_Focus
-				Event\EventType = #Focus
-			Case #PB_EventType_LostFocus		; not Focus + 1 on macOS (256 / 512)
-				Event\EventType = #LostFocus
-			Case #PB_EventType_Resize
-				Event\EventType = #Resize
-			Case #PB_EventType_MouseEnter To #PB_EventType_Input
-				Event\EventType = #MouseEnter + PBType - #PB_EventType_MouseEnter
-			Default
-				ProcedureReturn
-		EndSelect
-		
+
+		Event\EventType = TranslateCanvasEventType(PBType)
+		If Event\EventType < 0
+			ProcedureReturn
+		EndIf
+
 		If Not *GadgetData\SupportedEvent[Event\EventType]
 			ProcedureReturn
 		EndIf
@@ -3230,30 +3267,34 @@ Module UITK
 					Protected hMon = MonitorFromWindow_(hWnd, #MONITOR_DEFAULTTONEAREST)
 					Protected mie.MONITORINFOEX\cbSize = SizeOf(mie)
 					GetMonitorInfo_(hMon, mie)
-					*mmi\ptMaxPosition\x = Abs(mie\rcWork\left - mie\rcMonitor\left)
-					*mmi\ptMaxPosition\y = Abs(mie\rcWork\top - mie\rcMonitor\top)
-					
-					If *WindowData\MaxWidth > 0
-						*mmi\ptMaxSize\x = *WindowData\MaxWidth
-					Else
+					If *WindowData\Sizable = 0 ; a sizable window keeps Windows' own maximise
+						*mmi\ptMaxPosition\x = Abs(mie\rcWork\left - mie\rcMonitor\left)
+						*mmi\ptMaxPosition\y = Abs(mie\rcWork\top - mie\rcMonitor\top)
 						*mmi\ptMaxSize\x = Abs(mie\rcWork\right - mie\rcWork\left)
-					EndIf
-					
-					If *WindowData\MaxHeight > 0
-						*mmi\ptMaxSize\y = *WindowData\MaxHeight
-					Else
 						*mmi\ptMaxSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) - 1
 					EndIf
-					
+					If *WindowData\MaxWidth > 0 : *mmi\ptMaxSize\x = *WindowData\MaxWidth : EndIf
+					If *WindowData\MaxHeight > 0 : *mmi\ptMaxSize\y = *WindowData\MaxHeight : EndIf
+
 					*mmi\ptMinTrackSize\x = *WindowData\MinWidth
 					*mmi\ptMinTrackSize\y = *WindowData\MinHeight
+					If *mmi\ptMinTrackSize\x > Abs(mie\rcWork\right - mie\rcWork\left) : *mmi\ptMinTrackSize\x = Abs(mie\rcWork\right - mie\rcWork\left) : EndIf ; DefWindowProc would otherwise leave the edge under the taskbar
+					If *mmi\ptMinTrackSize\y > Abs(mie\rcWork\bottom - mie\rcWork\top) : *mmi\ptMinTrackSize\y = Abs(mie\rcWork\bottom - mie\rcWork\top) : EndIf
+					If *WindowData\MaxWidth > 0 And *mmi\ptMinTrackSize\x > *WindowData\MaxWidth : *mmi\ptMinTrackSize\x = *WindowData\MaxWidth : EndIf
+					If *WindowData\MaxHeight > 0 And *mmi\ptMinTrackSize\y > *WindowData\MaxHeight : *mmi\ptMinTrackSize\y = *WindowData\MaxHeight : EndIf
 					ProcedureReturn 0
 					;}
 				Case #WM_NCCALCSIZE ;{
 					If wParam
-						; Returning 0 makes the client fill the whole window rect (custom chrome, no OS frame).
-						; When maximised, WM_GETMINMAXINFO already sizes the window to the monitor work area, so no
-						; border inset is wanted here : insetting left a ~frame-wide margin around the content.
+						If *WindowData\Sizable ; keep the invisible left/right/bottom frame, take only the caption
+							Protected *Proposed.RECT = lParam, ProposedTop = *Proposed\top, ProposedBottom = *Proposed\bottom
+							CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
+							If IsZoomed_(hWnd)
+								*Proposed\top = ProposedTop + (ProposedBottom - *Proposed\bottom) ; maximised, the frame hangs off-screen: keep a frame's worth so the title bar isn't clipped
+							Else
+								*Proposed\top = ProposedTop
+							EndIf
+						EndIf
 						ProcedureReturn 0
 					EndIf
 					;}
@@ -3263,28 +3304,24 @@ Module UITK
 					
 					If ptX & $8000 : ptX | $FFFF0000 : EndIf
 					If ptY & $8000 : ptY | $FFFF0000 : EndIf
-					Protected wRect.RECT
-					GetWindowRect_(hWnd, @wRect)
-					Protected x = ptX - wRect\left
-					Protected y = ptY - wRect\top
-					Protected w = wRect\right - wRect\left
-					Protected h = wRect\bottom - wRect\top
-					
+					Protected cRect.RECT
+					GetClientRect_(hWnd, @cRect)
+					MapWindowPoints_(hWnd, 0, @cRect, 2)
+					Protected x = ptX - cRect\left
+					Protected y = ptY - cRect\top
+					Protected w = cRect\right - cRect\left
+
 					If *WindowData\Sizable And IsZoomed_(hWnd) = 0
+						If x < 0 Or x >= w Or ptY >= cRect\bottom ; the frame is Windows'
+							ProcedureReturn CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
+						EndIf
 						If y < #SizableBorder
 							If x < #SizableBorder  : ProcedureReturn #HTTOPLEFT  : EndIf
 							If x >= w - #SizableBorder : ProcedureReturn #HTTOPRIGHT : EndIf
 							ProcedureReturn #HTTOP
 						EndIf
-						If y >= h - #SizableBorder
-							If x < #SizableBorder  : ProcedureReturn #HTBOTTOMLEFT  : EndIf
-							If x >= w - #SizableBorder : ProcedureReturn #HTBOTTOMRIGHT : EndIf
-							ProcedureReturn #HTBOTTOM
-						EndIf
-						If x < #SizableBorder  : ProcedureReturn #HTLEFT  : EndIf
-						If x >= w - #SizableBorder : ProcedureReturn #HTRIGHT : EndIf
 					EndIf
-					
+
 					If y < #WindowBarHeight
 						ProcedureReturn #HTCAPTION
 					EndIf
@@ -3350,36 +3387,7 @@ Module UITK
 			ProcedureReturn CallWindowProc_(*WindowData\OriginalProc, hWnd, Msg, wParam, lParam)
 		EndProcedure
 		
-		; Screen point (packed NCHITTEST lParam) inside the bottom/left/right resize
-		; band of a sizable, un-maximized themed window? The top band is the title
-		; bar's business, handled by the bar pieces themselves.
-		Procedure Window_InSizeBand(Window, lParam)
-			Protected *WindowData.ThemedWindow = GetProp_(Window, "UITK_WindowData")
-			Protected ptX, ptY, wRect.RECT, localX, localY, w, h
-			
-			If *WindowData And *WindowData\Sizable And IsZoomed_(Window) = 0
-				ptX = lParam & $FFFF
-				ptY = (lParam >> 16) & $FFFF
-				If ptX & $8000 : ptX | $FFFF0000 : EndIf
-				If ptY & $8000 : ptY | $FFFF0000 : EndIf
-				GetWindowRect_(Window, @wRect)
-				localX = ptX - wRect\left
-				localY = ptY - wRect\top
-				w = wRect\right - wRect\left
-				h = wRect\bottom - wRect\top
-				If localY >= h - #SizableBorder Or localX < #SizableBorder Or localX >= w - #SizableBorder
-					ProcedureReturn #True
-				EndIf
-			EndIf
-			ProcedureReturn #False
-		EndProcedure
-		
-		; Every child placed on the container gets this thin subclass, doing two
-		; jobs the child can't know it should:
-		; - RESIZE BAND: a gadget covering the border used to answer WM_NCHITTEST
-		;   with HTCLIENT, stopping the hit-test dead - inside the band it now
-		;   steps aside so gadget -> container -> window fall-through reaches the
-		;   window's HTBOTTOMRIGHT & co.
+	
 		; - SHORTCUT BUBBLING: window shortcuts work from ANY focused gadget. An
 		;   unmodified letter the child doesn't claim is forwarded to its
 		;   top-level window, whose callback treats it like a viewport keypress.
@@ -3393,9 +3401,7 @@ Module UITK
 		Procedure ContainerChild_Handler(hWnd, Msg, wParam, lParam)
 			Protected OriginalProc = GetProp_(hWnd, "UITK_ChildProc")
 			
-			If Msg = #WM_NCHITTEST And Window_InSizeBand(GetAncestor_(hWnd, #GA_ROOT), lParam)
-				ProcedureReturn #HTTRANSPARENT
-			ElseIf Msg = #WM_KEYDOWN And wParam >= 'A' And wParam <= 'Z'
+			If Msg = #WM_KEYDOWN And wParam >= 'A' And wParam <= 'Z'
 				If GetProp_(hWnd, "UITK_KeepKeys") = 0 And (GetKeyState_(#VK_CONTROL) & $8000) = 0
 					SendMessage_(GetAncestor_(hWnd, #GA_ROOT), #WM_KEYDOWN, wParam, lParam)
 				EndIf
@@ -3410,13 +3416,7 @@ Module UITK
 		Procedure WindowContainer_Handler(hWnd, Msg, wParam, lParam)
 			Protected *ContainerData.WindowContainer = GetProp_(hWnd, "UITK_ContainerData")
 			
-			; The container sits below the title bar and covers the resize border on the bottom/left/right.
-			; We return HTTRANSPARENT in those bands so the parent's WM_NCHITTEST gets the chance to return HTLEFT/HTRIGHT/HTBOTTOM/etc; without which the OS-driven resize and Aero Snap would never see the click.
-			If Msg = #WM_NCHITTEST
-				If Window_InSizeBand(*ContainerData\Parent, lParam)
-					ProcedureReturn #HTTRANSPARENT
-				EndIf
-			ElseIf Msg = #WM_NCDESTROY
+			If Msg = #WM_NCDESTROY
 				Protected OriginalProc = *ContainerData\OriginalProc
 				SetWindowLongPtr_(hWnd, #GWL_WNDPROC, OriginalProc)
 				RemoveProp_(hWnd, "UITK_ContainerData")
@@ -3425,7 +3425,6 @@ Module UITK
 			ElseIf Msg = #WM_PARENTNOTIFY And (wParam & $FFFF) = #WM_CREATE
 				; A new child (gadget, nested child, the 3D screen host - creation
 				; notifications bubble up from any depth): give it the child subclass
-				; (resize band + shortcut bubbling - see ContainerChild_Handler)
 				If IsWindow_(lParam) And GetProp_(lParam, "UITK_ChildProc") = 0
 					SetProp_(lParam, "UITK_ChildProc", SetWindowLongPtr_(lParam, #GWL_WNDPROC, @ContainerChild_Handler()))
 				EndIf
@@ -3919,11 +3918,26 @@ Module UITK
 		Global ADNDGadget = ImageGadget(#PB_Any, 0, 0, 1, 1, 0)
 		Global ADNDHook, *DropCallback
 		Global ADND_OffsetX, ADND_OffsetY
-		
-		; Fires for every raw mouse move while installed; MSLLHOOKSTRUCT\pt (aliased here) is in screen coordinates.
+		Global ADND_User32 = OpenLibrary(#PB_Any, "user32.dll"), ADND_Shcore = OpenLibrary(#PB_Any, "shcore.dll")
+		Global *ADND_SetThreadDpiContext, *ADND_DpiForMonitor, *ADND_DpiForWindow
+		If ADND_User32 : *ADND_SetThreadDpiContext = GetFunction(ADND_User32, "SetThreadDpiAwarenessContext") : *ADND_DpiForWindow = GetFunction(ADND_User32, "GetDpiForWindow") : EndIf
+		If ADND_Shcore : *ADND_DpiForMonitor = GetFunction(ADND_Shcore, "GetDpiForMonitor") : EndIf
+
+		; MSLLHOOKSTRUCT\pt is in physical pixels whatever the process's DPI awareness
 		Procedure ADND_Hook(nCode, wParam, *p.POINT)
+			Protected Old, DpiX.l, DpiY.l, CardDpi, OffsetX = ADND_OffsetX, OffsetY = ADND_OffsetY
 			If nCode >= 0
-				SetWindowPos_(WindowID(ADNDWindow), 0, *p\x + ADND_OffsetX, *p\y + ADND_OffsetY, 0, 0, #SWP_NOSIZE | #SWP_NOACTIVATE | #SWP_NOREDRAW)
+				If *ADND_SetThreadDpiContext And *ADND_DpiForMonitor And *ADND_DpiForWindow ; an unaware process's SetWindowPos takes logical units: place the card from a per-monitor context
+					Old = CallFunctionFast(*ADND_SetThreadDpiContext, -4) ; PER_MONITOR_AWARE_V2
+					If Old = 0 : Old = CallFunctionFast(*ADND_SetThreadDpiContext, -3) : EndIf ; PER_MONITOR_AWARE
+					CardDpi = CallFunctionFast(*ADND_DpiForWindow, WindowID(ADNDWindow))
+					If Old And CardDpi > 0 And CallFunctionFast(*ADND_DpiForMonitor, MonitorFromWindow_(WindowID(ADNDWindow), #MONITOR_DEFAULTTONEAREST), 0, @DpiX, @DpiY) = 0
+						OffsetX = OffsetX * DpiX / CardDpi
+						OffsetY = OffsetY * DpiY / CardDpi
+					EndIf
+				EndIf
+				SetWindowPos_(WindowID(ADNDWindow), 0, *p\x + OffsetX, *p\y + OffsetY, 0, 0, #SWP_NOSIZE | #SWP_NOACTIVATE | #SWP_NOREDRAW)
+				If Old : CallFunctionFast(*ADND_SetThreadDpiContext, Old) : EndIf
 			EndIf
 			ProcedureReturn CallNextHookEx_(#NUL, nCode, wParam, *p)
 		EndProcedure
@@ -4000,10 +4014,75 @@ Module UITK
 			class_addProtocol(*Class, *Protocol)
 		EndImport
 		
-		Global *Cocoa_DragSource, Cocoa_DragMask, *DropCallback
+		Global *Cocoa_DragSource, Cocoa_DragMask, Cocoa_DragActive
+		Global Cocoa_DropFormat, *Cocoa_DropTarget, Cocoa_DropX, Cocoa_DropY, *DropCallback
+		Global NewList Cocoa_DropTypes.s()
+		Declare DropCallback(TargetHandle, State, Format, Action, x, y)
 		
 		ProcedureC.i Cocoa_DragSourceMask(*Self, *Sel, *Session, Context)
 			ProcedureReturn Cocoa_DragMask		; PB's #PB_Drag_Copy / Link / Move are NSDragOperationCopy / Link / Move
+		EndProcedure
+		
+		Procedure Cocoa_DropTargetAt(*Screen.NSPoint, *X.Integer, *Y.Integer)
+			Protected Number, *Window, *Content, *View, *Types, Local.NSPoint, Point.NSPoint, Bounds.NSRect, Name.s
+			
+			Number = CocoaMessage(0, 0, "NSWindow windowNumberAtPoint:@", *Screen, "belowWindowWithWindowNumber:", 0)
+			*Window = CocoaMessage(0, CocoaMessage(0, 0, "NSApplication sharedApplication"), "windowWithWindowNumber:", Number)
+			If *Window = 0
+				ProcedureReturn 0
+			EndIf
+			CocoaMessage(@Local, *Window, "convertPointFromScreen:@", *Screen)
+			*Content = CocoaMessage(0, *Window, "contentView")
+			*View = CocoaMessage(0, CocoaMessage(0, *Content, "superview"), "hitTest:@", @Local)
+			While *View
+				*Types = CocoaMessage(0, *View, "registeredDraggedTypes")
+				ForEach Cocoa_DropTypes()
+					Name = Cocoa_DropTypes()		; @ on a list element is its address, not its characters
+					If CocoaMessage(0, *Types, "containsObject:$", @Name)
+						CocoaMessage(@Point, *View, "convertPoint:@", @Local, "fromView:", 0)
+						If Not CocoaMessage(0, *View, "isFlipped")
+							CocoaMessage(@Bounds, *View, "bounds")
+							Point\y = Bounds\size\height - Point\y
+						EndIf
+						*X\i = Point\x : *Y\i = Point\y
+						If *View = *Content
+							ProcedureReturn *Window
+						EndIf
+						ProcedureReturn *View
+					EndIf
+				Next
+				*View = CocoaMessage(0, *View, "superview")
+			Wend
+		EndProcedure
+		
+		ProcedureC Cocoa_DragSourceMoved(*Self, *Sel, *Session, X.d, Y.d)	; PB's Cocoa drop side never calls SetDropCallback(): the source drives it
+			Protected Screen.NSPoint, *Target, TX, TY
+			Screen\x = X : Screen\y = Y
+			*Target = Cocoa_DropTargetAt(@Screen, @TX, @TY)
+			If *Target <> *Cocoa_DropTarget
+				If *Cocoa_DropTarget
+					DropCallback(*Cocoa_DropTarget, #PB_Drag_Leave, Cocoa_DropFormat, Cocoa_DragMask, Cocoa_DropX, Cocoa_DropY)
+				EndIf
+				*Cocoa_DropTarget = *Target
+				If *Target
+					DropCallback(*Target, #PB_Drag_Enter, Cocoa_DropFormat, Cocoa_DragMask, TX, TY)
+				EndIf
+			ElseIf *Target
+				DropCallback(*Target, #PB_Drag_Update, Cocoa_DropFormat, Cocoa_DragMask, TX, TY)
+			EndIf
+			Cocoa_DropX = TX : Cocoa_DropY = TY
+		EndProcedure
+		
+		ProcedureC Cocoa_DragSourceEnded(*Self, *Sel, *Session, X.d, Y.d, Operation)
+			If *Cocoa_DropTarget
+				If Operation
+					DropCallback(*Cocoa_DropTarget, #PB_Drag_Finish, Cocoa_DropFormat, Cocoa_DragMask, Cocoa_DropX, Cocoa_DropY)
+				Else
+					DropCallback(*Cocoa_DropTarget, #PB_Drag_Leave, Cocoa_DropFormat, Cocoa_DragMask, Cocoa_DropX, Cocoa_DropY)
+				EndIf
+				*Cocoa_DropTarget = 0
+			EndIf
+			Cocoa_DragActive = #False
 		EndProcedure
 		
 		Procedure Cocoa_PasteboardItem()
@@ -4035,6 +4114,8 @@ Module UITK
 			If *Cocoa_DragSource = 0
 				*Class = objc_allocateClassPair(objc_getClass("NSObject"), "UITK_DragSource", 0)
 				class_addMethod(*Class, sel_registerName("draggingSession:sourceOperationMaskForDraggingContext:"), @Cocoa_DragSourceMask(), UTF8("Q32@0:8@16q24"))	; a C string, kept for the class's lifetime
+				class_addMethod(*Class, sel_registerName("draggingSession:endedAtPoint:operation:"), @Cocoa_DragSourceEnded(), UTF8("v48@0:8@16{CGPoint=dd}24Q40"))
+				class_addMethod(*Class, sel_registerName("draggingSession:movedToPoint:"), @Cocoa_DragSourceMoved(), UTF8("v40@0:8@16{CGPoint=dd}24"))
 				class_addProtocol(*Class, objc_getProtocol("NSDraggingSource"))
 				objc_registerClassPair(*Class)
 				*Cocoa_DragSource = CocoaMessage(0, CocoaMessage(0, *Class, "alloc"), "init")
@@ -4061,13 +4142,17 @@ Module UITK
 				CocoaMessage(0, *DraggingItems, "addObject:", *Dragging)
 			Next
 			
-			CocoaMessage(0, *View, "beginDraggingSessionWithItems:", *DraggingItems, "event:", *Event, "source:", *Cocoa_DragSource)
+			If CocoaMessage(0, *View, "beginDraggingSessionWithItems:", *DraggingItems, "event:", *Event, "source:", *Cocoa_DragSource)
+				Cocoa_DragActive = #True
+				*Cocoa_DropTarget = 0
+			EndIf
 			ProcedureReturn Action		; the session runs on after this returns: Cocoa drags are not modal
 		EndProcedure
 		
 		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
 			Protected *Item = Cocoa_PasteboardItem(), Value.s = Str(Type), Format.s = "pb.private." + Str(Type)	; the type PB's EnableGadgetDrop() registers, see PB_DragDrop_GetPrivateType
 			CocoaMessage(0, *Item, "setString:$", @Value, "forType:$", @Format)
+			Cocoa_DropFormat = #PB_Drop_Private : ClearList(Cocoa_DropTypes()) : AddElement(Cocoa_DropTypes()) : Cocoa_DropTypes() = Format
 			ProcedureReturn Cocoa_Drag(CocoaMessage(0, 0, "NSArray arrayWithObject:", *Item), ImageID, OffsetX, OffsetY, Action)
 		EndProcedure
 		
@@ -4079,23 +4164,28 @@ Module UITK
 					CocoaMessage(0, *Items, "addObject:", CocoaMessage(0, 0, "NSURL fileURLWithPath:$", @Path))
 				EndIf
 			Next
+			Cocoa_DropFormat = #PB_Drop_Files : ClearList(Cocoa_DropTypes()) : AddElement(Cocoa_DropTypes()) : Cocoa_DropTypes() = "public.file-url" : AddElement(Cocoa_DropTypes()) : Cocoa_DropTypes() = "NSFilenamesPboardType"
 			ProcedureReturn Cocoa_Drag(*Items, ImageID, OffsetX, OffsetY, Action)
 		EndProcedure
 		
 		Procedure AdvancedDragText(Text.s, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
 			Protected *Item = Cocoa_PasteboardItem(), Format.s = "public.utf8-plain-text"
 			CocoaMessage(0, *Item, "setString:$", @Text, "forType:$", @Format)
+			Cocoa_DropFormat = #PB_Drop_Text : ClearList(Cocoa_DropTypes()) : AddElement(Cocoa_DropTypes()) : Cocoa_DropTypes() = Format : AddElement(Cocoa_DropTypes()) : Cocoa_DropTypes() = "NSStringPboardType"
 			ProcedureReturn Cocoa_Drag(CocoaMessage(0, 0, "NSArray arrayWithObject:", *Item), ImageID, OffsetX, OffsetY, Action)
 		EndProcedure
 		
 		Procedure AdvancedDragImage(ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
 			Protected *Item = Cocoa_PasteboardItem(), Format.s = "public.tiff"
 			CocoaMessage(0, *Item, "setData:", CocoaMessage(0, ImageID, "TIFFRepresentation"), "forType:$", @Format)
+			Cocoa_DropFormat = #PB_Drop_Image : ClearList(Cocoa_DropTypes()) : AddElement(Cocoa_DropTypes()) : Cocoa_DropTypes() = Format : AddElement(Cocoa_DropTypes()) : Cocoa_DropTypes() = "NSTIFFPboardType"
 			ProcedureReturn Cocoa_Drag(CocoaMessage(0, 0, "NSArray arrayWithObject:", *Item), ImageID, OffsetX, OffsetY, Action)
 		EndProcedure
 		
-		Procedure DragPreviewVisible(State) : EndProcedure
-		Procedure.i AdvancedDragActive() : ProcedureReturn #False : EndProcedure
+		Procedure DragPreviewVisible(State) : EndProcedure		; TODO macOS
+		Procedure.i AdvancedDragActive()
+			ProcedureReturn Cocoa_DragActive
+		EndProcedure
 	CompilerElse
 		; ---- Linux stubs for advanced drag & drop ----
 		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy) : ProcedureReturn 0 : EndProcedure
@@ -4162,6 +4252,24 @@ Module UITK
 			EndIf
 			SendMessage_(Focus, #WM_KEYDOWN, VirtualKey, 0)
 			SendMessage_(Focus, #WM_KEYUP, VirtualKey, 0)
+		EndProcedure
+	CompilerElseIf #PB_Compiler_OS = #PB_OS_MacOS
+		Procedure.i KeyboardClaimed()
+			Protected *Window = CocoaMessage(0, CocoaMessage(0, 0, "NSApplication sharedApplication"), "keyWindow")
+			If *Window
+				ProcedureReturn Bool(GetProp_(CocoaMessage(0, *Window, "firstResponder"), "UITK_KeepKeys") <> 0)
+			EndIf
+		EndProcedure
+		
+		Procedure ForwardKeyToFocus(VirtualKey)
+			Protected *App = CocoaMessage(0, 0, "NSApplication sharedApplication"), *Event = CocoaMessage(0, *App, "currentEvent"), *Window = CocoaMessage(0, *App, "keyWindow"), *Focus
+			If *Event = 0 Or *Window = 0 Or CocoaMessage(0, *Event, "type") <> 10
+				ProcedureReturn
+			EndIf
+			*Focus = CocoaMessage(0, *Window, "firstResponder")
+			If *Focus And GetProp_(*Focus, "UITK_KeepKeys")
+				CocoaMessage(0, *Focus, "keyDown:", *Event)
+			EndIf
 		EndProcedure
 	CompilerElse
 		Procedure.i KeyboardClaimed() : ProcedureReturn #False : EndProcedure	; no accelerator table steals keys from a canvas outside Windows
@@ -5297,7 +5405,10 @@ Module UITK
 					
 				Case #Attribute_TextSelectionLength
 					Result = \SelectionLength
-					
+
+				Case #Attribute_TextCaretPosition
+					Result = \CaretPosition
+
 				Default
 					Result = Default_GetAttribute(*this.PB_Gadget, Attribute)
 			EndSelect
@@ -8945,8 +9056,7 @@ Module UITK
 							If NewItem > -1
 								\Items()\HoverState = #True
 							EndIf
-							If \ItemState > -1
-								SelectElement(\Items(), \ItemState)
+							If \ItemState > -1 And SelectElement(\Items(), \ItemState)
 								\Items()\HoverState = #False
 							EndIf
 							\ItemState = NewItem
@@ -8990,8 +9100,9 @@ Module UITK
 					EndIf
 					
 					If \ItemState > -1
-						SelectElement(\Items(), \ItemState)
-						\Items()\HoverState = #False
+						If SelectElement(\Items(), \ItemState)
+							\Items()\HoverState = #False
+						EndIf
 						\ItemState = -1
 						Redraw = #True
 					EndIf
@@ -8999,13 +9110,12 @@ Module UITK
 				Case #LeftButtonDown ;{
 					If \ScrollBar\MouseState
 						Redraw = ScrollBar_EventHandler(\ScrollBar, *Event)
-					ElseIf \ItemState > -1
-						If \State > -1
-							SelectElement(\Items(), \State)
+					ElseIf \ItemState > -1 And \ItemState < ListSize(\Items())
+						If \State > -1 And SelectElement(\Items(), \State)
 							\Items()\Selected = #False
 						EndIf
 						\State = \ItemState
-						
+
 						SelectElement(\Items(), \State)
 						\Items()\Selected = #True
 						Redraw = #True
@@ -9110,15 +9220,17 @@ Module UITK
 		With *GadgetData
 			ClearList(\Items())
 			ClearList(\Sections())
-			
+
 			\State = -1
+			\ItemState = -1
+			\DragState = #Drag_None
 			\InternalHeight = 0
 			\VisibleScrollBar = #False
 			\ScrollBar\State = 0
-			
+
 			RedrawObject()
 		EndWith
-		
+
 	EndProcedure
 	
 	Procedure Library_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
@@ -9763,17 +9875,18 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	; EventData is the edited row + 1: a click may have moved the state before the event is read
 	Procedure PropertyBox_CommitEdit(*GadgetData.PropertyBoxData)
 		Protected Event.Event
-		
+
 		With *GadgetData
 			If \Editing
 				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
-				
+
 				SelectElement(\Items(), \EditItem)
 				\Items()\Value\OriginalText = \String\String
 				PropertyBox_PrepareValue(*GadgetData, @\Items())
-				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange, \EditItem + 1)
 				
 				Event\EventType = #LostFocus
 				\String\EventHandler(\String, Event)
@@ -9810,6 +9923,61 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure PropertyBox_GetAttribute(*this.PB_Gadget, Attribute)
+		Protected *GadgetData.PropertyBoxData = *this\vt
+
+		If Attribute = #Attribute_PropertyBox_EditRow
+			If *GadgetData\Editing
+				ProcedureReturn *GadgetData\EditItem
+			EndIf
+			ProcedureReturn -1
+		EndIf
+		ProcedureReturn Default_GetAttribute(*this, Attribute)
+	EndProcedure
+
+	Procedure.i PropertyBoxEdit(Gadget, Row)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.PropertyBoxData
+
+		If *this = 0
+			ProcedureReturn #False
+		EndIf
+		*GadgetData = *this\vt
+		With *GadgetData
+			If Row < 0 Or Row >= ListSize(\Items()) Or Not SelectElement(\Items(), Row)
+				ProcedureReturn #False
+			EndIf
+			If \Items()\Type <> #PropertyBox_Text And \Items()\Type <> #PropertyBox_TextNumerical
+				ProcedureReturn #False
+			EndIf
+			PropertyBox_CancelEdit(*GadgetData)
+			PropertyBox_ScrollToRow(*GadgetData, Row)
+			PropertyBox_StartEdit(*GadgetData, Row)
+			RedrawObject()
+		EndWith
+		ProcedureReturn #True
+	EndProcedure
+
+	Procedure.i PropertyBoxValuePoint(Gadget, Row, *X.Integer, *Y.Integer)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.PropertyBoxData, Top
+
+		If *this = 0
+			ProcedureReturn #False
+		EndIf
+		*GadgetData = *this\vt
+		With *GadgetData
+			If Row < 0 Or Row >= ListSize(\Items())
+				ProcedureReturn #False
+			EndIf
+			Top = \OriginY + \Border + Row * \ItemHeight - Bool(\VisibleScrollBar) * \ScrollBar\State
+			If Top < \OriginY Or Top + \ItemHeight > \OriginY + \Height
+				ProcedureReturn #False
+			EndIf
+			*X\i = \OriginX + \MarginWidth + \ColumnWidth + #PropertyBox_ValueMargin + PropertyBox_ValueWidth(*GadgetData) / 2
+			*Y\i = Top + \ItemHeight / 2
+		EndWith
+		ProcedureReturn #True
+	EndProcedure
+
 	; One pass later than PropertyBoxEditNext, so the queued commit is answered first
 	Procedure PropertyBox_EditNextHandler()
 		Protected *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.PropertyBoxData, Row = EventData() - 1
@@ -10366,7 +10534,8 @@ Module UITK
 			\VT\SetGadgetItemAttribute2 = @PropertyBox_SetItemAttribute()
 			\VT\GetGadgetItemState = @PropertyBox_GetItemState()
 			\VT\SetGadgetItemState = @PropertyBox_SetItemState()
-			
+			\VT\GetGadgetAttribute = @PropertyBox_GetAttribute()
+
 			; Enable only the needed events
 			\SupportedEvent[#MouseWheel] = #True
 			\SupportedEvent[#MouseLeave] = #True
