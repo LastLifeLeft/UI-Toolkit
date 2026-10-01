@@ -772,7 +772,15 @@ Module UITK
 		Procedure SetWindowsHookEx_(t, *fn, h, tid) : ProcedureReturn 0 : EndProcedure
 		Procedure UnhookWindowsHookEx_(h)           : ProcedureReturn 0 : EndProcedure
 		Procedure CallNextHookEx_(h, code, wp, lp)  : ProcedureReturn 0 : EndProcedure
-		Procedure SetLayeredWindowAttributes_(hWnd, key, alpha, flags) : ProcedureReturn 0 : EndProcedure
+		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
+			Procedure SetLayeredWindowAttributes_(hWnd, key, alpha, flags)	; the reorder ghosts' translucency: a whole-window alpha (the colour key is never used)
+				Protected Value.d = alpha / 255.0
+				CocoaMessage(0, hWnd, "setAlphaValue:@", @Value)
+				ProcedureReturn 1
+			EndProcedure
+		CompilerElse
+			Procedure SetLayeredWindowAttributes_(hWnd, key, alpha, flags) : ProcedureReturn 0 : EndProcedure
+		CompilerEndIf
 		Procedure GetObject_(h, size, *out)         : ProcedureReturn 0 : EndProcedure
 		; Win32 constants used across the module — all zero on Linux (the call sites no-op anyway).
 		CompilerIf #PB_Compiler_OS = #PB_OS_Linux
@@ -1983,6 +1991,8 @@ Module UITK
 		#Glyph_ChevronUp = "▴"
 		#Glyph_ChevronDown = "▾"
 		#Glyph_Edit = "✎"
+		#Shortcut_Erase = #PB_Shortcut_Back			; a Mac keyboard's delete key: what removes a selection there
+		#Modifier_Shortcut = #PB_Canvas_Command		; the Mac's shortcut and multi-select key (Ctrl-click is a right click there)
 	CompilerElse
 		Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
 		Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
@@ -1990,6 +2000,8 @@ Module UITK
 		#Glyph_ChevronUp = ""
 		#Glyph_ChevronDown = ""
 		#Glyph_Edit = ""
+		#Modifier_Shortcut = #PB_Canvas_Control
+		#Shortcut_Erase = #PB_Shortcut_Delete
 	CompilerEndIf
 	Global NewMap GadgetHandler()
 	
@@ -5137,7 +5149,7 @@ Module UITK
 							EndIf
 							;}
 						Case #PB_Shortcut_V ;{
-							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control 
+							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #Modifier_Shortcut 
 								Text = RemoveString(RemoveString(GetClipboardText(), #CR$), #LF$)
 								If Text <> ""
 									If \SelectionPosition > -1
@@ -5160,12 +5172,12 @@ Module UITK
 							EndIf
 							;}
 						Case #PB_Shortcut_C ;{
-							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control And \SelectionPosition > -1
+							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #Modifier_Shortcut And \SelectionPosition > -1
 								SetClipboardText(Mid(\String, Min(\SelectionPosition, \SelectionPosition + \SelectionLength) + 1, Abs(\SelectionLength)))	; a copy reads; the caret and the selection stay exactly as they were
 							EndIf
 							;}
 						Case #PB_Shortcut_X ;{
-							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control And \SelectionPosition > -1
+							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #Modifier_Shortcut And \SelectionPosition > -1
 								SetClipboardText(Mid(\String, Min(\SelectionPosition, \SelectionPosition + \SelectionLength) + 1, Abs(\SelectionLength)))
 								String_ShowCaret(*GadgetData)
 								String_RemoveSelection(*GadgetData.StringData)
@@ -5177,7 +5189,7 @@ Module UITK
 							EndIf
 							;}
 						Case #PB_Shortcut_A ;{
-							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control
+							If GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #Modifier_Shortcut
 								\CaretPosition = ListSize(\CharacterData()) - 1
 								\SelectionLength = \CaretPosition
 								\SelectionPosition = Bool(\SelectionLength = 0) * -1

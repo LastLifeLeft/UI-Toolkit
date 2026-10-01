@@ -8,12 +8,12 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-10-01 05:34" user="poshu" host="MacBook-Air-de-Yolande.local"/>
+    <lastopen date="2026-10-01 05:45" user="poshu" host="MacBook-Air-de-Yolande.local"/>
   </section>
   <section name="files">
     <file name="Library/UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+-"/>
-      <fingerprint md5="d42befd709612832c785f8fb2bb2549f"/>
+      <fingerprint md5="2a381cedaa516d2ffe3d105db68dcef7"/>
     </file>
     <file name="Examples/Example 5 - LayerList.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+-"/>
@@ -33,7 +33,7 @@
     </file>
     <file name="Examples/Example 2 - Gadget Example 2.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="6" panelstate="+-"/>
-      <fingerprint md5="b18a287a5cca0c4138e7af514d9ded61"/>
+      <fingerprint md5="e7cbd9e6b5d2dff1d539c1b753843220"/>
     </file>
     <file name="Examples/Debug.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>
@@ -66,7 +66,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="-1"/>
     </target>
-    <target name="Example 2" enabled="1" default="1">
+    <target name="Example 2" enabled="1" default="0">
       <inputfile value="Examples\Example 2 - Gadget Example 2.pbi"/>
       <outputfile value="Examples\Example 2.exe"/>
       <executable value="Examples/Example 2.exe"/>
@@ -74,7 +74,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="-1"/>
     </target>
-    <target name="Example 3 - Timeline" enabled="1" default="0">
+    <target name="Example 3 - Timeline" enabled="1" default="1">
       <inputfile value="Examples\Example 3 - Timeline.pb"/>
       <outputfile value="Examples\Example 3.exe"/>
       <executable value="Examples/Example 3.exe"/>

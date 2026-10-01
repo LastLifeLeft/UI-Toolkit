@@ -368,7 +368,7 @@ Procedure LayerList_ClickSelect(*GadgetData.LayerListData, Index, Modifiers)
 			ProcedureReturn #True
 		EndIf
 		
-		If Modifiers & #PB_Canvas_Control
+		If Modifiers & #Modifier_Shortcut
 			If SelectElement(\Items(), Index)
 				\Items()\Selected = Bool(Not \Items()\Selected)
 			EndIf
@@ -1291,7 +1291,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 							EndIf
 							;}
 						Case #PB_Shortcut_Space ;{ toggle the eye - ctrl+space toggles the selection instead
-							If \MultiSelect And (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control)
+							If \MultiSelect And (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #Modifier_Shortcut)
 								If SelectElement(\Items(), \State)
 									\Items()\Selected = Bool(Not \Items()\Selected)
 									\SelectAnchor = \State
