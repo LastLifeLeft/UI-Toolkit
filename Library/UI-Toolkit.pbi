@@ -974,16 +974,6 @@ Module UITK
 		GadgetHandler() = Gadget
 	EndMacro
 	
-	CompilerIf #PB_Compiler_OS <> #PB_OS_Linux ; Fix color: the literals are written $RRGGBB, PB's RGB() is $BBGGRR on every OS
-		Macro FixColor(Color)
-			RGB(Blue(Color), Green(Color), Red(Color))
-		EndMacro
-	CompilerElse
-		Macro FixColor(Color)
-			Color
-		EndMacro
-	CompilerEndIf
-	
 	Macro SetAlpha(Color, Alpha)
 		(((Alpha) << 24) + (Color))		; each argument on its own: << outranks + and *, so an unbracketed sum would be shredded
 	EndMacro
@@ -2169,91 +2159,91 @@ Module UITK
 	
 	;{ Default themes
 	With LightTheme 
-		\WindowColor = SetAlpha(FixColor($F0F0F0), 255)
+		\WindowColor = SetAlpha($F0F0F0, 255)
 		
-		\BackColor[#Cold]		= SetAlpha(FixColor($F0F0F0), 255)
-		\BackColor[#Warm]		= SetAlpha(FixColor($D8E6F2), 255)
-		\BackColor[#Hot]		= SetAlpha(FixColor($C0DCF3), 255)
-		\BackColor[#Disabled]	= SetAlpha(FixColor($F0F0F0), 255)
+		\BackColor[#Cold]		= SetAlpha($F0F0F0, 255)
+		\BackColor[#Warm]		= SetAlpha($F2E6D8, 255)
+		\BackColor[#Hot]		= SetAlpha($F3DCC0, 255)
+		\BackColor[#Disabled]	= SetAlpha($F0F0F0, 255)
 		
-		\FrontColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
-		\FrontColor[#Warm]		= SetAlpha(FixColor($999999), 255)
-		\FrontColor[#Hot]		= SetAlpha(FixColor($999999), 255)
+		\FrontColor[#Cold]		= SetAlpha($ADADAD, 255)
+		\FrontColor[#Warm]		= SetAlpha($999999, 255)
+		\FrontColor[#Hot]		= SetAlpha($999999, 255)
 		
-		\ShadeColor[#Cold]		= SetAlpha(FixColor($DEDEDE), 255)
-		\ShadeColor[#Warm]		= SetAlpha(FixColor($D3D3D3), 255)
-		\ShadeColor[#Hot]		= SetAlpha(FixColor($C4C4C4), 255)
-		\ShadeColor[#Disabled]	= SetAlpha(FixColor($F0F0F0), 255)
+		\ShadeColor[#Cold]		= SetAlpha($DEDEDE, 255)
+		\ShadeColor[#Warm]		= SetAlpha($D3D3D3, 255)
+		\ShadeColor[#Hot]		= SetAlpha($C4C4C4, 255)
+		\ShadeColor[#Disabled]	= SetAlpha($F0F0F0, 255)
 		
-		\LineColor[#Cold]		= SetAlpha(FixColor($ADADAD), 255)
-		\LineColor[#Warm]		= SetAlpha(FixColor($90C8F6), 255)
-		\LineColor[#Hot]		= SetAlpha(FixColor($90C8F6), 255)
-		\LineColor[#Disabled]	= SetAlpha(FixColor($ADADAD), 255)
+		\LineColor[#Cold]		= SetAlpha($ADADAD, 255)
+		\LineColor[#Warm]		= SetAlpha($F6C890, 255)
+		\LineColor[#Hot]		= SetAlpha($F6C890, 255)
+		\LineColor[#Disabled]	= SetAlpha($ADADAD, 255)
 		
-		\TextColor[#Cold] 		= SetAlpha(FixColor($000000), 255)
-		\TextColor[#Warm]		= SetAlpha(FixColor($000000), 255)
-		\TextColor[#Hot]		= SetAlpha(FixColor($000000), 255)
-		\TextColor[#Disabled]	= SetAlpha(FixColor($808080), 255)
+		\TextColor[#Cold] 		= SetAlpha($000000, 255)
+		\TextColor[#Warm]		= SetAlpha($000000, 255)
+		\TextColor[#Hot]		= SetAlpha($000000, 255)
+		\TextColor[#Disabled]	= SetAlpha($808080, 255)
 		
-		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
-		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
-		\Special1[#Hot]			= SetAlpha(FixColor($E06365), 255)
+		\Special1[#Cold]		= SetAlpha($3E3CD8, 255)
+		\Special1[#Warm]		= SetAlpha($6563E0, 255)
+		\Special1[#Hot]			= SetAlpha($6563E0, 255)
 		
-		\Special2[#Cold]		= SetAlpha(FixColor($3AA55D), 255)
-		\Special2[#Warm]		= SetAlpha(FixColor($6BD08B), 255)
-		\Special2[#Hot]			= SetAlpha(FixColor($6BD08B), 255)
+		\Special2[#Cold]		= SetAlpha($5DA53A, 255)
+		\Special2[#Warm]		= SetAlpha($8BD06B, 255)
+		\Special2[#Hot]			= SetAlpha($8BD06B, 255)
 		
-		\Special3[#Cold]		= SetAlpha(FixColor($5865F2), 255)
-		\Special3[#Warm]		= SetAlpha(FixColor($7984F5), 255)
-		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
+		\Special3[#Cold]		= SetAlpha($F26558, 255)
+		\Special3[#Warm]		= SetAlpha($F58479, 255)
+		\Special3[#Hot]			= SetAlpha($F58479, 255)
 		
-		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
-		\WindowTitle			= SetAlpha(FixColor($FFFFFF), 255)
+		\Highlight				= SetAlpha($FFFFFF, 255)
+		\WindowTitle			= SetAlpha($FFFFFF, 255)
 		
 		\CornerRadius			= 4
 	EndWith
 	
 	With DarkTheme
-		\WindowColor			= SetAlpha(FixColor($36393F), 255)
+		\WindowColor			= SetAlpha($3F3936, 255)
 		
-		\BackColor[#Cold]		= SetAlpha(FixColor($36393F), 255)
-		\BackColor[#Warm]		= SetAlpha(FixColor($44474C), 255)
-		\BackColor[#Hot]		= SetAlpha(FixColor($54575C), 255)
-		\BackColor[#Disabled]	= SetAlpha(FixColor($36393F), 255)
+		\BackColor[#Cold]		= SetAlpha($3F3936, 255)
+		\BackColor[#Warm]		= SetAlpha($4C4744, 255)
+		\BackColor[#Hot]		= SetAlpha($5C5754, 255)
+		\BackColor[#Disabled]	= SetAlpha($3F3936, 255)
 		
-		\FrontColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
-		\FrontColor[#Warm]		= SetAlpha(FixColor($8F9399), 255)
-		\FrontColor[#Hot]		= SetAlpha(FixColor($8F9399), 255)
+		\FrontColor[#Cold]		= SetAlpha($87827E, 255)
+		\FrontColor[#Warm]		= SetAlpha($99938F, 255)
+		\FrontColor[#Hot]		= SetAlpha($99938F, 255)
 		
-		\ShadeColor[#Cold]		= SetAlpha(FixColor($44474C), 255)
-		\ShadeColor[#Warm]		= SetAlpha(FixColor($4F545C), 255)
-		\ShadeColor[#Hot]		= SetAlpha(FixColor($676A70), 255)
-		\ShadeColor[#Disabled]	= SetAlpha(FixColor($36393F), 255)
+		\ShadeColor[#Cold]		= SetAlpha($4C4744, 255)
+		\ShadeColor[#Warm]		= SetAlpha($5C544F, 255)
+		\ShadeColor[#Hot]		= SetAlpha($706A67, 255)
+		\ShadeColor[#Disabled]	= SetAlpha($3F3936, 255)
 		
-		\LineColor[#Cold]		= SetAlpha(FixColor($7E8287), 255)
-		\LineColor[#Warm]		= SetAlpha(FixColor($A2A3A5), 255)
-		\LineColor[#Hot]		= SetAlpha(FixColor($A2A3A5), 255)
-		\LineColor[#Disabled]	= SetAlpha(FixColor($7E8287), 255)
+		\LineColor[#Cold]		= SetAlpha($87827E, 255)
+		\LineColor[#Warm]		= SetAlpha($A5A3A2, 255)
+		\LineColor[#Hot]		= SetAlpha($A5A3A2, 255)
+		\LineColor[#Disabled]	= SetAlpha($87827E, 255)
 		
-		\TextColor[#Cold]	 	= SetAlpha(FixColor($FAFAFB), 255)
-		\TextColor[#Warm]		= SetAlpha(FixColor($FFFFFF), 255)
-		\TextColor[#Hot]		= SetAlpha(FixColor($FFFFFF), 255)
-		\TextColor[#Disabled]	= SetAlpha(FixColor($808080), 255)
+		\TextColor[#Cold]	 	= SetAlpha($FBFAFA, 255)
+		\TextColor[#Warm]		= SetAlpha($FFFFFF, 255)
+		\TextColor[#Hot]		= SetAlpha($FFFFFF, 255)
+		\TextColor[#Disabled]	= SetAlpha($808080, 255)
 		
-		\Special1[#Cold]		= SetAlpha(FixColor($D83C3E), 255)
-		\Special1[#Warm]		= SetAlpha(FixColor($E06365), 255)
-		\Special1[#Hot]			= SetAlpha(FixColor($E06365), 255)
+		\Special1[#Cold]		= SetAlpha($3E3CD8, 255)
+		\Special1[#Warm]		= SetAlpha($6563E0, 255)
+		\Special1[#Hot]			= SetAlpha($6563E0, 255)
 		
-		\Special2[#Cold]		= SetAlpha(FixColor($3AA55D), 255)
-		\Special2[#Warm]		= SetAlpha(FixColor($6BD08B), 255)
-		\Special2[#Hot]			= SetAlpha(FixColor($6BD08B), 255)
+		\Special2[#Cold]		= SetAlpha($5DA53A, 255)
+		\Special2[#Warm]		= SetAlpha($8BD06B, 255)
+		\Special2[#Hot]			= SetAlpha($8BD06B, 255)
 		
-		\Special3[#Cold]		= SetAlpha(FixColor($5865F2), 255)
-		\Special3[#Warm]		= SetAlpha(FixColor($7984F5), 255)
-		\Special3[#Hot]			= SetAlpha(FixColor($7984F5), 255)
+		\Special3[#Cold]		= SetAlpha($F26558, 255)
+		\Special3[#Warm]		= SetAlpha($F58479, 255)
+		\Special3[#Hot]			= SetAlpha($F58479, 255)
 		
-		\Highlight				= SetAlpha(FixColor($FFFFFF), 255)
-		\WindowTitle			= SetAlpha(FixColor($202225), 255)
+		\Highlight				= SetAlpha($FFFFFF, 255)
+		\WindowTitle			= SetAlpha($252220, 255)
 		
 		\CornerRadius			= 4
 	EndWith
@@ -3670,11 +3660,11 @@ Module UITK
 					
 					BindGadgetEvent(*WindowData\ButtonClose, @CloseButton_Handler(), #PB_EventType_Change)
 					
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Warm, SetAlpha(FixColor($E81123), 255))
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Hot, SetAlpha(FixColor($F1707A), 255))
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Warm, SetAlpha($2311E8, 255))
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Hot, SetAlpha($7A70F1, 255))
 					
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Warm, SetAlpha(FixColor($FFFFFF), 255))
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Hot, SetAlpha(FixColor($FFFFFF), 255))
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Warm, SetAlpha($FFFFFF, 255))
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Hot, SetAlpha($FFFFFF, 255))
 				EndIf
 				
 				If Flags & #Window_MaximizeButton
@@ -5146,7 +5136,7 @@ Module UITK
 				EndIf
 				
 				AddPathBox(Position, \OriginY + \TextPositionY + 1, Size, \CaretHeight)
-				VectorSourceColor(SetAlpha(FixColor($4F9BF2), 255))
+				VectorSourceColor(SetAlpha($F29B4F, 255))
 				FillPath()
 				
 				VectorSourceColor(\ThemeData\TextColor[#Cold])
@@ -14001,8 +13991,8 @@ EndModule
 
 
 
-; IDE Options = PureBasic 6.50 beta 1 - C Backend (MacOS X - arm64)
-; CursorPosition = 2032
-; Folding = AAIAwP--ZAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAgPcAAAo-AYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5
+; IDE Options = PureBasic 6.50 beta 1 (Windows - x64)
+; CursorPosition = 621
+; Folding = BAIAwf--8AAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAwPeAAA9-AMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
 ; EnableXP
 ; DPIAware
