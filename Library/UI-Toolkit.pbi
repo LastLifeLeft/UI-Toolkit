@@ -655,6 +655,7 @@ Module UITK
 				g_signal_connect_data(instance.i, detailed_signal.p-ascii, c_handler.i, user_data.i, destroy_data.i, connect_flags.l)
 				gdk_pixbuf_get_width(pixbuf.i)
 				gdk_pixbuf_get_height(pixbuf.i)
+				gtk_widget_get_visible(widget.i)
 			EndImport
 			
 			ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
@@ -688,6 +689,10 @@ Module UITK
 					UITK_CleanupRegistered(Hex(hWnd)) = #True
 					g_signal_connect_data(hWnd, "destroy", @UITK_PropCleanup_Handler(), 0, 0, 0)
 				EndIf
+			EndProcedure
+			
+			Procedure IsWindowVisible_(hWnd)
+				ProcedureReturn Bool(hWnd And gtk_widget_get_visible(hWnd))
 			EndProcedure
 		CompilerElse
 			Procedure UITK_EnsureCleanupHook(hWnd)	; TODO macOS: props keyed on a dead NSView/NSWindow are never dropped
