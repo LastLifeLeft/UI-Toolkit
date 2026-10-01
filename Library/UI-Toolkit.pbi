@@ -631,48 +631,57 @@ Module UITK
 		; per-window ThemedWindow being the canonical example.
 		Global NewMap UITK_PropOwned.b()
 		
-		ImportC ""
-			; Minimal GTK surface — signal connection for our destroy hook and the
-			; two GdkPixbuf accessors used by UITK_GetImageSize. PB already links
-			; libgtk-3 / libgdk-3 / libgobject-2 / libgdk_pixbuf-2.0 transitively,
-			; so we don't need to name a .so.
-			g_signal_connect_data(instance.i, detailed_signal.p-ascii, c_handler.i, user_data.i, destroy_data.i, connect_flags.l)
-			gdk_pixbuf_get_width(pixbuf.i)
-			gdk_pixbuf_get_height(pixbuf.i)
-		EndImport
-		
-		ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
-			Protected prefix.s = Hex(*widget) + ":"
-			Protected prefixLen = Len(prefix)
-			Protected key.s, ptr.i
-			; Collect keys first; deleting while iterating ForEach a Map is unsafe in PB.
-			NewList toDrop.s()
-			ForEach UITK_PropMap()
-				key = MapKey(UITK_PropMap())
-				If Left(key, prefixLen) = prefix
-					; FreeStructure any value we own before removing the map entry.
-					If FindMapElement(UITK_PropOwned(), key)
-						ptr = UITK_PropMap()
-						If ptr : FreeStructure(ptr) : EndIf
-						DeleteMapElement(UITK_PropOwned())
+		CompilerIf #PB_Compiler_OS = #PB_OS_Linux
+			ImportC ""
+				; Minimal GTK surface — signal connection for our destroy hook and the
+				; two GdkPixbuf accessors used by UITK_GetImageSize. PB already links
+				; libgtk-3 / libgdk-3 / libgobject-2 / libgdk_pixbuf-2.0 transitively,
+				; so we don't need to name a .so.
+				g_signal_connect_data(instance.i, detailed_signal.p-ascii, c_handler.i, user_data.i, destroy_data.i, connect_flags.l)
+				gdk_pixbuf_get_width(pixbuf.i)
+				gdk_pixbuf_get_height(pixbuf.i)
+			EndImport
+			
+			ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
+				Protected prefix.s = Hex(*widget) + ":"
+				Protected prefixLen = Len(prefix)
+				Protected key.s, ptr.i
+				; Collect keys first; deleting while iterating ForEach a Map is unsafe in PB.
+				NewList toDrop.s()
+				ForEach UITK_PropMap()
+					key = MapKey(UITK_PropMap())
+					If Left(key, prefixLen) = prefix
+						; FreeStructure any value we own before removing the map entry.
+						If FindMapElement(UITK_PropOwned(), key)
+							ptr = UITK_PropMap()
+							If ptr : FreeStructure(ptr) : EndIf
+							DeleteMapElement(UITK_PropOwned())
+						EndIf
+						AddElement(toDrop()) : toDrop() = key
 					EndIf
-					AddElement(toDrop()) : toDrop() = key
+				Next
+				ForEach toDrop()
+					DeleteMapElement(UITK_PropMap(), toDrop())
+				Next
+				DeleteMapElement(UITK_CleanupRegistered(), Hex(*widget))
+			EndProcedure
+			
+			Procedure UITK_EnsureCleanupHook(hWnd)
+				; Connect "destroy" once per widget; subsequent SetProp_ calls on the same
+				; widget find it in the registry and skip the (idempotent but wasteful) work.
+				If hWnd And Not FindMapElement(UITK_CleanupRegistered(), Hex(hWnd))
+					UITK_CleanupRegistered(Hex(hWnd)) = #True
+					g_signal_connect_data(hWnd, "destroy", @UITK_PropCleanup_Handler(), 0, 0, 0)
 				EndIf
-			Next
-			ForEach toDrop()
-				DeleteMapElement(UITK_PropMap(), toDrop())
-			Next
-			DeleteMapElement(UITK_CleanupRegistered(), Hex(*widget))
-		EndProcedure
-		
-		Procedure UITK_EnsureCleanupHook(hWnd)
-			; Connect "destroy" once per widget; subsequent SetProp_ calls on the same
-			; widget find it in the registry and skip the (idempotent but wasteful) work.
-			If hWnd And Not FindMapElement(UITK_CleanupRegistered(), Hex(hWnd))
-				UITK_CleanupRegistered(Hex(hWnd)) = #True
-				g_signal_connect_data(hWnd, "destroy", @UITK_PropCleanup_Handler(), 0, 0, 0)
-			EndIf
-		EndProcedure
+			EndProcedure
+		CompilerElse
+			Procedure UITK_EnsureCleanupHook(hWnd)	; TODO macOS: props keyed on a dead NSView/NSWindow are never dropped
+			EndProcedure
+			
+			Procedure IsWindowVisible_(hWnd)
+				ProcedureReturn Bool(hWnd And CocoaMessage(0, hWnd, "isVisible"))
+			EndProcedure
+		CompilerEndIf
 		
 		Procedure GetProp_(hWnd, name.s)
 			Protected key.s = Hex(hWnd) + ":" + name
@@ -722,7 +731,35 @@ Module UITK
 		Procedure SendMessage_(hWnd, msg, wp, lp)   : ProcedureReturn 0 : EndProcedure
 		Procedure PostMessage_(hWnd, msg, wp, lp)   : ProcedureReturn 0 : EndProcedure
 		Procedure IsZoomed_(hWnd)                   : ProcedureReturn 0 : EndProcedure
-		Procedure SetWindowPos_(hWnd, after, x, y, w, h, flags) : ProcedureReturn 0 : EndProcedure
+		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
+			#SWP_NOSIZE        = $1
+			#SWP_NOMOVE        = $2
+			#SWP_NOZORDER      = $4
+			#SWP_NOREDRAW      = $8
+			#SWP_FRAMECHANGED  = $20
+			
+			Procedure SetWindowPos_(hWnd, after, x, y, w, h, flags)	; windows only (popups, reorder ghost): x/y are top-left screen coordinates, w/h the outer size
+				Protected Frame.NSRect, Screen.NSRect
+				If hWnd = 0
+					ProcedureReturn 0
+				EndIf
+				CocoaMessage(@Frame, hWnd, "frame")
+				CocoaMessage(@Screen, CocoaMessage(0, CocoaMessage(0, 0, "NSScreen screens"), "objectAtIndex:", 0), "frame")
+				If Not flags & #SWP_NOSIZE
+					Frame\origin\y + Frame\size\height - h		; Cocoa frames grow from the bottom: keep the top edge where it was
+					Frame\size\width = w
+					Frame\size\height = h
+				EndIf
+				If Not flags & #SWP_NOMOVE
+					Frame\origin\x = x
+					Frame\origin\y = Screen\size\height - y - Frame\size\height
+				EndIf
+				CocoaMessage(0, hWnd, "setFrame:@", @Frame, "display:", Bool(Not flags & #SWP_NOREDRAW))
+				ProcedureReturn 1
+			EndProcedure
+		CompilerElse
+			Procedure SetWindowPos_(hWnd, after, x, y, w, h, flags) : ProcedureReturn 0 : EndProcedure
+		CompilerEndIf
 		Procedure GetWindowRect_(hWnd, *rect)       : ProcedureReturn 0 : EndProcedure
 		Procedure SetClassLongPtr_(hWnd, idx, val)  : ProcedureReturn 0 : EndProcedure
 		Procedure GetSystemMetrics_(idx)            : ProcedureReturn 0 : EndProcedure
@@ -738,11 +775,13 @@ Module UITK
 		Procedure SetLayeredWindowAttributes_(hWnd, key, alpha, flags) : ProcedureReturn 0 : EndProcedure
 		Procedure GetObject_(h, size, *out)         : ProcedureReturn 0 : EndProcedure
 		; Win32 constants used across the module — all zero on Linux (the call sites no-op anyway).
-		#SWP_NOSIZE        = 0
-		#SWP_NOMOVE        = 0
-		#SWP_NOZORDER      = 0
-		#SWP_NOREDRAW      = 0
-		#SWP_FRAMECHANGED  = 0
+		CompilerIf #PB_Compiler_OS = #PB_OS_Linux
+			#SWP_NOSIZE        = 0
+			#SWP_NOMOVE        = 0
+			#SWP_NOZORDER      = 0
+			#SWP_NOREDRAW      = 0
+			#SWP_FRAMECHANGED  = 0
+		CompilerEndIf
 		#GWL_WNDPROC       = 0
 		#GWL_EXSTYLE       = 0
 		#GCL_HBRBACKGROUND = 0
@@ -907,7 +946,7 @@ Module UITK
 		GadgetHandler() = Gadget
 	EndMacro
 	
-	CompilerIf #PB_Compiler_OS = #PB_OS_Windows ; Fix color
+	CompilerIf #PB_Compiler_OS <> #PB_OS_Linux ; Fix color: the literals are written $RRGGBB, PB's RGB() is $BBGGRR on every OS
 		Macro FixColor(Color)
 			RGB(Blue(Color), Green(Color), Red(Color))
 		EndMacro
@@ -1103,12 +1142,756 @@ Module UITK
 				Daten.i[6]
 			EndStructure ;}
 		CompilerCase #PB_OS_MacOS   ;{
-			Structure PB_Gadget
+			Prototype GetAttribute(*This, Attribute.l)
+			Prototype SetAttribute(*This, Attribute.l, Value)
+			Structure GadgetVT				; Cocoa PB has no vtable: this is UITK's own table, laid out as Windows' so #SubClass_* keeps working
+				GadgetType.l
+				SizeOf.l
+				*GadgetCallback
+				*FreeGadget
+				*GetGadgetState
+				*SetGadgetState
+				*GetGadgetText
+				*SetGadgetText
+				*AddGadgetItem2
+				*AddGadgetItem3
+				*RemoveGadgetItem
+				*ClearGadgetItemList
+				*ResizeGadget
+				*CountGadgetItems
+				*GetGadgetItemState
+				*SetGadgetItemState
+				*GetGadgetItemText
+				*SetGadgetItemText
+				*OpenGadgetList2
+				*GadgetX
+				*GadgetY
+				*GadgetWidth
+				*GadgetHeight
+				*HideGadget
+				*AddGadgetColumn
+				*RemoveGadgetColumn
+				*GetGadgetAttribute.GetAttribute
+				*SetGadgetAttribute.SetAttribute
+				*GetGadgetItemAttribute2
+				*SetGadgetItemAttribute2
+				*SetGadgetColor
+				*GetGadgetColor
+				*SetGadgetItemColor2
+				*GetGadgetItemColor2
+				*SetGadgetItemData
+				*GetGadgetItemData
+				*GetRequiredSize
+				*SetActiveGadget
+				*GetGadgetFont
+				*SetGadgetFont
+				*SetGadgetItemImage
 				
+				*GetGadgetItemImage
+				*DropHandler
 			EndStructure
-			CompilerError "PLEASE SEND HELP ! AU SECOUR! TASEKETE KUDASAI!"
+			
+			Structure PB_GadgetCocoa		; PB's own record, sdk/c/PureLibraries/Gadget/Gadget.h
+				*Gadget
+				*Container
+				*Functions
+				UserData.i
+				WindowID.i
+				Type.l
+				Flags.l
+			EndStructure
+			
+			Structure PB_Gadget				; UITK's shadow of a gadget: PB's record has no spare field to hold vt, so IsGadget() hands this out instead
+				*vt.GadgetVT
+				*Real.PB_GadgetCocoa
+				*Functions					; PB's PBGadgetFunctions object, class-swapped to a UITK_ subclass
+				Gadget.i
+			EndStructure
 			;}
 	CompilerEndSelect
+	
+	CompilerIf #PB_Compiler_OS = #PB_OS_MacOS ;{ Cocoa bridge: PB messages a gadget's PBGadgetFunctions object, whose UITK_ subclass hands each message to the shadow's vt
+		ImportC ""
+			objc_getClass(Name.p-ascii)
+			objc_allocateClassPair(*Super, Name.p-ascii, Extra)
+			objc_registerClassPair(*Class)
+			object_getClass(*Object)
+			object_setClass(*Object, *Class)
+			class_getName(*Class)
+			class_getSuperclass(*Class)
+			class_addMethod(*Class, *Selector, *Imp, *Types)
+			class_getInstanceMethod(*Class, *Selector)
+			class_getMethodImplementation(*Class, *Selector)
+			method_getTypeEncoding(*Method)
+			sel_registerName(Name.p-ascii)
+		EndImport
+		
+		PrototypeC   Cocoa_V(*Self, *Sel)
+		PrototypeC.q Cocoa_Q(*Self, *Sel)
+		PrototypeC.i Cocoa_I(*Self, *Sel)
+		PrototypeC   Cocoa_V_L(*Self, *Sel, A.l)
+		PrototypeC   Cocoa_V_Q(*Self, *Sel, A.q)
+		PrototypeC   Cocoa_V_I(*Self, *Sel, A.i)
+		PrototypeC.q Cocoa_Q_L(*Self, *Sel, A.l)
+		PrototypeC.i Cocoa_I_L(*Self, *Sel, A.l)
+		PrototypeC   Cocoa_V_LQ(*Self, *Sel, A.l, B.q)
+		PrototypeC   Cocoa_V_LI(*Self, *Sel, A.l, B.i)
+		PrototypeC   Cocoa_V_LLLL(*Self, *Sel, A.l, B.l, C.l, D.l)
+		PrototypeC.q Cocoa_Q_LIIL(*Self, *Sel, A.l, B.i, C.i, D.l)
+		PrototypeC   Cocoa_V_LIL(*Self, *Sel, A.l, B.i, C.l)
+		PrototypeC.i Cocoa_I_LL(*Self, *Sel, A.l, B.l)
+		PrototypeC   Cocoa_V_LLQL(*Self, *Sel, A.l, B.l, C.q, D.l)
+		PrototypeC.q Cocoa_Q_LLL(*Self, *Sel, A.l, B.l, C.l)
+		PrototypeC   Cocoa_V_LLIL(*Self, *Sel, A.l, B.l, C.i, D.l)
+		PrototypeC.i Cocoa_I_LLL(*Self, *Sel, A.l, B.l, C.l)
+		PrototypeC.i Cocoa_ColorRGBA(*Class, *Sel, R.d, G.d, B.d, A.d)
+		
+		Prototype   Slot_0(*this)
+		Prototype.s Slot_0s(*this)
+		Prototype   Slot_1(*this, A)
+		Prototype   Slot_s(*this, Text.s)
+		Prototype   Slot_2(*this, A, B)
+		Prototype.s Slot_2s(*this, A, B)
+		Prototype   Slot_3(*this, A, B, C)
+		Prototype   Slot_4(*this, A, B, C, D)
+		Prototype   Slot_1s1(*this, A, Text.s, B)
+		Prototype   Slot_1s2(*this, A, Text.s, B, C)
+		
+		Structure Cocoa_Method
+			*Sel
+			*Imp
+		EndStructure
+		
+		Global NewMap Cocoa_Shadow.i()			; address of a gadget's PBGadgetFunctions object -> its *PB_Gadget shadow (the GadgetID ivar is -1 for every #PB_Any gadget)
+		Global NewList Cocoa_Method.Cocoa_Method()
+		Global NativeVT.GadgetVT					; every gadget's OriginalVT: each slot calls PB's own implementation
+		
+		Global *Cocoa_MsgSend = dlsym_(-2, "objc_msgSend")
+		
+		Macro Cocoa_Super(Self, Selector)
+			class_getMethodImplementation(class_getSuperclass(object_getClass(Self)), Selector)
+		EndMacro
+		
+		Procedure.s Cocoa_String(*NSString)
+			If *NSString
+				ProcedureReturn PeekS(CocoaMessage(0, *NSString, "UTF8String"), -1, #PB_UTF8)
+			EndIf
+		EndProcedure
+		
+		Procedure Cocoa_NSString(Text.s)
+			ProcedureReturn CocoaMessage(0, 0, "NSString stringWithString:$", @Text)
+		EndProcedure
+		
+		Procedure Cocoa_ColorToRGB(*Color)		; PB hands over a Device RGB NSColor and has already dropped any alpha
+			Protected R.d, G.d, B.d, A.d
+			If *Color
+				If CocoaMessage(0, CocoaMessage(0, *Color, "colorSpace"), "colorSpaceModel") <> 1
+					*Color = CocoaMessage(0, *Color, "colorUsingColorSpace:", CocoaMessage(0, 0, "NSColorSpace deviceRGBColorSpace"))
+				EndIf
+				If *Color
+					CocoaMessage(0, *Color, "getRed:", @R, "green:", @G, "blue:", @B, "alpha:", @A)
+				EndIf
+			EndIf
+			ProcedureReturn RGB(Round(R * 255, #PB_Round_Nearest), Round(G * 255, #PB_Round_Nearest), Round(B * 255, #PB_Round_Nearest))
+		EndProcedure
+		
+		Procedure Cocoa_RGBToColor(Color)
+			Protected Make.Cocoa_ColorRGBA = *Cocoa_MsgSend
+			ProcedureReturn Make(objc_getClass("NSColor"), sel_registerName("colorWithDeviceRed:green:blue:alpha:"), Red(Color) / 255.0, Green(Color) / 255.0, Blue(Color) / 255.0, 1.0)
+		EndProcedure
+		
+		Procedure Cocoa_Lookup(*Self)
+			Protected *Shadow.PB_Gadget
+			If FindMapElement(Cocoa_Shadow(), Str(*Self))
+				ProcedureReturn Cocoa_Shadow()
+			EndIf
+		EndProcedure
+		
+		Global Sel_FreeGadget = sel_registerName("FreeGadget")
+		Global Sel_SetActiveGadget = sel_registerName("ActivateGadget")
+		Global Sel_ClearGadgetItemList = sel_registerName("ClearGadgetItems")
+		Global Sel_CountGadgetItems = sel_registerName("CountGadgetItems")
+		Global Sel_GetGadgetState = sel_registerName("GetGadgetState")
+		Global Sel_GetGadgetText = sel_registerName("GetGadgetText")
+		Global Sel_GetGadgetFont = sel_registerName("GetGadgetFont")
+		Global Sel_RemoveGadgetItem = sel_registerName("RemoveGadgetItem:")
+		Global Sel_RemoveGadgetColumn = sel_registerName("RemoveGadgetColumn:")
+		Global Sel_HideGadget = sel_registerName("HideGadget:")
+		Global Sel_OpenGadgetList2 = sel_registerName("OpenGadgetList:")
+		Global Sel_SetGadgetState = sel_registerName("SetGadgetState:")
+		Global Sel_SetGadgetText = sel_registerName("SetGadgetText:")
+		Global Sel_SetGadgetFont = sel_registerName("SetGadgetFont:")
+		Global Sel_GetGadgetAttribute = sel_registerName("GetGadgetAttribute:")
+		Global Sel_GetGadgetItemState = sel_registerName("GetGadgetItemState:")
+		Global Sel_GetGadgetItemData = sel_registerName("GetGadgetItemData:")
+		Global Sel_GetGadgetColor = sel_registerName("GetGadgetColor:")
+		Global Sel_SetGadgetAttribute = sel_registerName("SetGadgetAttribute:value:")
+		Global Sel_SetGadgetItemState = sel_registerName("SetGadgetItemState:state:")
+		Global Sel_SetGadgetItemData = sel_registerName("SetGadgetItemData:value:")
+		Global Sel_SetGadgetColor = sel_registerName("SetGadgetColor:color:")
+		Global Sel_SetGadgetItemImage = sel_registerName("SetGadgetItemImage:image:")
+		Global Sel_ResizeGadget = sel_registerName("ResizeGadget:y:width:height:")
+		Global Sel_AddGadgetColumn = sel_registerName("AddGadgetColumn:title:width:")
+		Global Sel_SetGadgetItemText = sel_registerName("SetGadgetItemText:text:column:")
+		Global Sel_GetGadgetItemText = sel_registerName("GetGadgetItemText:column:")
+		Global Sel_SetGadgetItemAttribute2 = sel_registerName("SetGadgetItemAttribute:attribute:value:column:")
+		Global Sel_GetGadgetItemAttribute2 = sel_registerName("GetGadgetItemAttribute:attribute:column:")
+		Global Sel_SetGadgetItemColor2 = sel_registerName("SetGadgetItemColor:type:color:column:")
+		Global Sel_GetGadgetItemColor2 = sel_registerName("GetGadgetItemColor:type:column:")
+		Global Sel_AddGadgetItem = sel_registerName("AddGadgetItem:text:image:flags:")	; one message for both PB slots, AddGadgetItem2 and AddGadgetItem3
+		
+		ProcedureC Imp_FreeGadget(*Self, *Sel)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_0, Super.Cocoa_V
+			If *this And *this\vt\FreeGadget
+				Call = *this\vt\FreeGadget
+				Call(*this) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel)
+		EndProcedure
+		Procedure Native_FreeGadget(*this.PB_Gadget)
+			Protected Super.Cocoa_V = Cocoa_Super(*this\Functions, Sel_FreeGadget)
+			Super(*this\Functions, Sel_FreeGadget)
+		EndProcedure
+		Procedure Cocoa_ClickRefocus(*View)		; is this the canvas focusing itself at the end of its own mouseDown, after the click's handler gave the keyboard to another window (a popup it opened)?
+			Protected *Event = CocoaMessage(0, CocoaMessage(0, 0, "NSApplication sharedApplication"), "currentEvent"), *Window, *Content, *Hit, Point.NSPoint
+			
+			If *Event = 0 Or *View = 0
+				ProcedureReturn #False
+			EndIf
+			Select CocoaMessage(0, *Event, "type")
+				Case 1, 3, 25		; NSEventTypeLeftMouseDown, RightMouseDown, OtherMouseDown
+				Default
+					ProcedureReturn #False
+			EndSelect
+			
+			*Window = CocoaMessage(0, *View, "window")
+			If *Window = 0 Or CocoaMessage(0, *Event, "window") <> *Window Or CocoaMessage(0, *Window, "isKeyWindow")
+				ProcedureReturn #False
+			EndIf
+			
+			*Content = CocoaMessage(0, *Window, "contentView")
+			CocoaMessage(@Point, *Event, "locationInWindow")
+			CocoaMessage(@Point, CocoaMessage(0, *Content, "superview"), "convertPoint:@", @Point, "fromView:", 0)
+			*Hit = CocoaMessage(0, *Content, "hitTest:@", @Point)
+			ProcedureReturn Bool(*Hit And CocoaMessage(0, *Hit, "isDescendantOf:", *View))
+		EndProcedure
+		
+		ProcedureC Imp_SetActiveGadget(*Self, *Sel)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_0, Super.Cocoa_V
+			If *this And Cocoa_ClickRefocus(*this\Real\Gadget)	; Cocoa raises LeftButtonDown before the canvas takes focus, Windows after: that handler's popup must keep the keyboard
+				ProcedureReturn
+			EndIf
+			If *this And *this\vt\SetActiveGadget
+				Call = *this\vt\SetActiveGadget
+				Call(*this) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel)
+		EndProcedure
+		Procedure Native_SetActiveGadget(*this.PB_Gadget)
+			Protected Super.Cocoa_V = Cocoa_Super(*this\Functions, Sel_SetActiveGadget)
+			Super(*this\Functions, Sel_SetActiveGadget)
+		EndProcedure
+		ProcedureC Imp_ClearGadgetItemList(*Self, *Sel)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_0, Super.Cocoa_V
+			If *this And *this\vt\ClearGadgetItemList
+				Call = *this\vt\ClearGadgetItemList
+				Call(*this) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel)
+		EndProcedure
+		Procedure Native_ClearGadgetItemList(*this.PB_Gadget)
+			Protected Super.Cocoa_V = Cocoa_Super(*this\Functions, Sel_ClearGadgetItemList)
+			Super(*this\Functions, Sel_ClearGadgetItemList)
+		EndProcedure
+		ProcedureC.q Imp_CountGadgetItems(*Self, *Sel)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_0, Super.Cocoa_Q
+			If *this And *this\vt\CountGadgetItems
+				Call = *this\vt\CountGadgetItems
+				ProcedureReturn Call(*this)
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel)
+		EndProcedure
+		Procedure Native_CountGadgetItems(*this.PB_Gadget)
+			Protected Super.Cocoa_Q = Cocoa_Super(*this\Functions, Sel_CountGadgetItems)
+			ProcedureReturn Super(*this\Functions, Sel_CountGadgetItems)
+		EndProcedure
+		ProcedureC.q Imp_GetGadgetState(*Self, *Sel)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_0, Super.Cocoa_Q
+			If *this And *this\vt\GetGadgetState
+				Call = *this\vt\GetGadgetState
+				ProcedureReturn Call(*this)
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel)
+		EndProcedure
+		Procedure Native_GetGadgetState(*this.PB_Gadget)
+			Protected Super.Cocoa_Q = Cocoa_Super(*this\Functions, Sel_GetGadgetState)
+			ProcedureReturn Super(*this\Functions, Sel_GetGadgetState)
+		EndProcedure
+		ProcedureC.i Imp_GetGadgetText(*Self, *Sel)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_0s, Super.Cocoa_I
+			If *this And *this\vt\GetGadgetText
+				Call = *this\vt\GetGadgetText
+				ProcedureReturn Cocoa_NSString(Call(*this))
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel)
+		EndProcedure
+		Procedure.s Native_GetGadgetText(*this.PB_Gadget)
+			Protected Super.Cocoa_I = Cocoa_Super(*this\Functions, Sel_GetGadgetText)
+			ProcedureReturn Cocoa_String(Super(*this\Functions, Sel_GetGadgetText))
+		EndProcedure
+		ProcedureC.i Imp_GetGadgetFont(*Self, *Sel)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_0, Super.Cocoa_I
+			If *this And *this\vt\GetGadgetFont
+				Call = *this\vt\GetGadgetFont
+				ProcedureReturn Call(*this)
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel)
+		EndProcedure
+		Procedure Native_GetGadgetFont(*this.PB_Gadget)
+			Protected Super.Cocoa_I = Cocoa_Super(*this\Functions, Sel_GetGadgetFont)
+			ProcedureReturn Super(*this\Functions, Sel_GetGadgetFont)
+		EndProcedure
+		ProcedureC Imp_RemoveGadgetItem(*Self, *Sel, Position.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_V_L
+			If *this And *this\vt\RemoveGadgetItem
+				Call = *this\vt\RemoveGadgetItem
+				Call(*this, Position) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position)
+		EndProcedure
+		Procedure Native_RemoveGadgetItem(*this.PB_Gadget, Position.l)
+			Protected Super.Cocoa_V_L = Cocoa_Super(*this\Functions, Sel_RemoveGadgetItem)
+			Super(*this\Functions, Sel_RemoveGadgetItem, Position)
+		EndProcedure
+		ProcedureC Imp_RemoveGadgetColumn(*Self, *Sel, Position.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_V_L
+			If *this And *this\vt\RemoveGadgetColumn
+				Call = *this\vt\RemoveGadgetColumn
+				Call(*this, Position) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position)
+		EndProcedure
+		Procedure Native_RemoveGadgetColumn(*this.PB_Gadget, Position.l)
+			Protected Super.Cocoa_V_L = Cocoa_Super(*this\Functions, Sel_RemoveGadgetColumn)
+			Super(*this\Functions, Sel_RemoveGadgetColumn, Position)
+		EndProcedure
+		ProcedureC Imp_HideGadget(*Self, *Sel, State.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_V_L
+			If *this And *this\vt\HideGadget
+				Call = *this\vt\HideGadget
+				Call(*this, State) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, State)
+		EndProcedure
+		Procedure Native_HideGadget(*this.PB_Gadget, State.l)
+			Protected Super.Cocoa_V_L = Cocoa_Super(*this\Functions, Sel_HideGadget)
+			Super(*this\Functions, Sel_HideGadget, State)
+		EndProcedure
+		ProcedureC Imp_OpenGadgetList2(*Self, *Sel, Item.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_V_L
+			If *this And *this\vt\OpenGadgetList2
+				Call = *this\vt\OpenGadgetList2
+				Call(*this, Item) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Item)
+		EndProcedure
+		Procedure Native_OpenGadgetList2(*this.PB_Gadget, Item.l)
+			Protected Super.Cocoa_V_L = Cocoa_Super(*this\Functions, Sel_OpenGadgetList2)
+			Super(*this\Functions, Sel_OpenGadgetList2, Item)
+		EndProcedure
+		ProcedureC Imp_SetGadgetState(*Self, *Sel, State.q)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_V_Q
+			If *this And *this\vt\SetGadgetState
+				Call = *this\vt\SetGadgetState
+				Call(*this, State) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, State)
+		EndProcedure
+		Procedure Native_SetGadgetState(*this.PB_Gadget, State.q)
+			Protected Super.Cocoa_V_Q = Cocoa_Super(*this\Functions, Sel_SetGadgetState)
+			Super(*this\Functions, Sel_SetGadgetState, State)
+		EndProcedure
+		ProcedureC Imp_SetGadgetText(*Self, *Sel, *Text)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_s, Super.Cocoa_V_I
+			If *this And *this\vt\SetGadgetText
+				Call = *this\vt\SetGadgetText
+				Call(*this, Cocoa_String(*Text)) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, *Text)
+		EndProcedure
+		Procedure Native_SetGadgetText(*this.PB_Gadget, Text.s)
+			Protected Super.Cocoa_V_I = Cocoa_Super(*this\Functions, Sel_SetGadgetText)
+			Super(*this\Functions, Sel_SetGadgetText, Cocoa_NSString(Text))
+		EndProcedure
+		ProcedureC Imp_SetGadgetFont(*Self, *Sel, *Font)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_V_I
+			If *this And *this\vt\SetGadgetFont
+				Call = *this\vt\SetGadgetFont
+				Call(*this, *Font) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, *Font)
+		EndProcedure
+		Procedure Native_SetGadgetFont(*this.PB_Gadget, *Font)
+			Protected Super.Cocoa_V_I = Cocoa_Super(*this\Functions, Sel_SetGadgetFont)
+			Super(*this\Functions, Sel_SetGadgetFont, *Font)
+		EndProcedure
+		ProcedureC.q Imp_GetGadgetAttribute(*Self, *Sel, Attribute.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_Q_L
+			If *this And *this\vt\GetGadgetAttribute
+				Call = *this\vt\GetGadgetAttribute
+				ProcedureReturn Call(*this, Attribute)
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Attribute)
+		EndProcedure
+		Procedure Native_GetGadgetAttribute(*this.PB_Gadget, Attribute.l)
+			Protected Super.Cocoa_Q_L = Cocoa_Super(*this\Functions, Sel_GetGadgetAttribute)
+			ProcedureReturn Super(*this\Functions, Sel_GetGadgetAttribute, Attribute)
+		EndProcedure
+		ProcedureC.q Imp_GetGadgetItemState(*Self, *Sel, Position.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_Q_L
+			If *this And *this\vt\GetGadgetItemState
+				Call = *this\vt\GetGadgetItemState
+				ProcedureReturn Call(*this, Position)
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position)
+		EndProcedure
+		Procedure Native_GetGadgetItemState(*this.PB_Gadget, Position.l)
+			Protected Super.Cocoa_Q_L = Cocoa_Super(*this\Functions, Sel_GetGadgetItemState)
+			ProcedureReturn Super(*this\Functions, Sel_GetGadgetItemState, Position)
+		EndProcedure
+		ProcedureC.q Imp_GetGadgetItemData(*Self, *Sel, Position.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_Q_L
+			If *this And *this\vt\GetGadgetItemData
+				Call = *this\vt\GetGadgetItemData
+				ProcedureReturn Call(*this, Position)
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position)
+		EndProcedure
+		Procedure Native_GetGadgetItemData(*this.PB_Gadget, Position.l)
+			Protected Super.Cocoa_Q_L = Cocoa_Super(*this\Functions, Sel_GetGadgetItemData)
+			ProcedureReturn Super(*this\Functions, Sel_GetGadgetItemData, Position)
+		EndProcedure
+		ProcedureC.i Imp_GetGadgetColor(*Self, *Sel, ColorType.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1, Super.Cocoa_I_L
+			If *this And *this\vt\GetGadgetColor
+				Call = *this\vt\GetGadgetColor
+				ProcedureReturn Cocoa_RGBToColor(Call(*this, ColorType))
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, ColorType)
+		EndProcedure
+		Procedure Native_GetGadgetColor(*this.PB_Gadget, ColorType.l)
+			Protected Super.Cocoa_I_L = Cocoa_Super(*this\Functions, Sel_GetGadgetColor)
+			ProcedureReturn Cocoa_ColorToRGB(Super(*this\Functions, Sel_GetGadgetColor, ColorType))
+		EndProcedure
+		ProcedureC Imp_SetGadgetAttribute(*Self, *Sel, Attribute.l, Value.q)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_2, Super.Cocoa_V_LQ
+			If *this And *this\vt\SetGadgetAttribute
+				Call = *this\vt\SetGadgetAttribute
+				Call(*this, Attribute, Value) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Attribute, Value)
+		EndProcedure
+		Procedure Native_SetGadgetAttribute(*this.PB_Gadget, Attribute.l, Value)
+			Protected Super.Cocoa_V_LQ = Cocoa_Super(*this\Functions, Sel_SetGadgetAttribute)
+			Super(*this\Functions, Sel_SetGadgetAttribute, Attribute, Value)
+		EndProcedure
+		ProcedureC Imp_SetGadgetItemState(*Self, *Sel, Position.l, State.q)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_2, Super.Cocoa_V_LQ
+			If *this And *this\vt\SetGadgetItemState
+				Call = *this\vt\SetGadgetItemState
+				Call(*this, Position, State) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, State)
+		EndProcedure
+		Procedure Native_SetGadgetItemState(*this.PB_Gadget, Position.l, State)
+			Protected Super.Cocoa_V_LQ = Cocoa_Super(*this\Functions, Sel_SetGadgetItemState)
+			Super(*this\Functions, Sel_SetGadgetItemState, Position, State)
+		EndProcedure
+		ProcedureC Imp_SetGadgetItemData(*Self, *Sel, Position.l, Value.q)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_2, Super.Cocoa_V_LQ
+			If *this And *this\vt\SetGadgetItemData
+				Call = *this\vt\SetGadgetItemData
+				Call(*this, Position, Value) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, Value)
+		EndProcedure
+		Procedure Native_SetGadgetItemData(*this.PB_Gadget, Position.l, Value)
+			Protected Super.Cocoa_V_LQ = Cocoa_Super(*this\Functions, Sel_SetGadgetItemData)
+			Super(*this\Functions, Sel_SetGadgetItemData, Position, Value)
+		EndProcedure
+		ProcedureC Imp_SetGadgetColor(*Self, *Sel, ColorType.l, *Color)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_2, Super.Cocoa_V_LI
+			If *this And *this\vt\SetGadgetColor
+				Call = *this\vt\SetGadgetColor
+				Call(*this, ColorType, Cocoa_ColorToRGB(*Color)) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, ColorType, *Color)
+		EndProcedure
+		Procedure Native_SetGadgetColor(*this.PB_Gadget, ColorType.l, Color)
+			Protected Super.Cocoa_V_LI = Cocoa_Super(*this\Functions, Sel_SetGadgetColor)
+			Super(*this\Functions, Sel_SetGadgetColor, ColorType, Cocoa_RGBToColor(Color))
+		EndProcedure
+		ProcedureC Imp_SetGadgetItemImage(*Self, *Sel, Position.l, *Image)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_2, Super.Cocoa_V_LI
+			If *this And *this\vt\SetGadgetItemImage
+				Call = *this\vt\SetGadgetItemImage
+				Call(*this, Position, *Image) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, *Image)
+		EndProcedure
+		Procedure Native_SetGadgetItemImage(*this.PB_Gadget, Position.l, *Image)
+			Protected Super.Cocoa_V_LI = Cocoa_Super(*this\Functions, Sel_SetGadgetItemImage)
+			Super(*this\Functions, Sel_SetGadgetItemImage, Position, *Image)
+		EndProcedure
+		ProcedureC Imp_ResizeGadget(*Self, *Sel, X.l, Y.l, Width.l, Height.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_4, Super.Cocoa_V_LLLL
+			If *this And *this\vt\ResizeGadget
+				Call = *this\vt\ResizeGadget
+				Call(*this, X, Y, Width, Height) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, X, Y, Width, Height)
+		EndProcedure
+		Procedure Native_ResizeGadget(*this.PB_Gadget, X.l, Y.l, Width.l, Height.l)
+			Protected Super.Cocoa_V_LLLL = Cocoa_Super(*this\Functions, Sel_ResizeGadget)
+			Super(*this\Functions, Sel_ResizeGadget, X, Y, Width, Height)
+		EndProcedure
+		ProcedureC Imp_AddGadgetColumn(*Self, *Sel, Position.l, *Title, Width.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1s1, Super.Cocoa_V_LIL
+			If *this And *this\vt\AddGadgetColumn
+				Call = *this\vt\AddGadgetColumn
+				Call(*this, Position, Cocoa_String(*Title), Width) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, *Title, Width)
+		EndProcedure
+		Procedure Native_AddGadgetColumn(*this.PB_Gadget, Position.l, Title.s, Width.l)
+			Protected Super.Cocoa_V_LIL = Cocoa_Super(*this\Functions, Sel_AddGadgetColumn)
+			Super(*this\Functions, Sel_AddGadgetColumn, Position, Cocoa_NSString(Title), Width)
+		EndProcedure
+		ProcedureC Imp_SetGadgetItemText(*Self, *Sel, Position.l, *Text, Column.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_1s1, Super.Cocoa_V_LIL
+			If *this And *this\vt\SetGadgetItemText
+				Call = *this\vt\SetGadgetItemText
+				Call(*this, Position, Cocoa_String(*Text), Column) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, *Text, Column)
+		EndProcedure
+		Procedure Native_SetGadgetItemText(*this.PB_Gadget, Position.l, Text.s, Column.l)
+			Protected Super.Cocoa_V_LIL = Cocoa_Super(*this\Functions, Sel_SetGadgetItemText)
+			Super(*this\Functions, Sel_SetGadgetItemText, Position, Cocoa_NSString(Text), Column)
+		EndProcedure
+		ProcedureC.i Imp_GetGadgetItemText(*Self, *Sel, Position.l, Column.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_2s, Super.Cocoa_I_LL
+			If *this And *this\vt\GetGadgetItemText
+				Call = *this\vt\GetGadgetItemText
+				ProcedureReturn Cocoa_NSString(Call(*this, Position, Column))
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, Column)
+		EndProcedure
+		Procedure.s Native_GetGadgetItemText(*this.PB_Gadget, Position.l, Column.l)
+			Protected Super.Cocoa_I_LL = Cocoa_Super(*this\Functions, Sel_GetGadgetItemText)
+			ProcedureReturn Cocoa_String(Super(*this\Functions, Sel_GetGadgetItemText, Position, Column))
+		EndProcedure
+		ProcedureC Imp_SetGadgetItemAttribute2(*Self, *Sel, Position.l, Attribute.l, Value.q, Column.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_4, Super.Cocoa_V_LLQL
+			If *this And *this\vt\SetGadgetItemAttribute2
+				Call = *this\vt\SetGadgetItemAttribute2
+				Call(*this, Position, Attribute, Value, Column) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, Attribute, Value, Column)
+		EndProcedure
+		Procedure Native_SetGadgetItemAttribute2(*this.PB_Gadget, Position.l, Attribute.l, Value, Column.l)
+			Protected Super.Cocoa_V_LLQL = Cocoa_Super(*this\Functions, Sel_SetGadgetItemAttribute2)
+			Super(*this\Functions, Sel_SetGadgetItemAttribute2, Position, Attribute, Value, Column)
+		EndProcedure
+		ProcedureC.q Imp_GetGadgetItemAttribute2(*Self, *Sel, Position.l, Attribute.l, Column.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_3, Super.Cocoa_Q_LLL
+			If *this And *this\vt\GetGadgetItemAttribute2
+				Call = *this\vt\GetGadgetItemAttribute2
+				ProcedureReturn Call(*this, Position, Attribute, Column)
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, Attribute, Column)
+		EndProcedure
+		Procedure Native_GetGadgetItemAttribute2(*this.PB_Gadget, Position.l, Attribute.l, Column.l)
+			Protected Super.Cocoa_Q_LLL = Cocoa_Super(*this\Functions, Sel_GetGadgetItemAttribute2)
+			ProcedureReturn Super(*this\Functions, Sel_GetGadgetItemAttribute2, Position, Attribute, Column)
+		EndProcedure
+		ProcedureC Imp_SetGadgetItemColor2(*Self, *Sel, Position.l, ColorType.l, *Color, Column.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_4, Super.Cocoa_V_LLIL
+			If *this And *this\vt\SetGadgetItemColor2
+				Call = *this\vt\SetGadgetItemColor2
+				Call(*this, Position, ColorType, Cocoa_ColorToRGB(*Color), Column) : ProcedureReturn
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, ColorType, *Color, Column)
+		EndProcedure
+		Procedure Native_SetGadgetItemColor2(*this.PB_Gadget, Position.l, ColorType.l, Color, Column.l)
+			Protected Super.Cocoa_V_LLIL = Cocoa_Super(*this\Functions, Sel_SetGadgetItemColor2)
+			Super(*this\Functions, Sel_SetGadgetItemColor2, Position, ColorType, Cocoa_RGBToColor(Color), Column)
+		EndProcedure
+		ProcedureC.i Imp_GetGadgetItemColor2(*Self, *Sel, Position.l, ColorType.l, Column.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call.Slot_3, Super.Cocoa_I_LLL
+			If *this And *this\vt\GetGadgetItemColor2
+				Call = *this\vt\GetGadgetItemColor2
+				ProcedureReturn Cocoa_RGBToColor(Call(*this, Position, ColorType, Column))
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, ColorType, Column)
+		EndProcedure
+		Procedure Native_GetGadgetItemColor2(*this.PB_Gadget, Position.l, ColorType.l, Column.l)
+			Protected Super.Cocoa_I_LLL = Cocoa_Super(*this\Functions, Sel_GetGadgetItemColor2)
+			ProcedureReturn Cocoa_ColorToRGB(Super(*this\Functions, Sel_GetGadgetItemColor2, Position, ColorType, Column))
+		EndProcedure
+		
+		ProcedureC.q Imp_AddGadgetItem(*Self, *Sel, Position.l, *Text, *Image, Flags.l)
+			Protected *this.PB_Gadget = Cocoa_Lookup(*Self), Call2.Slot_1s1, Call3.Slot_1s2, Super.Cocoa_Q_LIIL
+			If *this And *this\vt\AddGadgetItem3 And *this\vt\AddGadgetItem3 <> NativeVT\AddGadgetItem3	; a gadget may install only AddGadgetItem2: the native AddGadgetItem3 it inherited must not shadow it
+				Call3 = *this\vt\AddGadgetItem3
+				ProcedureReturn Call3(*this, Position, Cocoa_String(*Text), *Image, Flags)
+			ElseIf *this And *this\vt\AddGadgetItem2
+				Call2 = *this\vt\AddGadgetItem2
+				ProcedureReturn Call2(*this, Position, Cocoa_String(*Text), *Image)
+			EndIf
+			Super = Cocoa_Super(*Self, *Sel)
+			ProcedureReturn Super(*Self, *Sel, Position, *Text, *Image, Flags)
+		EndProcedure
+		Procedure Native_AddGadgetItem3(*this.PB_Gadget, Position.l, Text.s, *Image, Flags.l)
+			Protected Super.Cocoa_Q_LIIL = Cocoa_Super(*this\Functions, Sel_AddGadgetItem)
+			ProcedureReturn Super(*this\Functions, Sel_AddGadgetItem, Position, Cocoa_NSString(Text), *Image, Flags)
+		EndProcedure
+		Procedure Native_AddGadgetItem2(*this.PB_Gadget, Position.l, Text.s, *Image)
+			ProcedureReturn Native_AddGadgetItem3(*this, Position, Text, *Image, 0)
+		EndProcedure
+		
+		ProcedureC Imp_Dealloc(*Self, *Sel)		; the shadow dies with PB's object, whichever path freed it
+			Protected *Shadow.PB_Gadget = Cocoa_Lookup(*Self), Super.Cocoa_V = Cocoa_Super(*Self, *Sel)
+			If *Shadow
+				DeleteMapElement(Cocoa_Shadow(), Str(*Self))
+				FreeStructure(*Shadow)
+			EndIf
+			Super(*Self, *Sel)
+		EndProcedure
+		
+		Procedure Cocoa_Register(*Sel, *Imp, SlotOffset = -1, *Native = 0)
+			AddElement(Cocoa_Method())
+			Cocoa_Method()\Sel = *Sel
+			Cocoa_Method()\Imp = *Imp
+			If SlotOffset >= 0
+				PokeI(@NativeVT + SlotOffset, *Native)
+			EndIf
+		EndProcedure
+		
+		Cocoa_Register(Sel_FreeGadget, @Imp_FreeGadget(), OffsetOf(GadgetVT\FreeGadget), @Native_FreeGadget())
+		Cocoa_Register(Sel_SetActiveGadget, @Imp_SetActiveGadget(), OffsetOf(GadgetVT\SetActiveGadget), @Native_SetActiveGadget())
+		Cocoa_Register(Sel_ClearGadgetItemList, @Imp_ClearGadgetItemList(), OffsetOf(GadgetVT\ClearGadgetItemList), @Native_ClearGadgetItemList())
+		Cocoa_Register(Sel_CountGadgetItems, @Imp_CountGadgetItems(), OffsetOf(GadgetVT\CountGadgetItems), @Native_CountGadgetItems())
+		Cocoa_Register(Sel_GetGadgetState, @Imp_GetGadgetState(), OffsetOf(GadgetVT\GetGadgetState), @Native_GetGadgetState())
+		Cocoa_Register(Sel_GetGadgetText, @Imp_GetGadgetText(), OffsetOf(GadgetVT\GetGadgetText), @Native_GetGadgetText())
+		Cocoa_Register(Sel_GetGadgetFont, @Imp_GetGadgetFont(), OffsetOf(GadgetVT\GetGadgetFont), @Native_GetGadgetFont())
+		Cocoa_Register(Sel_RemoveGadgetItem, @Imp_RemoveGadgetItem(), OffsetOf(GadgetVT\RemoveGadgetItem), @Native_RemoveGadgetItem())
+		Cocoa_Register(Sel_RemoveGadgetColumn, @Imp_RemoveGadgetColumn(), OffsetOf(GadgetVT\RemoveGadgetColumn), @Native_RemoveGadgetColumn())
+		Cocoa_Register(Sel_HideGadget, @Imp_HideGadget(), OffsetOf(GadgetVT\HideGadget), @Native_HideGadget())
+		Cocoa_Register(Sel_OpenGadgetList2, @Imp_OpenGadgetList2(), OffsetOf(GadgetVT\OpenGadgetList2), @Native_OpenGadgetList2())
+		Cocoa_Register(Sel_SetGadgetState, @Imp_SetGadgetState(), OffsetOf(GadgetVT\SetGadgetState), @Native_SetGadgetState())
+		Cocoa_Register(Sel_SetGadgetText, @Imp_SetGadgetText(), OffsetOf(GadgetVT\SetGadgetText), @Native_SetGadgetText())
+		Cocoa_Register(Sel_SetGadgetFont, @Imp_SetGadgetFont(), OffsetOf(GadgetVT\SetGadgetFont), @Native_SetGadgetFont())
+		Cocoa_Register(Sel_GetGadgetAttribute, @Imp_GetGadgetAttribute(), OffsetOf(GadgetVT\GetGadgetAttribute), @Native_GetGadgetAttribute())
+		Cocoa_Register(Sel_GetGadgetItemState, @Imp_GetGadgetItemState(), OffsetOf(GadgetVT\GetGadgetItemState), @Native_GetGadgetItemState())
+		Cocoa_Register(Sel_GetGadgetItemData, @Imp_GetGadgetItemData(), OffsetOf(GadgetVT\GetGadgetItemData), @Native_GetGadgetItemData())
+		Cocoa_Register(Sel_GetGadgetColor, @Imp_GetGadgetColor(), OffsetOf(GadgetVT\GetGadgetColor), @Native_GetGadgetColor())
+		Cocoa_Register(Sel_SetGadgetAttribute, @Imp_SetGadgetAttribute(), OffsetOf(GadgetVT\SetGadgetAttribute), @Native_SetGadgetAttribute())
+		Cocoa_Register(Sel_SetGadgetItemState, @Imp_SetGadgetItemState(), OffsetOf(GadgetVT\SetGadgetItemState), @Native_SetGadgetItemState())
+		Cocoa_Register(Sel_SetGadgetItemData, @Imp_SetGadgetItemData(), OffsetOf(GadgetVT\SetGadgetItemData), @Native_SetGadgetItemData())
+		Cocoa_Register(Sel_SetGadgetColor, @Imp_SetGadgetColor(), OffsetOf(GadgetVT\SetGadgetColor), @Native_SetGadgetColor())
+		Cocoa_Register(Sel_SetGadgetItemImage, @Imp_SetGadgetItemImage(), OffsetOf(GadgetVT\SetGadgetItemImage), @Native_SetGadgetItemImage())
+		Cocoa_Register(Sel_ResizeGadget, @Imp_ResizeGadget(), OffsetOf(GadgetVT\ResizeGadget), @Native_ResizeGadget())
+		Cocoa_Register(Sel_AddGadgetColumn, @Imp_AddGadgetColumn(), OffsetOf(GadgetVT\AddGadgetColumn), @Native_AddGadgetColumn())
+		Cocoa_Register(Sel_SetGadgetItemText, @Imp_SetGadgetItemText(), OffsetOf(GadgetVT\SetGadgetItemText), @Native_SetGadgetItemText())
+		Cocoa_Register(Sel_GetGadgetItemText, @Imp_GetGadgetItemText(), OffsetOf(GadgetVT\GetGadgetItemText), @Native_GetGadgetItemText())
+		Cocoa_Register(Sel_SetGadgetItemAttribute2, @Imp_SetGadgetItemAttribute2(), OffsetOf(GadgetVT\SetGadgetItemAttribute2), @Native_SetGadgetItemAttribute2())
+		Cocoa_Register(Sel_GetGadgetItemAttribute2, @Imp_GetGadgetItemAttribute2(), OffsetOf(GadgetVT\GetGadgetItemAttribute2), @Native_GetGadgetItemAttribute2())
+		Cocoa_Register(Sel_SetGadgetItemColor2, @Imp_SetGadgetItemColor2(), OffsetOf(GadgetVT\SetGadgetItemColor2), @Native_SetGadgetItemColor2())
+		Cocoa_Register(Sel_GetGadgetItemColor2, @Imp_GetGadgetItemColor2(), OffsetOf(GadgetVT\GetGadgetItemColor2), @Native_GetGadgetItemColor2())
+		Cocoa_Register(Sel_AddGadgetItem, @Imp_AddGadgetItem(), OffsetOf(GadgetVT\AddGadgetItem3), @Native_AddGadgetItem3())
+		NativeVT\AddGadgetItem2 = @Native_AddGadgetItem2()
+		Cocoa_Register(sel_registerName("dealloc"), @Imp_Dealloc())
+		
+		Procedure Cocoa_Subclass(*Class)		; one UITK_ subclass per PB functions class, no ivars added, so swapping an instance's class in place is safe
+			Protected Name.s = PeekS(class_getName(*Class), -1, #PB_UTF8), SubName.s, *Sub
+			
+			If Left(Name, 5) = "UITK_"
+				ProcedureReturn *Class
+			EndIf
+			
+			SubName = "UITK_" + Name		; a variable, never an expression: PB 6.41's C backend double-frees a .p-ascii argument built from a string expression
+			*Sub = objc_getClass(SubName)
+			If *Sub = 0
+				*Sub = objc_allocateClassPair(*Class, SubName, 0)
+				ForEach Cocoa_Method()
+					class_addMethod(*Sub, Cocoa_Method()\Sel, Cocoa_Method()\Imp, method_getTypeEncoding(class_getInstanceMethod(*Class, Cocoa_Method()\Sel)))
+				Next
+				objc_registerClassPair(*Sub)
+			EndIf
+			
+			ProcedureReturn *Sub
+		EndProcedure
+		
+		Procedure Cocoa_IsGadget(Gadget)		; PB's IsGadget, but hands out the gadget's shadow, adopting the gadget on first sight
+			Protected *Real.PB_GadgetCocoa = IsGadget(Gadget), *Shadow.PB_Gadget, Key.s
+			
+			If *Real = 0 Or *Real\Functions = 0
+				ProcedureReturn *Real
+			EndIf
+			
+			Key = Str(*Real\Functions)
+			If FindMapElement(Cocoa_Shadow(), Key)
+				ProcedureReturn Cocoa_Shadow()
+			EndIf
+			
+			*Shadow = AllocateStructure(PB_Gadget)
+			*Shadow\vt = @NativeVT
+			*Shadow\Real = *Real
+			*Shadow\Functions = *Real\Functions
+			*Shadow\Gadget = Gadget
+			Cocoa_Shadow(Key) = *Shadow
+			
+			object_setClass(*Real\Functions, Cocoa_Subclass(object_getClass(*Real\Functions)))
+			
+			ProcedureReturn *Shadow
+		EndProcedure
+		
+		Macro IsGadget(Gadget)
+			Cocoa_IsGadget(Gadget)
+		EndMacro
+	CompilerEndIf ;}
 	
 	Enumeration ;DragState
 		#Drag_None
@@ -1193,9 +1976,21 @@ Module UITK
 	Global FlatMenuPressed	; the FlatMenu whose canvas took a press whose click is still to come
 	Global AccessibilityMode = #False
 	Global LightTheme.Theme, DarkTheme.Theme, *DefaultTheme.Theme
-	Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
-	Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
-	Global IconFont = FontID(LoadFont(#PB_Any, "Segoe MDL2 Assets", 10, #PB_Font_HighQuality))
+	CompilerIf #PB_Compiler_OS = #PB_OS_MacOS		; Cocoa sizes are 1pt = 1px where Windows is 9pt = 12px, so each size is scaled by 4/3
+		Global DefaultFont = FontID(LoadFont(#PB_Any, "Helvetica Neue", 12, #PB_Font_HighQuality))
+		Global BoldFont = FontID(LoadFont(#PB_Any, "Helvetica Neue", 9, #PB_Font_HighQuality | #PB_Font_Bold))
+		Global IconFont = FontID(LoadFont(#PB_Any, "Apple Symbols", 13, #PB_Font_HighQuality))
+		#Glyph_ChevronUp = "▴"
+		#Glyph_ChevronDown = "▾"
+		#Glyph_Edit = "✎"
+	CompilerElse
+		Global DefaultFont = FontID(LoadFont(#PB_Any, "Segoe UI", 9, #PB_Font_HighQuality))
+		Global BoldFont = FontID(LoadFont(#PB_Any, "Segoe UI Black", 7, #PB_Font_HighQuality))
+		Global IconFont = FontID(LoadFont(#PB_Any, "Segoe MDL2 Assets", 10, #PB_Font_HighQuality))
+		#Glyph_ChevronUp = ""
+		#Glyph_ChevronDown = ""
+		#Glyph_Edit = ""
+	CompilerEndIf
 	Global NewMap GadgetHandler()
 	
 	Prototype ItemRedraw(*Item, X, Y, Width, Height, State, *Theme.Theme)
@@ -1535,6 +2330,11 @@ Module UITK
 			GetObject_(ImageHandle, SizeOf(BITMAP), @wbmp)
 			*bmp\bmWidth  = wbmp\bmWidth
 			*bmp\bmHeight = wbmp\bmHeight
+		CompilerElseIf #PB_Compiler_OS = #PB_OS_MacOS
+			Protected Size.NSSize		; ImageID is an NSImage*
+			CocoaMessage(@Size, ImageHandle, "size")
+			*bmp\bmWidth  = Size\width
+			*bmp\bmHeight = Size\height
 		CompilerElse
 			; ImageID on Linux is a GdkPixbuf*
 			*bmp\bmWidth  = gdk_pixbuf_get_width(ImageHandle)
@@ -1878,13 +2678,19 @@ Module UITK
 	ThemeColorOffset(Str(#Color_Parent))       = OffsetOf(Theme\WindowColor)
 	ThemeColorOffset(Str(#Color_WindowBorder)) = OffsetOf(Theme\WindowTitle)
 	
-	CompilerIf #PB_EventType_RightDoubleClick <> #PB_EventType_LeftClick + (#RightDoubleClick - #LeftClick) Or #PB_EventType_LostFocus <> #PB_EventType_Focus + 1 Or #PB_EventType_MouseWheel <> #PB_EventType_MouseEnter + (#MouseWheel - #MouseEnter) Or #PB_EventType_Input <> #PB_EventType_MouseEnter + (#Input - #MouseEnter)
+	CompilerIf #PB_EventType_RightDoubleClick <> #PB_EventType_LeftClick + (#RightDoubleClick - #LeftClick) Or #PB_EventType_MouseWheel <> #PB_EventType_MouseEnter + (#MouseWheel - #MouseEnter) Or #PB_EventType_Input <> #PB_EventType_MouseEnter + (#Input - #MouseEnter)
 		CompilerError "PB's canvas #PB_EventType_* layout changed - review Default_EventHandle's range translation."
 	CompilerEndIf
 	
 	Procedure Default_EventHandle()
 		Protected Event.Event, *this.PB_Gadget = IsGadget(EventGadget()), *GadgetData.GadgetData = *this\vt
 		Protected PBType = EventType()
+		
+		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
+			If *GadgetData = @NativeVT		; raised synchronously by Cocoa inside a native call, while *this\VT is swapped to OriginalVT
+				ProcedureReturn
+			EndIf
+		CompilerEndIf
 		
 		If Not *GadgetData\Enabled
 			ProcedureReturn
@@ -1894,8 +2700,10 @@ Module UITK
 		Select PBType
 			Case #PB_EventType_LeftClick To #PB_EventType_RightDoubleClick
 				Event\EventType = #LeftClick + PBType - #PB_EventType_LeftClick
-			Case #PB_EventType_Focus, #PB_EventType_LostFocus
-				Event\EventType = #Focus + PBType - #PB_EventType_Focus
+			Case #PB_EventType_Focus
+				Event\EventType = #Focus
+			Case #PB_EventType_LostFocus		; not Focus + 1 on macOS (256 / 512)
+				Event\EventType = #LostFocus
 			Case #PB_EventType_Resize
 				Event\EventType = #Resize
 			Case #PB_EventType_MouseEnter To #PB_EventType_Input
@@ -3230,6 +4038,9 @@ Module UITK
 			SendMessage_(Focus, #WM_KEYDOWN, VirtualKey, 0)
 			SendMessage_(Focus, #WM_KEYUP, VirtualKey, 0)
 		EndProcedure
+	CompilerElse
+		Procedure.i KeyboardClaimed() : ProcedureReturn #False : EndProcedure	; no accelerator table steals keys from a canvas outside Windows
+		Procedure ForwardKeyToFocus(VirtualKey) : EndProcedure
 	CompilerEndIf
 	;}
 	
@@ -5308,7 +6119,7 @@ Module UITK
 		If State = #Hot
 			MovePathCursor(X + *Item\Text\Width - #VerticalList_IconWidth, Y + (*Item\Text\Height - 14) * 0.5)
 			VectorFont(IconFont, 16)
-			DrawVectorText("")
+			DrawVectorText(#Glyph_Edit)
 		EndIf
 	EndProcedure
 	
@@ -7206,9 +8017,9 @@ Module UITK
 			MovePathCursor(\Width - #Combo_IconWidth, (\Height - #Combo_IconHeight) * 0.6)
 			
 			If \Unfolded
-				DrawVectorText("")
+				DrawVectorText(#Glyph_ChevronUp)
 			Else
-				DrawVectorText("")
+				DrawVectorText(#Glyph_ChevronDown)
 			EndIf
 			
 		EndWith
