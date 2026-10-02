@@ -68,12 +68,6 @@ Structure ParameterListData Extends GadgetData
 	List Items.ParameterList_Item()
 EndStructure
 
-Declare ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event)
-Declare ParameterList_EndEdit(*GadgetData.ParameterListData, Keep)
-Declare ParameterList_PrepareItem(*GadgetData.ParameterListData, *Item.ParameterList_Item)
-Declare ParameterList_DirtyItem(*GadgetData.ParameterListData, *Item.ParameterList_Item)
-Declare ParameterList_ColumnX(*GadgetData.ParameterListData, Column)
-
 ;- Structure walking
 ; SelectElement() is only HALF a guard: an index past the end answers #False, but a NEGATIVE one is a runtime error
 ; …and -1 is exactly what RowToIndex answers for a pointer below the last row, and what \State holds with nothing picked
@@ -437,24 +431,6 @@ Procedure ParameterList_StripeColor(*ThemeData.Theme)
 	ProcedureReturn RGBA((Red(Cold) + Red(Back) * 3) / 4, (Green(Cold) + Green(Back) * 3) / 4, (Blue(Cold) + Blue(Back) * 3) / 4, Alpha(Cold))
 EndProcedure
 
-Procedure ParameterList_DrawFold(X, Y, Size, Folded)
-	; A small triangle: pointing right when the subtree is closed, down when it is open
-	Protected CX.d = X + Size * 0.5, CY.d = Y + Size * 0.5
-	
-	If Folded
-		MovePathCursor(CX - 2.5, CY - 4)
-		AddPathLine(CX + 3.5, CY)
-		AddPathLine(CX - 2.5, CY + 4)
-	Else
-		MovePathCursor(CX - 4, CY - 2.5)
-		AddPathLine(CX + 4, CY - 2.5)
-		AddPathLine(CX, CY + 3.5)
-	EndIf
-	
-	ClosePath()
-	FillPath()
-EndProcedure
-
 Procedure ParameterList_DrawAdd(X, Y, Width, Height)
 	Protected CX.d = X + Width * 0.5, CY.d = Y + Height * 0.5
 	
@@ -569,7 +545,7 @@ Procedure ParameterList_Redraw(*GadgetData.ParameterListData)
 						VectorSourceColor(\ThemeData\TextColor[TextState])
 						
 						If Column = Tree And ParameterList_ChildCount(*GadgetData, Index)
-							ParameterList_DrawFold(X - #ParameterList_FoldWidth, Y, #ParameterList_FoldWidth, *Item\Folded)
+							DrawFold(X - #ParameterList_FoldWidth, Y, #ParameterList_FoldWidth, *Item\Folded)
 						EndIf
 						
 						DrawVectorTextBlock(ParameterList_Cell(*Item, Column), X, Y)
@@ -805,7 +781,8 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 				
 				If \VisibleScrollBar
 					ScrollBar_SetState_Meta(\ScrollBar, \ScrollBar\State - *Event\Param * \ItemHeight)
-					Redraw = #True
+					*Event\EventType = #MouseMove	; the rows moved under the pointer: refresh the hover
+					Redraw = Bool(Not ParameterList_EventHandler(*GadgetData, *Event)) | Redraw
 				EndIf
 				;}
 			Case #LeftButtonDown ;{
@@ -1504,19 +1481,11 @@ Procedure ParameterList_FreeGadget(*this.PB_Gadget)
 	Protected *GadgetData.ParameterListData = *this\vt
 	
 	With *GadgetData
-		DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
 		FreeStructureX(\ScrollBar)
-		
-		If \String
-			RemoveGadgetTimers(\String)
-			FreeMemory(\String\ThemeData)		; the editor's own copy of the theme
-			FreeStructureX(\String)
-		EndIf
-		
-		ClearList(\Items())
+		InlineEditor_Free(\String)
 	EndWith
 	
-	Default_FreeGadget(*this)
+	ProcedureReturn Default_FreeGadget(*this)
 EndProcedure
 
 Procedure ParameterList_DefaultColumns(*GadgetData.ParameterListData, Width)
@@ -1546,7 +1515,6 @@ Procedure ParameterList_DefaultColumns(*GadgetData.ParameterListData, Width)
 EndProcedure
 
 Procedure ParameterList_Meta(*GadgetData.ParameterListData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags)
-	Protected *StringThemeData.Theme
 	*GadgetData\ThemeData = *ThemeData
 	InitializeObject(ParameterList)
 	
@@ -1601,12 +1569,7 @@ Procedure ParameterList_Meta(*GadgetData.ParameterListData, *ThemeData.Theme, Ga
 		\CommitRow = -1
 		
 		If \Editable
-			*StringThemeData = AllocateMemory(SizeOf(Theme))
-			CopyMemory(*ThemeData, *StringThemeData, SizeOf(Theme))
-			*StringThemeData\CornerRadius = 0
-			*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
-			AllocateStructureX(\String, StringData)
-			String_Meta(\String, *StringThemeData, Gadget, 0, 0, \Width, \ItemHeight - 2, "", #HAlignLeft | #Gadget_Meta)
+			\String = InlineEditor_Create(*GadgetData, *ThemeData, \Width, \ItemHeight - 2, #HAlignLeft)
 			String_SupportedEvents()
 			CloseGadgetList()
 		EndIf

@@ -295,18 +295,7 @@ Procedure LayerList_MoveFocus(*GadgetData.LayerListData, Index)
 	EndWith
 EndProcedure
 
-Procedure LayerList_ToggleVisibility(*GadgetData.LayerListData, Index)
-	; Flip a row's eye. When that row is part of a multi-row selection the whole selection
-	; follows it, so switching a batch of layers off is one click rather than N.
-	;
-	; LayerList_SelectedCount walks the list, and a walk leaves the current element
-	; wherever it finished - on the LAST item. Testing it inside the condition therefore
-	; moved the cursor off the row we had just selected, and the single-row branch below
-	; wrote the eye of the last row in the list instead. Hiding one selected item did
-	; nothing (unless it happened to BE the last one); a multi-row selection was fine,
-	; because its branch starts a fresh ForEach; and an unselected row was fine too,
-	; because \Items()\Selected is #False and the count is never reached. Take the count
-	; first, then re-select.
+Procedure LayerList_ToggleFlag(*GadgetData.LayerListData, Index, Offset)	; the eye or the padlock (a .b at Offset); a multi-row selection follows the clicked row
 	Protected NewState, Batch
 	
 	With *GadgetData
@@ -314,40 +303,17 @@ Procedure LayerList_ToggleVisibility(*GadgetData.LayerListData, Index)
 			ProcedureReturn
 		EndIf
 		
-		NewState = Bool(Not \Items()\Visible)
-		Batch = Bool(\MultiSelect And \Items()\Selected And LayerList_SelectedCount(*GadgetData) > 1)
+		NewState = Bool(Not PeekB(@\Items() + Offset))
+		Batch = Bool(\MultiSelect And \Items()\Selected And LayerList_SelectedCount(*GadgetData) > 1)	; the count walks the list: take it before re-selecting
 		
 		If Batch
 			ForEach \Items()
 				If \Items()\Selected
-					\Items()\Visible = NewState
+					PokeB(@\Items() + Offset, NewState)
 				EndIf
 			Next
 		ElseIf SelectElement(\Items(), Index)
-			\Items()\Visible = NewState
-		EndIf
-	EndWith
-EndProcedure
-
-Procedure LayerList_ToggleLock(*GadgetData.LayerListData, Index)
-	Protected NewState, Batch
-	
-	With *GadgetData
-		If Not SelectElement(\Items(), Index)
-			ProcedureReturn
-		EndIf
-		
-		NewState = Bool(Not \Items()\Locked)
-		Batch = Bool(\MultiSelect And \Items()\Selected And LayerList_SelectedCount(*GadgetData) > 1)
-		
-		If Batch
-			ForEach \Items()
-				If \Items()\Selected
-					\Items()\Locked = NewState
-				EndIf
-			Next
-		ElseIf SelectElement(\Items(), Index)
-			\Items()\Locked = NewState
+			PokeB(@\Items() + Offset, NewState)
 		EndIf
 	EndWith
 EndProcedure
@@ -458,10 +424,8 @@ Procedure LayerList_UpdateScrollBar(*GadgetData.LayerListData)
 			\VisibleScrollBar = #True
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, Total)
 		Else
-			; Don't touch the bar's position here: while it's too short to scroll, its
-			; Maximum is below one page, so ScrollBar_SetState_Meta would clamp against a
-			; negative ceiling and leave a negative position behind.
 			\VisibleScrollBar = #False
+			ScrollBar_SetState_Meta(\ScrollBar, 0)
 		EndIf
 	EndWith
 EndProcedure
@@ -486,24 +450,6 @@ Procedure LayerList_PrepareItem(*GadgetData.LayerListData, *Item.LayerList_Item)
 EndProcedure
 
 ;- Drawing
-Procedure LayerList_DrawFold(X, Y, Size, Folded)
-	; A small triangle: pointing right when the group is folded, down when it's open.
-	Protected CX.d = X + Size * 0.5, CY.d = Y + Size * 0.5
-	
-	If Folded
-		MovePathCursor(CX - 2.5, CY - 4)
-		AddPathLine(CX + 3.5, CY)
-		AddPathLine(CX - 2.5, CY + 4)
-	Else
-		MovePathCursor(CX - 4, CY - 2.5)
-		AddPathLine(CX + 4, CY - 2.5)
-		AddPathLine(CX, CY + 3.5)
-	EndIf
-	
-	ClosePath()
-	FillPath()
-EndProcedure
-
 Procedure LayerList_DrawEye(X, Y, Width, Height, Visible)
 	; An eye outline with a pupil; struck through when the row is switched off.
 	Protected CX.d = X + Width * 0.5, CY.d = Y + Height * 0.5
@@ -618,7 +564,7 @@ Procedure LayerList_Redraw(*GadgetData.LayerListData)
 			If LayerList_ChildCount(*GadgetData, Index)
 				SelectElement(\Items(), Index)
 				VectorSourceColor(\ThemeData\TextColor[TextState])
-				LayerList_DrawFold(\OriginX + \Border + LayerList_IndentOf(\Items()\Depth) - #LayerList_FoldWidth, Y, #LayerList_FoldWidth, \Items()\Folded)
+				DrawFold(\OriginX + \Border + LayerList_IndentOf(\Items()\Depth) - #LayerList_FoldWidth, Y, #LayerList_FoldWidth, \Items()\Folded)
 			EndIf
 			SelectElement(\Items(), Index)
 			
@@ -1135,13 +1081,13 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 							;}
 						Case #LayerList_Zone_Eye ;{
 							\State = Index
-							LayerList_ToggleVisibility(*GadgetData, Index)
+							LayerList_ToggleFlag(*GadgetData, Index, OffsetOf(LayerList_Item\Visible))
 							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerVisibility)
 							Redraw = #True
 							;}
 						Case #LayerList_Zone_Lock ;{
 							\State = Index
-							LayerList_ToggleLock(*GadgetData, Index)
+							LayerList_ToggleFlag(*GadgetData, Index, OffsetOf(LayerList_Item\Locked))
 							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerLock)
 							Redraw = #True
 							;}
@@ -1310,7 +1256,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 									Redraw = #True
 								EndIf
 							ElseIf \State > -1
-								LayerList_ToggleVisibility(*GadgetData, \State)
+								LayerList_ToggleFlag(*GadgetData, \State, OffsetOf(LayerList_Item\Visible))
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerVisibility)
 								Redraw = #True
 							EndIf
@@ -1726,30 +1672,18 @@ Procedure LayerList_FreeGadget(*this.PB_Gadget)
 	Protected *GadgetData.LayerListData = *this\vt
 	
 	With *GadgetData
-		If \ReorderTimer
-			RemoveGadgetTimer(\ReorderTimer)
-			\ReorderTimer = 0
-		EndIf
-		
 		If \Reorder And IsWindow(\ReorderWindow)
 			CloseWindowLater(\ReorderWindow)
 		EndIf
 		
-		DeleteMapElement(GadgetHandler(), Str(GadgetID(\Gadget)))
 		FreeStructureX(\ScrollBar)
-		
-		If \String
-			RemoveGadgetTimers(\String)
-			FreeMemory(\String\ThemeData)		; the editor's own copy of the theme
-			FreeStructureX(\String)
-		EndIf
+		InlineEditor_Free(\String)
 	EndWith
 	
-	Default_FreeGadget(*this)
+	ProcedureReturn Default_FreeGadget(*this)
 EndProcedure
 
 Procedure LayerList_Meta(*GadgetData.LayerListData, *ThemeData.Theme, Gadget, x, y, Width, Height, Flags, *CustomItem)
-	Protected GadgetList
 	*GadgetData\ThemeData = *ThemeData
 	InitializeObject(LayerList)
 	
@@ -1777,15 +1711,8 @@ Procedure LayerList_Meta(*GadgetData.LayerListData, *ThemeData.Theme, Gadget, x,
 		ScrollBar_Meta(\ScrollBar, *ThemeData, -1, Width - #LayerList_ToolbarThickness - \Border - 1, \Border + 1, #LayerList_ToolbarThickness, Height - \Border * 2 - 2, 0, \ItemHeight, Height, #Gadget_Vertical)
 		
 		If Flags & #ReOrder
-			GadgetList = UseGadgetList(0)
 			\Reorder = #True
-			\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, \ItemHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
-			\ReorderCanvas = CanvasGadget(#PB_Any, 0, 0, Width, \ItemHeight)
-			SetProp_(GadgetID(\ReorderCanvas), "UITK_LayerData", *GadgetData)
-			BindGadgetEvent(\ReorderCanvas, @LayerList_DragCanvasHandler(), #PB_EventType_MouseWheel)
-			SetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
-			SetLayeredWindowAttributes_(WindowID(\ReorderWindow), 0, 128, #LWA_ALPHA)
-			UseGadgetList(GadgetList)
+			ReorderGhost_Create(@\ReorderWindow, @\ReorderCanvas, Width, \ItemHeight, 0, "UITK_LayerData", *GadgetData, @LayerList_DragCanvasHandler(), #PB_EventType_MouseWheel)
 		EndIf
 		
 		\VT\AddGadgetItem3 = @LayerList_AddItem()
@@ -1821,17 +1748,11 @@ Procedure LayerList_Meta(*GadgetData.LayerListData, *ThemeData.Theme, Gadget, x,
 		
 		; #Editable adds an inline editor: a String meta gadget parked over the row being
 		; renamed. It needs the extra keyboard/focus events, hence String_SupportedEvents.
-		Protected *StringThemeData.Theme
 		\Editable = Bool(Flags & #Editable)
 		\EditCursor = #PB_Cursor_Default
 		
 		If \Editable
-			*StringThemeData = AllocateMemory(SizeOf(Theme))
-			CopyMemory(*ThemeData, *StringThemeData, SizeOf(Theme))
-			*StringThemeData\CornerRadius = 0
-			*StringThemeData\ShadeColor[#Cold] = *ThemeData\ShadeColor[#Hot]
-			AllocateStructureX(\String, StringData)
-			String_Meta(\String, *StringThemeData, Gadget, 0, 0, \Width, \ItemHeight - 2, "", #HAlignLeft | #Gadget_Meta)
+			\String = InlineEditor_Create(*GadgetData, *ThemeData, \Width, \ItemHeight - 2, #HAlignLeft)
 			String_SupportedEvents()
 			CloseGadgetList()
 		EndIf

@@ -35,8 +35,6 @@
 #TimeLine_Key_Diamond = 5				; half-height of a key drawn as a diamond
 #TimeLine_Key_Dot = 2.5					; radius of a key drawn as a dot
 #TimeLine_Key_Pip = 1.5					; …and of one drawn as a bare pip
-#TimeLine_Key_DiamondScale = 8			; pixels per unit from which keys are worth drawing as diamonds
-#TimeLine_Key_DotScale = 3				; …and from which they are worth more than a pip
 #TimeLine_Key_Grab = 4					; how close to a key the pointer counts as on it
 
 Enumeration ; Line fold state
@@ -205,16 +203,6 @@ Declare TimeLine_SortKey(*Block.TimeLine_Block, *Key.TimeLine_Key)
 Declare TimeLine_BlockBands(*Block.TimeLine_Block)
 
 ;- Geometry
-Procedure TimeLine_SetScroll(*Bar.ScrollBarData, Value)
-	; Below one page, ScrollBar_SetState_Meta's Max - PageLength ceiling sits under the floor, so asking it for 0 parks the bar far negative.
-	If *Bar\Max - *Bar\PageLength <= *Bar\Min
-		*Bar\State = *Bar\Min
-		*Bar\Position = 0
-	Else
-		ScrollBar_SetState_Meta(*Bar, Value)
-	EndIf
-EndProcedure
-
 Procedure TimeLine_TimeToX(*GadgetData.TimeLineData, Time)
 	; Gadget-local X of a time unit. Drawing and hit-testing both come through here so they cannot drift apart.
 	ProcedureReturn #TimeLine_List_Width + Round((Time - *GadgetData\HScrollBar\State) * *GadgetData\Scale, #PB_Round_Nearest)
@@ -323,7 +311,7 @@ Procedure TimeLine_LayoutLines(*GadgetData.TimeLineData)
 		\VisibleVerticalScrollBar = Bool(\InternalHeight > \BodyHeight)
 		ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_Maximum, Max(\InternalHeight, 1))
 		ScrollBar_SetAttribute_Meta(\VScrollBar, #ScrollBar_PageLength, Min(Max(\BodyHeight, 1), Max(\InternalHeight, 1)))
-		TimeLine_SetScroll(\VScrollBar, \VScrollBar\State)
+		ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State)
 	EndWith
 EndProcedure
 
@@ -378,7 +366,7 @@ Procedure TimeLine_UpdateHScrollBar(*GadgetData.TimeLineData)
 		\VisibleHorizontalScrollBar = Bool(\Duration > Page)
 		ScrollBar_SetAttribute_Meta(\HScrollBar, #ScrollBar_Maximum, Max(\Duration, 1))
 		ScrollBar_SetAttribute_Meta(\HScrollBar, #ScrollBar_PageLength, Min(Page, Max(\Duration, 1)))
-		TimeLine_SetScroll(\HScrollBar, \HScrollBar\State)
+		ScrollBar_SetState_Meta(\HScrollBar, \HScrollBar\State)
 	EndWith
 EndProcedure
 
@@ -770,24 +758,6 @@ Procedure TimeLine_ApplyKeyDrag(*GadgetData.TimeLineData)
 EndProcedure
 
 ;- Drawing
-Procedure TimeLine_DrawFold(X, Y, Size, Folded)
-	; The same triangle the LayerList uses: pointing right when shut, down when open.
-	Protected CX.d = X + Size * 0.5, CY.d = Y + Size * 0.5
-	
-	If Folded
-		MovePathCursor(CX - 2.5, CY - 4)
-		AddPathLine(CX + 3.5, CY)
-		AddPathLine(CX - 2.5, CY + 4)
-	Else
-		MovePathCursor(CX - 4, CY - 2.5)
-		AddPathLine(CX + 4, CY - 2.5)
-		AddPathLine(CX, CY + 3.5)
-	EndIf
-	
-	ClosePath()
-	FillPath()
-EndProcedure
-
 Procedure TimeLine_Redraw_ListItem(*GadgetData.TimeLineData, X, Y, State)
 	Protected BandY, Band, Kind, Name.s
 	
@@ -804,7 +774,7 @@ Procedure TimeLine_Redraw_ListItem(*GadgetData.TimeLineData, X, Y, State)
 			Else
 				VectorSourceColor(\ThemeData\TextColor[State])
 			EndIf
-			TimeLine_DrawFold(X + #TimeLine_List_TextMargin, Y + (#TimeLine_List_LineHeight - #TimeLine_List_FoldWidth) * 0.5, #TimeLine_List_FoldWidth, Bool(\Lines()\Fold = #TimeLine_Folded))
+			DrawFold(X + #TimeLine_List_TextMargin, Y + (#TimeLine_List_LineHeight - #TimeLine_List_FoldWidth) * 0.5, #TimeLine_List_FoldWidth, Bool(\Lines()\Fold = #TimeLine_Folded))
 		EndIf
 		
 		If State = #Cold
@@ -1516,10 +1486,10 @@ Procedure TimeLine_VerticalFocus(*GadgetData.TimeLineData)
 		
 		If \VisibleVerticalScrollBar And \State >= 0 And SelectElement(\Lines(), \State)
 			If \Lines()\Y < \VScrollBar\State
-				TimeLine_SetScroll(\VScrollBar, \Lines()\Y)
+				ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y)
 				Result = #True
 			ElseIf \Lines()\Y + \Lines()\Height > \VScrollBar\State + \BodyHeight
-				TimeLine_SetScroll(\VScrollBar, \Lines()\Y + \Lines()\Height - \BodyHeight)
+				ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y + \Lines()\Height - \BodyHeight)
 				Result = #True
 			EndIf
 		EndIf
@@ -1540,10 +1510,10 @@ Procedure TimeLine_HorizontalFocus(*GadgetData.TimeLineData, Time)
 	
 	With *GadgetData
 		If Time < \HScrollBar\State
-			TimeLine_SetScroll(\HScrollBar, Time)
+			ScrollBar_SetState_Meta(\HScrollBar, Time)
 			ProcedureReturn #True
 		ElseIf Time > \HScrollBar\State + Page - 1
-			TimeLine_SetScroll(\HScrollBar, Time - Page + 1)
+			ScrollBar_SetState_Meta(\HScrollBar, Time - Page + 1)
 			ProcedureReturn #True
 		EndIf
 	EndWith
@@ -1569,9 +1539,9 @@ Procedure TimeLine_ReorderFocusTimer(*GadgetData.TimeLineData, Timer)
 				If ListIndex(\Lines()) = \State
 					NextElement(\Lines())
 					\ReorderPosition + 1
-					TimeLine_SetScroll(\VScrollBar, \VScrollBar\State + #TimeLine_List_LineHeight * 2)
+					ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State + #TimeLine_List_LineHeight * 2)
 				Else
-					TimeLine_SetScroll(\VScrollBar, \VScrollBar\State + #TimeLine_List_LineHeight)
+					ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State + #TimeLine_List_LineHeight)
 				EndIf
 				\FirstDisplayedLine = @\Lines()
 				\RedrawBody = #True
@@ -1586,7 +1556,7 @@ Procedure TimeLine_ReorderFocusTimer(*GadgetData.TimeLineData, Timer)
 					\ReorderPosition - 1
 				EndIf
 				\FirstDisplayedLine = @\Lines()
-				TimeLine_SetScroll(\VScrollBar, \Lines()\Y)
+				ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y)
 				\RedrawBody = #True
 				\RedrawList = #True
 				\ReorderPosition - 1
@@ -2183,7 +2153,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 								\ReorderFocusTimer = AddGadgetTimer(*GadgetData, #TimeLine_Focus_Timer, @TimeLine_ReorderFocusTimer())
 								
 								If \VScrollBar\State > \Lines()\Y
-									TimeLine_SetScroll(\VScrollBar, \Lines()\Y)
+									ScrollBar_SetState_Meta(\VScrollBar, \Lines()\Y)
 								EndIf
 							EndIf
 						ElseIf *Event\MouseY > \Height
@@ -2192,7 +2162,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 								\ReorderFocusTimer = AddGadgetTimer(*GadgetData, #TimeLine_Focus_Timer, @TimeLine_ReorderFocusTimer())
 								
 								If \VScrollBar\State + \BodyHeight < LastDisplayedItem * #TimeLine_List_LineHeight
-									TimeLine_SetScroll(\VScrollBar, LastDisplayedItem * #TimeLine_List_LineHeight - \BodyHeight)
+									ScrollBar_SetState_Meta(\VScrollBar, LastDisplayedItem * #TimeLine_List_LineHeight - \BodyHeight)
 								EndIf
 							EndIf
 						ElseIf \ReorderFocusTimer
@@ -2484,14 +2454,14 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 						\Zoom = Zoom
 						\Scale = TimeLine_ZoomLevel(\Zoom)
 						TimeLine_UpdateHScrollBar(*GadgetData)
-						TimeLine_SetScroll(\HScrollBar, Time - Floor((*Event\MouseX - #TimeLine_List_Width) / \Scale))
+						ScrollBar_SetState_Meta(\HScrollBar, Time - Floor((*Event\MouseX - #TimeLine_List_Width) / \Scale))
 						\RedrawHeader = #True
 						\RedrawBody = #True
 					EndIf
 					;}
 				ElseIf *Event\MouseX <= #TimeLine_List_Width Or Not (\OriginalVT\GetGadgetAttribute(\this, #PB_Canvas_Modifiers) & #PB_Canvas_Shift) ;{ Vertical
 					If \VisibleVerticalScrollBar
-						TimeLine_SetScroll(\VScrollBar, \VScrollBar\State - *Event\Param * #TimeLine_List_LineHeight * 0.5)
+						ScrollBar_SetState_Meta(\VScrollBar, \VScrollBar\State - *Event\Param * #TimeLine_List_LineHeight * 0.5)
 						TimeLine_FirstDisplayed(*GadgetData)
 						\RedrawList = #True
 						\RedrawBody = #True
@@ -2501,7 +2471,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 					;}
 				Else;{ Shift: sideways
 					If \VisibleHorizontalScrollBar
-						TimeLine_SetScroll(\HScrollBar, \HScrollBar\State - *Event\Param * Max(Floor(\BodyWidth / \Scale / 8), 1))
+						ScrollBar_SetState_Meta(\HScrollBar, \HScrollBar\State - *Event\Param * Max(Floor(\BodyWidth / \Scale / 8), 1))
 						\RedrawHeader = #True
 						\RedrawBody = #True
 					EndIf
@@ -2678,7 +2648,7 @@ Procedure TimeLine_ClearItems(*this.PB_Gadget)
 		\FirstDisplayedLine = 0
 		
 		TimeLine_LayoutLines(*GadgetData)
-		TimeLine_SetScroll(\VScrollBar, 0)
+		ScrollBar_SetState_Meta(\VScrollBar, 0)
 		
 		\RedrawAll = #True
 		TimeLine_Draw(*GadgetData)
@@ -3446,7 +3416,7 @@ Procedure TimeLine_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
 				\RedrawBody = #True
 				;}
 			Case #Attribute_TimeLine_Scroll ;{
-				TimeLine_SetScroll(\HScrollBar, Max(Value, 0))
+				ScrollBar_SetState_Meta(\HScrollBar, Max(Value, 0))
 				\RedrawHeader = #True
 				\RedrawBody = #True
 				;}
@@ -3526,11 +3496,10 @@ Procedure TimeLine_Free(*this.PB_Gadget)
 		FreeStructureX(\HScrollBar)
 	EndWith
 	
-	Default_FreeGadget(*this)
+	ProcedureReturn Default_FreeGadget(*this)
 EndProcedure
 
 Procedure TimeLine_Meta(*GadgetData.TimeLineData, *ThemeData, Gadget, x, y, Width, Height, Flags)
-	Protected GadgetList
 	
 	*GadgetData\ThemeData = *ThemeData
 	InitializeObject(TimeLine)
@@ -3583,14 +3552,7 @@ Procedure TimeLine_Meta(*GadgetData.TimeLineData, *ThemeData, Gadget, x, y, Widt
 		\TrackName[#TimeLine_Track_Angle] = "Angle"
 		\TrackName[#TimeLine_Track_Content] = "Content"
 		
-		GadgetList = UseGadgetList(0)
-		\ReorderWindow = OpenWindow(#PB_Any, 0, 0, Width, #TimeLine_List_LineHeight, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(CurrentWindow()))
-		\ReorderCanvas = CanvasGadget(#PB_Any, 0, 0, Width, #TimeLine_List_LineHeight, #PB_Canvas_Keyboard)
-		BindGadgetEvent(\ReorderCanvas, @TimeLine_DragWindowHandler())
-		SetProp_(GadgetID(\ReorderCanvas), "UITK_TimeLine", *GadgetData)
-		SetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(\ReorderWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED)
-		SetLayeredWindowAttributes_(WindowID(\ReorderWindow), 0, 128, #LWA_ALPHA)
-		UseGadgetList(GadgetList)
+		ReorderGhost_Create(@\ReorderWindow, @\ReorderCanvas, Width, #TimeLine_List_LineHeight, #PB_Canvas_Keyboard, "UITK_TimeLine", *GadgetData, @TimeLine_DragWindowHandler(), #PB_All)
 		
 		AllocateStructureX(\VScrollBar, ScrollBarData)
 		ScrollBar_Meta(\VScrollBar, *ThemeData, -1, 0, 0, #TimeLine_TrackBarThickness, #TimeLine_TrackBarThickness, 0, 1, 1, #Gadget_Vertical | #Gadget_Meta)
