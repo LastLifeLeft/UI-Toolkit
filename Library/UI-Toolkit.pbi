@@ -617,6 +617,52 @@ EndDeclareModule
 Module UITK
 	EnableExplicit
 	
+	CompilerIf #PB_Compiler_Debugger
+		
+		Structure SAllocation
+			Size.i
+			File.s
+			Line.i
+			Pointer.i
+		EndStructure
+		
+		Global NewList Memories.SAllocation()
+		
+		Macro AllocateStructureX(Variable, StructureName)
+			AddElement(Memories())
+			Memories()\Size = SizeOf(StructureName)
+			Memories()\File = #PB_Compiler_File
+			Memories()\Line = #PB_Compiler_Line
+			Memories()\Pointer = AllocateStructure(StructureName)
+			Variable = Memories()\Pointer
+		EndMacro
+		
+		Macro FreeStructureX(Memory)
+			ForEach Memories()
+				If Memories()\Pointer = Memory
+					DeleteElement(Memories())
+					Break
+				EndIf
+			Next
+			FreeStructure(Memory)
+		EndMacro
+		
+		Procedure DumpAllocations()
+			ForEach Memories()
+				Debug "UITK leak: " + Str(Memories()\Size) + " bytes, allocated at " + GetFilePart(Memories()\File) + ":" + Str(Memories()\Line)
+			Next
+			ProcedureReturn ListSize(Memories())
+		EndProcedure
+	CompilerElse
+		Macro AllocateStructureX(Variable, StructureName)
+			Variable = AllocateStructure(StructureName)
+		EndMacro
+		
+		Macro FreeStructureX(Memory)
+			FreeStructure(Memory)
+		EndMacro
+	CompilerEndIf
+	
 	;{ Cross-platform stubs — make the Win32-heavy parts of the module compile on Linux.
 	CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
 		; the theme a UITK::Window hands to the gadgets created in it (GetProp_ "UITK_WindowData")
@@ -624,11 +670,11 @@ Module UITK
 			Theme.Theme
 		EndStructure
 		; Per-widget key/value storage. On Windows the Win32 GetProp_/SetProp_ store on
-		; the HWND itself; on Linux we back it with a process-wide PB Map keyed on
-		; "<widget>:<name>". A GTK "destroy" signal handler walks the map and removes
+		; the HWND itself; elsewhere we back it with a process-wide PB Map keyed on
+		; "<widget>:<name>". A destroy hook (GTK signal, Cocoa associated object) walks the map and removes
 		; the matching entries when the widget goes away, so accumulated state doesn't
 		; leak for the lifetime of the process. UITK_CleanupRegistered tracks which
-		; widgets we've already wired the destroy signal on so we only do it once each.
+		; widgets we've already wired the destroy hook on so we only do it once each.
 		Global NewMap UITK_PropMap.i()
 		Global NewMap UITK_CleanupRegistered.b()
 		; Marks UITK_PropMap entries whose value is an allocation we own and must
@@ -637,6 +683,30 @@ Module UITK
 		; only a handful of places allocate cross-widget state — UITK::Window's
 		; per-window ThemedWindow being the canonical example.
 		Global NewMap UITK_PropOwned.b()
+		
+		ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
+			Protected prefix.s = Hex(*widget) + ":"
+			Protected prefixLen = Len(prefix)
+			Protected key.s, ptr.i
+			; Collect keys first; deleting while iterating ForEach a Map is unsafe in PB.
+			NewList toDrop.s()
+			ForEach UITK_PropMap()
+				key = MapKey(UITK_PropMap())
+				If Left(key, prefixLen) = prefix
+					; FreeStructure any value we own before removing the map entry.
+					If FindMapElement(UITK_PropOwned(), key)
+						ptr = UITK_PropMap()
+						If ptr : FreeStructureX(ptr) : EndIf
+						DeleteMapElement(UITK_PropOwned())
+					EndIf
+					AddElement(toDrop()) : toDrop() = key
+				EndIf
+			Next
+			ForEach toDrop()
+				DeleteMapElement(UITK_PropMap(), toDrop())
+			Next
+			DeleteMapElement(UITK_CleanupRegistered(), Hex(*widget))
+		EndProcedure
 		
 		CompilerIf #PB_Compiler_OS = #PB_OS_Linux
 			ImportC ""
@@ -655,30 +725,6 @@ Module UITK
 				gtk_window_resize(window.i, width.l, height.l)
 			EndImport
 			
-			ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
-				Protected prefix.s = Hex(*widget) + ":"
-				Protected prefixLen = Len(prefix)
-				Protected key.s, ptr.i
-				; Collect keys first; deleting while iterating ForEach a Map is unsafe in PB.
-				NewList toDrop.s()
-				ForEach UITK_PropMap()
-					key = MapKey(UITK_PropMap())
-					If Left(key, prefixLen) = prefix
-						; FreeStructure any value we own before removing the map entry.
-						If FindMapElement(UITK_PropOwned(), key)
-							ptr = UITK_PropMap()
-							If ptr : FreeStructure(ptr) : EndIf
-							DeleteMapElement(UITK_PropOwned())
-						EndIf
-						AddElement(toDrop()) : toDrop() = key
-					EndIf
-				Next
-				ForEach toDrop()
-					DeleteMapElement(UITK_PropMap(), toDrop())
-				Next
-				DeleteMapElement(UITK_CleanupRegistered(), Hex(*widget))
-			EndProcedure
-			
 			Procedure UITK_EnsureCleanupHook(hWnd)
 				; Connect "destroy" once per widget; subsequent SetProp_ calls on the same
 				; widget find it in the registry and skip the (idempotent but wasteful) work.
@@ -692,8 +738,7 @@ Module UITK
 				ProcedureReturn Bool(hWnd And gtk_widget_get_visible(hWnd))
 			EndProcedure
 		CompilerElse
-			Procedure UITK_EnsureCleanupHook(hWnd)	; TODO macOS: props keyed on a dead NSView/NSWindow are never dropped
-			EndProcedure
+			Declare UITK_EnsureCleanupHook(hWnd)
 			
 			Procedure IsWindowVisible_(hWnd)
 				ProcedureReturn Bool(hWnd And CocoaMessage(0, hWnd, "isVisible"))
@@ -1003,52 +1048,6 @@ Module UITK
 		7 * \Border
 	EndMacro
 	
-	CompilerIf #PB_Compiler_Debugger
-		
-		Structure SAllocation
-			Size.i
-			File.s
-			Line.i
-			Pointer.i
-		EndStructure
-		
-		Global NewList Memories.SAllocation()
-		
-		Macro AllocateStructureX(Variable, StructureName)
-			AddElement(Memories())
-			Memories()\Size = SizeOf(StructureName)
-			Memories()\File = #PB_Compiler_File
-			Memories()\Line = #PB_Compiler_Line
-			Memories()\Pointer = AllocateStructure(StructureName)
-			Variable = Memories()\Pointer
-		EndMacro
-		
-		Macro FreeStructureX(Memory)
-			ForEach Memories()
-				If Memories()\Pointer = Memory
-					DeleteElement(Memories())
-					Break
-				EndIf
-			Next
-			FreeStructure(Memory)
-		EndMacro
-		
-		Procedure DumpAllocations()
-			ForEach Memories()
-				Debug "UITK leak: " + Str(Memories()\Size) + " bytes, allocated at " + GetFilePart(Memories()\File) + ":" + Str(Memories()\Line)
-			Next
-			ProcedureReturn ListSize(Memories())
-		EndProcedure
-	CompilerElse
-		Macro AllocateStructureX(Variable, StructureName)
-			Variable = AllocateStructure(StructureName)
-		EndMacro
-		
-		Macro FreeStructureX(Memory)
-			FreeStructure(Memory)
-		EndMacro
-	CompilerEndIf
-	
 	;}
 	
 	;{ Private variables, structures and constants
@@ -1257,6 +1256,7 @@ Module UITK
 			sel_registerName(Name.p-ascii)
 			class_getInstanceVariable(*Class, Name.p-ascii)
 			ivar_getOffset(*Ivar)
+			objc_setAssociatedObject(*Object, *Key, *Value, Policy)
 		EndImport
 		
 		PrototypeC   Cocoa_V(*Self, *Sel)
@@ -1871,6 +1871,34 @@ Module UITK
 				FreeStructure(*Shadow)
 			EndIf
 			Super(*Self, *Sel)
+		EndProcedure
+		
+		Global NewMap Cocoa_PropOwner.i()
+		
+		ProcedureC Imp_PropSentinelDealloc(*Self, *Sel)		; released as its NSWindow/NSView deallocates, before Cocoa can hand the address to a new object
+			Protected Super.Cocoa_V = Cocoa_Super(*Self, *Sel)
+			If FindMapElement(Cocoa_PropOwner(), Str(*Self))
+				UITK_PropCleanup_Handler(Cocoa_PropOwner(), 0)
+				DeleteMapElement(Cocoa_PropOwner())
+			EndIf
+			Super(*Self, *Sel)
+		EndProcedure
+		
+		Procedure UITK_EnsureCleanupHook(hWnd)
+			Static *Class
+			Protected *Sentinel
+			If hWnd And Not FindMapElement(UITK_CleanupRegistered(), Hex(hWnd))
+				UITK_CleanupRegistered(Hex(hWnd)) = #True
+				If *Class = 0
+					*Class = objc_allocateClassPair(objc_getClass("NSObject"), "UITK_PropSentinel", 0)
+					class_addMethod(*Class, sel_registerName("dealloc"), @Imp_PropSentinelDealloc(), "v@:")
+					objc_registerClassPair(*Class)
+				EndIf
+				*Sentinel = CocoaMessage(0, CocoaMessage(0, *Class, "alloc"), "init")
+				Cocoa_PropOwner(Str(*Sentinel)) = hWnd
+				objc_setAssociatedObject(hWnd, @UITK_EnsureCleanupHook(), *Sentinel, 1)
+				CocoaMessage(0, *Sentinel, "release")
+			EndIf
 		EndProcedure
 		
 		Procedure Cocoa_Register(*Sel, *Imp, SlotOffset = -1, *Native = 0)
@@ -3154,12 +3182,18 @@ Module UITK
 	CompilerEndIf
 	
 	Procedure SubClassFunction(Gadget, Function, *Address) ; Advanced functionality! Probably too much of a niche usage, move it to the private branch of UITK?
-		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt, *Result, *Slot.Integer
-		CompilerIf #PB_Compiler_OS <> #PB_OS_Windows
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData, *Result, *Slot.Integer
+		CompilerIf #PB_Compiler_OS = #PB_OS_Linux
 			; TODO Linux: rewrite using the Linux GadgetVT field set (no GadgetCallback /
 			; GadgetX/Y/W/H / SetActiveGadget / GetRequiredSize).
 			ProcedureReturn 0
 		CompilerElse
+			CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
+				If *this = 0 Or FindMapElement(GadgetHandler(), Str(GadgetID(Gadget))) = 0	; every native gadget's shadow shares NativeVT
+					ProcedureReturn 0
+				EndIf
+			CompilerEndIf
+			*GadgetData = *this\vt
 			Select Function
 				Case #SubClass_EventHandler		; not a vtable slot - lives in our GadgetData
 					*Result = *GadgetData\EventHandler
@@ -4074,7 +4108,7 @@ Module UITK
 			; PB window background color to match — without it, GTK's default (light)
 			; background shows through and clashes with DarkMode gadgets.
 			;
-			; SetOwnedProp_ registers the allocation with UITK_PropOwned so the GTK
+			; SetOwnedProp_ registers the allocation with UITK_PropOwned so the
 			; destroy hook FreeStructure's it when the window goes away — no leak.
 			Protected *WindowData.ThemedWindow
 			AllocateStructureX(*WindowData, ThemedWindow)
@@ -4110,8 +4144,37 @@ Module UITK
 		EndProcedure
 		
 		Procedure GetWindowIcon(Window)                    : ProcedureReturn 0 : EndProcedure
-		Procedure WindowSetColor(Window, ColorType, Color) : EndProcedure
-		Procedure WindowGetColor(Window, ColorType)        : ProcedureReturn 0 : EndProcedure
+		Procedure WindowSetColor(Window, ColorType, Color)
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
+			
+			If *WindowData And FindMapElement(ThemeColorOffset(), Str(ColorType))
+				If Alpha(Color) = 0
+					Color = SetAlpha(Color, 255)
+				EndIf
+				PokeL(@*WindowData\Theme + ThemeColorOffset(), Color)
+			EndIf
+			
+			If ColorType = #Color_Parent
+				SetWindowColor(Window, RGB(Red(Color), Green(Color), Blue(Color)))
+			EndIf
+		EndProcedure
+		
+		Procedure WindowGetColor(Window, ColorType)
+			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData"), Result
+			
+			If *WindowData = 0
+				If ColorType = #Color_Parent
+					ProcedureReturn GetWindowColor(Window)
+				EndIf
+				ProcedureReturn 0
+			EndIf
+			
+			If FindMapElement(ThemeColorOffset(), Str(ColorType))
+				Result = PeekL(@*WindowData\Theme + ThemeColorOffset())
+			EndIf
+			
+			ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
+		EndProcedure
 		
 		; AddWindowMenu — translate a UITK FlatMenu into a native PB menubar attached
 		; to the window. The FlatMenu remains usable as a popup via UITK::ShowFlatMenu;
@@ -4232,7 +4295,22 @@ Module UITK
 			class_addProtocol(*Class, *Protocol)
 		EndImport
 		
-		Global *Cocoa_DragSource, Cocoa_DragMask, Cocoa_DragActive
+		Global *Cocoa_DragSource, Cocoa_DragMask, Cocoa_DragActive, Cocoa_DragResult, *Cocoa_DragSession, *Cocoa_DragImage, *Cocoa_DragEmptyImage, Cocoa_DragHidden
+		
+		Structure Cocoa_BlockDescriptor
+			Reserved.i
+			Size.i
+		EndStructure
+		
+		Structure Cocoa_Block				; the ABI of a global ObjC block literal, for the APIs that only take a block
+			*Isa
+			Flags.l
+			Reserved.l
+			*Invoke
+			*Descriptor.Cocoa_BlockDescriptor
+		EndStructure
+		
+		Global Cocoa_PreviewBlockDescriptor.Cocoa_BlockDescriptor, Cocoa_PreviewBlock.Cocoa_Block
 		Global Cocoa_DropFormat, *Cocoa_DropTarget, Cocoa_DropX, Cocoa_DropY, *DropCallback
 		Global NewList Cocoa_DropTypes.s()
 		Declare DropCallback(TargetHandle, State, Format, Action, x, y)
@@ -4300,7 +4378,20 @@ Module UITK
 				EndIf
 				*Cocoa_DropTarget = 0
 			EndIf
+			Cocoa_DragResult = Operation
 			Cocoa_DragActive = #False
+		EndProcedure
+		
+		ProcedureC Cocoa_PreviewItem(*Block, *Item, Index, *Stop)
+			Protected Frame.NSRect
+			If Index = 0
+				CocoaMessage(@Frame, *Item, "draggingFrame")
+				If Cocoa_DragHidden
+					CocoaMessage(0, *Item, "setDraggingFrame:@", @Frame, "contents:", *Cocoa_DragEmptyImage)
+				Else
+					CocoaMessage(0, *Item, "setDraggingFrame:@", @Frame, "contents:", *Cocoa_DragImage)
+				EndIf
+			EndIf
 		EndProcedure
 		
 		Procedure Cocoa_PasteboardItem()
@@ -4309,7 +4400,7 @@ Module UITK
 		
 		Procedure Cocoa_Drag(*Items, ImageID, OffsetX, OffsetY, Action)	; *Items: NSArray of pasteboard writers. The preview's top-left sits at the cursor + Offset, as on Windows
 			Protected *Event = CocoaMessage(0, CocoaMessage(0, 0, "NSApplication sharedApplication"), "currentEvent"), *Window, *Content, *View
-			Protected Point.NSPoint, Frame.NSRect, Size.NSSize, *Dragging, *Writer, *DraggingItems, Index, *Class
+			Protected Point.NSPoint, Frame.NSRect, Size.NSSize, *Dragging, *Writer, *DraggingItems, Index, *Class, *App, *Until, *Next, Mode.s = "kCFRunLoopDefaultMode"
 			
 			If *Event = 0 Or CocoaMessage(0, *Items, "count") = 0
 				ProcedureReturn #PB_Drag_None
@@ -4360,11 +4451,27 @@ Module UITK
 				CocoaMessage(0, *DraggingItems, "addObject:", *Dragging)
 			Next
 			
-			If CocoaMessage(0, *View, "beginDraggingSessionWithItems:", *DraggingItems, "event:", *Event, "source:", *Cocoa_DragSource)
-				Cocoa_DragActive = #True
-				*Cocoa_DropTarget = 0
+			*Cocoa_DragSession = CocoaMessage(0, *View, "beginDraggingSessionWithItems:", *DraggingItems, "event:", *Event, "source:", *Cocoa_DragSource)
+			If *Cocoa_DragSession = 0
+				ProcedureReturn #PB_Drag_None
 			EndIf
-			ProcedureReturn Action		; the session runs on after this returns: Cocoa drags are not modal
+			*Cocoa_DragImage = ImageID
+			Cocoa_DragHidden = #False
+			Cocoa_DragActive = #True
+			Cocoa_DragResult = #PB_Drag_None
+			*Cocoa_DropTarget = 0
+			
+			*App = CocoaMessage(0, 0, "NSApplication sharedApplication")
+			*Until = CocoaMessage(0, 0, "NSDate distantFuture")
+			While Cocoa_DragActive		; a Cocoa session is not modal: pump AppKit, not PB, until endedAtPoint: so the result is the drop's, as on Windows
+				*Next = CocoaMessage(0, *App, "nextEventMatchingMask:", -1, "untilDate:", *Until, "inMode:$", @Mode, "dequeue:", #YES)
+				If *Next
+					CocoaMessage(0, *App, "sendEvent:", *Next)
+				EndIf
+			Wend
+			*Cocoa_DragSession = 0
+			*Cocoa_DragImage = 0
+			ProcedureReturn Cocoa_DragResult
 		EndProcedure
 		
 		Procedure AdvancedDragPrivate(Type, ImageID, OffsetX, OffsetY, Action = #PB_Drag_Copy)
@@ -4400,7 +4507,27 @@ Module UITK
 			ProcedureReturn Cocoa_Drag(CocoaMessage(0, 0, "NSArray arrayWithObject:", *Item), ImageID, OffsetX, OffsetY, Action)
 		EndProcedure
 		
-		Procedure DragPreviewVisible(State) : EndProcedure		; TODO macOS
+		Procedure DragPreviewVisible(State)
+			Protected *Classes, Empty.NSSize
+			
+			If *Cocoa_DragSession = 0 Or *Cocoa_DragImage = 0 Or Bool(State = 0) = Cocoa_DragHidden
+				ProcedureReturn
+			EndIf
+			Cocoa_DragHidden = Bool(State = 0)
+			
+			If Cocoa_PreviewBlock\Invoke = 0
+				Cocoa_PreviewBlockDescriptor\Size = SizeOf(Cocoa_Block)
+				Cocoa_PreviewBlock\Isa = dlsym_(-2, "_NSConcreteGlobalBlock")
+				Cocoa_PreviewBlock\Flags = 1 << 28		; BLOCK_IS_GLOBAL: never copied, never freed
+				Cocoa_PreviewBlock\Invoke = @Cocoa_PreviewItem()
+				Cocoa_PreviewBlock\Descriptor = @Cocoa_PreviewBlockDescriptor
+				Empty\width = 1 : Empty\height = 1
+				*Cocoa_DragEmptyImage = CocoaMessage(0, CocoaMessage(0, 0, "NSImage alloc"), "initWithSize:@", @Empty)
+			EndIf
+			
+			*Classes = CocoaMessage(0, 0, "NSArray arrayWithObject:", CocoaMessage(0, 0, "NSPasteboardItem class"))
+			CocoaMessage(0, *Cocoa_DragSession, "enumerateDraggingItemsWithOptions:", 0, "forView:", 0, "classes:", *Classes, "searchOptions:", CocoaMessage(0, 0, "NSDictionary dictionary"), "usingBlock:", @Cocoa_PreviewBlock)
+		EndProcedure
 		Procedure.i AdvancedDragActive()
 			ProcedureReturn Cocoa_DragActive
 		EndProcedure
