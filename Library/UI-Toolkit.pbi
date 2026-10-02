@@ -1,5 +1,7 @@
 ﻿DeclareModule UITK
 	;{ Public variables, structures and constants
+	#Version = 100	; 1.00, as #PB_Compiler_Version
+	
 	EnumerationBinary ; Gadget flags
 					  ; General
 		#Default
@@ -461,13 +463,13 @@
 	
 	Declare SetWindowLabel(Window, Text.s)					; Title text, menu-aware; also sets the OS caption
 	Declare FlatMenu(Flags = #Default)
-	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0, Flag = 0)
-	Declare RemoveFlatMenuItem(Menu, Position)
-	Declare SetFlatMenuItemText(Menu, Position, Text.s)
+	Declare AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0)	; Position: where it goes, -1 for the end
+	Declare RemoveFlatMenuItem(Menu, MenuItem)		; MenuItem: the ID given to AddFlatMenuItem, as PB's menu calls
+	Declare SetFlatMenuItemText(Menu, MenuItem, Text.s)
 	Declare AddFlatMenuSeparator(Menu, Position)
 	Declare ShowFlatMenu(FlatMenu, X = -1, Y = -1)
 	Declare SetFlatMenuColor(Menu, ColorType, Color)
-	Declare DisableFlatMenuItem(Menu, Position, State)
+	Declare DisableFlatMenuItem(Menu, MenuItem, State)
 	Declare.i FlatMenuOpenSub(FlatMenu)
 	Declare.i FlatMenuHoverItem(FlatMenu)
 	
@@ -482,7 +484,7 @@
 	Declare CheckBox(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ScrollBar(Gadget, x, y, Width, Height, Min, Max, PageLength, Flags = #Default)
 	Declare Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
-	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
+	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = 0, Flags = #Default)	; ScrollStep 0: 3 points
 	Declare TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
 	Declare Combo(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare VerticalList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
@@ -981,17 +983,18 @@ Module UITK
 		AllocateStructureX(*ThemeData, Theme)
 		
 		If Flags & #DarkMode
-			CopyStructure(@DarkTheme, *ThemeData, Theme)
+			*GadgetData\BaseTheme = @DarkTheme
 		ElseIf Flags & #LightMode
-			CopyStructure(@LightTheme, *ThemeData, Theme)
+			*GadgetData\BaseTheme = @LightTheme
 		Else
 			Protected *WindowData.ThemedWindow = GetProp_(WindowID(CurrentWindow()), "UITK_WindowData")
 			If *WindowData
-				CopyStructure(@*WindowData\Theme, *ThemeData, Theme)
+				*GadgetData\BaseTheme = @*WindowData\Theme
 			Else
-				CopyStructure(*DefaultTheme, *ThemeData, Theme)
+				*GadgetData\BaseTheme = *DefaultTheme
 			EndIf
 		EndIf
+		CopyStructure(*GadgetData\BaseTheme, *ThemeData, Theme)
 		
 		AddMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
 		GadgetHandler() = Gadget
@@ -1035,6 +1038,18 @@ Module UITK
 	Macro SetAlpha(Color, Alpha)
 		(((Alpha) << 24) + (Color))		; each argument on its own: << outranks + and *, so an unbracketed sum would be shredded
 	EndMacro
+	
+	#OpaqueWhite = $FEFFFFFF	; $FFFFFFFF is #PB_Default as the vtable hands it over: a stored white must never be passed on as it
+	
+	Procedure OpaqueColor(Color)	; a plain RGB is stored opaque
+		If Alpha(Color) = 0
+			Color = SetAlpha(Color, 255)
+		EndIf
+		If (Color & $FFFFFFFF) = $FFFFFFFF
+			Color = #OpaqueWhite
+		EndIf
+		ProcedureReturn Color
+	EndProcedure
 	
 	Macro Floor(Number)
 		Round(Number, #PB_Round_Down)
@@ -2159,6 +2174,7 @@ Module UITK
 		*OriginalVT.GadgetVT
 		*this.PB_Gadget
 		Gadget.i
+		*BaseTheme.Theme	; the theme the gadget's own copy was taken from: what #PB_Default restores
 		*MetaGadget
 		Border.b
 		
@@ -2210,6 +2226,7 @@ Module UITK
 	Structure FlatMenu
 		Window.i
 		Canvas.i
+		OwnerWindow.i	; the window #PB_Event_Menu reports, as a native menu would; -1 when unknown
 		Height.i
 		Width.i
 		State.i
@@ -2301,8 +2318,8 @@ Module UITK
 		\Special3[#Warm]		= SetAlpha($F58479, 255)
 		\Special3[#Hot]			= SetAlpha($F58479, 255)
 		
-		\Highlight				= SetAlpha($FFFFFF, 255)
-		\WindowTitle			= SetAlpha($FFFFFF, 255)
+		\Highlight				= #OpaqueWhite
+		\WindowTitle			= #OpaqueWhite
 		
 		\CornerRadius			= 4
 	EndWith
@@ -2330,8 +2347,8 @@ Module UITK
 		\LineColor[#Disabled]	= SetAlpha($87827E, 255)
 		
 		\TextColor[#Cold]	 	= SetAlpha($FBFAFA, 255)
-		\TextColor[#Warm]		= SetAlpha($FFFFFF, 255)
-		\TextColor[#Hot]		= SetAlpha($FFFFFF, 255)
+		\TextColor[#Warm]		= #OpaqueWhite
+		\TextColor[#Hot]		= #OpaqueWhite
 		\TextColor[#Disabled]	= SetAlpha($808080, 255)
 		
 		\Special1[#Cold]		= SetAlpha($3E3CD8, 255)
@@ -2346,7 +2363,7 @@ Module UITK
 		\Special3[#Warm]		= SetAlpha($F58479, 255)
 		\Special3[#Hot]			= SetAlpha($F58479, 255)
 		
-		\Highlight				= SetAlpha($FFFFFF, 255)
+		\Highlight				= #OpaqueWhite
 		\WindowTitle			= SetAlpha($252220, 255)
 		
 		\CornerRadius			= 4
@@ -3098,10 +3115,11 @@ Module UITK
 	Procedure Default_GetColor(*This.PB_Gadget, ColorType.l)
 		Protected *GadgetData.GadgetData = *this\vt, Result
 		
-		If FindMapElement(ThemeColorOffset(), Str(ColorType))
-			Result = PeekL(*GadgetData\ThemeData + ThemeColorOffset())
+		If FindMapElement(ThemeColorOffset(), Str(ColorType)) = 0
+			ProcedureReturn #PB_Default
 		EndIf
 		
+		Result = PeekL(*GadgetData\ThemeData + ThemeColorOffset())
 		ProcedureReturn RGB(Red(Result), Green(Result), Blue(Result))
 	EndProcedure
 	
@@ -3262,11 +3280,21 @@ Module UITK
 	EndProcedure
 	
 	Procedure Default_SetColor(*This.PB_Gadget, ColorType.l, Color)
-		Protected *GadgetData.GadgetData = *this\vt
+		Protected *GadgetData.GadgetData = *this\vt, *Base.Theme
 		
-		If Alpha(Color) = 0	; a plain RGB would be drawn fully transparent - store it opaque (same treatment as RenderSvgIcon)
-			Color = SetAlpha(Color, 255)
+		If (Color & $FFFFFFFF) = $FFFFFFFF	; #PB_Default, as the vtable hands it over in 32 bits
+			If FindMapElement(ThemeColorOffset(), Str(ColorType))
+				*Base = *GadgetData\BaseTheme
+				If *Base = 0
+					*Base = *DefaultTheme
+				EndIf
+				PokeL(*GadgetData\ThemeData + ThemeColorOffset(), PeekL(*Base + ThemeColorOffset()))
+				RedrawObject()
+			EndIf
+			ProcedureReturn
 		EndIf
+		
+		Color = OpaqueColor(Color)
 		
 		If FindMapElement(ThemeColorOffset(), Str(ColorType))
 			PokeL(*GadgetData\ThemeData + ThemeColorOffset(), Color)
@@ -3855,8 +3883,8 @@ Module UITK
 					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Warm, SetAlpha($2311E8, 255))
 					SetGadgetColor(*WindowData\ButtonClose, #Color_Back_Hot, SetAlpha($7A70F1, 255))
 					
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Warm, SetAlpha($FFFFFF, 255))
-					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Hot, SetAlpha($FFFFFF, 255))
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Warm, #OpaqueWhite)
+					SetGadgetColor(*WindowData\ButtonClose, #Color_Text_Hot, #OpaqueWhite)
 				EndIf
 				
 				If Flags & #Window_MaximizeButton
@@ -4015,9 +4043,7 @@ Module UITK
 				ProcedureReturn
 			EndIf
 			
-			If Alpha(Color) = 0	; a plain RGB would be drawn fully transparent - store it opaque
-				Color = SetAlpha(Color, 255)
-			EndIf
+			Color = OpaqueColor(Color)
 			
 			If FindMapElement(ThemeColorOffset(), Str(ColorType))
 				PokeL(@*WindowData\Theme + ThemeColorOffset(), Color)
@@ -4158,9 +4184,7 @@ Module UITK
 			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
 			
 			If *WindowData And FindMapElement(ThemeColorOffset(), Str(ColorType))
-				If Alpha(Color) = 0
-					Color = SetAlpha(Color, 255)
-				EndIf
+				Color = OpaqueColor(Color)
 				PokeL(@*WindowData\Theme + ThemeColorOffset(), Color)
 			EndIf
 			
@@ -4636,6 +4660,15 @@ Module UITK
 		Toggle.b
 	EndStructure
 	
+	Procedure Button_SetState(*this.PB_Gadget, State)	; as ButtonGadget: only a toggle has a state, 0 or 1
+		Protected *GadgetData.ButtonData = *this\vt
+		
+		If *GadgetData\Toggle
+			*GadgetData\State = Bool(State)
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
 	Procedure Button_Redraw(*GadgetData.ButtonData)
 		Protected State
 		
@@ -4676,10 +4709,10 @@ Module UITK
 			Select *Event\EventType
 				Case #LeftClick
 					If \Toggle
-						\State = Bool(Not \State) * #Hot
+						\State = Bool(Not \State)
 					EndIf
 					
-					PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					
 					\MouseState = #Warm
 					Redraw = #True
@@ -4695,10 +4728,10 @@ Module UITK
 				Case #KeyDown
 					If *Event\Param = #PB_Shortcut_Space
 						If \Toggle
-							\State = Bool(Not \State) * #Hot
+							\State = Bool(Not \State)
 						EndIf
 						
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 						
 						\MouseState = #Hot
 						Redraw = #True
@@ -4756,6 +4789,7 @@ Module UITK
 			\TextBlock\Height = Height - \VMargin * 2
 			
 			PrepareVectorTextBlock(@*GadgetData\TextBlock)
+			\VT\SetGadgetState = @Button_SetState()
 			
 			; Enable only the needed events
 			\SupportedEvent[#LeftClick] = #True
@@ -4863,7 +4897,7 @@ Module UITK
 					
 				Case #LeftClick
 					\State = Bool(Not \State)
-					PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					
 					\MouseState = #Warm
 					Redraw = #True
@@ -4871,7 +4905,7 @@ Module UITK
 				Case #KeyDown
 					If *Event\Param = #PB_Shortcut_Space
 						\State = Bool(Not \State)
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 						Redraw = #True
 					EndIf
 			EndSelect
@@ -4999,7 +5033,7 @@ Module UITK
 					Else
 						\State = Bool(Not \State)
 					EndIf
-					PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					
 					\MouseState = #Warm
 					Redraw = #True
@@ -5011,7 +5045,7 @@ Module UITK
 						Else
 							\State = Bool(Not \State)
 						EndIf
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 						Redraw = #True
 					EndIf
 			EndSelect
@@ -6055,7 +6089,7 @@ Module UITK
 							\State = \Min + Round(Position / Length * (\Max - \Min - \PageLength), #PB_Round_Down)
 							Redraw = #True
 							If \Gadget > -1
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf
 						EndIf
 					Else
@@ -6103,7 +6137,7 @@ Module UITK
 							EndIf
 							
 							If \Gadget > -1
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf
 							ScrollBar_Layout(*GadgetData)
 						EndIf
@@ -6118,7 +6152,7 @@ Module UITK
 						\State = Position
 						ScrollBar_Layout(*GadgetData)
 						If \Gadget > -1
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 						EndIf
 						Redraw = #True
 					EndIf
@@ -6477,11 +6511,12 @@ Module UITK
 		Default_SetColor(*This, ColorType, Color)
 		
 		If ColorType = #Color_Parent	; the native inner area paints its own background
+			Color = *GadgetData\ThemeData\WindowColor
 			SetGadgetColor(*GadgetData\ScrollArea, #PB_Gadget_BackColor, RGB(Red(Color), Green(Color), Blue(Color)))
 		EndIf
 	EndProcedure
 	
-	Procedure ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = #Default, Flags = #Default)
+	Procedure ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = 0, Flags = #Default)
 		Protected Result, *this.PB_Gadget, *GadgetData.ScrollAreaData, *ThemeData.Theme, ScrollBar
 		
 		If AccessibilityMode
@@ -6955,7 +6990,7 @@ Module UITK
 					ElseIf \ItemState > -1
 						If \ItemState <> \State
 							\State = \ItemState
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							AddGadgetTimer(*GadgetData, 200, @VerticalList_FocusTimer())
 							Redraw = #True
 						EndIf
@@ -6991,7 +7026,7 @@ Module UITK
 						VerticalList_UpdateScrollBar(*GadgetData)
 						VerticalList_StateFocus(*GadgetData)
 						
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 						
 						Redraw = #True
 						\ReorderPosition = -1
@@ -7032,7 +7067,7 @@ Module UITK
 									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
 									If Not \Popup
-										PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 									EndIf
 								EndIf ;}
 							Case #PB_Shortcut_Up ;{
@@ -7042,7 +7077,7 @@ Module UITK
 									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
 									If Not \Popup
-										PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 									EndIf
 								EndIf ;}
 							Case #PB_Shortcut_F2 ;{
@@ -7052,7 +7087,7 @@ Module UITK
 								If \Editing
 									Redraw = VerticalList_EndEdit(*GadgetData, #True)
 								ElseIf \Popup And \State > -1
-									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 								EndIf
 								;}
 							Case #PB_Shortcut_Escape ;{
@@ -7068,7 +7103,7 @@ Module UITK
 					;}
 				Case #LeftDoubleClick ;{
 					If \ItemState > -1
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ForcefulChange)
 					EndIf
 					;}
 				Case #LostFocus ;{
@@ -7805,7 +7840,7 @@ Module UITK
 						If \State <> \HoverItem
 							\State = \HoverItem
 							Redraw = #True
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							AddGadgetTimer(*GadgetData, 200, @HorizontalList_FocusTimer())
 							
 							If \Drag
@@ -7834,7 +7869,7 @@ Module UITK
 					;}
 				Case #LeftDoubleClick ;{
 					If \HoverItem > -1
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ForcefulChange)
 					EndIf
 					;}
 				Case #KeyDown ;{
@@ -7846,7 +7881,7 @@ Module UITK
 								\State - 1
 								HorizontalList_StateFocus(*GadgetData)
 								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf ;}
 						Case #PB_Shortcut_Right ;{
 							If \Editing
@@ -7855,7 +7890,7 @@ Module UITK
 								\State + 1
 								HorizontalList_StateFocus(*GadgetData)
 								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf ;}
 						Case #PB_Shortcut_F2 ;{
 							Redraw = HorizontalList_BeginEdit(*GadgetData)
@@ -8306,14 +8341,14 @@ Module UITK
 							If \State <> NewState
 								\State = NewState
 								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf
 						Else
 							NewState = Clamp(\Minimum + Round((*Event\MouseX - \DragOffset) / (\Width - #TrackBar_CursorWidth - #TrackBar_Margin * 2) * (\Maximum - \Minimum), #PB_Round_Nearest), \Minimum, \Maximum)
 							If \State <> NewState
 								\State = NewState
 								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 							EndIf
 						EndIf
 					Else
@@ -8384,7 +8419,7 @@ Module UITK
 						If \State <> NewState
 							\State = NewState
 							Redraw = #True
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 						EndIf
 					EndIf
 					;}
@@ -9002,7 +9037,7 @@ Module UITK
 						\State = #True
 						Redraw = #True
 						
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					EndIf
 					
 				Case #KeyDown
@@ -11463,7 +11498,7 @@ Module UITK
 								If \State <> Index
 									\State = Index
 									Redraw = #True
-									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 								EndIf
 							EndIf
 						EndIf
@@ -11489,9 +11524,9 @@ Module UITK
 									If \State <> Index
 										\State = Index
 										Redraw = #True
-										PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 									EndIf
-									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ItemRightClick)
+									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemRightClick)
 								EndIf
 							EndIf
 						EndIf
@@ -11524,7 +11559,7 @@ Module UITK
 								\State = Index
 								Redraw = #True
 							EndIf
-							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)	; the first click already selected it: a double-click always reports
+							PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ForcefulChange)	; the first click already selected it: a double-click always reports
 						EndIf
 					EndIf
 					;}
@@ -12231,6 +12266,7 @@ Module UITK
 			EndIf
 			
 			*SubData\ParentMenu = \Window
+			*SubData\OwnerWindow = \OwnerWindow
 			*SubData\State = -1
 			ResizeWindow(*SubData\Window, X, WindowY(\Window) + Y, #PB_Ignore, #PB_Ignore)
 			HideWindow(*SubData\Window, #False, #PB_Window_NoActivate)
@@ -12340,7 +12376,11 @@ Module UITK
 								FlatMenu_Redraw(*MenuData)
 							EndIf
 						Else
-							PostEvent(#PB_Event_Menu, EventWindow(), \Item()\ID)
+							If IsWindow(\OwnerWindow)
+								PostEvent(#PB_Event_Menu, \OwnerWindow, \Item()\ID)
+							Else
+								PostEvent(#PB_Event_Menu, EventWindow(), \Item()\ID)
+							EndIf
 							FlatMenu_CloseChain(*MenuData)
 						EndIf
 					EndIf
@@ -12437,6 +12477,7 @@ Module UITK
 			Y = DesktopPointY(DesktopMouseY())
 		EndIf
 		
+		*MenuData\OwnerWindow = GetActiveWindow()	; before the popup takes the focus
 		*MenuData\ParentMenu = 0
 		*MenuData\State = -1
 		
@@ -12446,7 +12487,15 @@ Module UITK
 		SetActiveGadget(*MenuData\Canvas)
 	EndProcedure
 	
-	Procedure AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0, Flag = 0) 
+	Procedure FlatMenu_SelectID(*MenuData.FlatMenu, MenuItem)
+		ForEach *MenuData\Item()
+			If *MenuData\Item()\Type = #Item And *MenuData\Item()\ID = MenuItem
+				ProcedureReturn #True
+			EndIf
+		Next
+	EndProcedure
+	
+	Procedure AddFlatMenuItem(Menu, MenuItem, Position, Text.s, ImageID = 0, SubMenu = 0)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData"), TextWidth
 		
 		With *MenuData
@@ -12504,19 +12553,15 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure RemoveFlatMenuItem(Menu, Position)
+	Procedure RemoveFlatMenuItem(Menu, MenuItem)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
 		
 		With *MenuData
-			If Not SelectElement(\Item(), Position)
+			If Not FlatMenu_SelectID(*MenuData, MenuItem)
 				ProcedureReturn
 			EndIf
 			
-			If \Item()\Type = #Separator
-				\Height - #MenuSeparatorHeight
-			Else
-				\Height - \ItemHeight
-			EndIf
+			\Height - \ItemHeight
 			DeleteElement(\Item())
 			
 			; The removed entry may have been the widest: recompute from what's left.
@@ -12536,11 +12581,11 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure SetFlatMenuItemText(Menu, Position, Text.s)
+	Procedure SetFlatMenuItemText(Menu, MenuItem, Text.s)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
 		
 		With *MenuData
-			If Not SelectElement(\Item(), Position) Or \Item()\Type <> #Item
+			If Not FlatMenu_SelectID(*MenuData, MenuItem)
 				ProcedureReturn
 			EndIf
 			
@@ -12560,10 +12605,11 @@ Module UITK
 		EndWith
 	EndProcedure
 	
-	Procedure DisableFlatMenuItem(Menu, Position, State)
+	Procedure DisableFlatMenuItem(Menu, MenuItem, State)
 		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
 		
-		If Position > -1 And SelectElement(*MenuData\Item(), Position) And *MenuData\Item()\Disabled <> State
+		State = Bool(State)
+		If FlatMenu_SelectID(*MenuData, MenuItem) And *MenuData\Item()\Disabled <> State
 			*MenuData\Item()\Disabled = State
 			FlatMenu_Redraw(*MenuData)
 		EndIf
@@ -12748,7 +12794,7 @@ Module UITK
 					If \HoverItem > -1 And \HoverItem <> \State
 						\State = \HoverItem
 						Redraw = #True
-						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+						PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					EndIf
 					;}
 			EndSelect
@@ -12883,9 +12929,7 @@ Module UITK
 			If Position < 0 Or Position >= ListSize(\Items())
 				ProcedureReturn
 			EndIf
-			If Alpha(Color) = 0	; forced opaque as Default_SetColor does, which is what leaves 0 free to mean "unset, use the theme's"
-				Color = SetAlpha(Color, 255)
-			EndIf
+			Color = OpaqueColor(Color)	; as Default_SetColor does, which is what leaves 0 free to mean "unset, use the theme's"
 			SelectElement(\Items(), Position)
 			Select ColorType
 				Case #Color_Special3_Warm : \Items()\Color = Color
