@@ -2035,10 +2035,6 @@ Module UITK
 			EndIf
 		EndProcedure
 		
-		Macro VectorFont(FontID, Size = 0)
-			UnscaledVectorFont(FontID, Size)
-		EndMacro
-		
 		Macro DesktopPointX(Value)		; Desktop*() answer in pixels, PB windows are placed in points
 			DesktopUnscaledX(Value)
 		EndMacro
@@ -2059,6 +2055,55 @@ Module UITK
 			(Value)
 		EndMacro
 	CompilerEndIf
+	
+	Global CurrentVectorFont, CurrentVectorFontSize.d
+	
+	Procedure CachedVectorFont(FontID, Size.d = 0)		; GDI+ rebuilds the font on every VectorFont call, ~10 us
+		If FontID <> CurrentVectorFont Or Size <> CurrentVectorFontSize
+			CurrentVectorFont = FontID
+			CurrentVectorFontSize = Size
+			CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+				UnscaledVectorFont(FontID, Size)
+			CompilerElse
+				If Size
+					VectorFont(FontID, Size)
+				Else
+					VectorFont(FontID)
+				EndIf
+			CompilerEndIf
+		EndIf
+	EndProcedure
+	
+	Procedure StartVectorSession(Output)		; a new session starts on the default font
+		CurrentVectorFont = 0
+		ProcedureReturn StartVectorDrawing(Output)
+	EndProcedure
+	
+	Procedure StopVectorSession()
+		CurrentVectorFont = 0
+		StopVectorDrawing()
+	EndProcedure
+	
+	Procedure RestoreVectorSession()		; RestoreVectorState brings back the saved font
+		CurrentVectorFont = 0
+		RestoreVectorState()
+	EndProcedure
+	
+	Macro VectorFont(FontID, Size = 0)
+		CachedVectorFont(FontID, Size)
+	EndMacro
+	
+	Macro StartVectorDrawing(Output)
+		StartVectorSession(Output)
+	EndMacro
+	
+	Macro StopVectorDrawing()
+		StopVectorSession()
+	EndMacro
+	
+	Macro RestoreVectorState()
+		RestoreVectorSession()
+	EndMacro
 	
 	Procedure.d CanvasScale(Gadget)		; canvas bitmap pixels per point
 		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
@@ -6615,6 +6660,9 @@ Module UITK
 					
 					TextBlock_Ensure(@\Items()\Text)
 					\ItemRedraw(@\Items(), \Border, Y, Width, \ItemHeight, State, \ThemeData)
+					If \ItemRedraw <> @VerticalList_ItemRedraw()		; a host painter may have called PB's own VectorFont
+						CurrentVectorFont = 0
+					EndIf
 					
 					Y + \ItemHeight
 					ItemCount + 1

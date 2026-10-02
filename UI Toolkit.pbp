@@ -8,12 +8,12 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-10-02 01:02" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-10-02 12:16" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+-"/>
-      <fingerprint md5="29760fb899a446c2047992ca4661245e"/>
+      <fingerprint md5="4c5cf0713268406186404be52685bbc7"/>
     </file>
     <file name="Examples\Example 5 - LayerList.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+-"/>
@@ -58,11 +58,11 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="5"/>
     </target>
-    <target name="Example 1" enabled="1" default="0">
+    <target name="Example 1" enabled="1" default="1">
       <inputfile value="Examples\Example 1 - Gadget Example 1.pbi"/>
       <outputfile value="Examples\Example 1.exe"/>
       <executable value="Examples\Example 1.exe"/>
-      <options xpskin="1" debug="1" optimizer="1"/>
+      <options xpskin="1" dpiaware="1" dpiawaremode="1" debug="1" optimizer="1"/>
       <temporaryexe value="source"/>
       <format exe="default" cpu="-1"/>
     </target>
@@ -90,7 +90,7 @@
       <temporaryexe value="source"/>
       <format exe="default" cpu="-1"/>
     </target>
-    <target name="Example 5 - LayerList" enabled="1" default="1">
+    <target name="Example 5 - LayerList" enabled="1" default="0">
       <inputfile value="Examples\Example 5 - LayerList.pb"/>
       <outputfile value="Examples\Example 5.exe"/>
       <executable value="Examples\Example 5.exe"/>

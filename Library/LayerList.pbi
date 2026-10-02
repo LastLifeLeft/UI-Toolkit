@@ -628,6 +628,9 @@ Procedure LayerList_Redraw(*GadgetData.LayerListData)
 				LayerList_PrepareItem(*GadgetData, @\Items())
 			EndIf
 			\ItemRedraw(@\Items(), TextX, Y, \Items()\Text\Width, \ItemHeight, TextState, \ThemeData)
+			If \ItemRedraw <> @LayerList_ItemRedraw()		; a host painter may have called PB's own VectorFont
+				CurrentVectorFont = 0
+			EndIf
 			
 			SelectElement(\Items(), Index)
 			VectorSourceColor(\ThemeData\TextColor[TextState])
