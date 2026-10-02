@@ -12211,6 +12211,9 @@ Module UITK
 			Select EventType()
 				Case #PB_EventType_MouseMove ;{
 					MouseY = GetGadgetAttribute(\Canvas, #PB_Canvas_MouseY)
+					CompilerIf #PB_Compiler_OS = #PB_OS_Windows	
+						MouseY / CanvasScale(\Canvas)
+					CompilerEndIf
 					
 					ForEach \Item()
 						If \Item()\Type = #Item
@@ -14068,24 +14071,17 @@ Module UITK
 	;}
 	
 	; Specialist gadgets
-	;{ LayerList
 	CompilerIf Defined(EnableLayerList, #PB_Module)
 		IncludeFile "LayerList.pbi"
 	CompilerEndIf
-	;}
 	
-	;{ ParameterList
 	CompilerIf Defined(EnableParameterList, #PB_Module)
 		IncludeFile "ParameterList.pbi"
 	CompilerEndIf
-	;}
 	
-	;{ TimeLine
 	CompilerIf Defined(EnableTimeline, #PB_Module)
 		IncludeFile "TimeLine.pbi"
 	CompilerEndIf
-	;}
-	
 EndModule
 
 
@@ -14106,7 +14102,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.50 beta 1 (Windows - x64)
-; CursorPosition = 621
-; Folding = BAIAwf--8AAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAwPeAAA9-AMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9
+; CursorPosition = 4512
+; FirstLine = 1
+; Folding = BAIAwf--8AAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAwPef5A9-Q-BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwBAAAAAAAAAAAA9--
 ; EnableXP
 ; DPIAware
