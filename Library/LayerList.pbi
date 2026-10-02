@@ -1276,7 +1276,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 							EndIf
 							;}
 						Case #PB_Shortcut_Left ;{ fold the row, or jump to the one it sits inside
-							If SelectElement(\Items(), \State)
+							If \State > -1 And SelectElement(\Items(), \State)
 								; An open row holding a subtree closes; anything else steps out to its parent
 								If \Items()\Folded Or Not LayerList_ChildCount(*GadgetData, \State)
 									Index = LayerList_ParentOf(*GadgetData, \State)
@@ -1285,7 +1285,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 										PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 										Redraw = #True
 									EndIf
-								ElseIf SelectElement(\Items(), \State)
+								ElseIf \State > -1 And SelectElement(\Items(), \State)
 									\Items()\Folded = #True
 									LayerList_UpdateScrollBar(*GadgetData)
 									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerFold)
@@ -1294,7 +1294,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 							EndIf
 							;}
 						Case #PB_Shortcut_Right ;{ open the row
-							If SelectElement(\Items(), \State) And \Items()\Folded
+							If \State > -1 And SelectElement(\Items(), \State) And \Items()\Folded
 								\Items()\Folded = #False
 								LayerList_UpdateScrollBar(*GadgetData)
 								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_LayerFold)
@@ -1303,7 +1303,7 @@ Procedure LayerList_EventHandler(*GadgetData.LayerListData, *Event.Event)
 							;}
 						Case #PB_Shortcut_Space ;{ toggle the eye - ctrl+space toggles the selection instead
 							If \MultiSelect And (GetGadgetAttribute(\Gadget, #PB_Canvas_Modifiers) & #Modifier_Shortcut)
-								If SelectElement(\Items(), \State)
+								If \State > -1 And SelectElement(\Items(), \State)
 									\Items()\Selected = Bool(Not \Items()\Selected)
 									\SelectAnchor = \State
 									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
@@ -1354,9 +1354,7 @@ Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l
 			Level = 0
 		EndIf
 		
-		If \Editing And Position > -1 And Position <= \EditIndex
-			LayerList_EndEdit(*GadgetData, #True)
-		EndIf
+		LayerList_EndEdit(*GadgetData, #True)
 		
 		If Position > -1 And Position < ListSize(\Items())
 			SelectElement(\Items(), Position)
@@ -1393,9 +1391,9 @@ Procedure LayerList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l
 		ChangeCurrentElement(\Items(), *NewItem)
 		Position = ListIndex(\Items())
 		
-		If Position <= \State
-			\State + 1
-		EndIf
+		\State = IndexAfterInsert(\State, Position)
+		\SelectAnchor = IndexAfterInsert(\SelectAnchor, Position)
+		\ItemState = -1
 		
 		LayerList_UpdateScrollBar(*GadgetData)
 		RedrawObject()
@@ -1409,13 +1407,9 @@ Procedure LayerList_RemoveItem(*this.PB_Gadget, Position.l)
 	Protected *GadgetData.LayerListData = *this\vt, Count, Loop
 	
 	With *GadgetData
-		; Drop the editor rather than let it commit into whatever lands on this index.
-		LayerList_EndEdit(*GadgetData, #False)
-		
 		If Position > -1 And Position < ListSize(\Items())
-			SelectElement(\Items(), Position)
-			
 			Count = 1 + LayerList_ChildCount(*GadgetData, Position)
+			LayerList_EndEdit(*GadgetData, Bool(\EditIndex < Position Or \EditIndex >= Position + Count))
 			
 			For Loop = 1 To Count
 				If SelectElement(\Items(), Position)
@@ -1423,12 +1417,9 @@ Procedure LayerList_RemoveItem(*this.PB_Gadget, Position.l)
 				EndIf
 			Next
 			
-			If \State > Position
-				\State = Max(-1, \State - Count)
-			ElseIf \State >= Position
-				\State = -1
-				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-			EndIf
+			\State = IndexAfterRemove(\State, Position, Count)
+			\SelectAnchor = IndexAfterRemove(\SelectAnchor, Position, Count)
+			\PendingSelect = -1
 			
 			\ItemState = -1
 			LayerList_UpdateScrollBar(*GadgetData)
@@ -1446,6 +1437,8 @@ Procedure LayerList_ClearItems(*this.PB_Gadget)
 		LayerList_EndEdit(*GadgetData, #False)
 		ClearList(\Items())
 		\State = -1
+		\SelectAnchor = -1
+		\PendingSelect = -1
 		\ItemState = -1
 		\ReorderRow = -1
 		LayerList_UpdateScrollBar(*GadgetData)
@@ -1470,6 +1463,8 @@ Procedure LayerList_SetItemState(*this.PB_Gadget, Position.l, State.l)
 	; onto it, since there can only ever be one.
 	Protected *GadgetData.LayerListData = *this\vt
 	
+	LayerList_EndEdit(*GadgetData, #True)
+	
 	With *GadgetData
 		If Position < 0 Or Position >= ListSize(\Items())
 			ProcedureReturn
@@ -1478,7 +1473,7 @@ Procedure LayerList_SetItemState(*this.PB_Gadget, Position.l, State.l)
 		If Not \MultiSelect
 			If State
 				LayerList_SelectOnly(*GadgetData, Position)
-			Else
+			ElseIf \State = Position
 				LayerList_SelectOnly(*GadgetData, -1)
 			EndIf
 		ElseIf SelectElement(\Items(), Position)
@@ -1549,6 +1544,8 @@ EndProcedure
 Procedure LayerList_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
 	Protected *GadgetData.LayerListData = *this\vt
 	
+	LayerList_EndEdit(*GadgetData, #True)
+	
 	With *GadgetData
 		If Position > -1 And SelectElement(\Items(), Position)
 			Select Attribute
@@ -1600,6 +1597,8 @@ EndProcedure
 Procedure LayerList_SetItemText(*this.PB_Gadget, Position.l, *Text)
 	Protected *GadgetData.LayerListData = *this\vt
 	
+	LayerList_EndEdit(*GadgetData, #True)
+	
 	With *GadgetData
 		If Position > -1 And SelectElement(\Items(), Position)
 			\Items()\Text\OriginalText = PeekGadgetText(*Text)
@@ -1642,6 +1641,8 @@ EndProcedure
 Procedure LayerList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 	Protected *GadgetData.LayerListData = *this\vt
 	
+	LayerList_EndEdit(*GadgetData, #True)
+	
 	With *GadgetData
 		Select Attribute
 			Case #Attribute_ItemHeight ;{
@@ -1671,6 +1672,8 @@ EndProcedure
 
 Procedure LayerList_SetFont(*this.PB_Gadget, FontID)
 	Protected *GadgetData.LayerListData = *this\vt
+	
+	LayerList_EndEdit(*GadgetData, #True)
 	
 	With *GadgetData
 		\TextBlock\FontID = FontID
@@ -1870,6 +1873,8 @@ Procedure.i LayerListReveal(Gadget, Item)
 		ProcedureReturn #False
 	EndIf
 	*GadgetData = *this\vt
+	
+	LayerList_EndEdit(*GadgetData, #True)
 	
 	With *GadgetData
 		Row = LayerList_IndexToRow(*GadgetData, Item)

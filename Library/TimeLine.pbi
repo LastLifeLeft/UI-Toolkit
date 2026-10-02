@@ -2125,7 +2125,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 					EndIf
 					
 					If \Editing And *Event\MouseX <= #TimeLine_List_Width
-						Y = *Event\MouseY - \VScrollBar\State + #TimeLine_Header_Height
+						Y = *Event\MouseY
 						If *Event\MouseX >= \String\OriginX And Y >= \String\OriginY And *Event\MouseX <= \String\OriginX + \String\Width And Y <= \String\OriginY + \String\Height
 							Cursor = #PB_Cursor_IBeam
 						EndIf
@@ -2440,7 +2440,7 @@ Procedure TimeLine_EventHandler(*GadgetData.TimeLineData, *Event.Event)
 					\ReorderPosition = -1
 					
 					TimeLine_VerticalFocus(*GadgetData)
-					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ForcefulChange)
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 					;}
 				ElseIf \String\Selecting ;{
 					*Event\MouseX - \String\OriginX
@@ -2570,6 +2570,8 @@ Procedure TimeLine_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		EndIf
 		
 		Result = ListIndex(\Lines())
+		\State = IndexAfterInsert(\State, Result)
+		\HoverItem = -1
 		
 		*NewItem\Text\OriginalText = PeekGadgetText(*Text)
 		*NewItem\Text\Image = ImageID
@@ -2599,11 +2601,12 @@ Procedure TimeLine_RemoveItem(*This.PB_Gadget, Position.l)
 	Protected *GadgetData.TimeLineData = *this\vt
 	
 	With *GadgetData
-		If Position < 0 Or Not SelectElement(\Lines(), Position)
+		If Position < 0 Or Position >= ListSize(\Lines())
 			ProcedureReturn #False
 		EndIf
 		
-		TimeLine_EndEdit(*GadgetData, #True)
+		TimeLine_EndEdit(*GadgetData, Bool(\State <> Position))
+		SelectElement(\Lines(), Position)	; EndEdit selected the edited line
 		
 		While FirstElement(\Lines()\MediaBlocks())	; the blocks belong to the line, so they go with it
 			TimeLine_FreeBlock(*GadgetData, \Lines()\MediaBlocks())
@@ -2613,11 +2616,7 @@ Procedure TimeLine_RemoveItem(*This.PB_Gadget, Position.l)
 		SelectElement(\Lines(), Position)
 		DeleteElement(\Lines())
 		
-		If ListSize(\Lines()) = 0
-			\State = -1
-		ElseIf \State > Position Or (\State = Position And ListSize(\Lines()) = Position)
-			\State - 1
-		EndIf
+		\State = IndexAfterRemove(\State, Position)
 		
 		\HoverItem = -1
 		TimeLine_LayoutLines(*GadgetData)
@@ -2648,6 +2647,8 @@ EndProcedure
 
 Procedure TimeLine_SetItemText(*this.PB_Gadget, Position.l, *Text)
 	Protected *GadgetData.TimeLineData = *this\vt
+	
+	TimeLine_EndEdit(*GadgetData, #True)
 	
 	With *GadgetData
 		If Position >= 0 And SelectElement(\Lines(), Position)
@@ -2694,6 +2695,8 @@ EndProcedure
 Procedure TimeLine_SetItemState(*this.PB_Gadget, Position.l, State.l)
 	Protected *GadgetData.TimeLineData = *this\vt
 	
+	TimeLine_EndEdit(*GadgetData, #True)
+	
 	If State And Position > -1 And Position < ListSize(*GadgetData\Lines())
 		TimeLine_SetState(*this, Position)
 	EndIf
@@ -2720,6 +2723,8 @@ EndProcedure
 
 Procedure TimeLine_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
 	Protected *GadgetData.TimeLineData = *this\vt
+	
+	TimeLine_EndEdit(*GadgetData, #True)
 	
 	With *GadgetData
 		If Attribute <> #Attribute_TimeLine_Folded Or Position < 0 Or Not SelectElement(\Lines(), Position)
@@ -3418,6 +3423,8 @@ EndProcedure
 
 Procedure TimeLine_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
 	Protected *GadgetData.TimeLineData = *this\vt
+	
+	TimeLine_EndEdit(*GadgetData, #True)
 	
 	With *GadgetData
 		Select Attribute

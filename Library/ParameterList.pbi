@@ -814,6 +814,9 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 						*Event\MouseX - \String\OriginX
 						*Event\MouseY - \String\OriginY
 						Redraw = \String\EventHandler(\String, *Event)
+						If Redraw
+							RedrawObject()
+						EndIf
 						ProcedureReturn Redraw
 					EndIf
 					Redraw = ParameterList_EndEdit(*GadgetData, #True)
@@ -821,6 +824,9 @@ Procedure ParameterList_EventHandler(*GadgetData.ParameterListData, *Event.Event
 				
 				If \VisibleScrollBar And *Event\MouseX >= \ScrollBar\OriginX
 					Redraw = ScrollBar_EventHandler(\ScrollBar, *Event) | Redraw
+					If Redraw	; a meta bar cannot repaint itself
+						RedrawObject()
+					EndIf
 					ProcedureReturn Redraw
 				EndIf
 				
@@ -989,6 +995,8 @@ EndProcedure
 Procedure ParameterList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Level.l)
 	Protected *GadgetData.ParameterListData = *this\vt, *NewItem.ParameterList_Item, *Cell.Text, Loop, Depth, Ceiling, Line.s
 	
+	ParameterList_EndEdit(*GadgetData, #True)
+	
 	With *GadgetData
 		If Level < 0
 			Level = 0
@@ -1033,9 +1041,8 @@ Procedure ParameterList_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Lev
 		ChangeCurrentElement(\Items(), *NewItem)
 		Position = ListIndex(\Items())
 		
-		If Position <= \State
-			\State + 1
-		EndIf
+		\State = IndexAfterInsert(\State, Position)
+		\ItemState = -1
 		
 		ParameterList_UpdateScrollBar(*GadgetData)
 		RedrawObject()
@@ -1053,20 +1060,16 @@ Procedure ParameterList_RemoveItem(*this.PB_Gadget, Position.l)
 			ProcedureReturn
 		EndIf
 		
-		If \Editing And \EditRow >= Position
-			ParameterList_EndEdit(*GadgetData, #False)
-		EndIf
-		
 		Count = ParameterList_ChildCount(*GadgetData, Position) + 1
+		ParameterList_EndEdit(*GadgetData, Bool(\EditRow < Position Or \EditRow >= Position + Count))
+		
 		For Loop = 1 To Count
 			If SelectElement(\Items(), Position)
 				DeleteElement(\Items())
 			EndIf
 		Next
 		
-		If \State >= ListSize(\Items())
-			\State = ListSize(\Items()) - 1
-		EndIf
+		\State = IndexAfterRemove(\State, Position, Count)
 		\ItemState = -1
 		
 		ParameterList_UpdateScrollBar(*GadgetData)
@@ -1148,6 +1151,9 @@ Procedure ParameterList_AddColumn(*this.PB_Gadget, Position.l, *Text, Width.l)
 		Next
 		
 		\ColumnCount + 1
+		If \CommitColumn >= Position	; the host reads it after the posted commit
+			\CommitColumn + 1
+		EndIf
 		If \StretchColumn >= Position
 			\StretchColumn + 1
 		EndIf
@@ -1166,9 +1172,7 @@ Procedure ParameterList_RemoveColumn(*this.PB_Gadget, Position.l)
 		If \ColumnCount <= 1 Or Position < 0 Or Position >= \ColumnCount
 			ProcedureReturn
 		EndIf
-		If \Editing
-			ParameterList_EndEdit(*GadgetData, #True)
-		EndIf
+		ParameterList_EndEdit(*GadgetData, Bool(\EditColumn <> Position))
 		Mask = (1 << Position) - 1
 		
 		For Loop = Position To \ColumnCount - 2
@@ -1192,6 +1196,9 @@ Procedure ParameterList_RemoveColumn(*this.PB_Gadget, Position.l)
 		Next
 		
 		\ColumnCount - 1
+		If \CommitColumn > Position
+			\CommitColumn - 1
+		EndIf
 		If \StretchColumn > Position
 			\StretchColumn - 1
 		ElseIf \StretchColumn = Position
@@ -1224,6 +1231,8 @@ EndProcedure
 
 Procedure ParameterList_SetItemText(*this.PB_Gadget, Position.l, *Text, Column.l)
 	Protected *GadgetData.ParameterListData = *this\vt, *Cell.Text
+	
+	ParameterList_EndEdit(*GadgetData, #True)
 	
 	With *GadgetData
 		If Column < 0
@@ -1313,6 +1322,8 @@ EndProcedure
 Procedure ParameterList_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
 	Protected *GadgetData.ParameterListData = *this\vt
 	
+	ParameterList_EndEdit(*GadgetData, #True)
+	
 	With *GadgetData
 		Select Attribute ;{
 			Case #Attribute_ParameterList_ColumnWidth, #Attribute_ParameterList_ColumnRole
@@ -1358,6 +1369,8 @@ EndProcedure
 
 Procedure ParameterList_SetState(*this.PB_Gadget, State)
 	Protected *GadgetData.ParameterListData = *this\vt
+	
+	ParameterList_EndEdit(*GadgetData, #True)
 	
 	With *GadgetData
 		If State < -1 Or State >= ListSize(\Items())
@@ -1410,6 +1423,8 @@ EndProcedure
 Procedure ParameterList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 	Protected *GadgetData.ParameterListData = *this\vt
 	
+	ParameterList_EndEdit(*GadgetData, #True)
+	
 	With *GadgetData
 		Select Attribute
 			Case #Attribute_ParameterList_NameWidth
@@ -1438,6 +1453,8 @@ EndProcedure
 
 Procedure ParameterList_SetFont(*this.PB_Gadget, FontID)
 	Protected *GadgetData.ParameterListData = *this\vt, *Cell.Text, Loop
+	
+	ParameterList_EndEdit(*GadgetData, #True)
 	
 	With *GadgetData
 		\TextBlock\FontID = FontID

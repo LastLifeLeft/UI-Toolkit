@@ -659,6 +659,9 @@ Module UITK
 				gtk_widget_get_visible(widget.i)
 				gtk_widget_in_destruction(widget.i)
 				gtk_widget_get_toplevel(widget.i)
+				gtk_widget_is_toplevel(widget.i)
+				gtk_window_move(window.i, x.l, y.l)
+				gtk_window_resize(window.i, width.l, height.l)
 			EndImport
 			
 			ProcedureC UITK_PropCleanup_Handler(*widget, *user_data)
@@ -754,13 +757,12 @@ Module UITK
 		Procedure SendMessage_(hWnd, msg, wp, lp)   : ProcedureReturn 0 : EndProcedure
 		Procedure PostMessage_(hWnd, msg, wp, lp)   : ProcedureReturn 0 : EndProcedure
 		Procedure IsZoomed_(hWnd)                   : ProcedureReturn 0 : EndProcedure
+		#SWP_NOSIZE        = $1
+		#SWP_NOMOVE        = $2
+		#SWP_NOZORDER      = $4
+		#SWP_NOREDRAW      = $8
+		#SWP_FRAMECHANGED  = $20
 		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
-			#SWP_NOSIZE        = $1
-			#SWP_NOMOVE        = $2
-			#SWP_NOZORDER      = $4
-			#SWP_NOREDRAW      = $8
-			#SWP_FRAMECHANGED  = $20
-			
 			Procedure SetWindowPos_(hWnd, after, x, y, w, h, flags)	; windows only (popups, reorder ghost): x/y are top-left screen coordinates, w/h the outer size
 				Protected Frame.NSRect, Screen.NSRect
 				If hWnd = 0
@@ -781,7 +783,18 @@ Module UITK
 				ProcedureReturn 1
 			EndProcedure
 		CompilerElse
-			Procedure SetWindowPos_(hWnd, after, x, y, w, h, flags) : ProcedureReturn 0 : EndProcedure
+			Procedure SetWindowPos_(hWnd, after, x, y, w, h, flags)	; windows only (popups, reorder ghost): GTK places them in logical units, PB's own
+				If hWnd = 0 Or gtk_widget_is_toplevel(hWnd) = 0
+					ProcedureReturn 0
+				EndIf
+				If Not flags & #SWP_NOSIZE
+					gtk_window_resize(hWnd, w, h)
+				EndIf
+				If Not flags & #SWP_NOMOVE
+					gtk_window_move(hWnd, x, y)
+				EndIf
+				ProcedureReturn 1
+			EndProcedure
 		CompilerEndIf
 		Procedure GetWindowRect_(hWnd, *rect)       : ProcedureReturn 0 : EndProcedure
 		Procedure SetClassLongPtr_(hWnd, idx, val)  : ProcedureReturn 0 : EndProcedure
@@ -805,14 +818,7 @@ Module UITK
 			Procedure SetLayeredWindowAttributes_(hWnd, key, alpha, flags) : ProcedureReturn 0 : EndProcedure
 		CompilerEndIf
 		Procedure GetObject_(h, size, *out)         : ProcedureReturn 0 : EndProcedure
-		; Win32 constants used across the module — all zero on Linux (the call sites no-op anyway).
-		CompilerIf #PB_Compiler_OS = #PB_OS_Linux
-			#SWP_NOSIZE        = 0
-			#SWP_NOMOVE        = 0
-			#SWP_NOZORDER      = 0
-			#SWP_NOREDRAW      = 0
-			#SWP_FRAMECHANGED  = 0
-		CompilerEndIf
+		; Win32 constants used across the module — all zero off Windows (the call sites no-op anyway).
 		#GWL_WNDPROC       = 0
 		#GWL_EXSTYLE       = 0
 		#GCL_HBRBACKGROUND = 0
@@ -2223,7 +2229,7 @@ Module UITK
 		#Glyph_Edit = "✎"
 		#Shortcut_Erase = #PB_Shortcut_Back			; a Mac keyboard's delete key: what removes a selection there
 		#Modifier_Shortcut = #PB_Canvas_Command		; the Mac's shortcut and multi-select key (Ctrl-click is a right click there)
-	CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux		; Windows' point sizes: GTK sizes a point as Windows does, not as Cocoa's 1pt = 1px
+	CompilerElseIf #PB_Compiler_OS = #PB_OS_Linux	; Windows' point sizes: GTK sizes a point as Windows does, not as Cocoa's 1pt = 1px
 		Global DefaultFont = FontID(LoadFont(#PB_Any, "Sans", 9, #PB_Font_HighQuality))
 		Global BoldFont = FontID(LoadFont(#PB_Any, "Sans", 7, #PB_Font_HighQuality | #PB_Font_Bold))
 		Global IconFont = FontID(LoadFont(#PB_Any, "Sans", 10, #PB_Font_HighQuality))
@@ -2404,6 +2410,22 @@ Module UITK
 	Declare.s FlatMenu_NativeLabel(*Item.MenuItem)	; …and this one in the Menu section, used by AddWindowMenu above it
 	
 	; Math
+	Procedure IndexAfterInsert(Index, Position)
+		If Index > -1 And Position <= Index
+			ProcedureReturn Index + 1
+		EndIf
+		ProcedureReturn Index
+	EndProcedure
+	
+	Procedure IndexAfterRemove(Index, Position, Count = 1)	; -1 when the index was one of the removed items
+		If Index >= Position + Count
+			ProcedureReturn Index - Count
+		ElseIf Index >= Position
+			ProcedureReturn -1
+		EndIf
+		ProcedureReturn Index
+	EndProcedure
+	
 	Procedure Clamp(Value, Min, Max)
 		If Value < Min
 			Value = Min
@@ -3396,6 +3418,40 @@ Module UITK
 	; + gtk_window_begin_move_drag, or accept native decorations). Stubbed for now so the
 	; module compiles cross-platform.
 	; ============================================================
+	Procedure Window_NativeMenu(Window, Menu, Title.s)
+		Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData"), *SubData.FlatMenu, pbMenu
+		
+		If Not *MenuData : ProcedureReturn : EndIf
+		
+		pbMenu = GetProp_(WindowID(Window), "UITK_PBMenu")
+		If pbMenu = 0
+			pbMenu = CreateMenu(#PB_Any, WindowID(Window))
+			SetProp_(WindowID(Window), "UITK_PBMenu", pbMenu)
+		EndIf
+		
+		MenuTitle(Title)
+		ForEach *MenuData\Item()
+			If *MenuData\Item()\Type = #Separator
+				MenuBar()
+			ElseIf *MenuData\Item()\SubMenu And IsWindow(*MenuData\Item()\SubMenu)
+				*SubData = GetProp_(WindowID(*MenuData\Item()\SubMenu), "UITK_MenuData")
+				If *SubData
+					OpenSubMenu(*MenuData\Item()\Text\OriginalText)
+					ForEach *SubData\Item()
+						If *SubData\Item()\Type = #Separator
+							MenuBar()
+						Else
+							MenuItem(*SubData\Item()\ID, FlatMenu_NativeLabel(@*SubData\Item()))
+						EndIf
+					Next
+					CloseSubMenu()
+				EndIf
+			Else
+				MenuItem(*MenuData\Item()\ID, FlatMenu_NativeLabel(@*MenuData\Item()))
+			EndIf
+		Next
+	EndProcedure
+	
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 		#WM_SYSMENU = $313
 		#SizableBorder = 8
@@ -3695,8 +3751,8 @@ Module UITK
 			
 			If AccessibilityMode Or DWMEnabled = #False Or (Flags & #PB_Window_BorderLess)
 				Result = OpenWindow(Window, X, Y, InnerWidth, InnerHeight, Title, (Bool(Flags & #Window_CloseButton) * #PB_Window_SystemMenu) |
-				                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_Maximize) |
-				                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_Minimize) |
+				                                                                  (Bool(Flags & #Window_MaximizeButton) * #PB_Window_MaximizeGadget) |
+				                                                                  (Bool(Flags & #Window_MinimizeButton) * #PB_Window_MinimizeGadget) |
 				                                                                  (Bool(Flags & #Window_Sizable) * #PB_Window_SizeGadget) |
 				                                                                  (Bool(Flags & #Window_Invisible) * #PB_Window_Invisible) |
 				                                                                  (Bool(Flags & #Window_ScreenCentered) * #PB_Window_ScreenCentered), Parent)
@@ -3828,6 +3884,11 @@ Module UITK
 			Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
 			Protected WindowGadgetList
 			
+			If *WindowData = 0
+				Window_NativeMenu(Window, Menu, Title)
+				ProcedureReturn
+			EndIf
+			
 			With *WindowData
 				If ListSize(\MenuList()) = 0
 					; The bar reads Icon · Title · Menus: the title KEEPS its text and
@@ -3880,6 +3941,10 @@ Module UITK
 		Procedure OpenWindowGadgetList(Window)
 			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData")
 			
+			If *WindowData = 0
+				ProcedureReturn UseGadgetList(WindowID(Window))
+			EndIf
+			
 			OpenGadgetList(*WindowData\Container)
 		EndProcedure
 		
@@ -3914,6 +3979,11 @@ Module UITK
 			
 			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
 			
+			If *WindowData = 0
+				WindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
+				ProcedureReturn
+			EndIf
+			
 			*WindowData\MinHeight = MinHeight
 			*WindowData\MinWidth = MinWidth
 			*WindowData\MaxWidth = MaxWidth
@@ -3924,6 +3994,10 @@ Module UITK
 			Protected *WindowData.ThemedWindow
 			
 			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+			If *WindowData = 0
+				ProcedureReturn
+			EndIf
+			
 			SetGadgetImage(*WindowData\Label, Image)
 			*WindowData\LabelWidth = GadgetWidth(*WindowData\Label, #PB_Gadget_RequiredSize)
 			ResizeGadget(*WindowData\Label, #PB_Ignore, #PB_Ignore, *WindowData\LabelWidth, #PB_Ignore)
@@ -3946,6 +4020,13 @@ Module UITK
 		
 		Procedure WindowSetColor(Window, ColorType, Color)
 			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData"), Image, *OldBrush
+			
+			If *WindowData = 0
+				If ColorType = #Color_Parent
+					SetWindowColor(Window, RGB(Red(Color), Green(Color), Blue(Color)))
+				EndIf
+				ProcedureReturn
+			EndIf
 			
 			If Alpha(Color) = 0	; a plain RGB would be drawn fully transparent - store it opaque
 				Color = SetAlpha(Color, 255)
@@ -4003,11 +4084,21 @@ Module UITK
 			Protected *WindowData.ThemedWindow
 			
 			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
+			If *WindowData = 0
+				ProcedureReturn 0
+			EndIf
 			ProcedureReturn GetGadgetImage(*WindowData\Label)
 		EndProcedure
 		
 		Procedure WindowGetColor(Window, ColorType)
 			Protected *WindowData.ThemedWindow = GetProp_(WindowID(Window), "UITK_WindowData"), Result
+			
+			If *WindowData = 0
+				If ColorType = #Color_Parent
+					ProcedureReturn GetWindowColor(Window)
+				EndIf
+				ProcedureReturn 0
+			EndIf
 			
 			If FindMapElement(ThemeColorOffset(), Str(ColorType))
 				Result = PeekL(@*WindowData\Theme + ThemeColorOffset())
@@ -4097,43 +4188,7 @@ Module UITK
 		; #PB_Event_Menu / EventMenu() handlers wire up identically. The PB menu is
 		; created lazily on first call and cached on the window via UITK_PropMap.
 		Procedure AddWindowMenu(Window, Menu, Title.s)
-			Protected *MenuData.FlatMenu = GetProp_(WindowID(Menu), "UITK_MenuData")
-			If Not *MenuData : ProcedureReturn : EndIf
-			
-			Protected pbMenu = GetProp_(WindowID(Window), "UITK_PBMenu")
-			If pbMenu = 0
-				pbMenu = CreateMenu(#PB_Any, WindowID(Window))
-				SetProp_(WindowID(Window), "UITK_PBMenu", pbMenu)
-			EndIf
-			; PB has no cross-platform UseMenu, so subsequent MenuTitle/MenuItem calls
-			; go into whatever PB menu was created most recently. That's fine for the
-			; common case where AddWindowMenu is called in sequence right after Window().
-			; If the user creates other PB menus between AddWindowMenu calls, items
-			; would land in the wrong menu — caveat documented here for the future.
-			
-			MenuTitle(Title)
-			Protected *SubData.FlatMenu
-			ForEach *MenuData\Item()
-				If *MenuData\Item()\Type = #Separator
-					MenuBar()
-				ElseIf *MenuData\Item()\SubMenu And IsWindow(*MenuData\Item()\SubMenu)
-					; Mirror one level of submenu natively (deeper nesting is not mirrored here)
-					*SubData = GetProp_(WindowID(*MenuData\Item()\SubMenu), "UITK_MenuData")
-					If *SubData
-						OpenSubMenu(*MenuData\Item()\Text\OriginalText)
-						ForEach *SubData\Item()
-							If *SubData\Item()\Type = #Separator
-								MenuBar()
-							Else
-								MenuItem(*SubData\Item()\ID, FlatMenu_NativeLabel(@*SubData\Item()))
-							EndIf
-						Next
-						CloseSubMenu()
-					EndIf
-				Else
-					MenuItem(*MenuData\Item()\ID, FlatMenu_NativeLabel(@*MenuData\Item()))
-				EndIf
-			Next
+			Window_NativeMenu(Window, Menu, Title)
 		EndProcedure
 	CompilerEndIf	;}
 	
@@ -5280,6 +5335,12 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Macro String_PostChange()	; an inline editor's keystrokes are not its host's Change: the host reports the commit
+		If Not *GadgetData\MetaGadget
+			PostEvent(#PB_Event_Gadget, *GadgetData\ParentWindow, *GadgetData\Gadget, #PB_EventType_Change)
+		EndIf
+	EndMacro
+	
 	Procedure String_EventHandler(*GadgetData.StringData, *Event.Event)
 		Protected Size.d, Selection, Modifiers, Text.s, Redraw
 		
@@ -5332,7 +5393,7 @@ Module UITK
 					RemoveGadgetTimer(\Timer)
 					\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 					
-					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+					String_PostChange()
 					;}
 				Case #LeftButtonDown ;{
 					\CaretPosition = String_HitTest(*GadgetData, *Event\MouseX)
@@ -5372,7 +5433,7 @@ Module UITK
 								EndIf
 								
 								\CaretPosition - 1
-								Redraw = Bool(Redraw Or String_PlaceCaret(*GadgetData))
+								Redraw = Bool(String_PlaceCaret(*GadgetData) Or Redraw)
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -5408,7 +5469,7 @@ Module UITK
 								EndIf
 								
 								\CaretPosition + 1
-								Redraw = Bool(Redraw Or String_PlaceCaret(*GadgetData))	; …a scroll is a repaint
+								Redraw = Bool(String_PlaceCaret(*GadgetData) Or Redraw)	; …a scroll is a repaint
 								HideGadget(\Caret, #False)
 								\CaretVisible = #True
 								RemoveGadgetTimer(\Timer)
@@ -5432,7 +5493,7 @@ Module UITK
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 								
-								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								String_PostChange()
 							ElseIf \CaretPosition < ListSize(\CharacterData()) - 1
 								SelectElement(\CharacterData(), \CaretPosition)
 								Size = \CharacterData()\Width
@@ -5452,7 +5513,7 @@ Module UITK
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 								
-								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								String_PostChange()
 							EndIf
 							;}
 						Case #PB_Shortcut_Back ;{
@@ -5466,7 +5527,7 @@ Module UITK
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 								
-								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								String_PostChange()
 							ElseIf \CaretPosition
 								\CaretPosition -1
 								SelectElement(\CharacterData(), \CaretPosition)
@@ -5487,7 +5548,7 @@ Module UITK
 								\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 								Redraw = #True
 								
-								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								String_PostChange()
 							EndIf
 							;}
 						Case #PB_Shortcut_V ;{
@@ -5509,7 +5570,7 @@ Module UITK
 									\Timer = AddGadgetTimer(*GadgetData, 600, @String_CaretRedraw())
 									Redraw = #True
 									
-									PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+									String_PostChange()
 								EndIf
 							EndIf
 							;}
@@ -5527,7 +5588,7 @@ Module UITK
 								
 								Redraw = #True
 								
-								PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+								String_PostChange()
 							EndIf
 							;}
 						Case #PB_Shortcut_A ;{
@@ -5559,7 +5620,7 @@ Module UITK
 					\Focus = #True
 					
 					ResizeGadget(\Caret, #PB_Ignore, \OriginY + \TextPositionY + 1, #PB_Ignore, #PB_Ignore)
-					Redraw = Bool(Redraw Or String_PlaceCaret(*GadgetData))
+					Redraw = Bool(String_PlaceCaret(*GadgetData) Or Redraw)
 					String_ShowCaret(*GadgetData)
 					
 					If \SelectionPosition > -1
@@ -5727,6 +5788,8 @@ Module UITK
 	
 	Procedure StringSetSelection_Meta(*GadgetData.StringData, Position, Length)
 		With *GadgetData
+			Position = Clamp(Position, 0, Len(\String))
+			Length = Clamp(Position + Length, 0, Len(\String)) - Position	; a negative length selects backwards from Position
 			\SelectionLength = Length
 			\SelectionPosition = Position
 			If Length = 0
@@ -5742,9 +5805,13 @@ Module UITK
 	EndProcedure
 	
 	Procedure StringSetSelection(Gadget, Position, Length)
-		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.StringData = *this\vt
+		Protected *this.PB_Gadget = IsGadget(Gadget)
 		
-		StringSetSelection_Meta(*GadgetData.StringData, Position, Length)
+		If *this = 0 Or FindMapElement(GadgetHandler(), Str(GadgetID(Gadget))) = 0
+			ProcedureReturn	; not one of ours: in AccessibilityMode its vt is PB's
+		EndIf
+		
+		StringSetSelection_Meta(*this\vt, Position, Length)
 	EndProcedure
 	
 	
@@ -6042,11 +6109,11 @@ Module UITK
 		Protected *GadgetData.ScrollBarData = *this\vt, Result
 		
 		Select Attribute
-			Case #ScrollBar_Minimum
+			Case #ScrollBar_Minimum, #PB_ScrollBar_Minimum
 				Result = *GadgetData\Min
-			Case #ScrollBar_Maximum
+			Case #ScrollBar_Maximum, #PB_ScrollBar_Maximum
 				Result = *GadgetData\Max
-			Case #ScrollBar_PageLength
+			Case #ScrollBar_PageLength, #PB_ScrollBar_PageLength
 				Result = *GadgetData\PageLength
 			Case #ScrollBar_ScrollStep
 				Result = *GadgetData\ScrollStep
@@ -6062,7 +6129,7 @@ Module UITK
 		
 		With *GadgetData
 			Select Attribute
-				Case #ScrollBar_Minimum ;{
+				Case #ScrollBar_Minimum, #PB_ScrollBar_Minimum ;{
 					If Value < \Max
 						\Min = Value
 						
@@ -6089,7 +6156,7 @@ Module UITK
 						RedrawObject()
 					EndIf
 					;}
-				Case #ScrollBar_Maximum ;{
+				Case #ScrollBar_Maximum, #PB_ScrollBar_Maximum ;{
 					If Value > \Min
 						\Max = Value
 						
@@ -6112,7 +6179,7 @@ Module UITK
 						RedrawObject()
 					EndIf
 					;}
-				Case #ScrollBar_PageLength ;{
+				Case #ScrollBar_PageLength, #PB_ScrollBar_PageLength ;{
 					\PageLength = Value
 					If \PageLength >= (\Max - \Min)
 						\BarSize = -1
@@ -6150,7 +6217,7 @@ Module UITK
 		Protected Length
 		
 		With *GadgetData
-			State = Clamp(State, \Min, \Max - \PageLength)
+			State = Clamp(State, \Min, Max(\Max - \PageLength, \Min))	; a bar that cannot scroll rests at Min, never below it
 			If State <> \State
 				\State = State
 				If \Vertical
@@ -6352,9 +6419,27 @@ Module UITK
 	Procedure ScrollArea_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.ScrollAreaData = *this\vt
 		
-		*this\VT = *GadgetData\OriginalVT
-		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
-		*this\VT = *GadgetData
+		With *GadgetData
+			If Width = #PB_Ignore : Width = \Width : EndIf
+			If Height = #PB_Ignore : Height = \Height : EndIf
+			
+			*this\VT = \OriginalVT
+			ResizeGadget(\Gadget, x, y, Width - #ScrollArea_Bar_Thickness, Height - #ScrollArea_Bar_Thickness)	; the container leaves room for the bars, its siblings
+			*this\VT = *GadgetData
+			
+			\Width = Width
+			\Height = Height
+			x = GadgetX(\Gadget)
+			y = GadgetY(\Gadget)
+			
+			ResizeGadget(\ScrollArea, #PB_Ignore, #PB_Ignore, Width - #ScrollArea_Bar_Thickness + ScrollBarThickness, Height - #ScrollArea_Bar_Thickness + ScrollBarThickness)
+			ResizeGadget(\VerticalScrollBar, x + Width - #ScrollArea_Bar_Thickness, y, #PB_Ignore, Height - #ScrollArea_Bar_Thickness)
+			ResizeGadget(\HorizontalScrollBar, x, y + Height - #ScrollArea_Bar_Thickness, Width - #ScrollArea_Bar_Thickness, #PB_Ignore)
+			SetGadgetAttribute(\VerticalScrollBar, #ScrollBar_PageLength, Height)
+			SetGadgetAttribute(\HorizontalScrollBar, #ScrollBar_PageLength, Width)
+			SetGadgetAttribute(\ScrollArea, #PB_ScrollArea_X, GetGadgetState(\HorizontalScrollBar))	; a longer page clamps the bars: the content follows
+			SetGadgetAttribute(\ScrollArea, #PB_ScrollArea_Y, GetGadgetState(\VerticalScrollBar))
+		EndWith
 	EndProcedure
 	
 	Procedure ScrollArea_Free(*this.PB_Gadget)
@@ -6421,12 +6506,12 @@ Module UITK
 			
 			SetGadgetAttribute(\ScrollArea, Native, Value)
 			
-			Select Attribute
-				Case #ScrollArea_InnerWidth
-					SetGadgetAttribute(\HorizontalScrollBar, #ScrollBar_Maximum, Value)
+			Select Native
+				Case #PB_ScrollArea_InnerWidth
+					SetGadgetAttribute(\HorizontalScrollBar, #ScrollBar_Maximum, Value + #ScrollArea_Bar_Thickness)	; as the constructor: Max - Page is the inner area's range
 					
-				Case #ScrollArea_InnerHeight
-					SetGadgetAttribute(\VerticalScrollBar, #ScrollBar_Maximum, Value)
+				Case #PB_ScrollArea_InnerHeight
+					SetGadgetAttribute(\VerticalScrollBar, #ScrollBar_Maximum, Value + #ScrollArea_Bar_Thickness)
 			EndSelect
 		EndWith
 	EndProcedure
@@ -6566,6 +6651,8 @@ Module UITK
 		ReorderWindow.i	; We use the same window as drag window? Might add some issues since it's subclassed?
 		ReorderCanvas.i
 		
+		Popup.b	; an internal dropdown: arrows browse without a Change, Return picks
+		
 		Editable.l
 		Editing.b
 		EditCursor.b
@@ -6684,6 +6771,19 @@ Module UITK
 					\ScrollBar\Redraw(\ScrollBar)
 				EndIf
 				
+			EndIf
+		EndWith
+	EndProcedure
+	
+	Procedure VerticalList_UpdateScrollBar(*GadgetData.VerticalListData)	; a hidden bar is reset: every hit test adds its State
+		With *GadgetData
+			If ListSize(\Items()) * \ItemHeight > \Height
+				\VisibleScrollBar = #True
+				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
+			Else
+				\VisibleScrollBar = #False
+				\ScrollBar\State = 0
+				\ScrollBar\Position = 0
 			EndIf
 		EndWith
 	EndProcedure
@@ -6975,13 +7075,7 @@ Module UITK
 						EndIf
 						
 						VerticalList_StateFocus(*GadgetData)
-						
-						If ListSize(\Items()) * \ItemHeight > \Height
-							\VisibleScrollBar = #True
-							ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
-						Else
-							\VisibleScrollBar = #False
-						EndIf
+						VerticalList_UpdateScrollBar(*GadgetData)
 						
 						PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 						
@@ -7018,22 +7112,34 @@ Module UITK
 					If \DragState = #Drag_None
 						Select *Event\Param
 							Case #PB_Shortcut_Down ;{
+								Redraw = VerticalList_EndEdit(*GadgetData, #True)
 								If \State < ListSize(\Items()) - 1
 									\State + 1
 									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
+									If Not \Popup
+										PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+									EndIf
 								EndIf ;}
 							Case #PB_Shortcut_Up ;{
+								Redraw = VerticalList_EndEdit(*GadgetData, #True)
 								If \State > 0
 									\State - 1
 									VerticalList_StateFocus(*GadgetData)
 									Redraw = #True
+									If Not \Popup
+										PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+									EndIf
 								EndIf ;}
 							Case #PB_Shortcut_F2 ;{
 								Redraw = VerticalList_BeginEdit(*GadgetData)
 								;}
 							Case #PB_Shortcut_Return ;{
-								Redraw = VerticalList_EndEdit(*GadgetData, #True)
+								If \Editing
+									Redraw = VerticalList_EndEdit(*GadgetData, #True)
+								ElseIf \Popup And \State > -1
+									PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
+								EndIf
 								;}
 							Case #PB_Shortcut_Escape ;{
 								Redraw = VerticalList_EndEdit(*GadgetData, #False)	; keep the old name
@@ -7080,6 +7186,7 @@ Module UITK
 		Protected *GadgetData.VerticalListData = *this\vt, *NewItem
 		
 		With *GadgetData
+			VerticalList_EndEdit(*GadgetData, #True)
 			
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -7102,10 +7209,7 @@ Module UITK
 			
 			\Items()\Text\Dirty = #True
 			
-			If ListSize(\Items()) * \ItemHeight > \Height
-				\VisibleScrollBar = #True
-				ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
-			EndIf
+			VerticalList_UpdateScrollBar(*GadgetData)
 			
 			If \SortItem
 				SortStructuredList(\Items(), #PB_Sort_Ascending, OffsetOf(VerticalListItem\Text), #PB_String)
@@ -7114,9 +7218,8 @@ Module UITK
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
 			
-			If Position <= \State
-				\State + 1
-			EndIf
+			\State = IndexAfterInsert(\State, Position)
+			\ItemState = -1
 			
 			RedrawObject()
 		EndWith
@@ -7129,24 +7232,14 @@ Module UITK
 		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
+				VerticalList_EndEdit(*GadgetData, Bool(\State <> Position))
 				SelectElement(\Items(), Position)
 				DeleteElement(\Items())
 				
-				If ListSize(\Items()) * \ItemHeight > \Height
-					\VisibleScrollBar = #True
-					ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
-				Else
-					\VisibleScrollBar = #False
-				EndIf
+				VerticalList_UpdateScrollBar(*GadgetData)
 				
-				If \State > Position
-					\State - 1
-				ElseIf \State = Position
-					If \State = ListSize(\Items())
-						\State - 1
-					EndIf
-					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-				EndIf
+				\State = IndexAfterRemove(\State, Position)
+				\ItemState = -1
 				
 				RedrawObject()
 				
@@ -7155,8 +7248,29 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure VerticalList_SetState(*this.PB_Gadget, State)
+		Protected *GadgetData.VerticalListData = *this\vt
+		
+		With *GadgetData
+			VerticalList_EndEdit(*GadgetData, #True)
+			
+			If State < 0 Or State >= ListSize(\Items())
+				State = -1
+			EndIf
+			
+			\State = State
+			If State > -1
+				VerticalList_StateFocus(*GadgetData)
+			EndIf
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
 	Procedure VerticalList_Resize(*this.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.VerticalListData = *this\vt, PreviousWidth
+		
+		VerticalList_EndEdit(*GadgetData, #True)
 		
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
@@ -7179,12 +7293,7 @@ Module UITK
 			
 			ScrollBar_ResizeMeta(\ScrollBar, \Width - #VerticalList_ToolbarThickness - \Border - 1, \Border + 1, #VerticalList_ToolbarThickness, \Height - \Border * 2 - 2)
 			ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_PageLength, \Height)
-			
-			If ListSize(\Items()) * \ItemHeight > \Height
-				\VisibleScrollBar = #True
-			Else
-				\VisibleScrollBar = #False
-			EndIf
+			VerticalList_UpdateScrollBar(*GadgetData)
 			
 			If \Reorder
 				SetWindowPosPoints(WindowID(\ReorderWindow), 0, 0, 0, \Width, \ItemHeight, #SWP_NOMOVE | #SWP_NOZORDER | #SWP_NOREDRAW)
@@ -7257,18 +7366,14 @@ Module UITK
 	Procedure VerticalList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.VerticalListData = *this\vt
 		
+		VerticalList_EndEdit(*GadgetData, #True)
+		
 		With *GadgetData
 			Select Attribute
 				Case #Attribute_ItemHeight ;{
 					\ItemHeight = Value
 					\MaxDisplayedItem = Ceil((\Height - 2 * \Border) / \ItemHeight)
-					
-					If ListSize(\Items()) * \ItemHeight > \Height
-						\VisibleScrollBar = #True
-						ScrollBar_SetAttribute_Meta(\ScrollBar, #ScrollBar_Maximum, ListSize(\Items()) * \ItemHeight)
-					Else
-						\VisibleScrollBar = #False
-					EndIf
+					VerticalList_UpdateScrollBar(*GadgetData)
 					
 					ForEach \Items()
 						\Items()\Text\Height = \ItemHeight
@@ -7329,6 +7434,8 @@ Module UITK
 	Procedure VerticalList_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.VerticalListData = *this\vt, *Result
 		
+		VerticalList_EndEdit(*GadgetData, #True)
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -7342,6 +7449,8 @@ Module UITK
 	
 	Procedure VerticalList_SetFont(*this.PB_Gadget, FontID)
 		Protected *GadgetData.VerticalListData = *this\vt
+		
+		VerticalList_EndEdit(*GadgetData, #True)
 		
 		With *GadgetData
 			\TextBlock\FontID = FontID
@@ -7403,6 +7512,7 @@ Module UITK
 			\VT\GetGadgetItemData = @VerticalList_GetItemData()
 			\VT\RemoveGadgetItem = @VerticalList_RemoveItem()
 			\VT\AddGadgetItem2 = @VerticalList_AddItem()
+			\VT\SetGadgetState = @VerticalList_SetState()
 			\VT\ResizeGadget = @VerticalList_Resize()
 			\VT\GetGadgetItemText = @VerticalList_GetItemText()
 			\VT\SetGadgetItemText = @VerticalList_SetItemText()
@@ -7455,6 +7565,17 @@ Module UITK
 		
 		ProcedureReturn Result
 	EndProcedure
+	
+	Procedure VerticalList_SetPopup(Gadget)
+		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.VerticalListData
+		
+		If *this And FindMapElement(GadgetHandler(), Str(GadgetID(Gadget)))
+			*GadgetData = *this\vt
+			*GadgetData\Popup = #True
+		EndIf
+		
+		ProcedureReturn Gadget
+	EndProcedure
 	;}
 	
 	;{ HorizontalList
@@ -7485,6 +7606,8 @@ Module UITK
 		*ScrollBar.ScrollBarData
 		*String.StringData
 	EndStructure
+	
+	Declare HorizontalList_EndEdit(*GadgetData.HorizontalListData, Keep)
 	
 	Procedure HorizontalList_ItemRedraw(*Item.HorizontalList_Item, X, Y, Width, Height, State, *Theme.Theme)
 		If State = #Hot
@@ -7561,6 +7684,8 @@ Module UITK
 	
 	Procedure HorizontalList_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.HorizontalListData = *this\vt, PreviousHeight
+		
+		HorizontalList_EndEdit(*GadgetData, #True)
 		
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
@@ -7672,7 +7797,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure HorizontalList_EventHandler(*GadgetData.HorizontalListData, *Event.Event)
-		Protected Redraw, HoverItem, Keyboard, Image, Cursor = *GadgetData\EditCursor
+		Protected Redraw, HoverItem, Keyboard, Image, Cursor = *GadgetData\EditCursor, CursorWas = Cursor
 		
 		With *GadgetData
 			Select *Event\EventType
@@ -7798,6 +7923,7 @@ Module UITK
 								\State - 1
 								HorizontalList_StateFocus(*GadgetData)
 								Redraw = #True
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 							EndIf ;}
 						Case #PB_Shortcut_Right ;{
 							If \Editing
@@ -7806,6 +7932,7 @@ Module UITK
 								\State + 1
 								HorizontalList_StateFocus(*GadgetData)
 								Redraw = #True
+								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #PB_EventType_Change)
 							EndIf ;}
 						Case #PB_Shortcut_F2 ;{
 							Redraw = HorizontalList_BeginEdit(*GadgetData)
@@ -7835,7 +7962,7 @@ Module UITK
 					;}
 			EndSelect
 			
-			If Cursor <> \EditCursor
+			If Cursor <> \EditCursor And Cursor <> CursorWas
 				\EditCursor = Cursor
 				\OriginalVT\SetGadgetAttribute(\this, #PB_Canvas_Cursor, Cursor)
 			EndIf
@@ -7848,6 +7975,8 @@ Module UITK
 	
 	Procedure HorizontalList_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		Protected *GadgetData.HorizontalListData = *this\vt, *NewItem.HorizontalList_Item, HBitmap.UITK_BitmapInfo
+		HorizontalList_EndEdit(*GadgetData, #True)
+		
 		With *GadgetData
 			
 			If Position > -1 And Position < ListSize(\Items())
@@ -7887,6 +8016,8 @@ Module UITK
 			
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
+			\State = IndexAfterInsert(\State, Position)
+			\HoverItem = -1
 			RedrawObject()
 		EndWith
 		
@@ -7898,6 +8029,7 @@ Module UITK
 		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
+				HorizontalList_EndEdit(*GadgetData, Bool(\State <> Position))
 				SelectElement(\Items(), Position)
 				DeleteElement(\Items())
 				\InternalWidth = ListSize(\Items()) * \ItemWidth
@@ -7909,14 +8041,8 @@ Module UITK
 					\VisibleScrollBar = #False
 				EndIf
 				
-				If \State > Position
-					\State - 1
-				ElseIf \State = Position
-					If \State = ListSize(\Items())
-						\State - 1
-					EndIf
-					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-				EndIf
+				\State = IndexAfterRemove(\State, Position)
+				\HoverItem = -1
 				
 				RedrawObject()
 			EndIf
@@ -7945,6 +8071,22 @@ Module UITK
 	
 	
 	; Getters
+	Procedure HorizontalList_SetItemText(*this.PB_Gadget, Position.l, *Text)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		HorizontalList_EndEdit(*GadgetData, #True)
+		
+		With *GadgetData
+			If Position > -1 And Position < ListSize(\Items())
+				SelectElement(\Items(), Position)
+				\Items()\Text\OriginalText = PeekGadgetText(*Text)
+				PrepareVectorTextBlock(@\Items()\Text)
+				RedrawObject()
+				ProcedureReturn #True
+			EndIf
+		EndWith
+	EndProcedure
+	
 	Procedure.s HorizontalList_GetItemText(*this.PB_Gadget, Position.l)
 		Protected *GadgetData.HorizontalListData = *this\vt
 		With *GadgetData
@@ -7968,8 +8110,29 @@ Module UITK
 	
 	
 	; Setters
+	Procedure HorizontalList_SetState(*this.PB_Gadget, State)
+		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		With *GadgetData
+			HorizontalList_EndEdit(*GadgetData, #True)
+			
+			If State < 0 Or State >= ListSize(\Items())
+				State = -1
+			EndIf
+			
+			\State = State
+			If State > -1
+				HorizontalList_StateFocus(*GadgetData)
+			EndIf
+			
+			RedrawObject()
+		EndWith
+	EndProcedure
+	
 	Procedure HorizontalList_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.HorizontalListData = *this\vt
+		
+		HorizontalList_EndEdit(*GadgetData, #True)
 		
 		With *GadgetData
 			Select Attribute
@@ -8017,11 +8180,13 @@ Module UITK
 			
 			\VT\AddGadgetItem2 = @HorizontalList_AddItem()
 			\VT\RemoveGadgetItem = @HorizontalList_RemoveItem()
+			\VT\SetGadgetState = @HorizontalList_SetState()
 			\VT\ResizeGadget = @HorizontalList_Resize()
 			\VT\SetGadgetAttribute = @HorizontalList_SetAttribute()
 			\VT\CountGadgetItems = @HorizontalList_CountItem()
 			\VT\GetGadgetItemImage = @HorizontalList_GetItemImage()
 			\VT\GetGadgetItemText = @HorizontalList_GetItemText()
+			\VT\SetGadgetItemText = @HorizontalList_SetItemText()
 			\VT\FreeGadget = @HorizontalList_FreeGadget()
 			
 			; Enable only the needed events
@@ -8392,13 +8557,45 @@ Module UITK
 		RedrawObject()
 	EndProcedure
 	
-	Procedure TrackBar_SetAttribute(*this.PB_Gadget, Attribute, Value)
+	Procedure TrackBar_GetAttribute(*this.PB_Gadget, Attribute.l)
+		Protected *GadgetData.TrackBarData = *this\vt
+		
+		Select Attribute
+			Case #PB_TrackBar_Minimum
+				ProcedureReturn *GadgetData\Minimum
+			Case #PB_TrackBar_Maximum
+				ProcedureReturn *GadgetData\Maximum
+		EndSelect
+		
+		ProcedureReturn Default_GetAttribute(*this, Attribute)
+	EndProcedure
+	
+	Procedure TrackBar_SetState(*this.PB_Gadget, State)
+		Protected *GadgetData.TrackBarData = *this\vt
+		
+		*GadgetData\State = Clamp(State, *GadgetData\Minimum, *GadgetData\Maximum)
+		RedrawObject()
+	EndProcedure
+	
+	Procedure TrackBar_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.TrackBarData = *this\vt
 		
 		With *GadgetData
 			Select Attribute
 				Case #TrackBar_Scale ;{
 					\Scale = 1 / Value
+					;}
+				Case #PB_TrackBar_Minimum ;{
+					If Value < \Maximum
+						\Minimum = Value
+						\State = Clamp(\State, \Minimum, \Maximum)
+					EndIf
+					;}
+				Case #PB_TrackBar_Maximum ;{
+					If Value > \Minimum
+						\Maximum = Value
+						\State = Clamp(\State, \Minimum, \Maximum)
+					EndIf
 					;}
 				Default ;{
 					Default_SetAttribute(IsGadget(\Gadget), Attribute, Value)
@@ -8436,6 +8633,8 @@ Module UITK
 			\VT\AddGadgetItem2 = @TrackBar_AddGadgetItem()
 			\VT\SetGadgetText = @TrackBar_SetText()
 			\vt\SetGadgetAttribute = @TrackBar_SetAttribute()
+			\vt\GetGadgetAttribute = @TrackBar_GetAttribute()
+			\vt\SetGadgetState = @TrackBar_SetState()
 			
 			\SupportedEvent[#LeftClick] = #True
 			\SupportedEvent[#LeftButtonDown] = #True
@@ -8594,17 +8793,29 @@ Module UITK
 		HideWindow(*GadgetData\MenuWindow , #True)
 	EndProcedure
 	
-	Procedure Combo_VListHandler()
-		Protected Gadget = EventGadget(), *GadgetData.ComboData = GetProp_(GadgetID(Gadget), "UITK_ComboData")
+	Procedure Combo_SyncState(*GadgetData.ComboData)	; the field shows whatever the list holds, -1 included
 		Protected *SubGadget.PB_Gadget = IsGadget(*GadgetData\MenuCanvas), *VListData.VerticalListData = *SubGadget\vt
 		
-		*GadgetData\State = *VListData\State
-		SelectElement(*VListData\Items(), *VListData\State)
-		*GadgetData\TextBlock\OriginalText = *VListData\Items()\Text\OriginalText
-		*GadgetData\TextBlock\Image = *VListData\Items()\Text\Image
+		If *VListData\State > -1 And SelectElement(*VListData\Items(), *VListData\State)
+			*GadgetData\State = *VListData\State
+			*GadgetData\TextBlock\OriginalText = *VListData\Items()\Text\OriginalText
+			*GadgetData\TextBlock\Image = *VListData\Items()\Text\Image
+		Else
+			*VListData\State = -1
+			*GadgetData\State = -1
+			*GadgetData\TextBlock\OriginalText = ""
+			*GadgetData\TextBlock\Image = 0
+		EndIf
+		
 		PrepareVectorTextBlock(@*GadgetData\TextBlock)
 		*GadgetData\Unfolded = #False
 		RedrawObject()
+	EndProcedure
+	
+	Procedure Combo_VListHandler()
+		Protected Gadget = EventGadget(), *GadgetData.ComboData = GetProp_(GadgetID(Gadget), "UITK_ComboData")
+		
+		Combo_SyncState(*GadgetData)
 		HideWindow(*GadgetData\MenuWindow , #True)
 		PostEvent(#PB_Event_Gadget, *GadgetData\ParentWindow, *GadgetData\Gadget, #PB_EventType_Change)
 	EndProcedure
@@ -8639,7 +8850,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Combo_AddItem(*this.PB_Gadget, Position.l, *Text, ImageID, Flag)
-		Protected *GadgetData.ComboData = *this\vt
+		Protected *GadgetData.ComboData = *this\vt, Result
 		
 		*GadgetData\ItemCount + 1
 		
@@ -8648,7 +8859,10 @@ Module UITK
 			ResizeWindow(*GadgetData\MenuWindow, #PB_Ignore, #PB_Ignore, #PB_Ignore, *GadgetData\ItemCount * #Combo_ItemHeight + *GadgetData\Border)
 		EndIf
 		
-		AddGadgetItem(*GadgetData\MenuCanvas, Position, PeekGadgetText(*Text), ImageID, Flag)
+		Result = AddGadgetItem(*GadgetData\MenuCanvas, Position, PeekGadgetText(*Text), ImageID, Flag)
+		*GadgetData\State = GetGadgetState(*GadgetData\MenuCanvas)
+		
+		ProcedureReturn Result
 	EndProcedure
 	
 	Procedure Combo_RemoveItem(*this.PB_Gadget, Position.l)
@@ -8661,6 +8875,8 @@ Module UITK
 				ResizeGadget(*GadgetData\MenuCanvas, #PB_Ignore, #PB_Ignore, #PB_Ignore, *GadgetData\ItemCount * #Combo_ItemHeight)
 				ResizeWindow(*GadgetData\MenuWindow, #PB_Ignore, #PB_Ignore, #PB_Ignore, *GadgetData\ItemCount * #Combo_ItemHeight + *GadgetData\Border)
 			EndIf
+			
+			Combo_SyncState(*GadgetData)
 		EndIf
 	EndProcedure
 	
@@ -8668,15 +8884,13 @@ Module UITK
 		Protected *GadgetData.ComboData = *this\vt
 		Protected *SubGadget.PB_Gadget = IsGadget(*GadgetData\MenuCanvas), *VListData.VerticalListData = *SubGadget\vt
 		
+		If State < 0 Or State >= ListSize(*VListData\Items())
+			State = -1
+		EndIf
+		
 		SetGadgetState(*GadgetData\MenuCanvas, State)
 		*VListData\State = State
-		*GadgetData\State = State
-		SelectElement(*VListData\Items(), *VListData\State)
-		*GadgetData\TextBlock\OriginalText = *VListData\Items()\Text\OriginalText
-		*GadgetData\TextBlock\Image = *VListData\Items()\Text\Image
-		PrepareVectorTextBlock(@*GadgetData\TextBlock)
-		*GadgetData\Unfolded = #False
-		RedrawObject()
+		Combo_SyncState(*GadgetData)
 	EndProcedure
 	
 	Procedure Combo_SetColor(*This.PB_Gadget, ColorType.l, Color)
@@ -8716,7 +8930,7 @@ Module UITK
 			
 			SetWindowColor(\MenuWindow, RGB(Red(\ThemeData\LineColor[#Warm]), Green(\ThemeData\LineColor[#Warm]), Blue(\ThemeData\LineColor[#Warm])))
 			
-			\MenuCanvas = VerticalList(#PB_Any, \Border, 0, \Width - \Border * 2, \Height)
+			\MenuCanvas = VerticalList_SetPopup(VerticalList(#PB_Any, \Border, 0, \Width - \Border * 2, \Height))
 			SetGadgetAttribute(\MenuCanvas, #Attribute_CornerRadius, 0)
 			
 			UseGadgetList(GadgetList)
@@ -9207,6 +9421,10 @@ Module UITK
 		Protected *GadgetData.LibraryData = *this\vt, *NewItem.Library_Item, HBitmap.UITK_BitmapInfo
 		
 		With *GadgetData
+			If ListSize(\Sections()) = 0
+				ProcedureReturn -1
+			EndIf
+			
 			LastElement(\Items())
 			*NewItem = AddElement(\Items())
 			
@@ -9422,11 +9640,7 @@ Module UITK
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				
-				If \State = Position
-					\State = -1
-				ElseIf \State > Position
-					\State -1
-				EndIf
+				\State = IndexAfterRemove(\State, Position)
 				
 				If \ItemState > -1
 					SelectElement(\Items(), \ItemState)
@@ -9475,7 +9689,10 @@ Module UITK
 		
 		With *GadgetData
 			ClearList(\Items())
-			ClearList(\Sections())
+			ForEach \Sections()	; the sections stay, like a ListIcon's columns
+				ClearList(\Sections()\Items())
+				\Sections()\Height = 0
+			Next
 			
 			\State = -1
 			\ItemState = -1
@@ -9760,6 +9977,8 @@ Module UITK
 		List Items.PropertyBox_Item()
 	EndStructure
 	
+	Declare PropertyBox_CommitEdit(*GadgetData.PropertyBoxData)
+	
 	Procedure PropertyBox_ValueWidth(*GadgetData.PropertyBoxData)
 		ProcedureReturn *GadgetData\Width - *GadgetData\ColumnWidth - *GadgetData\MarginWidth - #PropertyBox_ValueMargin * 2 - (Bool(*GadgetData\VisibleScrollBar) * #VerticalList_ToolbarThickness)
 	EndProcedure
@@ -9897,6 +10116,8 @@ Module UITK
 	Procedure PropertyBox_SetItemText(*this.PB_Gadget, Position.l, *Text, Column.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
 		
+		PropertyBox_CommitEdit(*GadgetData)
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -9945,6 +10166,8 @@ Module UITK
 	Procedure PropertyBox_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
 		
+		PropertyBox_CommitEdit(*GadgetData)
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -9981,6 +10204,8 @@ Module UITK
 	Procedure PropertyBox_SetItemState(*this.PB_Gadget, Position.l, State.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *Item.PropertyBox_Item
 		
+		PropertyBox_CommitEdit(*GadgetData)
+		
 		With *GadgetData
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -9996,6 +10221,8 @@ Module UITK
 	
 	Procedure PropertyBox_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt
+		
+		PropertyBox_CommitEdit(*GadgetData)
 		
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
@@ -10331,20 +10558,11 @@ Module UITK
 	
 	Procedure PropertyBox_OpenComboPopup(*GadgetData.PropertyBoxData, ItemRow)
 		Protected Count, Loop, ScrollOffset, ScreenX, ScreenY, PopupWidth, PopupHeight
-		Protected *SubGadget.PB_Gadget, *ListData.VerticalListData
 		
 		With *GadgetData
 			SelectElement(\Items(), ItemRow)
 			\PopupItem = ItemRow
 			
-			; Clear the selection before emptying the list: VerticalList_RemoveItem posts a
-			; spurious #PB_EventType_Change when it deletes the *selected* item, which would
-			; be queued and then immediately close the popup we are about to open.
-			*SubGadget = IsGadget(\ComboPopupList)
-			*ListData = *SubGadget\vt
-			*ListData\State = -1
-			
-			; Rebuild the list from this row's options.
 			While CountGadgetItems(\ComboPopupList) > 0
 				RemoveGadgetItem(\ComboPopupList, 0)
 			Wend
@@ -10428,7 +10646,7 @@ Module UITK
 			BindEvent(#PB_Event_DeactivateWindow, @PropertyBox_ComboPopup_Deactivate(), \ComboPopupWindow)
 			SetWindowColor(\ComboPopupWindow, RGB(Red(\ThemeData\LineColor[#Warm]), Green(\ThemeData\LineColor[#Warm]), Blue(\ThemeData\LineColor[#Warm])))
 			
-			\ComboPopupList = VerticalList(#PB_Any, \Border, 0, 100 - \Border * 2, 22)
+			\ComboPopupList = VerticalList_SetPopup(VerticalList(#PB_Any, \Border, 0, 100 - \Border * 2, 22))
 			SetGadgetAttribute(\ComboPopupList, #Attribute_CornerRadius, 0)
 			SetGadgetAttribute(\ComboPopupList, #Attribute_ItemHeight, 22)
 			SetProp_(GadgetID(\ComboPopupList), "UITK_PropertyData", *GadgetData)
@@ -10653,8 +10871,18 @@ Module UITK
 	Procedure PropertyBox_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		Protected *GadgetData.PropertyBoxData = *this\vt, *NewItem.PropertyBox_Item
 		With *GadgetData
+			If Position < 0 Or Position > ListSize(\Items())
+				Position = ListSize(\Items())
+			EndIf
 			
-			If Position > -1 And Position < ListSize(\Items())
+			PropertyBox_CommitEdit(*GadgetData)
+			If Position <= \PopupItem
+				HideWindow(\ComboPopupWindow, #True)
+				HideWindow(\ColorPopupWindow, #True)
+			EndIf
+			\State = IndexAfterInsert(\State, Position)
+			
+			If Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
 				*NewItem = InsertElement(\Items())
 			Else
@@ -10667,7 +10895,7 @@ Module UITK
 			*NewItem\Text\LineLimit = 1
 			*NewItem\Type = Flags
 			If *NewItem\Type = #PropertyBox_Font
-				*NewItem\FontSize = 9			; so the requester opens somewhere sane before anything is picked
+				*NewItem\FontSize = 9
 			EndIf
 			If *NewItem\Type = #PropertyBox_Title
 				*NewItem\Text\FontID = BoldFont
@@ -10712,8 +10940,11 @@ Module UITK
 		
 		With *GadgetData
 			If Position > -1 And SelectElement(\Items(), Position)
-				If \Editing And Position <= \EditItem	; a row AFTER the editor cannot disturb it
+				If \Editing And Position = \EditItem
 					PropertyBox_CancelEdit(*GadgetData)
+				Else
+					PropertyBox_CommitEdit(*GadgetData)
+					SelectElement(\Items(), Position)
 				EndIf
 				If Position <= \PopupItem	; likewise a row AFTER the popup's own: closing it there shuts the picker mid-drag
 					HideWindow(\ComboPopupWindow, #True)
@@ -10722,9 +10953,7 @@ Module UITK
 				
 				DeleteElement(\Items())
 				
-				If Position <= \State
-					\State - 1
-				EndIf
+				\State = IndexAfterRemove(\State, Position)
 				
 				\InternalHeight - \ItemHeight
 				
@@ -11083,7 +11312,6 @@ Module UITK
 			
 			If Folded And \State >= 0 And Tree_IndexToRow(*GadgetData, \State) < 0
 				\State = Index
-				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 			EndIf
 		EndWith
 		
@@ -11091,7 +11319,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree_ToggleFold(*GadgetData.TreeData, Index)
-		Protected Folded
+		Protected Folded, State = *GadgetData\State
 		
 		With *GadgetData
 			If Not Tree_Select(*GadgetData, Index)
@@ -11103,6 +11331,9 @@ Module UITK
 				ProcedureReturn #False
 			EndIf
 			
+			If \State <> State
+				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
+			EndIf
 			PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_TreeFold, Index)
 		EndWith
 		
@@ -11284,6 +11515,8 @@ Module UITK
 	
 	Procedure Tree_Resize(*This.PB_Gadget, x.l, y.l, Width.l, Height.l)
 		Protected *GadgetData.TreeData = *this\vt
+		
+		Tree_EndEdit(*GadgetData, #True)
 		
 		*this\VT = *GadgetData\OriginalVT
 		ResizeGadget(*GadgetData\Gadget, x, y, Width, Height)
@@ -11475,8 +11708,8 @@ Module UITK
 							If \State <> Index
 								\State = Index
 								Redraw = #True
-								PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)
 							EndIf
+							PostEvent(#PB_Event_Gadget, EventWindow(), \Gadget, #EventType_ForcefulChange)	; the first click already selected it: a double-click always reports
 						EndIf
 					EndIf
 					;}
@@ -11585,6 +11818,7 @@ Module UITK
 	Procedure Tree_AddItem(*This.PB_Gadget, Position.l, *Text, ImageID, Flags.l)
 		Protected *GadgetData.TreeData = *this\vt, *NewItem.Tree_Item
 		With *GadgetData
+			Tree_EndEdit(*GadgetData, #True)
 			
 			If Position > -1 And Position < ListSize(\Items())
 				SelectElement(\Items(), Position)
@@ -11616,6 +11850,9 @@ Module UITK
 			
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
+			
+			\State = IndexAfterInsert(\State, Position)
+			
 			RedrawObject()
 		EndWith
 		
@@ -11623,18 +11860,19 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree_RemoveItem(*This.PB_Gadget, Position.l)
-		Protected *GadgetData.TreeData = *this\vt
+		Protected *GadgetData.TreeData = *this\vt, Count, Loop
 		
 		With *GadgetData
-			If Position > -1 And SelectElement(\Items(), Position)
-				DeleteElement(\Items())
+			If Position > -1 And Position < ListSize(\Items())
+				Count = Tree_ChildCount(*GadgetData, Position) + 1
+				Tree_EndEdit(*GadgetData, Bool(\State < Position Or \State >= Position + Count))
 				
-				If Position < \State
-					\State - 1
-				ElseIf Position = \State
-					\State - 1
-					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
-				EndIf
+				For Loop = 1 To Count
+					SelectElement(\Items(), Position)
+					DeleteElement(\Items())
+				Next
+				
+				\State = IndexAfterRemove(\State, Position, Count)
 				
 				Tree_UpdateScrollBar(*GadgetData)
 				
@@ -11654,6 +11892,7 @@ Module UITK
 		Protected *GadgetData.TreeData = *this\vt
 		
 		With *GadgetData
+			Tree_EndEdit(*GadgetData, #False)
 			ClearList(\Items())
 			\State = - 1
 			\ScrollBar\State = 0
@@ -11774,6 +12013,8 @@ Module UITK
 	Procedure Tree_SetItemAttribute(*this.PB_Gadget, Position.l, Attribute.l, Value.l)
 		Protected *GadgetData.TreeData = *this\vt
 		
+		Tree_EndEdit(*GadgetData, #True)
+		
 		With *GadgetData
 			If Not Tree_Select(*GadgetData, Position)
 				ProcedureReturn
@@ -11800,10 +12041,12 @@ Module UITK
 			
 			If State & #PB_Tree_Selected
 				If \State <> Position
+					Tree_EndEdit(*GadgetData, #True)
 					\State = Position
 					Redraw = #True
 				EndIf
 			ElseIf \State = Position
+				Tree_EndEdit(*GadgetData, #True)
 				\State = -1
 				Redraw = #True
 			EndIf
@@ -11821,6 +12064,22 @@ Module UITK
 	EndProcedure
 	
 	
+	Procedure Tree_SetState(*this.PB_Gadget, State)
+		Protected *GadgetData.TreeData = *this\vt
+		
+		With *GadgetData
+			If State < 0 Or State >= ListSize(\Items())
+				State = -1
+			EndIf
+			
+			If State <> \State
+				Tree_EndEdit(*GadgetData, #True)
+				\State = State
+				RedrawObject()
+			EndIf
+		EndWith
+	EndProcedure
+	
 	Procedure Tree_SetItemData(*this.PB_Gadget, Position.l, *Data)
 		Protected *GadgetData.TreeData = *this\vt
 		
@@ -11834,6 +12093,8 @@ Module UITK
 	
 	Procedure Tree_SetItemText(*this.PB_Gadget, Position.l, *Text)
 		Protected *GadgetData.TreeData = *this\vt
+		
+		Tree_EndEdit(*GadgetData, #True)
 		
 		If Position > -1 And Position < ListSize(*GadgetData\Items())
 			SelectElement(*GadgetData\Items(), Position)
@@ -11890,6 +12151,7 @@ Module UITK
 			\VT\SetGadgetItemText = @Tree_SetItemText()
 			\VT\SetGadgetItemAttribute2 = @Tree_SetItemAttribute()
 			\VT\SetGadgetItemState = @Tree_SetItemState()
+			\VT\SetGadgetState = @Tree_SetState()
 			
 			\VT\GetGadgetItemData = @Tree_GetItemData()
 			\VT\GetGadgetItemAttribute2 = @Tree_GetItemAttribute()
@@ -12280,7 +12542,7 @@ Module UITK
 					EndIf
 					;}
 				Case #PB_EventType_LostFocus ;{
-					If GetGadgetState(GetGadgetData(\Canvas))
+					If GetGadgetData(\Canvas) And IsGadget(GetGadgetData(\Canvas)) And GetGadgetState(GetGadgetData(\Canvas))	; only a window-bar root menu has a bar button; 0 is not one
 						SetGadgetState(GetGadgetData(\Canvas), #False)
 					EndIf
 					;}
@@ -12708,6 +12970,12 @@ Module UITK
 			
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
+			If \State = -1	; as PanelGadget: there is always a current tab
+				\State = 0
+			Else
+				\State = IndexAfterInsert(\State, Position)
+			EndIf
+			\HoverItem = -1
 			RedrawObject()
 		EndWith
 		
@@ -12723,14 +12991,10 @@ Module UITK
 				DeleteElement(\Items())
 				\InternalWidth = ListSize(\Items()) * \ItemWidth
 				
-				If \State > Position
+				If \State > Position Or \State = ListSize(\Items())	; as PanelGadget: the next tab becomes current, or the previous one when the last goes
 					\State - 1
-				ElseIf \State = Position
-					If \State = ListSize(\Items())
-						\State - 1
-					EndIf
-					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #PB_EventType_Change)
 				EndIf
+				\HoverItem = -1
 				
 				RedrawObject()
 			EndIf
@@ -12824,6 +13088,15 @@ Module UITK
 		EndWith
 	EndProcedure
 	
+	Procedure Tab_SetState(*this.PB_Gadget, State)
+		Protected *GadgetData.TabData = *this\vt
+		
+		If State > -1 And State < ListSize(*GadgetData\Items())
+			*GadgetData\State = State
+			RedrawObject()
+		EndIf
+	EndProcedure
+	
 	Procedure Tab_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
 		Protected *GadgetData.TabData = *this\vt
 		
@@ -12860,6 +13133,7 @@ Module UITK
 			
 			\VT\AddGadgetItem2 = @Tab_AddItem()
 			\VT\RemoveGadgetItem = @Tab_RemoveItem()
+			\VT\SetGadgetState = @Tab_SetState()
 			\VT\ResizeGadget = @Tab_Resize()
 			\VT\SetGadgetAttribute = @Tab_SetAttribute()
 			\VT\CountGadgetItems = @Tab_CountItem()
@@ -13674,7 +13948,7 @@ Module UITK
 		GadgetList = UseGadgetList(0)
 		*NewItem\ModeWindow = OpenWindow(#PB_Any, 0, 0, #ToolBar_ModeMenuWidth, #VerticalList_ItemHeight + 2, "", #PB_Window_BorderLess | #PB_Window_Invisible, WindowID(*GadgetData\ParentWindow))
 		SetWindowColor(*NewItem\ModeWindow, RGB(Red(*GadgetData\ThemeData\LineColor[#Warm]), Green(*GadgetData\ThemeData\LineColor[#Warm]), Blue(*GadgetData\ThemeData\LineColor[#Warm])))
-		*NewItem\ModeList = VerticalList(#PB_Any, 1, 1, #ToolBar_ModeMenuWidth - 2, #VerticalList_ItemHeight)
+		*NewItem\ModeList = VerticalList_SetPopup(VerticalList(#PB_Any, 1, 1, #ToolBar_ModeMenuWidth - 2, #VerticalList_ItemHeight))
 		SetGadgetAttribute(*NewItem\ModeList, #Attribute_CornerRadius, 0)
 		UseGadgetList(GadgetList)
 		
@@ -13726,6 +14000,10 @@ Module UITK
 			
 			ChangeCurrentElement(\Items(), *NewItem)
 			Position = ListIndex(\Items())
+			\State = IndexAfterInsert(\State, Position)
+			\MouseItem = -1
+			\PressedItem = -1
+			\TipItem = -1
 			RedrawObject()
 		EndWith
 		
@@ -13839,10 +14117,9 @@ Module UITK
 			If Position > -1 And SelectElement(\Items(), Position)
 				ToolBar_FreeItem(*GadgetData, @\Items())
 				DeleteElement(\Items())
-				If Position <= \State
-					\State - 1
-				EndIf
+				\State = IndexAfterRemove(\State, Position)
 				\MouseItem = -1
+				\TipItem = -1
 				\PressedItem = -1
 				RedrawObject()
 				ProcedureReturn #True
@@ -14102,8 +14379,8 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.50 beta 1 (Windows - x64)
-; CursorPosition = 4512
-; FirstLine = 1
-; Folding = BAIAwf--8AAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAwPef5A9-Q-BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwBAAAAAAAAAAAA9--
+; CursorPosition = 5872
+; FirstLine = 27
+; Folding = AAIAgf9-zAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf5AAAQ-BwAAAAAAAAAACIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
 ; EnableXP
 ; DPIAware
