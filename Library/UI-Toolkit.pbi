@@ -1944,7 +1944,9 @@ Module UITK
 		Cocoa_Register(Sel_AddGadgetItem, @Imp_AddGadgetItem(), OffsetOf(GadgetVT\AddGadgetItem3), @Native_AddGadgetItem3())
 		NativeVT\AddGadgetItem2 = @Native_AddGadgetItem2()
 		Cocoa_Register(sel_registerName("dealloc"), @Imp_Dealloc())
-		Cocoa_Register(Sel_CreateImage, @Imp_CreateImage())
+		CompilerIf Not #PB_Compiler_DPIAware		; a DPI-aware build already gets Retina canvases from PB
+			Cocoa_Register(Sel_CreateImage, @Imp_CreateImage())
+		CompilerEndIf
 		
 		Procedure Cocoa_Subclass(*Class)		; one UITK_ subclass per PB functions class, no ivars added, so swapping an instance's class in place is safe
 			Protected Name.s = PeekS(class_getName(*Class), -1, #PB_UTF8), SubName.s, *Sub, *Method
@@ -2108,6 +2110,14 @@ Module UITK
 	Macro RestoreVectorState()
 		RestoreVectorSession()
 	EndMacro
+	
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+		#CanvasMouseInPixels = #True
+	CompilerElseIf #PB_Compiler_OS = #PB_OS_MacOS
+		#CanvasMouseInPixels = #PB_Compiler_DPIAware		; PB reports physical pixels, gadgets lay out in points
+	CompilerElse
+		#CanvasMouseInPixels = #False
+	CompilerEndIf
 	
 	Procedure.d CanvasScale(Gadget)		; canvas bitmap pixels per point
 		CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
@@ -3030,7 +3040,7 @@ Module UITK
 		Select Event\EventType
 			Case #Focus, #LostFocus, #KeyDown, #KeyUp, #Input, #Resize
 			Default
-				CompilerIf #PB_Compiler_OS = #PB_OS_Windows		; PB reports physical pixels, gadgets lay out in points
+				CompilerIf #CanvasMouseInPixels
 					Protected Scale.d = CanvasScale(*GadgetData\Gadget)
 					Event\MouseX = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseX) / Scale
 					Event\MouseY = *GadgetData\OriginalVT\GetGadgetAttribute(*this, #PB_Canvas_MouseY) / Scale
@@ -12267,7 +12277,7 @@ Module UITK
 			Select EventType()
 				Case #PB_EventType_MouseMove ;{
 					MouseY = GetGadgetAttribute(\Canvas, #PB_Canvas_MouseY)
-					CompilerIf #PB_Compiler_OS = #PB_OS_Windows	
+					CompilerIf #CanvasMouseInPixels
 						MouseY / CanvasScale(\Canvas)
 					CompilerEndIf
 					
