@@ -6820,7 +6820,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure VerticalList_EndEdit(*GadgetData.VerticalListData, Keep)
-		Protected Event.Event
+		Protected Event.Event, Changed
 		
 		With *GadgetData
 			If Not \Editing
@@ -6835,9 +6835,12 @@ Module UITK
 			EndIf
 			
 			If Keep And SelectElement(\Items(), \State)
+				Changed = Bool(\Items()\Text\OriginalText <> \String\String)
 				\Items()\Text\OriginalText = \String\String
 				PrepareVectorTextBlock(@\Items()\Text)
-				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+				If Changed
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+				EndIf
 			EndIf
 			
 			Event\EventType = #LostFocus
@@ -7724,7 +7727,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure HorizontalList_EndEdit(*GadgetData.HorizontalListData, Keep)
-		Protected Event.Event
+		Protected Event.Event, Changed
 		
 		With *GadgetData
 			If Not \Editing
@@ -7739,9 +7742,12 @@ Module UITK
 			EndIf
 			
 			If Keep And SelectElement(\Items(), \State)
+				Changed = Bool(\Items()\Text\OriginalText <> \String\String)
 				\Items()\Text\OriginalText = \String\String
 				PrepareVectorTextBlock(@\Items()\Text)
-				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+				If Changed
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+				EndIf
 			EndIf
 			
 			Event\EventType = #LostFocus
@@ -10269,16 +10275,19 @@ Module UITK
 	
 	; EventData is the edited row + 1: a click may have moved the state before the event is read
 	Procedure PropertyBox_CommitEdit(*GadgetData.PropertyBoxData)
-		Protected Event.Event
+		Protected Event.Event, Changed
 		
 		With *GadgetData
 			If \Editing
 				\Editing = #False : RemoveProp_(GadgetID(\Gadget), "UITK_KeepKeys")
 				
 				SelectElement(\Items(), \EditItem)
+				Changed = Bool(\Items()\Value\OriginalText <> \String\String)
 				\Items()\Value\OriginalText = \String\String
 				PropertyBox_PrepareValue(*GadgetData, @\Items())
-				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange, \EditItem + 1)
+				If Changed
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange, \EditItem + 1)
+				EndIf
 				
 				Event\EventType = #LostFocus
 				\String\EventHandler(\String, Event)
@@ -11417,7 +11426,7 @@ Module UITK
 	EndProcedure
 	
 	Procedure Tree_EndEdit(*GadgetData.TreeData, Keep)
-		Protected Event.Event
+		Protected Event.Event, Changed
 		
 		With *GadgetData
 			If Not \Editing
@@ -11432,9 +11441,12 @@ Module UITK
 			EndIf
 			
 			If Keep And SelectElement(\Items(), \State)
+				Changed = Bool(\Items()\Text\OriginalText <> \String\String)
 				\Items()\Text\OriginalText = \String\String
 				PrepareVectorTextBlock(@\Items()\Text)
-				PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+				If Changed
+					PostEvent(#PB_Event_Gadget, \ParentWindow, \Gadget, #EventType_ItemTextChange)
+				EndIf
 			EndIf
 			
 			Event\EventType = #LostFocus
