@@ -8,12 +8,12 @@
   <section name="data">
     <explorer view="" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2026-10-04 21:42" user="lastlife" host="DESKTOP-7SK2AMF"/>
+    <lastopen date="2026-10-04 23:07" user="lastlife" host="DESKTOP-7SK2AMF"/>
   </section>
   <section name="files">
     <file name="Library\UI-Toolkit.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="1" panelstate="+-"/>
-      <fingerprint md5="d6bc1d6f15cca19f1a242f6e05716cfd"/>
+      <fingerprint md5="9936c59f9dfc2739f4928500c94425af"/>
     </file>
     <file name="Examples\Example 5 - LayerList.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="2" panelstate="+-"/>
@@ -21,7 +21,7 @@
     </file>
     <file name="Examples\Example 1 - Gadget Example 1.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" sortindex="3" panelstate="+-"/>
-      <fingerprint md5="8e49a8e1e5f28f082ce4859232dc50a8"/>
+      <fingerprint md5="19f7f28955d215097c3a41a47db37825"/>
     </file>
     <file name="Examples\Example 6 - ParameterList.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" sortindex="999" panelstate="+-"/>

@@ -158,6 +158,15 @@ Gadget = UITK::TrackBar(#PB_Any, 260, 413, 60, 180, 0, 4,  UITK::#Gadget_Vertica
 AddGadgetItem(Gadget, 0, "Low")
 AddGadgetItem(Gadget, 4, "High")
 
+Gadget = UITK::ProgressBar(#PB_Any, 340, 423, 120, 14, 0, 100)
+SetGadgetState(Gadget, 65)
+
+Gadget = UITK::ProgressBar(#PB_Any, 340, 453, 120, 14, 0, 100)
+SetGadgetState(Gadget, #PB_ProgressBar_Unknown)
+
+Gadget = UITK::ProgressBar(#PB_Any, 340, 483, 14, 110, 0, 100, UITK::#Gadget_Vertical)
+SetGadgetState(Gadget, 40)
+
 Gadget = UITK::VerticalList(#PB_Any,  500, 20, 200, 203, UITK::#Border | UITK::#ReOrder | UITK::#Editable)
 AddGadgetItem(Gadget, -1, "Item 0")
 AddGadgetItem(Gadget, -1, "Item 1", ImageID(Image))

@@ -1,6 +1,6 @@
 ﻿DeclareModule UITK
 	;{ Public variables, structures and constants
-	#Version = 100	; 1.00, as #PB_Compiler_Version
+	#Version = 110	; 1.10, as #PB_Compiler_Version
 	
 	EnumerationBinary ; Gadget flags
 					  ; General
@@ -452,7 +452,7 @@
 	Declare OpenWindowGadgetList(Window)
 	Declare AddWindowMenu(Window, Menu, Title.s)
 	Declare SetWindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
-	Declare SetWindowIcon(Window, Image)
+	Declare SetWindowIcon(Window, ImageID)
 	Declare WindowSetColor(Window, ColorType, Color)
 	Declare GetWindowIcon(Window)
 	Declare WindowGetColor(Window, ColorType)
@@ -475,7 +475,7 @@
 	
 	; Gadgets
 	Declare GetGadgetImage(Gadget)
-	Declare SetGadgetImage(Gadget, Image)
+	Declare SetGadgetImage(Gadget, ImageID)
 	Declare GetGadgetItemImage(Gadget, Position)
 	Declare StringSetSelection(Gadget, Position, Length)
 	
@@ -486,6 +486,7 @@
 	Declare Label(Gadget, x, y, Width, Height, Text.s, Flags = #Default)
 	Declare ScrollArea(Gadget, x, y, Width, Height, ScrollAreaWidth, ScrollAreaHeight, ScrollStep = 0, Flags = #Default)	; ScrollStep 0: 3 points
 	Declare TrackBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
+	Declare ProgressBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
 	Declare Combo(Gadget, x, y, Width, Height, Flags = #Default)
 	Declare VerticalList(Gadget, x, y, Width, Height, Flags = #Default, *CustomItem = #False)
 	Declare Container(Gadget, x, y, Width, Height, Flags = #Default)
@@ -3189,14 +3190,14 @@ Module UITK
 	EndProcedure
 	
 	; Setters
-	Procedure SetAccessibilityMode(MouseState)
-		AccessibilityMode = MouseState
+	Procedure SetAccessibilityMode(State)
+		AccessibilityMode = State
 	EndProcedure
 	
-	Procedure SetGadgetImage(Gadget, Image)
+	Procedure SetGadgetImage(Gadget, ImageID)
 		Protected *this.PB_Gadget = IsGadget(Gadget), *GadgetData.GadgetData = *this\vt
 		
-		*GadgetData\TextBlock\Image = Image
+		*GadgetData\TextBlock\Image = ImageID
 		
 		PrepareVectorTextBlock(@*GadgetData\TextBlock)
 		RedrawObject()
@@ -4021,7 +4022,7 @@ Module UITK
 			*WindowData\MaxHeight = MaxHeight
 		EndProcedure
 		
-		Procedure SetWindowIcon(Window, Image)
+		Procedure SetWindowIcon(Window, ImageID)
 			Protected *WindowData.ThemedWindow
 			
 			*WindowData = GetProp_(WindowID(Window), "UITK_WindowData")
@@ -4029,7 +4030,7 @@ Module UITK
 				ProcedureReturn
 			EndIf
 			
-			SetGadgetImage(*WindowData\Label, Image)
+			SetGadgetImage(*WindowData\Label, ImageID)
 			Window_LayoutTitle(*WindowData, #True)
 		EndProcedure
 		
@@ -4173,7 +4174,7 @@ Module UITK
 			WindowBounds(Window, MinWidth, MinHeight, MaxWidth, MaxHeight)
 		EndProcedure
 		
-		Procedure SetWindowIcon(Window, Image)
+		Procedure SetWindowIcon(Window, ImageID)
 			; Most Linux DEs derive the window icon from a .desktop entry, not from a
 			; runtime call. Leave as a no-op for now; can wire gdk_window_set_icon
 			; later if a use case appears.
@@ -6175,7 +6176,7 @@ Module UITK
 			Case #ScrollBar_Minimum, #PB_ScrollBar_Minimum
 				Result = *GadgetData\Min
 			Case #ScrollBar_Maximum, #PB_ScrollBar_Maximum
-				Result = *GadgetData\Max
+				Result = *GadgetData\Max - 1	; PB's maximum is inclusive, the internal one is not
 			Case #ScrollBar_PageLength, #PB_ScrollBar_PageLength
 				Result = *GadgetData\PageLength
 			Case #ScrollBar_ScrollStep
@@ -6218,6 +6219,9 @@ Module UITK
 	EndProcedure
 	
 	Procedure ScrollBar_SetAttribute(*This.PB_Gadget, Attribute.l, Value)
+		If Attribute = #ScrollBar_Maximum Or Attribute = #PB_ScrollBar_Maximum
+			Value + 1
+		EndIf
 		ScrollBar_SetAttribute_Meta(*this\vt, Attribute, Value)
 	EndProcedure
 	
@@ -6311,7 +6315,7 @@ Module UITK
 			If Result
 				CreateGadgetObject(ScrollBarData)
 				*GadgetData\Background = #True
-				ScrollBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Min, Max, PageLength, Flags)
+				ScrollBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Min, Max + 1, PageLength, Flags)
 				
 				RedrawObject()
 			EndIf
@@ -6497,10 +6501,10 @@ Module UITK
 			
 			Select Native
 				Case #PB_ScrollArea_InnerWidth
-					SetGadgetAttribute(\HorizontalScrollBar, #ScrollBar_Maximum, Value + #ScrollArea_Bar_Thickness)	; as the constructor: Max - Page is the inner area's range
+					SetGadgetAttribute(\HorizontalScrollBar, #ScrollBar_Maximum, Value + #ScrollArea_Bar_Thickness - 1)	; as the constructor: Max - Page is the inner area's range
 					
 				Case #PB_ScrollArea_InnerHeight
-					SetGadgetAttribute(\VerticalScrollBar, #ScrollBar_Maximum, Value + #ScrollArea_Bar_Thickness)
+					SetGadgetAttribute(\VerticalScrollBar, #ScrollBar_Maximum, Value + #ScrollArea_Bar_Thickness - 1)
 			EndSelect
 		EndWith
 	EndProcedure
@@ -6556,11 +6560,11 @@ Module UITK
 				
 				\Width = Width
 				\Height = Height
-				\VerticalScrollBar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness, \Height, #Gadget_Vertical)
+				\VerticalScrollBar = ScrollBar(#PB_Any, x + \Width - #ScrollArea_Bar_Thickness, y, #ScrollArea_Bar_Thickness, \Height - #ScrollArea_Bar_Thickness, 0, ScrollAreaHeight + #ScrollArea_Bar_Thickness - 1, \Height, #Gadget_Vertical)
 				BindGadgetEvent(\VerticalScrollBar, @ScrollArea_ScrollBarHandler(), #PB_EventType_Change)
 				SetProp_(GadgetID(\VerticalScrollBar), "UITK_ScrollAreaData", *GadgetData)
 				
-				\HorizontalScrollBar = ScrollBar(#PB_Any, x, y + \Height - #ScrollArea_Bar_Thickness, \Width - #ScrollArea_Bar_Thickness, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth + #ScrollArea_Bar_Thickness, \Width)
+				\HorizontalScrollBar = ScrollBar(#PB_Any, x, y + \Height - #ScrollArea_Bar_Thickness, \Width - #ScrollArea_Bar_Thickness, #ScrollArea_Bar_Thickness, 0, ScrollAreaWidth + #ScrollArea_Bar_Thickness - 1, \Width)
 				BindGadgetEvent(\HorizontalScrollBar, @ScrollArea_ScrollBarHandler(), #PB_EventType_Change)
 				SetProp_(GadgetID(\HorizontalScrollBar), "UITK_ScrollAreaData", *GadgetData)
 				
@@ -8588,7 +8592,201 @@ Module UITK
 		ProcedureReturn Result
 	EndProcedure
 	;}
-	
+
+	;{ ProgressBar
+	#ProgressBar_MarqueeDelay = 20
+	#ProgressBar_MarqueeSpeed = 0.012
+
+	Structure ProgressBarData Extends GadgetData
+		Minimum.i
+		Maximum.i
+		Vertical.b
+		Marquee.b
+		Timer.i
+		Phase.d
+	EndStructure
+
+	Procedure ProgressBar_Redraw(*GadgetData.ProgressBarData)
+		Protected Length, Thickness, Radius, Start, Size
+
+		With *GadgetData
+			If \Vertical
+				Length = \Height
+				Thickness = \Width
+			Else
+				Length = \Width
+				Thickness = \Height
+			EndIf
+			Radius = Min(\ThemeData\CornerRadius, Thickness * 0.5)
+
+			AddPathRoundedBox(\OriginX, \OriginY, \Width, \Height, Radius)
+			ClipPath(#PB_Path_Preserve)
+			VectorSourceColor(\ThemeData\ShadeColor[#Warm])
+			FillPath()
+
+			If \Marquee
+				Size = Length * 0.3
+				Start = Round(\Phase * (Length + Size), #PB_Round_Nearest) - Size
+			ElseIf \Maximum > \Minimum
+				Size = Round((\State - \Minimum) / (\Maximum - \Minimum) * Length, #PB_Round_Nearest)
+			EndIf
+
+			If Size > 0
+				If \Enabled
+					VectorSourceColor(\ThemeData\Special3[#Cold])
+				Else
+					VectorSourceColor(\ThemeData\LineColor[#Disabled])
+				EndIf
+
+				If \Vertical	; fills upward, as PB's does
+					AddPathRoundedBox(\OriginX, \OriginY + Length - Start - Size, Thickness, Size, Min(Radius, Size * 0.5))
+				Else
+					AddPathRoundedBox(\OriginX + Start, \OriginY, Size, Thickness, Min(Radius, Size * 0.5))
+				EndIf
+				FillPath()
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure ProgressBar_EventHandler(*GadgetData.ProgressBarData, *Event.Event)
+	EndProcedure
+
+	Procedure ProgressBar_Marquee(*GadgetData.ProgressBarData, Timer)
+		*GadgetData\Phase + #ProgressBar_MarqueeSpeed
+		If *GadgetData\Phase > 1
+			*GadgetData\Phase - 1
+		EndIf
+		RedrawObject()
+	EndProcedure
+
+	Procedure ProgressBar_Clamp(*GadgetData.ProgressBarData)
+		With *GadgetData
+			If Not \Marquee
+				\State = Max(Min(\State, \Maximum), \Minimum)	; the minimum wins an inverted range, as PB's does
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure ProgressBar_SetState(*this.PB_Gadget, State)
+		Protected *GadgetData.ProgressBarData = *this\vt
+
+		With *GadgetData
+			If State = #PB_ProgressBar_Unknown
+				If Not \Marquee
+					\Marquee = #True
+					\Phase = 0
+					\Timer = AddGadgetTimer(*GadgetData, #ProgressBar_MarqueeDelay, @ProgressBar_Marquee())
+				EndIf
+				\State = State
+			Else
+				If \Marquee
+					\Marquee = #False
+					RemoveGadgetTimer(\Timer)
+					\Timer = 0
+				EndIf
+				\State = State
+				ProgressBar_Clamp(*GadgetData)
+			EndIf
+		EndWith
+
+		RedrawObject()
+	EndProcedure
+
+	Procedure ProgressBar_GetAttribute(*this.PB_Gadget, Attribute.l)
+		Protected *GadgetData.ProgressBarData = *this\vt
+
+		Select Attribute
+			Case #PB_ProgressBar_Minimum
+				ProcedureReturn *GadgetData\Minimum
+			Case #PB_ProgressBar_Maximum
+				ProcedureReturn *GadgetData\Maximum
+		EndSelect
+
+		ProcedureReturn Default_GetAttribute(*this, Attribute)
+	EndProcedure
+
+	Procedure ProgressBar_SetAttribute(*this.PB_Gadget, Attribute.l, Value)
+		Protected *GadgetData.ProgressBarData = *this\vt
+
+		With *GadgetData
+			Select Attribute
+				Case #PB_ProgressBar_Minimum
+					\Minimum = Value
+				Case #PB_ProgressBar_Maximum
+					\Maximum = Value
+				Default
+					Default_SetAttribute(*this, Attribute, Value)
+					ProcedureReturn
+			EndSelect
+
+			ProgressBar_Clamp(*GadgetData)
+		EndWith
+
+		RedrawObject()
+	EndProcedure
+
+	Procedure ProgressBar_ColorType(ColorType)	; PB's front and back colours are the bar and its track
+		Select ColorType
+			Case #PB_Gadget_FrontColor
+				ProcedureReturn #Color_Special3_Cold
+			Case #PB_Gadget_BackColor
+				ProcedureReturn #Color_Shade_Warm
+		EndSelect
+
+		ProcedureReturn ColorType
+	EndProcedure
+
+	Procedure ProgressBar_SetColor(*this.PB_Gadget, ColorType.l, Color)
+		Default_SetColor(*this, ProgressBar_ColorType(ColorType), Color)
+	EndProcedure
+
+	Procedure ProgressBar_GetColor(*this.PB_Gadget, ColorType.l)
+		ProcedureReturn Default_GetColor(*this, ProgressBar_ColorType(ColorType))
+	EndProcedure
+
+	Procedure ProgressBar_Meta(*GadgetData.ProgressBarData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
+		*GadgetData\ThemeData = *ThemeData
+		InitializeObject(ProgressBar)
+
+		With *GadgetData
+			\Vertical = Bool(Flags & #Gadget_Vertical)
+			\Minimum = Minimum
+			\Maximum = Maximum
+			\State = Minimum
+
+			\VT\SetGadgetState = @ProgressBar_SetState()
+			\VT\GetGadgetAttribute = @ProgressBar_GetAttribute()
+			\VT\SetGadgetAttribute = @ProgressBar_SetAttribute()
+			\VT\GetGadgetColor = @ProgressBar_GetColor()
+			\VT\SetGadgetColor = @ProgressBar_SetColor()
+
+			If \DefaultEventHandler
+				UnbindGadgetEvent(\Gadget, \DefaultEventHandler)
+				\DefaultEventHandler = 0
+			EndIf
+		EndWith
+	EndProcedure
+
+	Procedure ProgressBar(Gadget, x, y, Width, Height, Minimum, Maximum, Flags = #Default)
+		Protected Result, *this.PB_Gadget, *GadgetData.ProgressBarData, *ThemeData
+
+		If AccessibilityMode
+			Result = ProgressBarGadget(Gadget, x, y, Width, Height, Minimum, Maximum, Bool(Flags & #Gadget_Vertical) * #PB_ProgressBar_Vertical)
+		Else
+			Result = CanvasGadget(Gadget, x, y, Width, Height)
+
+			If Result
+				CreateGadgetObject(ProgressBarData)
+				ProgressBar_Meta(*GadgetData, *ThemeData, Gadget, x, y, Width, Height, Minimum, Maximum, Flags)
+
+				RedrawObject()
+			EndIf
+		EndIf
+
+		ProcedureReturn Result
+	EndProcedure
+	;}
+
 	;{ Combo
 	#Combo_Margin = 3
 	#Combo_IconMargin = 34
