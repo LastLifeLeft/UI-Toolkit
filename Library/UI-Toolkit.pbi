@@ -4234,7 +4234,7 @@ Module UITK
 	; Linux/Mac equivalent would use a GTK drag icon or X11 cursor image : out of scope for now.
 	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 		Global ADNDWindow = OpenWindow(#PB_Any, 0, 0, 10, 10, "", #PB_Window_Invisible | #PB_Window_BorderLess, WindowID(TimerWindow)) ; Piggy-backs the timer window; a dedicated hidden UITK window would be cleaner.
-		SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED | #WS_EX_TRANSPARENT)
+		SetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE, GetWindowLongPtr_(WindowID(ADNDWindow), #GWL_EXSTYLE) | #WS_EX_LAYERED | #WS_EX_TRANSPARENT | #WS_EX_NOACTIVATE | #WS_EX_TOOLWINDOW)
 		SetLayeredWindowAttributes_(WindowID(ADNDWindow), 0, 128, #LWA_ALPHA)
 		Global ADNDGadget = ImageGadget(#PB_Any, 0, 0, 1, 1, 0)
 		Global ADNDHook, *DropCallback
@@ -4266,9 +4266,9 @@ Module UITK
 			Protected HBitmap.BITMAP
 			
 			GetObject_(ImageID, SizeOf(BITMAP), @HBitmap)
-			ResizeWindow(ADNDWindow, DesktopUnscaledX(DesktopMouseX()) + ADND_OffsetX, DesktopUnscaledY(DesktopMouseY()) + ADND_OffsetY, HBitmap\bmWidth, HBitmap\bmHeight)
+			ResizeWindow(ADNDWindow, DesktopUnscaledX(DesktopMouseX()) + ADND_OffsetX, DesktopUnscaledY(DesktopMouseY()) + ADND_OffsetY, DesktopUnscaledX(HBitmap\bmWidth), DesktopUnscaledY(HBitmap\bmHeight))	; the bitmap is pixels, the window points
 			SetGadgetState(ADNDGadget, ImageID)	
-			HideWindow(ADNDWindow, #False)
+			HideWindow(ADNDWindow, #False, #PB_Window_NoActivate)
 			ADNDHook = SetWindowsHookEx_(#WH_MOUSE_LL, @ADND_Hook(), GetModuleHandle_(0), 0)
 		EndProcedure
 		
@@ -4277,7 +4277,7 @@ Module UITK
 				UnhookWindowsHookEx_(ADNDHook)
 				ADNDHook = 0
 			EndIf
-			HideWindow(ADNDWindow, #True)
+			ShowWindow_(WindowID(ADNDWindow), #SW_HIDE)	; HideWindow would activate its owner, the timer window
 		EndProcedure
 		
 		Macro ADND_Drag(DragCall)	; the PB drag runs its own loop: the preview is shown around it, and its result is the drop's
@@ -14445,8 +14445,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 6.50 beta 1 (Windows - x64)
-; CursorPosition = 5872
-; FirstLine = 27
-; Folding = AAIAgf9-zAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf5AAAQ-BwAAAAAAAAAACIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+; CursorPosition = 4579
+; Folding = AAIAg----DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf5QAAQ-6vAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg--------
 ; EnableXP
 ; DPIAware
